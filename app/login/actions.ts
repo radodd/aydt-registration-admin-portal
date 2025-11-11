@@ -26,7 +26,7 @@ export async function login(formData: FormData) {
   redirect("/private");
 }
 
-export async function signup(formData: FormData) {
+export async function signUp(formData: FormData) {
   const supabase = await createClient();
 
   // 🧠 1. Collect extended signup fields
@@ -90,4 +90,11 @@ export async function signup(formData: FormData) {
   // 🧠 5. Revalidate and redirect
   revalidatePath("/", "layout");
   redirect("/private");
+}
+
+export async function signOut() {
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signOut();
+  if (error) console.error("Sign out error.", error.message);
+  redirect("/login");
 }

@@ -1,8 +1,8 @@
-import { login, signup } from "./actions";
+import { login, signOut, signUp } from "./actions";
 
 export default function LoginPage() {
   return (
-    <form className="bg-white text-black flex flex-col">
+    <form className=" text-black flex flex-col">
       <label htmlFor="email">Email:</label>
       <input id="email" name="email" type="email" required />
       <label htmlFor="password">Password:</label>
@@ -26,7 +26,7 @@ export default function LoginPage() {
       <button formAction={login} className="border border-black">
         Log in
       </button>
-      <button formAction={signup}>Sign up</button>
+      <button formAction={signUp}>Sign up</button>
     </form>
   );
 }
