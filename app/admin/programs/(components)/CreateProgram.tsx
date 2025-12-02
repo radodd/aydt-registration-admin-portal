@@ -17,7 +17,7 @@ export default function CreateProgram() {
     price: "",
     start_date: "",
     end_date: "",
-    days_of_week: [],
+    days_of_week: "Monday",
     start_time: "",
     end_time: "",
     capacity: "",
@@ -41,9 +41,8 @@ export default function CreateProgram() {
         price: parseFloat(formData.price),
         start_date: formData.start_date,
         end_date: formData.end_date,
-        days_of_week: formData.days_of_week.length
-          ? formData.days_of_week
-          : ["Monday"],
+        days_of_week: [formData.days_of_week],
+
         start_time: formData.start_time,
         end_time: formData.end_time,
         capacity: parseInt(formData.capacity) || null,
@@ -63,7 +62,7 @@ export default function CreateProgram() {
         price: "",
         start_date: "",
         end_date: "",
-        days_of_week: [],
+        days_of_week: "Monday",
         start_time: "",
         end_time: "",
         capacity: "",
@@ -80,6 +79,7 @@ export default function CreateProgram() {
     >
       <div className="grid grid-cols-2 gap-4">
         <input
+          data-testid="title"
           name="title"
           placeholder="Program Title"
           value={formData.title}
@@ -88,6 +88,7 @@ export default function CreateProgram() {
           required
         />
         <input
+          data-testid="type"
           name="type"
           placeholder="Type (e.g. Tap, Ballet)"
           value={formData.type}
@@ -95,6 +96,7 @@ export default function CreateProgram() {
           className="border rounded-lg px-3 py-2"
         />
         <input
+          data-testid="location"
           name="location"
           placeholder="Location"
           value={formData.location}
@@ -102,6 +104,7 @@ export default function CreateProgram() {
           className="border rounded-lg px-3 py-2"
         />
         <input
+          data-testid="price"
           name="price"
           type="number"
           placeholder="Price"
@@ -109,17 +112,21 @@ export default function CreateProgram() {
           onChange={handleChange}
           className="border rounded-lg px-3 py-2"
           step="0.01"
+          required
         />
         <select
+          data-testid="category"
           name="category"
           value={formData.category}
           onChange={handleChange}
           className="border rounded-lg px-3 py-2"
+          required
         >
           <option value="session">Session</option>
           <option value="workshop">Workshop</option>
         </select>
         <input
+          data-testid="capacity"
           name="capacity"
           type="number"
           placeholder="Capacity"
@@ -128,35 +135,60 @@ export default function CreateProgram() {
           className="border rounded-lg px-3 py-2"
         />
         <input
+          data-testid="start_date"
           name="start_date"
           type="date"
           value={formData.start_date}
           onChange={handleChange}
           className="border rounded-lg px-3 py-2"
+          required
         />
         <input
+          data-testid="end_date"
           name="end_date"
           type="date"
           value={formData.end_date}
           onChange={handleChange}
           className="border rounded-lg px-3 py-2"
+          required
         />
+        <select
+          data-testid="days_of_week"
+          name="days_of_week"
+          value={formData.days_of_week}
+          onChange={handleChange}
+          className="border rounded-lg px-3 py-2"
+          required
+        >
+          <option value="Monday">Monday</option>
+          <option value="Tuesday">Tuesday</option>
+          <option value="Wednesday">Wednesday</option>
+          <option value="Thursday">Thursday</option>
+          <option value="Friday">Friday</option>
+          <option value="Saturday">Saturday</option>
+          <option value="Sunday">Sunday</option>
+        </select>
         <input
+          data-testid="start_time"
           name="start_time"
           type="time"
           value={formData.start_time}
           onChange={handleChange}
           className="border rounded-lg px-3 py-2"
+          required
         />
         <input
+          data-testid="end_time"
           name="end_time"
           type="time"
           value={formData.end_time}
           onChange={handleChange}
           className="border rounded-lg px-3 py-2"
+          required
         />
       </div>
       <textarea
+        data-testid="description"
         name="description"
         placeholder="Program description"
         value={formData.description}
