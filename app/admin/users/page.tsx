@@ -1,12 +1,11 @@
 "use client";
 
+import { getUsers } from "@/queries/admin";
 import { User } from "@/types";
 import { createClient } from "@/utils/supabase/client";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export default function ListUsers() {
-  const router = useRouter();
+export default function UsersAdmin() {
   const supabase = createClient();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -14,26 +13,9 @@ export default function ListUsers() {
 
   useEffect(() => {
     (async () => {
-      const { data: users, error } = await supabase
-        .from("users")
-        .select(
-          `
-            id,
-            first_name,
-            last_name,
-            email,
-            phone_number,
-            is_primary_parent,
-            created_at
-          `
-        )
-        .order("created_at", { ascending: true });
+      const data = await getUsers();
 
-      if (error) {
-        console.error("Failed to load users.", error.message);
-      } else {
-        setUsers(users || []);
-      }
+      setUsers(data || []);
       setLoading(false);
     })();
   }, [supabase]);

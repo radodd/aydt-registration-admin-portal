@@ -1,10 +1,11 @@
 "use client";
 
+import { getDancers } from "@/queries/admin";
 import { Dancer } from "@/types";
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 
-export default function ListDancers() {
+export default function DancersAdmin() {
   const supabase = createClient();
 
   const [dancers, setDancers] = useState<Dancer[]>([]);
@@ -12,42 +13,9 @@ export default function ListDancers() {
 
   useEffect(() => {
     (async () => {
-      const { data: dancers, error } = await supabase
-        .from("dancers")
-        .select(
-          `
-          id,
-          first_name,
-          middle_name,
-          last_name,
-          gender,
-          birth_date,
-          grade,
-          email,
-          phone_number,
-          address_line1,
-          address_line2,
-          city,
-          state,
-          zipcode,
-          is_self,
-          created_at,
-          users (
-            id,
-            first_name,
-            last_name,
-            email
-          )
-          
-        `
-        )
-        .order("created_at", { ascending: true });
+      const data = await getDancers();
 
-      if (error) {
-        console.error("Failed to load dancers.", error.message);
-      } else {
-        setDancers(dancers);
-      }
+      setDancers(data || []);
       setLoading(false);
     })();
   }, [supabase]);

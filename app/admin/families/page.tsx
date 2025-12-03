@@ -4,69 +4,31 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 import { Family } from "@/types";
+import { getFamilies } from "@/queries/admin";
 
-export default function FamiliesAdminPage() {
+export default function FamiliesAdmin() {
   const supabase = createClient();
-  const [families, setFamilies] = useState<Family[]>([]);
+  const [families, setFamilies] = useState<Family[] | null>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from("families")
-        .select(
-          `
-          id,
-          family_name,
-          created_at,
-
-          users:users!family_id (
-            id,
-            first_name,
-            last_name,
-            email,
-            phone_number,
-            is_primary_parent
-          ),
-
-          dancers:dancers!family_id (
-            id,
-            first_name,
-            last_name,
-
-            registrations:registrations!dancer_id (
-              id,
-              programs:programs!program_id (
-                id,
-      title,
-                days_of_week,
-                start_time,
-                end_time
-              )
-            )
-          )
-        `
-        )
-        .order("family_name", { ascending: true });
-
-      if (error) console.error("Failed to load families:", error.message);
-
+      const data = await getFamilies();
       setFamilies(data || []);
       setLoading(false);
     })();
   }, [supabase]);
-
   if (loading) return <p>Loading families...</p>;
 
   return (
     <main className="max-w-6xl mx-auto p-6 text-black">
       <h1 className="text-2xl font-bold mb-6">Families</h1>
 
-      {families.length === 0 ? (
+      {families?.length === 0 ? (
         <p>No families found.</p>
       ) : (
         <div className="space-y-6">
-          {families.map((family) => {
+          {families?.map((family) => {
             const primaryParent = family.users.find((u) => u.is_primary_parent);
             const secondaryParent = family.users.find(
               (u) => !u.is_primary_parent
@@ -132,10 +94,10 @@ export default function FamiliesAdminPage() {
                         {/* Registered Classes */}
                         {dancer.registrations.length > 0 ? (
                           <ul className="list-disc ml-5 mt-2">
-                            {dancer.registrations.map((reg) => (
-                              <li key={reg.id}>
+                            {dancer.registrations.flatMap((reg) => (
+                              <li key={reg.programs?.id}>
                                 {reg.programs?.title} —{" "}
-                                {reg.programs?.days_of_week},{" "}
+                                {reg.programs?.days_of_week},
                                 {reg.programs?.start_time}–
                                 {reg.programs?.end_time}
                               </li>

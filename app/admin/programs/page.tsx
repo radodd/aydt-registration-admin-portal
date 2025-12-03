@@ -4,22 +4,19 @@ import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import ListPrograms from "./(components)/ListPrograms";
 import CreateProgram from "./(components)/CreateProgram";
+import { getPrograms } from "@/queries/admin";
+import { Program } from "@/types";
 
 export default function AdminProgramsPage() {
   const supabase = createClient();
-  const [programs, setPrograms] = useState<any[]>([]);
+  const [programs, setPrograms] = useState<Program[] | null>([]);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from("programs")
-        .select("*")
-        .order("start_date", { ascending: false });
+      const data = await getPrograms();
 
-      if (!error) {
-        setPrograms(data);
-      }
+      setPrograms(data);
     })();
   }, [supabase]);
 
