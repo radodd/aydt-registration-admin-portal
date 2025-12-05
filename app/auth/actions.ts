@@ -4,12 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/server";
+import { signUpSchema } from "../lib/validation/auth";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
 
-  // type-casting here for convenience
-  // in practice, you should validate your inputs
   const data = {
     email: formData.get("email") as string,
     password: formData.get("password") as string,
@@ -27,21 +26,25 @@ export async function login(formData: FormData) {
 }
 
 export async function signUp(formData: FormData) {
+  console.log(...formData);
+  const values = signUpSchema.safeParse({
+    first_name: formData.get("first_name"),
+    last_name: formData.get("last_name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!values.success) {
+    throw new Error("Invalid form submission");
+  }
+
   const supabase = await createClient();
 
-  // 🧠 1. Collect extended signup fields
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const first_name = formData.get("first_name") as string;
   const last_name = formData.get("last_name") as string;
-  const phone_number = formData.get("phone_number") as string;
-  // const address_line1 = formData.get("address_line1") as string;
-  // const address_line2 = formData.get("address_line2") as string;
-  // const city = formData.get("city") as string;
-  // const state = formData.get("state") as string;
-  // const zipcode = formData.get("zipcode") as string;
 
-  // 🧠 2. Create Auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
@@ -78,7 +81,6 @@ export async function signUp(formData: FormData) {
       first_name,
       last_name,
       email,
-      phone_number,
     },
   ]);
 
@@ -96,5 +98,5 @@ export async function signOut() {
   const supabase = await createClient();
   const { error } = await supabase.auth.signOut();
   if (error) console.error("Sign out error.", error.message);
-  redirect("/login");
+  redirect("/auth");
 }

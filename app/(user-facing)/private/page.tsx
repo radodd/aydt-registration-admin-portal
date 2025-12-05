@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { signOut } from "../login/actions";
+import { signOut } from "../../auth/actions";
 
 export default async function PrivatePage() {
   const supabase = await createClient();

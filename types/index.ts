@@ -74,13 +74,22 @@ export interface Program {
   location?: string | null;
   price: number | null;
   registration_fee?: number | null;
-  discount?: string | null;
-  start_data: string | null;
+  discount?: string[] | null;
+  start_date: string | null;
   end_date: string | null;
-  days_of_week: string | null;
+  days_of_week: string[] | null;
   start_time: string | null;
   end_time: string | null;
   capacity?: number | null;
   is_active: boolean;
   created_at: string;
+}
+
+export interface ProgramAvailableDay {
+  id: string;
+  date: string;
+  start_time: string | null;
+  end_time: string | null;
+  capacity: number | null;
+  // created_at: string;
 }

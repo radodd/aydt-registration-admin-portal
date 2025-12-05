@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { User } from "@/types";
 
 export default function FamilyPage() {
   const supabase = createClient();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User>();
   const [familyData, setFamilyData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -88,7 +89,7 @@ export default function FamilyPage() {
 
           {dancer.registrations.length ? (
             <ul className="space-y-3">
-              {dancer.registrations.map((r: any) => (
+              {dancer.registrations.map((r) => (
                 <li
                   key={r.id}
                   className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition"

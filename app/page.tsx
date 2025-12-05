@@ -20,7 +20,10 @@ export default async function Home() {
 
   return (
     <main className="max-w-4xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Available Programs</h1>
+      <h1 className="text-4xl font-bold mb-6 text-black">
+        Welcome to the New Portal
+      </h1>
+      <h1 className="text-3xl font-bold mb-6 text-black">Available Programs</h1>
 
       <div className="grid gap-6 sm:grid-cols-2">
         {programs.map((program) => (

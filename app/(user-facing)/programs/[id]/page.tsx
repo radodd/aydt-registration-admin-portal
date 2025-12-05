@@ -4,14 +4,15 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { notFound } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { Program, ProgramAvailableDay } from "@/types";
 
 export default function ProgramDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const [program, setProgram] = useState<any>(null);
-  const [availableDays, setAvailableDays] = useState<any[]>([]);
+  const [program, setProgram] = useState<Program>();
+  const [availableDays, setAvailableDays] = useState<ProgramAvailableDay[]>([]);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +65,7 @@ export default function ProgramDetailPage({
   };
 
   const handleClick = async () => {
-    if (program.category === "workshop") {
+    if (program?.category === "workshop") {
       alert(`Selected days: ${selectedDays.length}`);
     }
     const {
@@ -75,9 +76,9 @@ export default function ProgramDetailPage({
       console.error("Auth check error.", error.message);
     }
     if (user) {
-      router.push(`/registration?program=${program.id}`);
+      router.push(`/registration?program=${program?.id}`);
     } else {
-      router.push("/login");
+      router.push("/auth");
     }
   };
 
@@ -162,7 +163,7 @@ export default function ProgramDetailPage({
       <section className="space-y-2">
         <p className="text-lg font-medium">
           💲 Tuition:{" "}
-          <span className="font-bold">${program.price.toFixed(2)}</span>
+          <span className="font-bold">${program.price?.toFixed(2)}</span>
         </p>
         {program.registration_fee && (
           <p className="text-gray-600">

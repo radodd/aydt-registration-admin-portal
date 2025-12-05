@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { login } from "@/app/login/actions";
+import { login } from "@/app/auth/actions";
 import { useRouter, useSearchParams } from "next/navigation";
-import RegistrationForm from "../components/RegistrationForm";
+import RegistrationForm from "../../components/RegistrationForm";
 
 export default function Registration() {
   const supabase = createClient();
@@ -35,7 +35,7 @@ export default function Registration() {
         data: { user: authUser },
       } = await supabase.auth.getUser();
       if (!authUser) {
-        router.push("/login");
+        router.push("/auth");
         return;
       }
       setAuthUser(authUser);
