@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/server";
 import { signUpSchema } from "../lib/validation/auth";
+import { request } from "http";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
@@ -86,6 +87,9 @@ export async function signUp(formData: FormData) {
 
   if (userError) {
     console.error("User table insert error:", userError.message);
+    if (userError.message.includes("duplicate key value")) {
+      redirect("/auth/login?error=email_exists");
+    }
     redirect("/error");
   }
 
@@ -99,4 +103,35 @@ export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) console.error("Sign out error.", error.message);
   redirect("/auth");
+}
+
+export async function sendPasswordResetEmail(formData: FormData) {
+  const supabase = await createClient();
+
+  const email = formData.get("email") as string;
+  console.log("Sending password reset email to:", email);
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/reset-password`,
+  });
+  if (error) {
+    console.error("Error sending password reset email:", error.message);
+    redirect("/error");
+  }
+}
+
+export async function resetPassword(formData: FormData) {
+  const supabase = await createClient();
+
+  const password = formData.get("password") as string;
+
+  const { error } = await supabase.auth.updateUser({
+    password: password,
+  });
+  if (error) {
+    console.error("Error resetting password:", error.message);
+    redirect("/error");
+  }
+
+  redirect("/auth/login");
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { signUp } from "./actions";
+import { signOut, signUp } from "./actions";
 import { z } from "zod";
 import {
   extractMessages,
@@ -100,6 +100,12 @@ export default function SignUpPage() {
             // formAction={signUp}
           >
             Sign up
+          </button>
+          <button
+            className="w-full bg-blue-900 text-white py-3 rounded-xl mt-2 hover:bg-blue-800 transition"
+            formAction={signOut}
+          >
+            Log out
           </button>
         </form>
 
