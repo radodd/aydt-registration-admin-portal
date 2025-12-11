@@ -1,5 +1,6 @@
 export interface User {
   id: string;
+  family_id: string;
   email: string;
   first_name: string;
   middle_name?: string | null;
@@ -33,6 +34,22 @@ export interface Dancer {
     first_name: string;
     last_name: string;
     email: string;
+  }[];
+  registrations: {
+    id: string;
+    status: string;
+    total_amount: number;
+    created_at: string;
+    programs: {
+      id: string;
+      title: string;
+      description: string | null;
+      type: string | null;
+      location: string | null;
+      // price: number | null;
+      start_date: string | null;
+      end_date: string | null;
+    };
   }[];
 }
 
@@ -92,4 +109,14 @@ export interface ProgramAvailableDay {
   end_time: string | null;
   capacity: number | null;
   // created_at: string;
+}
+
+export interface Registration {
+  id: string;
+  dancer_id: string;
+  user_id: string;
+  program_id: string;
+  status: string | "pending";
+  total_amount: number;
+  created_at: string;
 }

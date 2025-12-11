@@ -1,8 +1,27 @@
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 
 export default async function Home() {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    console.log("No user logged in");
+  }
+  let loggedInUser = null;
+  if (user) {
+    console.log("User is logged in:", user);
+    const { data } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    loggedInUser = data;
+  }
 
   const { data: programs, error } = await supabase
     .from("programs")
@@ -20,9 +39,31 @@ export default async function Home() {
 
   return (
     <main className="max-w-4xl mx-auto p-6">
-      <h1 className="text-4xl font-bold mb-6 text-black">
-        Welcome to the New Portal
-      </h1>
+      <header className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-4xl font-bold text-black">
+            Welcome to the New Portal
+            {loggedInUser.first_name}
+          </h1>
+        </div>
+
+        {/* Right side: conditional profile button */}
+        <div>
+          {user ? (
+            <Link href="/profile">
+              <button className="bg-gray-800 text-white rounded-xl px-4 py-2 hover:bg-black transition">
+                View Profile
+              </button>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <button className="bg-blue-600 text-white rounded-xl px-4 py-2 hover:bg-blue-700 transition">
+                Log In
+              </button>
+            </Link>
+          )}
+        </div>
+      </header>
       <h1 className="text-3xl font-bold mb-6 text-black">Available Programs</h1>
 
       <div className="grid gap-6 sm:grid-cols-2">
