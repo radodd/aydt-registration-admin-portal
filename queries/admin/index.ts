@@ -106,6 +106,7 @@ export async function getUsers() {
     .select(
       `
             id,
+            family_id,
             email,
             first_name,
             middle_name,

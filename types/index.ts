@@ -14,6 +14,7 @@ export interface User {
 
 export interface Dancer {
   id: string;
+
   first_name: string;
   middle_name?: string | null;
   last_name: string;
@@ -35,7 +36,7 @@ export interface Dancer {
     last_name: string;
     email: string;
   }[];
-  registrations: {
+  registrations?: {
     id: string;
     status: string;
     total_amount: number;

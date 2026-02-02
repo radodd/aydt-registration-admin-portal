@@ -3,7 +3,7 @@
 import { Dancer, User } from "@/types";
 import Link from "next/link";
 import { useState } from "react";
-import AddDancerForm from "./add-dancer/page";
+import AddDancerForm from "./AddDancerForm";
 interface FamilyProfileCardProps {
   user: User;
   dancers?: Dancer[] | null;

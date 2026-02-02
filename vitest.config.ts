@@ -3,7 +3,7 @@ import path from "node:path";
 
 export default defineConfig({
   test: {
-    environment: "happy-dom",
+    environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     include: ["tests/**/*.{test,spec}.{ts,tsx}"],
