@@ -24,11 +24,11 @@ vi.mock("@/utils/supabase/client", () => ({
 // Mock alert
 vi.stubGlobal("alert", vi.fn());
 
-import CreateProgram from "@/app/admin/programs/(components)/CreateProgram";
+import CreateSession from "@/app/admin/sessions/(components)/CreateSession";
 
 describe("CreateProgram — basic render", () => {
   it("renders without crashing", () => {
-    render(<CreateProgram />);
+    render(<CreateSession />);
 
     // The simplest possible assertion
     expect(screen.getByTestId("title")).toBeInTheDocument();

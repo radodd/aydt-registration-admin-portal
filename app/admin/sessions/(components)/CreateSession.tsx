@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function CreateProgram() {
+export default function CreateSession() {
   const supabase = createClient();
   const router = useRouter();
 
@@ -31,7 +31,7 @@ export default function CreateProgram() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const { data, error } = await supabase.from("programs").insert([
+    const { data, error } = await supabase.from("sessions").insert([
       {
         title: formData.title,
         description: formData.description,

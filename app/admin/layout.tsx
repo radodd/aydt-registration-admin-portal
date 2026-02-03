@@ -49,8 +49,11 @@ export default function AdminLayout({
           <a href="/admin" className="block hover:underline">
             Overview
           </a>
-          <a href="/admin/programs" className="block hover:underline">
-            Programs
+          <a href="/admin/semesters" className="block hover:underline">
+            Semesters
+          </a>
+          <a href="/admin/sessions" className="block hover:underline">
+            Sessions
           </a>
           <a href="/admin/registrations" className="block hover:underline">
             Registrations

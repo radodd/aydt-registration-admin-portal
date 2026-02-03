@@ -23,18 +23,18 @@ export default async function Home() {
     loggedInUser = data;
   }
 
-  const { data: programs, error } = await supabase
-    .from("programs")
+  const { data: sessions, error } = await supabase
+    .from("sessions")
     .select("*")
     .order("start_date", { ascending: true });
 
   if (error) {
-    console.error("Error loading programs", error.message);
-    return <p className="text-red-500">Failed to load programs.</p>;
+    console.error("Error loading sessions", error.message);
+    return <p className="text-red-500">Failed to load sessions.</p>;
   }
 
-  if (!programs || programs.length === 0) {
-    return <p className="text-gray-500">No programs available</p>;
+  if (!sessions || sessions.length === 0) {
+    return <p className="text-gray-500">No sessions available</p>;
   }
 
   return (
@@ -43,7 +43,7 @@ export default async function Home() {
         <div>
           <h1 className="text-4xl font-bold text-black">
             Welcome to the New Portal
-            {loggedInUser.first_name}
+            {loggedInUser?.first_name ? ` ${loggedInUser.first_name}` : ""}
           </h1>
         </div>
 
@@ -64,40 +64,40 @@ export default async function Home() {
           )}
         </div>
       </header>
-      <h1 className="text-3xl font-bold mb-6 text-black">Available Programs</h1>
+      <h1 className="text-3xl font-bold mb-6 text-black">Available sessions</h1>
 
       <div className="grid gap-6 sm:grid-cols-2">
-        {programs.map((program) => (
+        {sessions.map((session) => (
           <div
-            key={program.id}
+            key={session.id}
             className="border rounded-2xl p-4 shadow-sm hover:shadow-md transition bg-white"
           >
             <h2 className="text-xl font-semibold text-gray-800 mb-1">
-              {program.title}
+              {session.title}
             </h2>
             <p className="text-sm text-gray-500 mb-3">
-              {program.category === "workshop" ? "Workshop" : "Session"} •{" "}
-              {program.type}
+              {session.category === "workshop" ? "Workshop" : "Session"} •{" "}
+              {session.type}
             </p>
-            <p className="text-gray-700 mb-3">{program.description}</p>
+            <p className="text-gray-700 mb-3">{session.description}</p>
 
             <div className="text-sm text-gray-600 space-y-1">
               <p>
-                📍 <strong>Location:</strong> {program.location}
+                📍 <strong>Location:</strong> {session.location}
               </p>
               <p>
-                📅 <strong>Dates:</strong> {program.start_date} →{" "}
-                {program.end_date}
+                📅 <strong>Dates:</strong> {session.start_date} →{" "}
+                {session.end_date}
               </p>
               <p>
-                🕒 <strong>Time:</strong> {program.start_time} –{" "}
-                {program.end_time}
+                🕒 <strong>Time:</strong> {session.start_time} –{" "}
+                {session.end_time}
               </p>
               <p>
-                💲 <strong>Price:</strong> ${program.price}
+                💲 <strong>Price:</strong> ${session.price}
               </p>
             </div>
-            <Link href={`/programs/${program.id}`}>
+            <Link href={`/sessions/${session.id}`}>
               <button className="mt-4 w-full bg-blue-600 text-white rounded-xl py-2 font-medium hover:bg-blue-700 transition">
                 View Details
               </button>

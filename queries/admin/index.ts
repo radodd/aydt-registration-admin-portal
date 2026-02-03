@@ -36,7 +36,7 @@ export async function getFamilies() {
               )
             )
           )
-        `
+        `,
     )
     .order("family_name", { ascending: true });
 
@@ -75,7 +75,7 @@ export async function getDancers() {
             email
           )
           
-        `
+        `,
     )
     .order("created_at", { ascending: true });
 
@@ -85,15 +85,15 @@ export async function getDancers() {
   return data;
 }
 
-export async function getPrograms() {
+export async function getSessions() {
   const supabase = createClient();
 
   const { data, error } = await supabase
-    .from("programs")
+    .from("sessions")
     .select("*")
     .order("start_date", { ascending: false });
   if (error) {
-    console.error("Failed to load programs.", error.message);
+    console.error("Failed to load sessions.", error.message);
   }
   return data;
 }
@@ -117,7 +117,7 @@ export async function getUsers() {
             status,
             created_at
 
-          `
+          `,
     )
     .order("created_at", { ascending: true });
 

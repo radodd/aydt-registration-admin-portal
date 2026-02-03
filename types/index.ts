@@ -83,7 +83,7 @@ export interface Family {
   }[];
 }
 
-export interface Program {
+export interface Session {
   id: string;
   title: string;
   description: string | null;
@@ -121,3 +121,83 @@ export interface Registration {
   total_amount: number;
   created_at: string;
 }
+
+export type SemesterDraft = {
+  details: {
+    name: string;
+    trackingMode: boolean;
+    capacityWarningThreshold?: number;
+    publishAt?: Date;
+  };
+
+  sessions: {
+    sessionIds: string[];
+    tagsBySession: Record<string, string[]>;
+  };
+
+  paymentPlan: {
+    type: "pay_in_full" | "deposit_flat" | "deposit_percent" | "installments";
+    depositAmount?: number;
+    depositPercent?: number;
+    installmentCount?: number;
+    dueDate: string;
+    installments?: { number: number; amount: number; dueDate: string }[];
+  };
+
+  discounts: {
+    semesterDiscountIds: string[];
+    sessionDiscounts: Record<string, string[]>;
+  };
+};
+
+export type SemesterSession = {
+  sessionId: string;
+  title: string;
+
+  startDate: string;
+  endDate: string;
+  daysOfWeek: string[];
+  type: string;
+  capacity: number;
+
+  // Optional overrides (what the user edits)
+  overriddenTitle?: string;
+  overriddenStartDate?: string;
+  overriddenEndDate?: string;
+  overriddenDaysOfWeek?: string[];
+  overriddenType?: string;
+  overriddenCapacity?: number;
+};
+
+export type SemesterDiscount = {
+  discountId: string;
+
+  // snapshot fields
+  name: string;
+  category: DiscountCategory;
+  eligibleSessionsMode: "all" | "selected";
+  eligibleSessionIds?: string[];
+
+  rules: DiscountRule[];
+
+  // lifecycle controls
+  enabled: boolean;
+};
+
+export type DiscountCategory = "multi_person" | "multi_session" | "custom";
+
+export type DiscountRule = {
+  threshold: number;
+  value: number;
+  valueType: "flat" | "percent";
+
+  // rule-specific targeting
+  sessionScope:
+    | "one_session"
+    | "all_sessions"
+    | "all_sessions_once_threshold"
+    | "threshold_session_only"
+    | "threshold_and_additional_sessions";
+
+  recipientScope?: "threshold_only" | "threshold_and_additional";
+};
