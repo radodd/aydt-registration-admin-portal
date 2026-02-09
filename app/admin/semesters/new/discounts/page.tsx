@@ -1,7 +1,11 @@
 "use client";
 
 import { DiscountCategory, DiscountRule } from "@/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createDiscount } from "./CreateDiscount";
+import { useRouter } from "next/navigation";
+import { getSessions } from "@/queries/admin";
+import { tr } from "zod/locales";
 
 export default function CreateDiscountForm() {
   const [name, setName] = useState("");
@@ -21,6 +25,8 @@ export default function CreateDiscountForm() {
   const [eligibleSessionsMode, setEligibleSessionsMode] = useState<
     "all" | "selected"
   >("all");
+  const [sessions, setSessions] = useState<{ id: string; name: string }[]>([]);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
 
   const [rules, setRules] = useState<DiscountRule[]>([
     {
@@ -31,6 +37,7 @@ export default function CreateDiscountForm() {
       recipientScope: "threshold_only",
     },
   ]);
+  const router = useRouter();
 
   function addRule() {
     setRules([
@@ -52,6 +59,44 @@ export default function CreateDiscountForm() {
   function removeRule(index: number) {
     setRules(rules.filter((_, i) => i !== index));
   }
+
+  async function handleSave() {
+    try {
+      const discountId = await createDiscount({
+        name,
+        category,
+        eligibleSessionsMode,
+        giveSessionScope,
+        recipientScope,
+        rules,
+        sessionIds:
+          eligibleSessionsMode === "selected" ? selectedSessionIds : [],
+      });
+      if (discountId) {
+        router.replace("/admin/semesters/new?step=discounts");
+      }
+    } catch (error) {
+      console.error("Failed to create discount.", error);
+      alert("Failed to create discount. See console for details.");
+    }
+  }
+
+  useEffect(() => {
+    if (eligibleSessionsMode !== "selected") return;
+
+    let active = true;
+
+    async function loadSessions() {
+      const data = await getSessions();
+      if (active) setSessions(data);
+    }
+
+    loadSessions();
+
+    return () => {
+      active = false;
+    };
+  }, [eligibleSessionsMode]);
 
   return (
     <div className="max-w-3xl space-y-6 text-slate-700">
@@ -103,6 +148,28 @@ export default function CreateDiscountForm() {
           />{" "}
           Selected sessions
         </label>
+        {eligibleSessionsMode === "selected" && (
+          <div className="border p-3 space-y-2">
+            <div className="font-medium">Select sessions</div>
+
+            {sessions.map((s) => (
+              <label key={s.id} className="block">
+                <input
+                  type="checkbox"
+                  checked={selectedSessionIds.includes(s.id)}
+                  onChange={() => {
+                    setSelectedSessionIds((prev) =>
+                      prev.includes(s.id)
+                        ? prev.filter((id) => id !== s.id)
+                        : [...prev, s.id],
+                    );
+                  }}
+                />{" "}
+                {s.title}
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Give Discount To (discount-level) */}
@@ -233,7 +300,12 @@ export default function CreateDiscountForm() {
       {/* Save */}
       <div className="flex justify-end gap-2">
         <button className="border px-4 py-2">Cancel</button>
-        <button className="bg-blue-600 text-white px-4 py-2">Save</button>
+        <button
+          className="bg-blue-600 text-white px-4 py-2"
+          onClick={handleSave}
+        >
+          Save
+        </button>
       </div>
     </div>
   );

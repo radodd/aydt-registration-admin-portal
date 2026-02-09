@@ -126,3 +126,58 @@ export async function getUsers() {
   }
   return data;
 }
+
+// export async function getDiscount(discountId: string) {
+//   const supabase = createClient();
+//   const { date, error } = await supabase.from("discounts").select(
+//     `
+//       d.id,
+//       d.name,
+//       d.discount_type,
+//       d.discount_value,
+//       d.applies_to,
+//       d.eligible_sessions,
+//       COALESCE(
+//         json_agg(
+//           json_build_object(
+//             'id', r.id,
+//             'ruleType', r.rule_type,
+//             'threshold', r.threshold,
+//             'giveDiscountTo', r.give_discount_to,
+//             'registrantScope', r.registrant_scope,
+//             'sessions', (
+//               SELECT json_agg(rs.session_id)
+//               FROM discount_rule_sessions rs
+//               WHERE rs.rule_id = r.id
+//             )
+//           )
+//         ) FILTER (WHERE r.id IS NOT NULL),
+//         '[]'
+//       ) AS rules
+//     FROM discounts d
+//     LEFT JOIN discount_rules r ON r.discount_id = d.id
+//     WHERE d.id = $1
+//     GROUP BY d.id
+//     `,
+//     [discountId]
+//   )
+//     .order("created_at", { ascending: true });
+
+//   if (error) {
+//     console.error("Failed to load users.", error.message);
+//   }
+//   return data;
+// }
+
+export async function getDiscounts() {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("discounts")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("Failed to load discounts.", error.message);
+  }
+  return data;
+}

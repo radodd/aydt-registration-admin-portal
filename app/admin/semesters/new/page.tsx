@@ -7,6 +7,7 @@ import SessionsStep from "./steps/SessionsStep";
 import PaymentStep from "./steps/PaymentStep";
 import DiscountsStep from "./steps/DiscountsStep";
 import ReviewStep from "./steps/ReviewStep";
+import { useRouter, useSearchParams } from "next/navigation";
 
 // ----------------------------------
 // Types
@@ -72,18 +73,44 @@ function semesterReducer(
 // Page Component
 // ----------------------------------
 
-const STEPS = ["Details", "Sessions", "Payment", "Discounts", "Review"];
+const STEPS = ["details", "sessions", "payment", "discounts", "review"];
+type StepKey = (typeof STEPS)[number];
+
+const STEP_INDEX: Record<StepKey, number> = {
+  details: 0,
+  sessions: 1,
+  payment: 2,
+  discounts: 3,
+  review: 4,
+};
+const STEP_LABELS: Record<StepKey, string> = {
+  details: "Details",
+  sessions: "Sessions",
+  payment: "Payment",
+  discounts: "Discounts",
+  review: "Review",
+};
 
 export default function NewSemesterPage() {
-  const [step, setStep] = useState(0);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const stepParam = searchParams.get("step") as StepKey | null;
+  const stepKey: StepKey =
+    stepParam && stepParam in STEP_INDEX ? stepParam : "details";
+  const step = STEP_INDEX[stepKey];
   const [state, dispatch] = useReducer(semesterReducer, {});
 
+  function goToStep(index: number) {
+    const key = STEPS[index];
+    router.push(`/admin/semesters/new?step=${key}`);
+  }
+
   function next() {
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    goToStep(Math.min(step + 1, STEPS.length - 1));
   }
 
   function back() {
-    setStep((s) => Math.max(s - 1, 0));
+    goToStep(Math.max(step - 1, 0));
   }
 
   async function publish() {
@@ -94,7 +121,7 @@ export default function NewSemesterPage() {
 
     alert("Semester published (stub)");
     dispatch({ type: "RESET" });
-    setStep(0);
+    router.push("/admin/semesters/new?step=details");
   }
 
   return (
@@ -103,14 +130,14 @@ export default function NewSemesterPage() {
 
       {/* Step Indicator */}
       <div className="flex gap-4 mb-8">
-        {STEPS.map((label, index) => (
+        {STEPS.map((key, index) => (
           <div
-            key={label}
+            key={key}
             className={`text-sm ${
               index === step ? "font-semibold underline" : "text-gray-400"
             }`}
           >
-            {index + 1}. {label}
+            {index + 1}. {STEP_LABELS[key]}
           </div>
         ))}
       </div>

@@ -1,5 +1,7 @@
 "use client";
 
+import { getDiscounts } from "@/queries/admin";
+import { DiscountCategory, SemesterDiscount } from "@/types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -8,14 +10,29 @@ export default function DiscountsStep({ state, dispatch, onNext, onBack }) {
   const [selected, setSelected] = useState<string[]>(
     state.discounts?.semesterDiscountIds ?? [],
   );
+  const [availableDiscounts, setAvailableDiscounts] = useState<
+    DiscountCategory[]
+  >([]);
+  const [appliedDiscounts, setAppliedDiscounts] = useState<SemesterDiscount[]>(
+    state.discounts?.semesterDiscounts ?? [],
+  );
 
-  useEffect(() => {
-    // TODO: fetch from discounts table
-    setDiscounts([
-      { id: "d1", name: "Sibling Discount" },
-      { id: "d2", name: "Early Bird" },
+  function applyDiscount(discount: SemesterDiscount) {
+    if (appliedDiscounts.some((d) => d.discountId === discount.id)) return;
+
+    setAppliedDiscounts((prev) => [
+      ...prev,
+      {
+        discountId: discount.id,
+        name: discount.name,
+        category: discount.category,
+        eligibleSessionsMode: discount.eligibleSessionsMode,
+        eligibleSessionIds: discount.eligibleSessionIds,
+        rules: discount.rules,
+        enabled: true,
+      },
     ]);
-  }, []);
+  }
 
   function toggle(id: string) {
     setSelected((prev) =>
@@ -33,6 +50,23 @@ export default function DiscountsStep({ state, dispatch, onNext, onBack }) {
     });
     onNext();
   }
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      const data = await getDiscounts();
+      if (active) {
+        setDiscounts(data);
+      }
+    }
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div>
