@@ -1,72 +1,81 @@
 "use client";
 
 import { getDiscounts } from "@/queries/admin";
-import { DiscountCategory, SemesterDiscount } from "@/types";
+import {
+  DiscountApplication,
+  DiscountsStepProps,
+  SemesterDiscount,
+} from "@/types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-export default function DiscountsStep({ state, dispatch, onNext, onBack }) {
-  const [discounts, setDiscounts] = useState([]);
-  const [selected, setSelected] = useState<string[]>(
-    state.discounts?.semesterDiscountIds ?? [],
+export default function DiscountsStep({
+  state,
+  dispatch,
+  onNext,
+  onBack,
+}: DiscountsStepProps) {
+  const [discounts, setDiscounts] = useState<SemesterDiscount[] | null>([]);
+  const [applications, setApplications] = useState<DiscountApplication[]>(
+    state.discounts?.appliedDiscounts ?? [],
   );
-  const [availableDiscounts, setAvailableDiscounts] = useState<
-    DiscountCategory[]
-  >([]);
-  const [appliedDiscounts, setAppliedDiscounts] = useState<SemesterDiscount[]>(
-    state.discounts?.semesterDiscounts ?? [],
-  );
 
-  function applyDiscount(discount: SemesterDiscount) {
-    if (appliedDiscounts.some((d) => d.discountId === discount.id)) return;
-
-    setAppliedDiscounts((prev) => [
-      ...prev,
-      {
-        discountId: discount.id,
-        name: discount.name,
-        category: discount.category,
-        eligibleSessionsMode: discount.eligibleSessionsMode,
-        eligibleSessionIds: discount.eligibleSessionIds,
-        rules: discount.rules,
-        enabled: true,
-      },
-    ]);
-  }
-
-  function toggle(id: string) {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id],
-    );
-  }
-
-  function submit() {
-    dispatch({
-      type: "SET_DISCOUNTS",
-      payload: {
-        semesterDiscountIds: selected,
-        sessionDiscounts: {},
-      },
-    });
-    onNext();
-  }
+  /* ------------------------------------------------------------------------ */
+  /* Data loading                                                             */
+  /* ------------------------------------------------------------------------ */
 
   useEffect(() => {
     let active = true;
 
-    async function load() {
+    async function loadDiscounts() {
       const data = await getDiscounts();
       if (active) {
         setDiscounts(data);
       }
     }
 
-    load();
+    loadDiscounts();
 
     return () => {
       active = false;
     };
   }, []);
+
+  function isSelected(discountId: string) {
+    return applications.some((a) => a.discountId === discountId);
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Handlers                                                                 */
+  /* ------------------------------------------------------------------------ */
+
+  function toggleSelection(discountId: string) {
+    setApplications((prev) =>
+      prev.some((a) => a.discountId === discountId)
+        ? prev.filter((a) => a.discountId !== discountId)
+        : [
+            ...prev,
+            {
+              discountId,
+              scope: "all_sessions", // default; refined later
+            },
+          ],
+    );
+  }
+
+  function handleSubmit() {
+    dispatch({
+      type: "SET_DISCOUNTS",
+      payload: {
+        appliedDiscounts: applications,
+      },
+    });
+    onNext();
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Render                                                                   */
+  /* ------------------------------------------------------------------------ */
 
   return (
     <div>
@@ -76,20 +85,35 @@ export default function DiscountsStep({ state, dispatch, onNext, onBack }) {
         Create New Discount
       </Link>
 
-      {discounts.map((d) => (
-        <label key={d.id}>
+      {discounts?.map((discount) => (
+        <label key={discount.id}>
           <input
             type="checkbox"
-            checked={selected.includes(d.id)}
-            onChange={() => toggle(d.id)}
+            checked={isSelected(discount.id)}
+            onChange={() => {
+              toggleSelection(discount.id);
+
+              console.table(
+                discounts?.map((d) => ({
+                  discountId: d.id,
+                  name: d.name,
+                })),
+              );
+              console.log(
+                "Toggled discount",
+                discount.id,
+                "Selected:",
+                !isSelected(discount.discountId),
+              );
+            }}
           />
-          {d.name}
+          {discount.name}
         </label>
       ))}
 
       <div>
         <button onClick={onBack}>Back</button>
-        <button onClick={submit}>Next</button>
+        <button onClick={handleSubmit}>Next</button>
       </div>
     </div>
   );
