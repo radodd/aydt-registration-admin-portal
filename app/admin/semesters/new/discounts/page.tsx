@@ -1,33 +1,31 @@
 "use client";
 
-import { DiscountCategory, DiscountRule } from "@/types";
+import {
+  DiscountCategory,
+  DiscountRule,
+  EligibleSessionsMode,
+  GiveSessionScope,
+  RecipientScope,
+} from "@/types";
 import { useEffect, useState } from "react";
 import { createDiscount } from "./CreateDiscount";
 import { useRouter } from "next/navigation";
 import { getSessions } from "@/queries/admin";
-import { tr } from "zod/locales";
 
 export default function CreateDiscountForm() {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [category, setCategory] = useState<DiscountCategory>("multi_person");
-  const [giveSessionScope, setGiveSessionScope] = useState<
-    | "one_session"
-    | "all_sessions"
-    | "all_sessions_once_threshold"
-    | "threshold_session_only"
-    | "threshold_and_additional_sessions"
-  >("one_session");
-
-  const [recipientScope, setRecipientScope] = useState<
-    "threshold_only" | "threshold_and_additional"
-  >("threshold_only");
-
-  const [eligibleSessionsMode, setEligibleSessionsMode] = useState<
-    "all" | "selected"
-  >("all");
-  const [sessions, setSessions] = useState<{ id: string; name: string }[]>([]);
+  const [giveSessionScope, setGiveSessionScope] =
+    useState<GiveSessionScope>("one_session");
+  const [recipientScope, setRecipientScope] =
+    useState<RecipientScope>("threshold_only");
+  const [eligibleSessionsMode, setEligibleSessionsMode] =
+    useState<EligibleSessionsMode>("all");
+  const [sessions, setSessions] = useState<
+    { id: string; name: string }[] | null
+  >([]);
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
-
   const [rules, setRules] = useState<DiscountRule[]>([
     {
       threshold: 2,
@@ -37,13 +35,37 @@ export default function CreateDiscountForm() {
       recipientScope: "threshold_only",
     },
   ]);
-  const router = useRouter();
+
+  /* ------------------------------------------------------------------------ */
+  /* Data loading                                                             */
+  /* ------------------------------------------------------------------------ */
+
+  useEffect(() => {
+    if (eligibleSessionsMode !== "selected") return;
+
+    let mounted = true;
+
+    async function loadSessions() {
+      const data = await getSessions();
+      if (mounted) setSessions(data);
+    }
+
+    loadSessions();
+
+    return () => {
+      mounted = false;
+    };
+  }, [eligibleSessionsMode]);
+
+  /* ------------------------------------------------------------------------ */
+  /* Helpers                                                             */
+  /* ------------------------------------------------------------------------ */
 
   function addRule() {
-    setRules([
-      ...rules,
+    setRules((prev) => [
+      ...prev,
       {
-        threshold: rules.length + 2,
+        threshold: prev.length + 2,
         value: 0,
         valueType: "flat",
         sessionScope:
@@ -57,8 +79,24 @@ export default function CreateDiscountForm() {
   }
 
   function removeRule(index: number) {
-    setRules(rules.filter((_, i) => i !== index));
+    setRules((prev) => prev.filter((_, i) => i !== index));
   }
+
+  function updateRule<K extends keyof DiscountRule>(
+    index: number,
+    key: K,
+    value: DiscountRule[K],
+  ) {
+    setRules((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [key]: value };
+      return next;
+    });
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Handlers                                                             */
+  /* ------------------------------------------------------------------------ */
 
   async function handleSave() {
     try {
@@ -81,22 +119,15 @@ export default function CreateDiscountForm() {
     }
   }
 
-  useEffect(() => {
-    if (eligibleSessionsMode !== "selected") return;
+  function toggleSession(id: string) {
+    setSelectedSessionIds((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
+  }
 
-    let active = true;
-
-    async function loadSessions() {
-      const data = await getSessions();
-      if (active) setSessions(data);
-    }
-
-    loadSessions();
-
-    return () => {
-      active = false;
-    };
-  }, [eligibleSessionsMode]);
+  /* -------------------------------------------------------------------------- */
+  /* Render                                                                     */
+  /* -------------------------------------------------------------------------- */
 
   return (
     <div className="max-w-3xl space-y-6 text-slate-700">
@@ -117,14 +148,14 @@ export default function CreateDiscountForm() {
         <label className="block font-medium">Discount type</label>
         {(
           ["multi_person", "multi_session", "custom"] as DiscountCategory[]
-        ).map((t) => (
-          <label key={t} className="block">
+        ).map((type) => (
+          <label key={type} className="block">
             <input
               type="radio"
-              checked={category === t}
-              onChange={() => setCategory(t)}
+              checked={category === type}
+              onChange={() => setCategory(type)}
             />{" "}
-            {t.replace("_", " ")}
+            {type.replace("_", " ")}
           </label>
         ))}
       </div>
@@ -152,20 +183,16 @@ export default function CreateDiscountForm() {
           <div className="border p-3 space-y-2">
             <div className="font-medium">Select sessions</div>
 
-            {sessions.map((s) => (
-              <label key={s.id} className="block">
+            {sessions?.map((session) => (
+              <label key={session.id} className="block">
                 <input
                   type="checkbox"
-                  checked={selectedSessionIds.includes(s.id)}
+                  checked={selectedSessionIds.includes(session.id)}
                   onChange={() => {
-                    setSelectedSessionIds((prev) =>
-                      prev.includes(s.id)
-                        ? prev.filter((id) => id !== s.id)
-                        : [...prev, s.id],
-                    );
+                    toggleSession(session.id);
                   }}
                 />{" "}
-                {s.title}
+                {session.name}
               </label>
             ))}
           </div>
@@ -181,7 +208,9 @@ export default function CreateDiscountForm() {
             <select
               className="border p-1"
               value={giveSessionScope}
-              onChange={(e) => setGiveSessionScope(e.target.value as any)}
+              onChange={(e) =>
+                setGiveSessionScope(e.target.value as GiveSessionScope)
+              }
             >
               <option value="one_session">1 session</option>
               <option value="all_sessions">All sessions</option>
@@ -192,7 +221,9 @@ export default function CreateDiscountForm() {
             <select
               className="border p-1"
               value={recipientScope}
-              onChange={(e) => setRecipientScope(e.target.value as any)}
+              onChange={(e) =>
+                setRecipientScope(e.target.value as RecipientScope)
+              }
             >
               <option value="threshold_only">
                 the threshold registrant only
@@ -208,7 +239,9 @@ export default function CreateDiscountForm() {
           <select
             className="border p-1"
             value={giveSessionScope}
-            onChange={(e) => setGiveSessionScope(e.target.value as any)}
+            onChange={(e) =>
+              setGiveSessionScope(e.target.value as GiveSessionScope)
+            }
           >
             <option value="all_sessions_once_threshold">
               all sessions once the threshold is reached
@@ -237,9 +270,7 @@ export default function CreateDiscountForm() {
                 className="border p-1 w-16"
                 value={rule.threshold}
                 onChange={(e) => {
-                  const next = [...rules];
-                  next[i].threshold = Number(e.target.value);
-                  setRules(next);
+                  updateRule(i, "threshold", Number(e.target.value));
                 }}
               />
               <span>
@@ -256,18 +287,18 @@ export default function CreateDiscountForm() {
                 className="border p-1 w-24"
                 value={rule.value}
                 onChange={(e) => {
-                  const next = [...rules];
-                  next[i].value = Number(e.target.value);
-                  setRules(next);
+                  updateRule(i, "value", Number(e.target.value));
                 }}
               />
               <select
                 className="border p-1"
                 value={rule.valueType}
                 onChange={(e) => {
-                  const next = [...rules];
-                  next[i].valueType = e.target.value as any;
-                  setRules(next);
+                  updateRule(
+                    i,
+                    "valueType",
+                    e.target.value as "flat" | "percent",
+                  );
                 }}
               >
                 <option value="flat">dollars off</option>

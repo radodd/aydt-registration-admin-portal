@@ -271,3 +271,14 @@ export type PaymentFormState = {
   dueDate: string;
   installmentCount: string;
 };
+
+export type GiveSessionScope =
+  | "one_session"
+  | "all_sessions"
+  | "all_sessions_once_threshold"
+  | "threshold_session_only"
+  | "threshold_and_additional_sessions";
+
+export type RecipientScope = "threshold_only" | "threshold_and_additional";
+
+export type EligibleSessionsMode = "all" | "selected";
