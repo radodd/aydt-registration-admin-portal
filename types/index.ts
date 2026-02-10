@@ -282,3 +282,13 @@ export type GiveSessionScope =
 export type RecipientScope = "threshold_only" | "threshold_and_additional";
 
 export type EligibleSessionsMode = "all" | "selected";
+
+export type CreateDiscountInput = {
+  name: string;
+  category: DiscountCategory;
+  eligibleSessionsMode: EligibleSessionsMode;
+  giveSessionScope: GiveSessionScope;
+  recipientScope?: RecipientScope;
+  rules: DiscountRule[];
+  sessionIds?: string[];
+};

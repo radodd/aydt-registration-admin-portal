@@ -1,47 +1,47 @@
 import { createClient } from "@/utils/supabase/client";
-import { DiscountRule } from "@/types";
+import { CreateDiscountInput } from "@/types";
 
-type CreateDiscountInput = {
-  name: string;
-  category: "multi_person" | "multi_session" | "custom";
-  eligibleSessionsMode: "all" | "selected";
-  giveSessionScope: string;
-  recipientScope?: string;
-  rules: DiscountRule[];
-  sessionIds?: string[];
-};
-
-export async function createDiscount(input: CreateDiscountInput) {
+export async function createDiscount({
+  name,
+  category,
+  eligibleSessionsMode,
+  giveSessionScope,
+  recipientScope,
+  rules,
+  sessionIds,
+}: CreateDiscountInput): Promise<string> {
   const supabase = createClient();
 
-  const { data: discount, error } = await supabase
+  const { data: discount, error: discountError } = await supabase
     .from("discounts")
     .insert({
-      name: input.name,
-      category: input.category,
-      eligible_sessions_mode: input.eligibleSessionsMode,
-      give_session_scope: input.giveSessionScope,
+      name,
+      category,
+      eligible_sessions_mode: eligibleSessionsMode,
+      give_session_scope: giveSessionScope,
       recipient_scope:
-        input.category === "multi_person"
-          ? (input.recipientScope ?? "threshold_only")
+        category === "multi_person"
+          ? (recipientScope ?? "threshold_only")
           : null,
     })
     .select("id")
     .single();
 
-  if (error) {
-    console.error("Failed to create discount.", error);
-    throw new Error(`Failed to create discount: ${error.message}`);
+  if (discountError) {
+    console.error("Failed to create discount.", discountError);
+    throw new Error(discountError?.message ?? "Unknown discount error");
   }
 
   const discountId = discount.id;
 
-  // Insert rules
-  const rulesPayload = input.rules.map((r) => ({
+  /* -------------------------------------------------------------------------- */
+  /* Insert Rules                                                                    */
+  /* -------------------------------------------------------------------------- */
+  const rulesPayload = rules.map((r) => ({
     discount_id: discountId,
-    rule_type: input.category,
+    rule_type: category,
     threshold: r.threshold,
-    threshold_unit: input.category === "multi_person" ? "person" : "session",
+    threshold_unit: category === "multi_person" ? "person" : "session",
     value: r.value,
     value_type: r.valueType,
   }));
@@ -50,20 +50,36 @@ export async function createDiscount(input: CreateDiscountInput) {
     .from("discount_rules")
     .insert(rulesPayload);
 
-  if (rulesError) throw new Error(rulesError.message);
+  if (rulesError) {
+    console.error("Failed to create discount rules.", rulesError);
+    throw new Error(rulesError.message);
+  }
 
-  // Insert session restrictions (if applicable)
-  if (input.eligibleSessionsMode === "selected" && input.sessionIds?.length) {
-    const sessionPayload = input.sessionIds.map((id) => ({
+  /* -------------------------------------------------------------------------- */
+  /* Insert Session Restrictions                                                    */
+  /* -------------------------------------------------------------------------- */
+
+  if (
+    eligibleSessionsMode === "selected" &&
+    sessionIds &&
+    sessionIds.length > 0
+  ) {
+    const sessionPayload = sessionIds.map((sessionId) => ({
       discount_id: discountId,
-      session_id: id,
+      session_id: sessionId,
     }));
 
     const { error: sessionsError } = await supabase
       .from("discount_rule_sessions")
       .insert(sessionPayload);
 
-    if (sessionsError) throw new Error(sessionsError.message);
+    if (sessionsError) {
+      console.error(
+        "Failed to create discount session restrictions.",
+        sessionsError,
+      );
+      throw new Error(sessionsError.message);
+    }
   }
 
   return discountId;
