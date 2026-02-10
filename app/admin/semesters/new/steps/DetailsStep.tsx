@@ -1,17 +1,36 @@
 "use client";
 
+import { DetailsFormState, DetailsStepProps } from "@/types";
 import { useState } from "react";
 
-export default function DetailsStep({ state, dispatch, onNext }: any) {
+/* -------------------------------------------------------------------------- */
+/* Component                                                                  */
+/* -------------------------------------------------------------------------- */
+
+export default function DetailsStep({
+  state,
+  dispatch,
+  onNext,
+}: DetailsStepProps) {
   const [form, setForm] = useState({
     name: state.details?.name ?? "",
     trackingMode: state.details?.trackingMode ?? false,
     capacityWarningThreshold: state.details?.capacityWarningThreshold ?? "",
-    // publishAt: state.details?.publishAt ?? "",
   });
 
-  function submit() {
-    if (!form.name) {
+  /* ------------------------------------------------------------------------ */
+  /* Handlers                                                                 */
+  /* ------------------------------------------------------------------------ */
+
+  function updateField<K extends keyof DetailsFormState>(
+    key: K,
+    value: DetailsFormState[K],
+  ) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleSubmit() {
+    if (!form.name.trim()) {
       alert("Name is required");
       return;
     }
@@ -19,13 +38,12 @@ export default function DetailsStep({ state, dispatch, onNext }: any) {
     dispatch({
       type: "SET_DETAILS",
       payload: {
-        name: form.name,
+        name: form.name.trim(),
         trackingMode: form.trackingMode,
         capacityWarningThreshold:
           form.capacityWarningThreshold !== ""
             ? Number(form.capacityWarningThreshold)
-            : null,
-        // publishAt: new Date(form.publishAt),
+            : 0,
       },
     });
 
@@ -40,16 +58,14 @@ export default function DetailsStep({ state, dispatch, onNext }: any) {
         <input
           placeholder="Semester name"
           value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          onChange={(e) => updateField("name", e.target.value)}
         />
 
         <label>
           <input
             type="checkbox"
             checked={form.trackingMode}
-            onChange={(e) =>
-              setForm({ ...form, trackingMode: e.target.checked })
-            }
+            onChange={(e) => updateField("trackingMode", e.target.checked)}
           />
           Enable attendance tracking
         </label>
@@ -61,22 +77,13 @@ export default function DetailsStep({ state, dispatch, onNext }: any) {
             placeholder="80"
             value={form.capacityWarningThreshold}
             onChange={(e) =>
-              setForm({
-                ...form,
-                capacityWarningThreshold: e.target.value,
-              })
+              updateField("capacityWarningThreshold", e.target.value)
             }
           />
           % full, display &quot;Only X spots left&quot; message to users.
         </label>
-        {/* 
-        <input
-          type="datetime-local"
-          value={form.publishAt}
-          onChange={(e) => setForm({ ...form, publishAt: e.target.value })}
-        /> */}
 
-        <button className="mouse" onClick={submit}>
+        <button className="mouse" onClick={handleSubmit}>
           Next
         </button>
       </div>

@@ -208,3 +208,16 @@ export type DiscountRule = {
 
   recipientScope?: "threshold_only" | "threshold_and_additional";
 };
+
+export type DetailsStepProps = {
+  state: SemesterDraft;
+  dispatch: React.Dispatch<SemesterAction>;
+  onNext: () => void;
+};
+
+export type DetailsFormState = {
+  name: string;
+  trackingMode: boolean;
+  capacityWarningThreshold: string;
+  publishAt?: string;
+};
