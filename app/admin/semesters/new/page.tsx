@@ -1,52 +1,22 @@
 "use client";
 
-import { useReducer, useState } from "react";
+import { JSX, useReducer } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { SemesterAction, SemesterDraft } from "@/types";
 
 import DetailsStep from "./steps/DetailsStep";
 import SessionsStep from "./steps/SessionsStep";
 import PaymentStep from "./steps/PaymentStep";
 import DiscountsStep from "./steps/DiscountsStep";
 import ReviewStep from "./steps/ReviewStep";
-import { useRouter, useSearchParams } from "next/navigation";
 
-// ----------------------------------
-// Types
-// ----------------------------------
-
-type SemesterDraft = {
-  details?: {
-    name: string;
-    trackingMode: boolean;
-    capacityWarningThreshold?: number | null;
-    publishAt: Date;
-  };
-
-  sessions?: {
-    sessionIds: string[];
-    tagsBySession: Record<string, string[]>;
-  };
-
-  paymentPlan?: {
-    type: "pay_in_full" | "deposit_flat" | "deposit_percent" | "installments";
-    depositAmount?: number;
-    depositPercent?: number;
-    installmentCount?: number | null;
-    dueDate: string;
-  };
-
-  discounts?: {
-    semesterDiscountIds: string[];
-    sessionDiscounts: Record<string, string[]>;
-  };
-};
-
-// ----------------------------------
-// Reducer
-// ----------------------------------
+/* -------------------------------------------------------------------------- */
+/* Reducer                                                                    */
+/* -------------------------------------------------------------------------- */
 
 function semesterReducer(
   state: SemesterDraft,
-  action: { type: string; payload: any },
+  action: SemesterAction,
 ): SemesterDraft {
   switch (action.type) {
     case "SET_DETAILS":
@@ -69,114 +39,130 @@ function semesterReducer(
   }
 }
 
-// ----------------------------------
-// Page Component
-// ----------------------------------
+/* -------------------------------------------------------------------------- */
+/* Step Configuration                                                         */
+/* -------------------------------------------------------------------------- */
 
-const STEPS = ["details", "sessions", "payment", "discounts", "review"];
-type StepKey = (typeof STEPS)[number];
+const STEPS = [
+  { key: "details", label: "Details" },
+  { key: "sessions", label: "Sessions" },
+  { key: "payment", label: "Payment" },
+  { key: "discounts", label: "Discounts" },
+  { key: "review", label: "Review" },
+] as const;
 
-const STEP_INDEX: Record<StepKey, number> = {
-  details: 0,
-  sessions: 1,
-  payment: 2,
-  discounts: 3,
-  review: 4,
-};
-const STEP_LABELS: Record<StepKey, string> = {
-  details: "Details",
-  sessions: "Sessions",
-  payment: "Payment",
-  discounts: "Discounts",
-  review: "Review",
-};
+type StepKey = (typeof STEPS)[number]["key"];
+
+function isStepKey(value: string | null): value is StepKey {
+  return STEPS.some((step) => step.key === value);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Page Component                                                             */
+/* -------------------------------------------------------------------------- */
 
 export default function NewSemesterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const stepParam = searchParams.get("step") as StepKey | null;
-  const stepKey: StepKey =
-    stepParam && stepParam in STEP_INDEX ? stepParam : "details";
-  const step = STEP_INDEX[stepKey];
+
+  const stepParam = searchParams.get("step");
+  const activeStepKey: StepKey = isStepKey(stepParam) ? stepParam : "details";
+
+  const activeStepIndex = STEPS.findIndex((step) => step.key === activeStepKey);
+
   const [state, dispatch] = useReducer(semesterReducer, {});
 
-  function goToStep(index: number) {
-    const key = STEPS[index];
-    router.push(`/admin/semesters/new?step=${key}`);
+  /* ----------------------------- Navigation ------------------------------ */
+
+  function navigateToStep(index: number) {
+    const boundedIndex = Math.min(Math.max(index, 0), STEPS.length - 1);
+
+    router.push(`/admin/semesters/new?step=${STEPS[boundedIndex].key}`);
   }
 
-  function next() {
-    goToStep(Math.min(step + 1, STEPS.length - 1));
+  function nextStep() {
+    navigateToStep(activeStepIndex + 1);
   }
 
-  function back() {
-    goToStep(Math.max(step - 1, 0));
+  function previousStep() {
+    navigateToStep(activeStepIndex - 1);
   }
 
-  async function publish() {
-    // 🔐 Server Action will live here
-    // await createSemester(state)
+  /* ------------------------------ Publish -------------------------------- */
+
+  async function publishSemester() {
+    // TODO: replace with server action
+    // await createSemester(state);
 
     console.log("Publishing semester:", state);
 
-    alert("Semester published (stub)");
     dispatch({ type: "RESET" });
     router.push("/admin/semesters/new?step=details");
   }
 
+  /* ---------------------------- Step Render ------------------------------ */
+
+  const stepRenderers: Record<StepKey, JSX.Element> = {
+    details: (
+      <DetailsStep state={state} dispatch={dispatch} onNext={nextStep} />
+    ),
+    sessions: (
+      <SessionsStep
+        state={state}
+        dispatch={dispatch}
+        onNext={nextStep}
+        onBack={previousStep}
+      />
+    ),
+    payment: (
+      <PaymentStep
+        state={state}
+        dispatch={dispatch}
+        onNext={nextStep}
+        onBack={previousStep}
+      />
+    ),
+    discounts: (
+      <DiscountsStep
+        state={state}
+        dispatch={dispatch}
+        onNext={nextStep}
+        onBack={previousStep}
+      />
+    ),
+    review: (
+      <ReviewStep
+        state={state}
+        onBack={previousStep}
+        onPublish={publishSemester}
+      />
+    ),
+  };
+
+  /* ---------------------------------------------------------------------- */
+
   return (
-    <div className="max-w-5xl mx-auto p-6 text-slate-700">
-      <h1 className="text-2xl font-semibold mb-6">Create New Semesters</h1>
+    <div className="mx-auto max-w-5xl p-6 text-slate-700">
+      <h1 className="mb-6 text-2xl font-semibold">Create New Semester</h1>
 
       {/* Step Indicator */}
-      <div className="flex gap-4 mb-8">
-        {STEPS.map((key, index) => (
+      <div className="mb-8 flex gap-4">
+        {STEPS.map((step, index) => (
           <div
-            key={key}
+            key={step.key}
             className={`text-sm ${
-              index === step ? "font-semibold underline" : "text-gray-400"
+              index === activeStepIndex
+                ? "font-semibold underline"
+                : "text-gray-400"
             }`}
           >
-            {index + 1}. {STEP_LABELS[key]}
+            {index + 1}. {step.label}
           </div>
         ))}
       </div>
 
       {/* Step Content */}
-      {step === 0 && (
-        <DetailsStep state={state} dispatch={dispatch} onNext={next} />
-      )}
-
-      {step === 1 && (
-        <SessionsStep
-          state={state}
-          dispatch={dispatch}
-          onNext={next}
-          onBack={back}
-        />
-      )}
-
-      {step === 2 && (
-        <PaymentStep
-          state={state}
-          dispatch={dispatch}
-          onNext={next}
-          onBack={back}
-        />
-      )}
-
-      {step === 3 && (
-        <DiscountsStep
-          state={state}
-          dispatch={dispatch}
-          onNext={next}
-          onBack={back}
-        />
-      )}
-
-      {step === 4 && (
-        <ReviewStep state={state} onBack={back} onPublish={publish} />
-      )}
+      {stepRenderers[activeStepKey]}
     </div>
   );
 }

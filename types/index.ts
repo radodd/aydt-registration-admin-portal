@@ -123,19 +123,19 @@ export interface Registration {
 }
 
 export type SemesterDraft = {
-  details: {
+  details?: {
     name: string;
     trackingMode: boolean;
     capacityWarningThreshold?: number;
     publishAt?: Date;
   };
 
-  sessions: {
+  sessions?: {
     sessionIds: string[];
     tagsBySession: Record<string, string[]>;
   };
 
-  paymentPlan: {
+  paymentPlan?: {
     type: "pay_in_full" | "deposit_flat" | "deposit_percent" | "installments";
     depositAmount?: number;
     depositPercent?: number;
@@ -144,11 +144,18 @@ export type SemesterDraft = {
     installments?: { number: number; amount: number; dueDate: string }[];
   };
 
-  discounts: {
+  discounts?: {
     semesterDiscountIds: string[];
     sessionDiscounts: Record<string, string[]>;
   };
 };
+
+export type SemesterAction =
+  | { type: "SET_DETAILS"; payload: SemesterDraft["details"] }
+  | { type: "SET_SESSIONS"; payload: SemesterDraft["sessions"] }
+  | { type: "SET_PAYMENT"; payload: SemesterDraft["paymentPlan"] }
+  | { type: "SET_DISCOUNTS"; payload: SemesterDraft["discounts"] }
+  | { type: "RESET" };
 
 export type SemesterSession = {
   sessionId: string;
