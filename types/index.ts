@@ -144,8 +144,9 @@ export type SemesterDraft = {
   };
 
   discounts?: {
-    semesterDiscountIds: string[];
-    sessionDiscounts: Record<string, string[]>;
+    // semesterDiscountIds: string[];
+    // sessionDiscounts: Record<string, string[]>;
+    appliedDiscounts: DiscountApplication[];
   };
 };
 
@@ -177,6 +178,7 @@ export type SemesterSession = {
 };
 
 export type SemesterDiscount = {
+  id: string;
   discountId: string;
 
   // snapshot fields
@@ -189,6 +191,21 @@ export type SemesterDiscount = {
 
   // lifecycle controls
   enabled: boolean;
+};
+
+export type Discount = {
+  id: string;
+  name: string;
+  category: DiscountCategory;
+  rules: DiscountRule[];
+  enabled: boolean;
+  created_at: string;
+};
+
+export type DiscountApplication = {
+  discountId: string;
+  scope: "all_sessions" | "selected_sessions";
+  sessionIds?: string[];
 };
 
 export type DiscountCategory = "multi_person" | "multi_session" | "custom";
@@ -241,6 +258,12 @@ export type DiscountsStepProps = {
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
   onBack: () => void;
+};
+
+export type ReviewStepProps = {
+  state: SemesterDraft;
+  onBack: () => void;
+  onPublish: () => void;
 };
 
 export type PaymentFormState = {

@@ -1,6 +1,12 @@
 "use client";
 
-export default function ReviewStep({ state, onBack, onPublish }) {
+import { ReviewStepProps } from "@/types";
+
+export default function ReviewStep({
+  state,
+  onBack,
+  onPublish,
+}: ReviewStepProps) {
   return (
     <div>
       <h2>Review & Publish</h2>
