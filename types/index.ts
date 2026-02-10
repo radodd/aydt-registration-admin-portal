@@ -228,3 +228,16 @@ export type SessionsStepProps = {
   onNext: () => void;
   onBack: () => void;
 };
+
+export type PaymentStepProps = {
+  state: SemesterDraft;
+  dispatch: React.Dispatch<SemesterAction>;
+  onNext: () => void;
+  onBack: () => void;
+};
+
+export type PaymentFormState = {
+  type: "pay_in_full" | "deposit_flat" | "deposit_percent" | "installments";
+  dueDate: string;
+  installmentCount: string;
+};

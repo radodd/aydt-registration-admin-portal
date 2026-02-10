@@ -1,33 +1,68 @@
 "use client";
 
+import { PaymentFormState, PaymentStepProps } from "@/types";
 import { useState } from "react";
 
-export default function PaymentStep({ state, dispatch, onNext, onBack }) {
-  const [form, setForm] = useState(
-    state.paymentPlan ?? {
-      type: "pay_in_full",
-      dueDate: "",
-      installmentCount: "",
-    },
-  );
+export default function PaymentStep({
+  state,
+  dispatch,
+  onNext,
+  onBack,
+}: PaymentStepProps) {
+  const [form, setForm] = useState<PaymentFormState>({
+    type: state.paymentPlan?.type ?? "pay_in_full",
+    dueDate: state.paymentPlan?.dueDate ?? "",
+    installmentCount: state.paymentPlan?.installmentCount?.toString() ?? "",
+  });
 
-  function submit() {
+  /* ------------------------------------------------------------------------ */
+  /* Helpers                                                                  */
+  /* ------------------------------------------------------------------------ */
+
+  function updateField<K extends keyof PaymentFormState>(
+    key: K,
+    value: PaymentFormState[K],
+  ) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function isValid(): boolean {
     if (!form.dueDate) {
       alert("Payment due date required");
-      return;
+      return false;
     }
+    if (
+      form.type === "installments" &&
+      (!form.installmentCount || Number(form.installmentCount) <= 0)
+    ) {
+      alert("Installment count must be greater than zero");
+      return false;
+    }
+    return true;
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Handlers                                                                 */
+  /* ------------------------------------------------------------------------ */
+
+  function handleSubmit() {
+    if (!isValid()) return;
 
     dispatch({
       type: "SET_PAYMENT",
       payload: {
-        ...form,
+        type: form.type,
+        dueDate: form.dueDate,
         installmentCount:
-          form.type === "installments" ? Number(form.installmentCount) : null,
+          form.type === "installments" ? Number(form.installmentCount) : undefined,
       },
     });
-
     onNext();
   }
+
+  /* ------------------------------------------------------------------------ */
+  /* Render                                                                   */
+  /* ------------------------------------------------------------------------ */
 
   return (
     <div>
@@ -35,7 +70,9 @@ export default function PaymentStep({ state, dispatch, onNext, onBack }) {
 
       <select
         value={form.type}
-        onChange={(e) => setForm({ ...form, type: e.target.value })}
+        onChange={(e) =>
+          updateField("type", e.target.value as PaymentFormState["type"])
+        }
       >
         <option value="pay_in_full">Pay in Full</option>
         <option value="deposit_flat">Flat Deposit</option>
@@ -46,10 +83,14 @@ export default function PaymentStep({ state, dispatch, onNext, onBack }) {
       {form.type === "installments" && (
         <input
           type="number"
+          min={1}
           placeholder="Number of installments"
           value={form.installmentCount}
           onChange={(e) =>
-            setForm({ ...form, installmentCount: e.target.value })
+            updateField(
+              "installmentCount",
+              e.target.value as PaymentFormState["installmentCount"],
+            )
           }
         />
       )}
@@ -57,12 +98,14 @@ export default function PaymentStep({ state, dispatch, onNext, onBack }) {
       <input
         type="date"
         value={form.dueDate}
-        onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
+        onChange={(e) =>
+          updateField("dueDate", e.target.value as PaymentFormState["dueDate"])
+        }
       />
 
       <div>
         <button onClick={onBack}>Back</button>
-        <button onClick={submit}>Next</button>
+        <button onClick={handleSubmit}>Next</button>
       </div>
     </div>
   );
