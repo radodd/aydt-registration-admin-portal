@@ -131,8 +131,7 @@ export type SemesterDraft = {
   };
 
   sessions?: {
-    sessionIds: string[];
-    tagsBySession: Record<string, string[]>;
+    appliedSessions: SemesterSession[];
   };
 
   paymentPlan?: {
@@ -159,21 +158,22 @@ export type SemesterAction =
 
 export type SemesterSession = {
   sessionId: string;
+
   title: string;
+  type: string | null;
+  capacity: number | null;
 
-  startDate: string;
-  endDate: string;
+  startDate: string | null;
+  endDate: string | null;
   daysOfWeek: string[];
-  type: string;
-  capacity: number;
 
-  // Optional overrides (what the user edits)
-  overriddenTitle?: string;
-  overriddenStartDate?: string;
-  overriddenEndDate?: string;
-  overriddenDaysOfWeek?: string[];
-  overriddenType?: string;
-  overriddenCapacity?: number;
+  overriddenTitle?: string | null;
+  overriddenCategory?: string | null;
+  overriddenType?: string | null;
+  overriddenCapacity?: number | null;
+  overriddenStartDate?: string | null;
+  overriddenEndDate?: string | null;
+  overriddenDaysOfWeek?: string[] | null;
 };
 
 export type SemesterDiscount = {
@@ -220,4 +220,11 @@ export type DetailsFormState = {
   trackingMode: boolean;
   capacityWarningThreshold: string;
   publishAt?: string;
+};
+
+export type SessionsStepProps = {
+  state: SemesterDraft;
+  dispatch: React.Dispatch<SemesterAction>;
+  onNext: () => void;
+  onBack: () => void;
 };

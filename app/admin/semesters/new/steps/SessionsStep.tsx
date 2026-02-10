@@ -2,69 +2,107 @@
 
 import QuickEditModal from "@/app/components/semester-flow/QuickEditModal";
 import { getSessions } from "@/queries/admin";
-import { SemesterSession, Session } from "@/types";
-import { useEffect, useState } from "react";
+import { SemesterSession, Session, SessionsStepProps } from "@/types";
+import { useEffect, useMemo, useState } from "react";
 
-export default function SessionsStep({ state, dispatch, onNext, onBack }) {
-  const [allSessions, setAllSessions] = useState<Session[]>([]);
-  const [applied, setApplied] = useState<SemesterSession[]>(
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Prefer an overridden value if present; otherwise fall back to the original.
+ */
+
+function resolveOverride<T>(override?: T, original?: T): T | undefined {
+  return override ?? original;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Component                                                                  */
+/* -------------------------------------------------------------------------- */
+
+export default function SessionsStep({
+  state,
+  dispatch,
+  onNext,
+  onBack,
+}: SessionsStepProps) {
+  const [allSessions, setAllSessions] = useState<Session[] | null>([]);
+  const [appliedSessions, setAppliedSessions] = useState<SemesterSession[]>(
     state.sessions?.appliedSessions ?? [],
   );
+  const [editingSession, setEditingSession] = useState<SemesterSession | null>(
+    null,
+  );
 
-  const [editing, setEditing] = useState<SemesterSession | null>(null);
-
-  function effective<T>(override?: T, original?: T): T | undefined {
-    return override ?? original;
-  }
+  /* ------------------------------------------------------------------------ */
+  /* Data loading                                                             */
+  /* ------------------------------------------------------------------------ */
 
   useEffect(() => {
-    (async () => {
+    async function loadSessions() {
       const data = await getSessions();
       setAllSessions(data);
-    })();
+    }
+    loadSessions();
   }, []);
 
-  function addSession(session: Session) {
-    if (applied.find((s) => s.sessionId === session.id)) return;
+  /* ------------------------------------------------------------------------ */
+  /* Derived data                                                             */
+  /* ------------------------------------------------------------------------ */
 
-    setApplied((prev) => [
+  const availableSessions = useMemo(
+    () =>
+      allSessions?.filter(
+        (session) =>
+          !appliedSessions.some((applied) => applied.sessionId === session.id),
+      ),
+    [allSessions, appliedSessions],
+  );
+
+  /* ------------------------------------------------------------------------ */
+  /* Handlers                                                                 */
+  /* ------------------------------------------------------------------------ */
+
+  function handleAddSession(session: Session) {
+    if (appliedSessions.some((s) => s.sessionId === session.id)) return;
+
+    setAppliedSessions((prev) => [
       ...prev,
       {
         sessionId: session.id,
+
         title: session.title,
+        type: session.type ?? null,
+        capacity: session.capacity ?? null,
+
         startDate: session.start_date,
         endDate: session.end_date,
         daysOfWeek: session.days_of_week ?? [],
-        type: session.type,
-        capacity: session.capacity,
       },
     ]);
   }
 
-  function removeSession(sessionId: string) {
-    setApplied((prev) => prev.filter((s) => s.sessionId !== sessionId));
+  function handleRemoveSession(sessionId: string) {
+    setAppliedSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
   }
 
-  function saveEdit(updated: SemesterSession) {
-    setApplied((prev) =>
+  function handleSaveEdit(updated: SemesterSession) {
+    setAppliedSessions((prev) =>
       prev.map((s) => (s.sessionId === updated.sessionId ? updated : s)),
     );
-    setEditing(null);
+    setEditingSession(null);
   }
 
-  function submit() {
+  function handleSubmit() {
     dispatch({
       type: "SET_SESSIONS",
       payload: {
-        appliedSessions: applied,
+        appliedSessions: appliedSessions,
       },
     });
     onNext();
   }
-
-  const available = allSessions.filter(
-    (s) => !applied.some((a) => a.sessionId === s.id),
-  );
 
   return (
     <div className="space-y-6">
@@ -74,42 +112,54 @@ export default function SessionsStep({ state, dispatch, onNext, onBack }) {
       <section>
         <h3 className="font-medium mb-2">Applied Sessions</h3>
 
-        {applied.length === 0 && (
+        {appliedSessions.length === 0 && (
           <p className="text-sm text-muted">No sessions added</p>
         )}
 
         <ul className="space-y-2">
-          {applied.map((s) => (
+          {appliedSessions.map((session) => (
             <li
-              key={s.sessionId}
+              key={session.sessionId}
               className="border rounded p-3 flex justify-between"
             >
               <div>
                 <div className="font-medium">
-                  {s.overriddenTitle ?? s.title}
+                  {session.overriddenTitle ?? session.title}
                 </div>
                 <div className="text-sm text-muted">
-                  {effective(s.overriddenStartDate, s.startDate)} →{" "}
-                  {effective(s.overriddenEndDate, s.endDate)} ·{" "}
-                  {effective(s.overriddenDaysOfWeek, s.daysOfWeek)?.join(", ")}
+                  {resolveOverride(
+                    session.overriddenStartDate,
+                    session.startDate,
+                  )}{" "}
+                  →{" "}
+                  {resolveOverride(session.overriddenEndDate, session.endDate)}{" "}
+                  ·{" "}
+                  {resolveOverride(
+                    session.overriddenDaysOfWeek,
+                    session.daysOfWeek,
+                  )?.join(", ")}
                 </div>
 
                 <div className="text-sm text-muted">
-                  {effective(s.overriddenType, s.type)} · Capacity:{" "}
-                  {effective(s.overriddenCapacity, s.capacity)}
+                  {resolveOverride(session.overriddenType, session.type)} ·
+                  Capacity:{" "}
+                  {resolveOverride(
+                    session.overriddenCapacity,
+                    session.capacity,
+                  )}
                 </div>
               </div>
 
               <div className="flex gap-2">
                 <button
                   className="text-blue-600 text-sm"
-                  onClick={() => setEditing(s)}
+                  onClick={() => setEditingSession(session)}
                 >
                   Quick edit
                 </button>
                 <button
                   className="text-red-600 text-sm"
-                  onClick={() => removeSession(s.sessionId)}
+                  onClick={() => handleRemoveSession(session.sessionId)}
                 >
                   Remove
                 </button>
@@ -124,7 +174,7 @@ export default function SessionsStep({ state, dispatch, onNext, onBack }) {
         <h3 className="font-medium mb-2">Available Sessions</h3>
 
         <ul className="space-y-2">
-          {available.map((s) => (
+          {availableSessions?.map((s) => (
             <li key={s.id} className="border rounded p-3 flex justify-between">
               <div>
                 <div className="font-medium">{s.title}</div>
@@ -138,7 +188,7 @@ export default function SessionsStep({ state, dispatch, onNext, onBack }) {
 
               <button
                 className="text-sm text-green-600"
-                onClick={() => addSession(s)}
+                onClick={() => handleAddSession(s)}
               >
                 Add
               </button>
@@ -149,14 +199,14 @@ export default function SessionsStep({ state, dispatch, onNext, onBack }) {
 
       <div className="flex justify-between">
         <button onClick={onBack}>Back</button>
-        <button onClick={submit}>Next</button>
+        <button onClick={handleSubmit}>Next</button>
       </div>
 
-      {editing && (
+      {editingSession && (
         <QuickEditModal
-          session={editing}
-          onCancel={() => setEditing(null)}
-          onSave={saveEdit}
+          session={editingSession}
+          onCancel={() => setEditingSession(null)}
+          onSave={handleSaveEdit}
         />
       )}
     </div>
