@@ -24,53 +24,68 @@ export default function QuickEditSession({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-      <div className="bg-white p-6 rounded w-full max-w-lg space-y-4">
-        <h3 className="font-semibold text-lg">Quick Edit Session</h3>
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-white border border-gray-200 rounded-2xl shadow-xl p-8 space-y-8">
+        {/* Header */}
+        <div>
+          <h3 className="text-xl font-semibold text-gray-900 tracking-tight">
+            Quick Edit Session
+          </h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Override session details for this semester.
+          </p>
+        </div>
 
         {/* Title */}
-        <label className="block">
-          <span className="text-sm">Title</span>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Title</label>
           <input
-            className="border p-2 w-full"
+            className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
             value={draft.overriddenTitle ?? draft.title}
             onChange={(e) =>
               setDraft({ ...draft, overriddenTitle: e.target.value })
             }
           />
-        </label>
+        </div>
 
         {/* Dates */}
-        <div className="grid grid-cols-2 gap-2">
-          <label>
-            <span className="text-sm">Start date</span>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Start date
+            </label>
             <input
               type="date"
-              className="border p-2 w-full"
+              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               value={draft.overriddenStartDate ?? draft.startDate}
               onChange={(e) =>
                 setDraft({ ...draft, overriddenStartDate: e.target.value })
               }
             />
-          </label>
+          </div>
 
-          <label>
-            <span className="text-sm">End date</span>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              End date
+            </label>
             <input
               type="date"
-              className="border p-2 w-full"
+              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
               value={draft.overriddenEndDate ?? draft.endDate}
               onChange={(e) =>
                 setDraft({ ...draft, overriddenEndDate: e.target.value })
               }
             />
-          </label>
+          </div>
         </div>
 
         {/* Days of Week */}
-        <div>
-          <span className="text-sm">Days of week</span>
-          <div className="flex gap-2 flex-wrap mt-1">
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-gray-700">
+            Days of week
+          </label>
+
+          <div className="flex flex-wrap gap-2">
             {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => {
               const active = (
                 draft.overriddenDaysOfWeek ?? draft.daysOfWeek
@@ -81,9 +96,12 @@ export default function QuickEditSession({
                   key={d}
                   type="button"
                   onClick={() => toggleDay(d)}
-                  className={`px-2 py-1 border rounded ${
-                    active ? "bg-blue-600 text-white" : ""
-                  }`}
+                  className={`px-3 py-1.5 text-sm rounded-lg border transition
+                ${
+                  active
+                    ? "bg-indigo-600 text-white border-indigo-600"
+                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
                 >
                   {d}
                 </button>
@@ -93,10 +111,12 @@ export default function QuickEditSession({
         </div>
 
         {/* Type */}
-        <label>
-          <span className="text-sm">Session type</span>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">
+            Session type
+          </label>
           <select
-            className="border p-2 w-full"
+            className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
             value={draft.overriddenType ?? draft.type}
             onChange={(e) =>
               setDraft({ ...draft, overriddenType: e.target.value })
@@ -106,14 +126,14 @@ export default function QuickEditSession({
             <option value="camp">Camp</option>
             <option value="workshop">Workshop</option>
           </select>
-        </label>
+        </div>
 
         {/* Capacity */}
-        <label>
-          <span className="text-sm">Capacity</span>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Capacity</label>
           <input
             type="number"
-            className="border p-2 w-full"
+            className="w-32 rounded-xl border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
             value={draft.overriddenCapacity ?? draft.capacity}
             onChange={(e) =>
               setDraft({
@@ -122,16 +142,20 @@ export default function QuickEditSession({
               })
             }
           />
-        </label>
+        </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className="border px-4 py-2">
+        <div className="flex justify-end gap-3 pt-2">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+          >
             Cancel
           </button>
+
           <button
             onClick={() => onSave(draft)}
-            className="bg-blue-600 text-white px-4 py-2"
+            className="px-6 py-2.5 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
           >
             Save
           </button>

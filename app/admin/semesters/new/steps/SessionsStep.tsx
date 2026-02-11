@@ -105,28 +105,40 @@ export default function SessionsStep({
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Sessions</h2>
+    <div className="max-w-4xl mx-auto space-y-8">
+      <div>
+        <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">
+          Sessions
+        </h2>
+        <p className="text-sm text-gray-500 mt-1">
+          Manage sessions applied to this semester.
+        </p>
+      </div>
 
       {/* Applied Sessions */}
-      <section>
-        <h3 className="font-medium mb-2">Applied Sessions</h3>
+      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Applied Sessions
+        </h3>
 
         {appliedSessions.length === 0 && (
-          <p className="text-sm text-muted">No sessions added</p>
+          <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
+            <p className="text-sm text-gray-500">No sessions added</p>
+          </div>
         )}
 
-        <ul className="space-y-2">
+        <ul className="space-y-4">
           {appliedSessions.map((session) => (
             <li
               key={session.sessionId}
-              className="border rounded p-3 flex justify-between"
+              className="border border-gray-200 rounded-xl p-4 flex justify-between items-start hover:border-gray-300 transition"
             >
-              <div>
-                <div className="font-medium">
+              <div className="space-y-1">
+                <div className="font-medium text-gray-900">
                   {session.overriddenTitle ?? session.title}
                 </div>
-                <div className="text-sm text-muted">
+
+                <div className="text-sm text-gray-500">
                   {resolveOverride(
                     session.overriddenStartDate,
                     session.startDate,
@@ -140,7 +152,7 @@ export default function SessionsStep({
                   )?.join(", ")}
                 </div>
 
-                <div className="text-sm text-muted">
+                <div className="text-sm text-gray-500">
                   {resolveOverride(session.overriddenType, session.type)} ·
                   Capacity:{" "}
                   {resolveOverride(
@@ -150,15 +162,15 @@ export default function SessionsStep({
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-3 shrink-0">
                 <button
-                  className="text-blue-600 text-sm"
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
                   onClick={() => setEditingSession(session)}
                 >
                   Quick edit
                 </button>
                 <button
-                  className="text-red-600 text-sm"
+                  className="text-sm font-medium text-red-600 hover:text-red-700 transition"
                   onClick={() => handleRemoveSession(session.sessionId)}
                 >
                   Remove
@@ -170,24 +182,31 @@ export default function SessionsStep({
       </section>
 
       {/* Available Sessions */}
-      <section>
-        <h3 className="font-medium mb-2">Available Sessions</h3>
+      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Available Sessions
+        </h3>
 
-        <ul className="space-y-2">
+        <ul className="space-y-4">
           {availableSessions?.map((s) => (
-            <li key={s.id} className="border rounded p-3 flex justify-between">
-              <div>
-                <div className="font-medium">{s.title}</div>
-                <div className="text-sm text-muted">
+            <li
+              key={s.id}
+              className="border border-gray-200 rounded-xl p-4 flex justify-between items-start hover:border-gray-300 transition"
+            >
+              <div className="space-y-1">
+                <div className="font-medium text-gray-900">{s.title}</div>
+
+                <div className="text-sm text-gray-500">
                   {s.start_date} → {s.end_date} · {s.days_of_week?.join(", ")}
                 </div>
-                <div className="text-sm text-muted">
+
+                <div className="text-sm text-gray-500">
                   {s.type} · Capacity: {s.capacity}
                 </div>
               </div>
 
               <button
-                className="text-sm text-green-600"
+                className="text-sm font-medium text-green-600 hover:text-green-700 transition shrink-0"
                 onClick={() => handleAddSession(s)}
               >
                 Add
@@ -197,9 +216,21 @@ export default function SessionsStep({
         </ul>
       </section>
 
-      <div className="flex justify-between">
-        <button onClick={onBack}>Back</button>
-        <button onClick={handleSubmit}>Next</button>
+      {/* Navigation */}
+      <div className="flex justify-between pt-4">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+        >
+          Back
+        </button>
+
+        <button
+          onClick={handleSubmit}
+          className="px-6 py-2.5 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
+        >
+          Next
+        </button>
       </div>
 
       {editingSession && (
