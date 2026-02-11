@@ -9,6 +9,7 @@ import SessionsStep from "./steps/SessionsStep";
 import PaymentStep from "./steps/PaymentStep";
 import DiscountsStep from "./steps/DiscountsStep";
 import ReviewStep from "./steps/ReviewStep";
+import { publishSemester } from "../actions/publishSemester";
 
 /* -------------------------------------------------------------------------- */
 /* Reducer                                                                    */
@@ -19,6 +20,8 @@ function semesterReducer(
   action: SemesterAction,
 ): SemesterDraft {
   switch (action.type) {
+    case "SET_ID":
+      return { ...state, id: action.payload };
     case "SET_DETAILS":
       return { ...state, details: action.payload };
 
@@ -90,9 +93,13 @@ export default function NewSemesterPage() {
 
   /* ------------------------------ Publish -------------------------------- */
 
-  async function publishSemester() {
-    // TODO: replace with server action
-    // await createSemester(state);
+  async function handlePublish() {
+    try {
+      await publishSemester(state.id!);
+      router.push("/admin/semesters");
+    } catch (err) {
+      alert(err.message);
+    }
 
     console.log("Publishing semester:", state);
 
@@ -134,7 +141,7 @@ export default function NewSemesterPage() {
       <ReviewStep
         state={state}
         onBack={previousStep}
-        onPublish={publishSemester}
+        onPublish={handlePublish}
       />
     ),
   };

@@ -49,6 +49,13 @@ export async function signUp(formData: FormData) {
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      // emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+      data: {
+        first_name: "Ethan",
+        last_name: "Flores",
+      },
+    },
   });
   console.log("Auth Data", authData);
 

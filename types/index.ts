@@ -1,3 +1,7 @@
+/* -------------------------------------------------------------------------- */
+/* User Domain                                                                */
+/* -------------------------------------------------------------------------- */
+
 export interface User {
   id: string;
   family_id: string;
@@ -11,6 +15,10 @@ export interface User {
   status: string;
   created_at: string;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Dancer Domain                                                                */
+/* -------------------------------------------------------------------------- */
 
 export interface Dancer {
   id: string;
@@ -54,6 +62,10 @@ export interface Dancer {
   }[];
 }
 
+/* -------------------------------------------------------------------------- */
+/* Family Domain                                                                */
+/* -------------------------------------------------------------------------- */
+
 export interface Family {
   id: string;
   family_name: string | null;
@@ -82,6 +94,10 @@ export interface Family {
     }[];
   }[];
 }
+
+/* -------------------------------------------------------------------------- */
+/* Session Domain                                                                */
+/* -------------------------------------------------------------------------- */
 
 export interface Session {
   id: string;
@@ -122,7 +138,13 @@ export interface Registration {
   created_at: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Semester Domain                                                                */
+/* -------------------------------------------------------------------------- */
+
 export type SemesterDraft = {
+  id?: string;
+
   details?: {
     name: string;
     trackingMode: boolean;
@@ -151,6 +173,7 @@ export type SemesterDraft = {
 };
 
 export type SemesterAction =
+  | { type: "SET_ID"; payload: SemesterDraft["id"] }
   | { type: "SET_DETAILS"; payload: SemesterDraft["details"] }
   | { type: "SET_SESSIONS"; payload: SemesterDraft["sessions"] }
   | { type: "SET_PAYMENT"; payload: SemesterDraft["paymentPlan"] }
@@ -193,6 +216,10 @@ export type SemesterDiscount = {
   enabled: boolean;
 };
 
+/* -------------------------------------------------------------------------- */
+/* Discount Domain                                                                */
+/* -------------------------------------------------------------------------- */
+
 export type Discount = {
   id: string;
   name: string;
@@ -226,6 +253,10 @@ export type DiscountRule = {
   recipientScope?: "threshold_only" | "threshold_and_additional";
 };
 
+/* -------------------------------------------------------------------------- */
+/* Details Domain                                                                */
+/* -------------------------------------------------------------------------- */
+
 export type DetailsStepProps = {
   state: SemesterDraft;
   dispatch: React.Dispatch<SemesterAction>;
@@ -238,6 +269,10 @@ export type DetailsFormState = {
   capacityWarningThreshold: string;
   publishAt?: string;
 };
+
+/* -------------------------------------------------------------------------- */
+/* Sessions Domain                                                                */
+/* -------------------------------------------------------------------------- */
 
 export type SessionsStepProps = {
   state: SemesterDraft;
@@ -265,6 +300,10 @@ export type ReviewStepProps = {
   onBack: () => void;
   onPublish: () => void;
 };
+
+/* -------------------------------------------------------------------------- */
+/* Payment Domain                                                                */
+/* -------------------------------------------------------------------------- */
 
 export type PaymentFormState = {
   type: "pay_in_full" | "deposit_flat" | "deposit_percent" | "installments";

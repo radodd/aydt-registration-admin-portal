@@ -2,6 +2,8 @@
 
 import { DetailsFormState, DetailsStepProps } from "@/types";
 import { useState } from "react";
+import { createSemesterDraft } from "../../actions/createSemesterDraft";
+import { updateSemesterDetails } from "../../actions/updateSemesterDetails";
 
 /* -------------------------------------------------------------------------- */
 /* Component                                                                  */
@@ -29,25 +31,41 @@ export default function DetailsStep({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  function handleSubmit() {
+  async function handleDetailsNext(formValues: DetailsFormState) {
     if (!form.name.trim()) {
       alert("Name is required");
       return;
     }
 
-    dispatch({
-      type: "SET_DETAILS",
-      payload: {
-        name: form.name.trim(),
-        trackingMode: form.trackingMode,
-        capacityWarningThreshold:
-          form.capacityWarningThreshold !== ""
-            ? Number(form.capacityWarningThreshold)
-            : 0,
-      },
-    });
+    try {
+      let semesterId = state.id;
 
-    onNext();
+      if (!semesterId) {
+        // First time → create draft
+        semesterId = await createSemesterDraft();
+        dispatch({ type: "SET_ID", payload: semesterId });
+      }
+
+      await updateSemesterDetails(semesterId!, formValues);
+
+      // router.push("/admin/semesters/new?step=sessions");
+
+      dispatch({
+        type: "SET_DETAILS",
+        payload: {
+          name: form.name.trim(),
+          trackingMode: form.trackingMode,
+          capacityWarningThreshold:
+            form.capacityWarningThreshold !== ""
+              ? Number(form.capacityWarningThreshold)
+              : 0,
+        },
+      });
+
+      onNext();
+    } catch (err: any) {
+      alert(err.message);
+    }
   }
 
   return (
@@ -83,7 +101,7 @@ export default function DetailsStep({
           % full, display &quot;Only X spots left&quot; message to users.
         </label>
 
-        <button className="mouse" onClick={handleSubmit}>
+        <button className="mouse" onClick={() => handleDetailsNext(form)}>
           Next
         </button>
       </div>
