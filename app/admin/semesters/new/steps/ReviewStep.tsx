@@ -1,12 +1,158 @@
 "use client";
 
-import { ReviewStepProps } from "@/types";
+import {
+  Discount,
+  DiscountCategory,
+  DiscountRule,
+  SemesterDraft,
+} from "@/types";
+
+type ReviewStepProps = {
+  state: SemesterDraft;
+  allDiscounts?: Discount[];
+  onBack: () => void;
+  onPublish: () => void;
+};
 
 export default function ReviewStep({
   state,
+  allDiscounts = [],
   onBack,
   onPublish,
 }: ReviewStepProps) {
+  /*
+   |--------------------------------------------------------------------------
+   | Safe Normalization
+   |--------------------------------------------------------------------------
+   */
+
+  const safeDetails = state.details;
+  const safeSessions = state.sessions?.appliedSessions ?? [];
+  const safePayment = state.paymentPlan;
+  // const safeAppliedDiscounts = state.discounts?.appliedDiscounts ?? [];
+
+  /*
+   |--------------------------------------------------------------------------
+   | Lookup Maps
+   |--------------------------------------------------------------------------
+   */
+
+  // const discountMap = new Map(allDiscounts.map((d) => [d.id, d]));
+
+  const sessionMap = new Map(safeSessions.map((s) => [s.sessionId, s]));
+
+  //   const [allDiscounts, setAllDiscounts] = useState<Discount[]>([]);
+
+  // useEffect(() => {
+  //   async function load() {
+  //     const data = await getDiscounts(); // your DB query
+  //     setAllDiscounts(data);
+  //   }
+
+  //   load();
+  // }, []);
+
+  /*
+   |--------------------------------------------------------------------------
+   | Enrich Discount Applications (Review Model)
+   |--------------------------------------------------------------------------
+   */
+
+  // const reviewDiscounts = safeAppliedDiscounts
+  //   .map((app) => {
+  //     const discount = discountMap.get(app.discountId);
+  //     if (!discount) return null;
+
+  //     return {
+  //       id: discount.id,
+  //       name: discount.name,
+  //       category: discount.category,
+  //       rules: discount.rules,
+  //       scope: app.scope,
+  //       sessionIds: app.sessionIds,
+  //     };
+  //   })
+  //   .filter(Boolean) as {
+  //   id: string;
+  //   name: string;
+  //   category: DiscountCategory;
+  //   rules: DiscountRule[];
+  //   scope: "all_sessions" | "selected_sessions";
+  //   sessionIds?: string[];
+  // }[];
+
+  /*
+   |--------------------------------------------------------------------------
+   | Rule Formatter
+   |--------------------------------------------------------------------------
+   */
+
+  function formatRule(rule: DiscountRule, category: DiscountCategory) {
+    const unit = category === "multi_person" ? "people" : "sessions";
+
+    const value =
+      rule.valueType === "percent"
+        ? `${rule.value}% off`
+        : `$${rule.value} off`;
+
+    return `At ${rule.threshold} ${unit} → ${value}`;
+  }
+
+  /*
+|--------------------------------------------------------------------------
+| DEBUG: Discounts
+|--------------------------------------------------------------------------
+*/
+
+  console.group("🔎 ReviewStep Discounts Debug");
+
+  console.log("Full state.discounts:", state.discounts);
+  console.log("Applied Discounts:", state.discounts?.appliedDiscounts);
+
+  console.log("All Discounts from DB:", allDiscounts);
+
+  const safeAppliedDiscounts = state.discounts?.appliedDiscounts ?? [];
+
+  console.log("Safe Applied Discounts (normalized):", safeAppliedDiscounts);
+
+  const discountMap = new Map((allDiscounts ?? []).map((d) => [d.id, d]));
+
+  console.log("Discount Map Keys:", Array.from(discountMap.keys()));
+
+  const reviewDiscounts = safeAppliedDiscounts
+    .map((app) => {
+      console.log("Processing application:", app);
+
+      const discount = discountMap.get(app.discountId);
+
+      console.log("Lookup result for", app.discountId, ":", discount);
+
+      if (!discount) {
+        console.warn("❌ No matching discount found for ID:", app.discountId);
+        return null;
+      }
+
+      return {
+        id: discount.id,
+        name: discount.name,
+        category: discount.category,
+        // rules: discount.rules,
+        scope: app.scope,
+        sessionIds: app.sessionIds,
+      };
+    })
+    .filter(Boolean);
+
+  console.log("Final reviewDiscounts:", reviewDiscounts);
+
+  console.groupEnd();
+
+  /*
+   |--------------------------------------------------------------------------
+   | Render
+   |--------------------------------------------------------------------------
+   */
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-10">
@@ -21,46 +167,56 @@ export default function ReviewStep({
         </div>
 
         {/* Semester Details */}
-        <section className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Semester Details
-          </h3>
+        {safeDetails && (
+          <section className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Semester Details
+            </h3>
 
-          <div className="border border-gray-200 rounded-xl p-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Name</span>
-              <span className="font-medium text-gray-900">
-                {state.details?.name}
-              </span>
-            </div>
+            <div className="border border-gray-200 rounded-xl p-4 text-sm space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Name</span>
+                <span className="font-medium text-gray-900">
+                  {safeDetails.name}
+                </span>
+              </div>
 
-            <div className="flex justify-between">
-              <span className="text-gray-500">Attendance Tracking</span>
-              <span className="font-medium text-gray-900">
-                {state.details?.trackingMode ? "Enabled" : "Disabled"}
-              </span>
-            </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Attendance Tracking</span>
+                <span className="font-medium text-gray-900">
+                  {safeDetails.trackingMode ? "Enabled" : "Disabled"}
+                </span>
+              </div>
 
-            <div className="flex justify-between">
-              <span className="text-gray-500">Capacity Warning Threshold</span>
-              <span className="font-medium text-gray-900">
-                {state.details?.capacityWarningThreshold}%
-              </span>
+              <div className="flex justify-between">
+                <span className="text-gray-500">
+                  Capacity Warning Threshold
+                </span>
+                <span className="font-medium text-gray-900">
+                  {safeDetails.capacityWarningThreshold ?? 0}%
+                </span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Sessions */}
         <section className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900">
-            Sessions ({state.sessions?.appliedSessions.length})
+            Sessions ({safeSessions.length})
           </h3>
 
           <div className="space-y-4">
-            {state.sessions?.appliedSessions.map((s) => {
+            {safeSessions.map((s) => {
               const days = s.overriddenDaysOfWeek ?? s.daysOfWeek;
               const type = s.overriddenType ?? s.type;
               const capacity = s.overriddenCapacity ?? s.capacity;
+
+              const hasOverrides =
+                s.overriddenDaysOfWeek ||
+                s.overriddenType ||
+                s.overriddenCapacity ||
+                s.overriddenTitle;
 
               return (
                 <div
@@ -79,11 +235,8 @@ export default function ReviewStep({
                     Type: {type} · Capacity: {capacity}
                   </div>
 
-                  {/* Override Indicator */}
-                  {(s.overriddenDaysOfWeek ||
-                    s.overriddenType ||
-                    s.overriddenCapacity) && (
-                    <div className="text-xs text-indigo-600 font-medium">
+                  {hasOverrides && (
+                    <div className="text-xs font-medium text-indigo-600">
                       Overrides applied
                     </div>
                   )}
@@ -94,58 +247,96 @@ export default function ReviewStep({
         </section>
 
         {/* Payment Plan */}
-        <section className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900">Payment Plan</h3>
+        {safePayment && (
+          <section className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Payment Plan
+            </h3>
 
-          <div className="border border-gray-200 rounded-xl p-4 text-sm space-y-2">
-            <div className="flex justify-between">
-              <span className="text-gray-500">Type</span>
-              <span className="font-medium text-gray-900 capitalize">
-                {state.paymentPlan?.type.replaceAll("_", " ")}
-              </span>
-            </div>
-
-            {state.paymentPlan?.installmentCount && (
+            <div className="border border-gray-200 rounded-xl p-4 text-sm space-y-2">
               <div className="flex justify-between">
-                <span className="text-gray-500">Installments</span>
-                <span className="font-medium text-gray-900">
-                  {state.paymentPlan.installmentCount}
+                <span className="text-gray-500">Type</span>
+                <span className="font-medium text-gray-900 capitalize">
+                  {safePayment.type.replaceAll("_", " ")}
                 </span>
               </div>
-            )}
 
-            <div className="flex justify-between">
-              <span className="text-gray-500">Due Date</span>
-              <span className="font-medium text-gray-900">
-                {state.paymentPlan?.dueDate}
-              </span>
+              {safePayment.installmentCount && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Installments</span>
+                  <span className="font-medium text-gray-900">
+                    {safePayment.installmentCount}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between">
+                <span className="text-gray-500">Due Date</span>
+                <span className="font-medium text-gray-900">
+                  {safePayment.dueDate}
+                </span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* Discounts */}
         <section className="space-y-4">
           <h3 className="text-lg font-semibold text-gray-900">
-            Discounts ({state.discounts?.appliedDiscounts.length})
+            Discounts ({reviewDiscounts.length})
           </h3>
 
-          <div className="border border-gray-200 rounded-xl p-4 text-sm space-y-2">
-            {state.discounts?.appliedDiscounts.length === 0 && (
-              <span className="text-gray-500">No discounts applied</span>
+          <div className="space-y-4">
+            {reviewDiscounts.length === 0 && (
+              <div className="border border-gray-200 rounded-xl p-4 text-sm text-gray-500">
+                No discounts applied
+              </div>
             )}
 
-            {state.discounts?.appliedDiscounts.map((d) => (
-              <div key={d.discountId} className="flex justify-between">
-                <span className="text-gray-500">Discount</span>
-                <span className="font-medium text-gray-900">
-                  {d.scope.replaceAll("_", " ")}
-                </span>
-              </div>
-            ))}
+            {reviewDiscounts.map((d) => {
+              const selectedSessionNames =
+                d?.scope === "selected_sessions" && d.sessionIds
+                  ? d.sessionIds.map(
+                      (id) => sessionMap.get(id)?.title ?? "Unknown session",
+                    )
+                  : [];
+
+              return (
+                <div
+                  key={d?.id}
+                  className="border border-gray-200 rounded-xl p-4 space-y-3"
+                >
+                  <div className="font-medium text-gray-900">{d?.name}</div>
+
+                  <div className="text-sm text-gray-500 capitalize">
+                    Category: {d?.category.replaceAll("_", " ")}
+                  </div>
+
+                  <div className="text-sm text-gray-500">
+                    Applies to:{" "}
+                    {d?.scope === "all_sessions"
+                      ? "All sessions"
+                      : "Selected sessions"}
+                  </div>
+
+                  {selectedSessionNames.length > 0 && (
+                    <div className="text-sm text-gray-500">
+                      Sessions: {selectedSessionNames.join(", ")}
+                    </div>
+                  )}
+
+                  <div className="text-sm text-gray-500 space-y-1">
+                    {/* {d?.rules.map((rule, index) => (
+                      <div key={index}>{formatRule(rule, d.category)}</div>
+                    ))} */}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
-        {/* Publish Actions */}
+        {/* Actions */}
         <div className="flex justify-between pt-6 border-t border-gray-200">
           <button
             onClick={onBack}

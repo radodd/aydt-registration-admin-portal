@@ -297,6 +297,8 @@ export type DiscountsStepProps = {
 
 export type ReviewStepProps = {
   state: SemesterDraft;
+  draft: SemesterDraft;
+  allDiscounts: Discount[];
   onBack: () => void;
   onPublish: () => void;
 };

@@ -1,8 +1,8 @@
 "use client";
 
-import { JSX, useReducer } from "react";
+import { JSX, useEffect, useReducer, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SemesterAction, SemesterDraft } from "@/types";
+import { Discount, SemesterAction, SemesterDraft } from "@/types";
 
 import DetailsStep from "./steps/DetailsStep";
 import SessionsStep from "./steps/SessionsStep";
@@ -10,6 +10,7 @@ import PaymentStep from "./steps/PaymentStep";
 import DiscountsStep from "./steps/DiscountsStep";
 import ReviewStep from "./steps/ReviewStep";
 import { publishSemester } from "../actions/publishSemester";
+import { getDiscounts } from "@/queries/admin";
 
 /* -------------------------------------------------------------------------- */
 /* Reducer                                                                    */
@@ -107,6 +108,17 @@ export default function NewSemesterPage() {
     router.push("/admin/semesters/new?step=details");
   }
 
+  const [allDiscounts, setAllDiscounts] = useState<Discount[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      const data = await getDiscounts(); // your DB query
+      setAllDiscounts(data);
+    }
+
+    load();
+  }, []);
+
   /* ---------------------------- Step Render ------------------------------ */
 
   const stepRenderers: Record<StepKey, JSX.Element> = {
@@ -140,6 +152,7 @@ export default function NewSemesterPage() {
     review: (
       <ReviewStep
         state={state}
+        allDiscounts={allDiscounts}
         onBack={previousStep}
         onPublish={handlePublish}
       />
