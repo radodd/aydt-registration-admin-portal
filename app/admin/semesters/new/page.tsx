@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { SemesterDraft } from "@/types";
 
 import { publishSemester } from "../actions/publishSemester";
@@ -15,7 +15,10 @@ export default function NewSemesterPage() {
   const router = useRouter();
 
   async function handleCreate(state: SemesterDraft) {
-    await publishSemester(state);
+    if (!state.id) {
+      throw new Error("Cannot publish semester without ID");
+    }
+    await publishSemester(state.id);
     router.push("/admin/semesters");
   }
 

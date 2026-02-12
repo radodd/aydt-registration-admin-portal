@@ -10,12 +10,14 @@ import {
 type ReviewStepProps = {
   state: SemesterDraft;
   allDiscounts?: Discount[];
+  mode: "create" | "edit";
   onBack: () => void;
   onPublish: () => void;
 };
 
 export default function ReviewStep({
   state,
+  mode,
   allDiscounts = [],
   onBack,
   onPublish,

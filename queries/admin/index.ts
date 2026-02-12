@@ -1,3 +1,4 @@
+import { Discount } from "@/types";
 import { createClient } from "@/utils/supabase/client";
 
 export async function getFamilies() {
@@ -169,7 +170,7 @@ export async function getUsers() {
 //   return data;
 // }
 
-export async function getDiscounts() {
+export async function getDiscounts(): Promise<Discount[]> {
   const supabase = createClient();
 
   const { data, error } = await supabase
@@ -179,5 +180,5 @@ export async function getDiscounts() {
   if (error) {
     console.error("Failed to load discounts.", error.message);
   }
-  return data;
+  return data ?? [];
 }

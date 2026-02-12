@@ -6,11 +6,11 @@ import { getDiscounts } from "@/queries/admin";
 import { Discount, SemesterAction, SemesterDraft } from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JSX, useEffect, useReducer, useState } from "react";
-import DetailsStep from "./new/steps/DetailsStep";
-import SessionsStep from "./new/steps/SessionsStep";
-import PaymentStep from "./new/steps/PaymentStep";
-import DiscountsStep from "./new/steps/DiscountsStep";
-import ReviewStep from "./new/steps/ReviewStep";
+import DetailsStep from "./steps/DetailsStep";
+import SessionsStep from "./steps/SessionsStep";
+import PaymentStep from "./steps/PaymentStep";
+import DiscountsStep from "./steps/DiscountsStep";
+import ReviewStep from "./steps/ReviewStep";
 import { publishSemester } from "./actions/publishSemester";
 
 function semesterReducer(
@@ -100,7 +100,7 @@ export default function SemesterForm({
 
   /* ----------------------------- Discount Loading ------------------------------ */
 
-  const [allDiscounts, setAllDiscounts] = useState<Discount[] | null>([]);
+  const [allDiscounts, setAllDiscounts] = useState<Discount[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -180,6 +180,7 @@ export default function SemesterForm({
     review: (
       <ReviewStep
         state={state}
+        mode={mode}
         allDiscounts={allDiscounts}
         onBack={previousStep}
         onPublish={handleFinalSubmit}
@@ -190,7 +191,9 @@ export default function SemesterForm({
   return (
     <>
       <div className="mx-auto max-w-5xl p-6 text-slate-700">
-        <h1 className="mb-6 text-2xl font-semibold">Create New Semester</h1>
+        <h1 className="mb-6 text-2xl font-semibold">
+          {mode === "create" ? "Create New" : "Edit"} Semester
+        </h1>
         {/* Step Indicator */}
         <div className="mb-8 flex gap-4">
           {STEPS.map((step, index) => (

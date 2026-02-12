@@ -2,8 +2,8 @@
 
 import { DetailsFormState, DetailsStepProps } from "@/types";
 import { useState } from "react";
-import { createSemesterDraft } from "../../actions/createSemesterDraft";
-import { updateSemesterDetails } from "../../actions/updateSemesterDetails";
+import { createSemesterDraft } from "../actions/createSemesterDraft";
+import { updateSemesterDetails } from "../actions/updateSemesterDetails";
 
 /* -------------------------------------------------------------------------- */
 /* Component                                                                  */
