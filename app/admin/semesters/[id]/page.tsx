@@ -17,18 +17,20 @@ export default async function SemesterDetailPage({ params }: PageProps) {
     .from("semesters")
     .select(
       `
- *,
-    sessions(*),
-    semester_payment_plans(*),
-    semester_payment_installments(*),
-    semester_discounts(
-      discount:discounts(
-        *,
-        discount_rules(*),
-        discount_rule_sessions(*)
-      )
+  *,
+  sessions(*),
+  semester_payment_plans(*),
+  semester_payment_installments(*),
+  semester_discounts(
+    semester_id,
+    discount_id,
+    discount:discounts(
+      *,
+      discount_rules(*),
+      discount_rule_sessions(*)
     )
-    `,
+  )
+`,
     )
     .eq("id", id)
     .single();
@@ -105,26 +107,45 @@ export default async function SemesterDetailPage({ params }: PageProps) {
                 {session.start_date} → {session.end_date}
               </div>
 
+              {session.days_of_week && (
+                <div className="text-sm text-gray-500">
+                  Days: {session.days_of_week.join(", ")}
+                </div>
+              )}
+
               <div className="text-sm text-gray-500">
                 Capacity: {session.capacity}
               </div>
+              <div className="text-sm text-gray-500">
+                Status: {session.is_active ? "Active" : "Inactive"}
+              </div>
+              <div className="text-sm text-gray-500">Type: {session.type}</div>
             </div>
           ))}
         </div>
       </section>
 
       {/* Payment Plan */}
-      {semester.payment_plan?.length > 0 && (
+      {semester.semester_payment_plans && (
         <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
           <h2 className="text-lg font-semibold">Payment Plan</h2>
 
           <div className="text-sm space-y-2">
-            {semester.payment_plan.map((plan: any) => (
-              <div key={plan.id} className="space-y-1">
-                <div>Type: {plan.type}</div>
-                <div>Due Date: {plan.due_date}</div>
+            <div className="space-y-1">
+              <div>Type: {semester.semester_payment_plans.type}</div>
+              <div>Due Date: {semester.semester_payment_plans.due_date}</div>
+              <div>
+                Deposit Amount: {semester.semester_payment_plans.deposit_amount}
               </div>
-            ))}
+              <div>
+                Deposit Percentage:{" "}
+                {semester.semester_payment_plans.deposit_percentage}%
+              </div>
+              <div>
+                Installment Count:{" "}
+                {semester.semester_payment_plans.installment_count}
+              </div>
+            </div>
           </div>
         </section>
       )}
@@ -141,10 +162,25 @@ export default async function SemesterDetailPage({ params }: PageProps) {
           )}
 
           {semester.semester_discounts?.map((sd: any) => (
-            <div key={sd.id} className="border border-gray-200 rounded-xl p-4">
+            <div
+              key={`${sd.semester_id}-${sd.discount_id}`}
+              className="border border-gray-200 rounded-xl p-4"
+            >
               <div className="text-sm">Discount ID: {sd.discount_id}</div>
 
               <div className="text-sm text-gray-500">Scope: {sd.scope}</div>
+              <div className="text-sm text-gray-500">
+                Name: {sd.discount.name}
+              </div>
+              <div className="text-sm text-gray-500">
+                Category: {sd.discount.category}
+              </div>
+              <div className="text-sm text-gray-500">
+                Eligible Sessions: {sd.discount.eligible_sessions_mode}
+              </div>
+              <div className="text-sm text-gray-500">
+                Recipient Scope: {sd.discount.recipient_scope}
+              </div>
             </div>
           ))}
         </div>

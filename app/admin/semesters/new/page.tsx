@@ -4,6 +4,10 @@ import { SemesterDraft } from "@/types";
 import { useRouter } from "next/navigation";
 import SemesterForm from "../SemesterForm";
 import { publishSemester } from "../actions/publishSemester";
+import { syncSemesterDiscounts } from "../actions/synchSemesterDiscounts";
+import { updateSemesterDetails } from "../actions/updateSemesterDetails";
+import { syncSemesterSessions } from "../actions/syncSemesterSessions";
+import { syncSemesterPayment } from "../actions/syncSemesterPayments";
 
 // import { useRouter } from "next/navigation";
 // import { SemesterDraft } from "@/types";
@@ -52,6 +56,19 @@ export default function NewSemesterPage() {
     }
 
     try {
+      const appliedDiscounts = state.discounts?.appliedDiscounts ?? [];
+
+      console.log("Syncing semester discounts:", appliedDiscounts);
+
+      // 🔴 Persist discount bridge rows
+      await syncSemesterDiscounts(state.id, appliedDiscounts);
+      await updateSemesterDetails(state.id, state.details);
+      await syncSemesterSessions(
+        state.id,
+        state.sessions?.appliedSessions ?? [],
+      );
+      await syncSemesterPayment(state.id, state.paymentPlan);
+
       console.log("Publishing semester with ID:", state.id);
 
       await publishSemester(state.id);
