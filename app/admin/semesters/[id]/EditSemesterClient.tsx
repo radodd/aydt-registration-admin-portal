@@ -16,6 +16,8 @@ type SemesterWithRelations = {
 
   sessions: any[];
   payment_plan: any[];
+  semester_payment_plans: any;
+  semester_payment_installments: any[];
   semester_discounts: any[];
   discounts: any[];
 };
@@ -38,9 +40,50 @@ export default function EditSemesterClient({
         capacity_warning_threshold: semester.capacity_warning_threshold,
         publish_at: semester.publish_at,
       },
-      sessions: semester.sessions,
-      paymentPlan: semester.payment_plan,
-      discounts: semester.discounts,
+      sessions: {
+        appliedSessions: semester.sessions.map((s) => ({
+          sessionId: s.id,
+
+          title: s.title,
+          type: s.type,
+          capacity: s.capacity,
+
+          startDate: s.start_date,
+          endDate: s.end_date,
+          daysOfWeek: s.days_of_week,
+
+          // no overrides when editing existing
+          overriddenTitle: null,
+          overriddenCategory: null,
+          overriddenType: null,
+          overriddenCapacity: null,
+          overriddenStartDate: null,
+          overriddenEndDate: null,
+          overriddenDaysOfWeek: null,
+        })),
+      },
+      paymentPlan: semester.semester_payment_plans
+        ? {
+            type: semester.semester_payment_plans.type,
+            depositAmount: semester.semester_payment_plans.deposit_amount,
+            depositPercent: semester.semester_payment_plans.deposit_percent,
+            installmentCount: semester.semester_payment_plans.installment_count,
+            dueDate: semester.semester_payment_plans.due_date,
+            installments: semester.semester_payment_installments?.map((i) => ({
+              number: i.installment_number,
+              amount: i.amount,
+              dueDate: i.due_date,
+            })),
+          }
+        : undefined,
+      discounts: {
+        appliedDiscounts:
+          semester.semester_discounts?.map((sd) => ({
+            discountId: sd.discount_id,
+            scope: "all_sessions", // until you persist scope properly
+            sessionIds: [],
+          })) ?? [],
+      },
     };
   }
 
@@ -62,7 +105,7 @@ export default function EditSemesterClient({
   return (
     <SemesterForm
       mode="edit"
-      basePath={`/admin/semesters/${semester.id}`}
+      basePath={`/admin/semesters/${semester.id}/edit`}
       initialState={mapSemesterToDraft(semester)}
       onFinalSubmit={handleUpdate}
     />
