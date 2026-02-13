@@ -1,6 +1,51 @@
 import { Discount, SemesterDiscount } from "@/types";
 import { createClient } from "@/utils/supabase/client";
 
+// export async function getFamilies() {
+//   const supabase = createClient();
+
+//   const { data, error } = await supabase
+//     .from("families")
+//     .select(
+//       `
+//           id,
+//           family_name,
+//           created_at,
+
+//           users:users!family_id (
+//             id,
+//             first_name,
+//             last_name,
+//             email,
+//             phone_number,
+//             is_primary_parent
+//           ),
+
+//           dancers:dancers!family_id (
+//             id,
+//             first_name,
+//             last_name,
+
+//             registrations:registrations!dancer_id (
+//               id,
+//               programs:programs!program_id (
+//                 id,
+//                 title,
+//                 days_of_week,
+//                 start_time,
+//                 end_time
+//               )
+//             )
+//           )
+//         `,
+//     )
+//     .order("family_name", { ascending: true });
+
+//   if (error) console.error("Failed to load families:", error.message);
+
+//   return data;
+// }
+
 export async function getFamilies() {
   const supabase = createClient();
 
@@ -8,44 +53,47 @@ export async function getFamilies() {
     .from("families")
     .select(
       `
+      id,
+      family_name,
+      created_at,
+
+      users:users!family_id (
+        id,
+        first_name,
+        last_name,
+        email,
+        phone_number,
+        is_primary_parent
+      ),
+
+      dancers:dancers!family_id (
+        id,
+        first_name,
+        last_name,
+        is_self,
+
+        registrations:registrations!dancer_id (
           id,
-          family_name,
-          created_at,
-
-          users:users!family_id (
+          status,
+          sessions:sessions!session_id (
             id,
-            first_name,
-            last_name,
-            email,
-            phone_number,
-            is_primary_parent
-          ),
-
-          dancers:dancers!family_id (
-            id,
-            first_name,
-            last_name,
-
-            registrations:registrations!dancer_id (
-              id,
-              programs:programs!program_id (
-                id,
-                title,
-                days_of_week,
-                start_time,
-                end_time
-              )
-            )
+            title,
+            days_of_week,
+            start_time,
+            end_time
           )
-        `,
+        )
+      )
+    `,
     )
     .order("family_name", { ascending: true });
 
-  if (error) console.error("Failed to load families:", error.message);
+  if (error) {
+    console.error("Failed to load families:", error);
+  }
 
   return data;
 }
-
 export async function getDancers() {
   const supabase = createClient();
 

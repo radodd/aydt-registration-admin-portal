@@ -49,7 +49,7 @@ export interface Dancer {
     status: string;
     total_amount: number;
     created_at: string;
-    programs: {
+    sessions: {
       id: string;
       title: string;
       description: string | null;
