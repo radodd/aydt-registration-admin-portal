@@ -67,6 +67,8 @@ export default function SessionsStep({
   function handleAddSession(session: Session) {
     if (appliedSessions.some((s) => s.sessionId === session.id)) return;
 
+    console.log("Adding session:", session.id);
+
     setAppliedSessions((prev) => [
       ...prev,
       {
@@ -94,13 +96,30 @@ export default function SessionsStep({
     setEditingSession(null);
   }
 
+  // function handleSubmit() {
+  //   dispatch({
+  //     type: "SET_SESSIONS",
+  //     payload: {
+  //       appliedSessions: appliedSessions,
+  //     },
+  //   });
+  //   onNext();
+  // }
+
   function handleSubmit() {
+    console.group("📚 SessionsStep.handleSubmit");
+    console.log("Applied Sessions:", appliedSessions);
+
     dispatch({
       type: "SET_SESSIONS",
       payload: {
         appliedSessions: appliedSessions,
       },
     });
+
+    console.log("Reducer updated with sessions");
+    console.groupEnd();
+
     onNext();
   }
 

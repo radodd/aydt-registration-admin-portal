@@ -5,7 +5,7 @@
 import { getDiscounts } from "@/queries/admin";
 import { Discount, SemesterAction, SemesterDraft } from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
-import { JSX, useEffect, useReducer, useState } from "react";
+import { JSX, useCallback, useEffect, useReducer, useState } from "react";
 import DetailsStep from "./steps/DetailsStep";
 import SessionsStep from "./steps/SessionsStep";
 import PaymentStep from "./steps/PaymentStep";
@@ -13,31 +13,76 @@ import DiscountsStep from "./steps/DiscountsStep";
 import ReviewStep from "./steps/ReviewStep";
 import { publishSemester } from "./actions/publishSemester";
 
+// function semesterReducer(
+//   state: SemesterDraft,
+//   action: SemesterAction,
+// ): SemesterDraft {
+//   switch (action.type) {
+//     case "SET_ID":
+//       return { ...state, id: action.payload };
+//     case "SET_DETAILS":
+//       return { ...state, details: action.payload };
+
+//     case "SET_SESSIONS":
+//       return { ...state, sessions: action.payload };
+
+//     case "SET_PAYMENT":
+//       return { ...state, paymentPlan: action.payload };
+
+//     case "SET_DISCOUNTS":
+//       return { ...state, discounts: action.payload };
+
+//     case "RESET":
+//       return {};
+
+//     default:
+//       return state;
+//   }
+// }
+
 function semesterReducer(
   state: SemesterDraft,
   action: SemesterAction,
 ): SemesterDraft {
+  console.group("🧠 semesterReducer");
+  console.log("Previous State:", state);
+  console.log("Action:", action);
+
+  let nextState: SemesterDraft;
+
   switch (action.type) {
     case "SET_ID":
-      return { ...state, id: action.payload };
+      nextState = { ...state, id: action.payload };
+      break;
+
     case "SET_DETAILS":
-      return { ...state, details: action.payload };
+      nextState = { ...state, details: action.payload };
+      break;
 
     case "SET_SESSIONS":
-      return { ...state, sessions: action.payload };
+      nextState = { ...state, sessions: action.payload };
+      break;
 
     case "SET_PAYMENT":
-      return { ...state, paymentPlan: action.payload };
+      nextState = { ...state, paymentPlan: action.payload };
+      break;
 
     case "SET_DISCOUNTS":
-      return { ...state, discounts: action.payload };
+      nextState = { ...state, discounts: action.payload };
+      break;
 
     case "RESET":
-      return {};
+      nextState = {};
+      break;
 
     default:
-      return state;
+      nextState = state;
   }
+
+  console.log("Next State:", nextState);
+  console.groupEnd();
+
+  return nextState;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -87,6 +132,12 @@ export default function SemesterForm({
   function navigateToStep(index: number) {
     const boundedIndex = Math.min(Math.max(index, 0), STEPS.length - 1);
 
+    console.group("➡️ Step Navigation");
+    console.log("Current Step:", activeStepKey);
+    console.log("Next Step Index:", boundedIndex);
+    console.log("Next Step Key:", STEPS[boundedIndex].key);
+    console.groupEnd();
+
     router.push(`${basePath}?step=${STEPS[boundedIndex].key}`);
   }
 
@@ -102,14 +153,51 @@ export default function SemesterForm({
 
   const [allDiscounts, setAllDiscounts] = useState<Discount[]>([]);
 
+  // useEffect(() => {
+  //   async function load() {
+  //     const data = await getDiscounts(); // your DB query
+  //     setAllDiscounts(data);
+  //   }
+
+  //   load();
+  // }, []);
+
+  // const [allDiscounts, setAllDiscounts] = useState<Discount[]>([]);
+
+  // const loadDiscounts = useCallback(async () => {
+  //   const data = await getDiscounts();
+  //   setAllDiscounts(data);
+  // }, []);
+
+  // useEffect(() => {
+  //   loadDiscounts();
+  // }, [loadDiscounts]);
+
   useEffect(() => {
+    let active = true;
+
     async function load() {
-      const data = await getDiscounts(); // your DB query
-      setAllDiscounts(data);
+      const data = await getDiscounts();
+      if (active) setAllDiscounts(data);
     }
 
     load();
+
+    return () => {
+      active = false;
+    };
   }, []);
+
+  async function refreshDiscounts() {
+    console.group("🔄 refreshDiscounts");
+    const data = await getDiscounts();
+    console.log(
+      "Fetched discount IDs:",
+      data.map((d) => d.id),
+    );
+    setAllDiscounts(data);
+    console.groupEnd();
+  }
 
   /* ------------------------------ Publish -------------------------------- */
 
@@ -144,6 +232,9 @@ export default function SemesterForm({
   // }
 
   async function handleFinalSubmit() {
+    console.group("📦 SemesterForm.handleFinalSubmit");
+    console.log("Final draft state before publish:", state);
+    console.groupEnd();
     await onFinalSubmit(state);
   }
 
@@ -175,6 +266,8 @@ export default function SemesterForm({
         dispatch={dispatch}
         onNext={nextStep}
         onBack={previousStep}
+        allDiscounts={allDiscounts}
+        refreshDiscounts={refreshDiscounts}
       />
     ),
     review: (

@@ -1,4 +1,4 @@
-import { Discount } from "@/types";
+import { Discount, SemesterDiscount } from "@/types";
 import { createClient } from "@/utils/supabase/client";
 
 export async function getFamilies() {
@@ -96,7 +96,7 @@ export async function getSessions() {
   if (error) {
     console.error("Failed to load sessions.", error.message);
   }
-  return data;
+  return data ?? [];
 }
 
 export async function getUsers() {
@@ -170,7 +170,7 @@ export async function getUsers() {
 //   return data;
 // }
 
-export async function getDiscounts(): Promise<Discount[]> {
+export async function getDiscounts(): Promise<SemesterDiscount[]> {
   const supabase = createClient();
 
   const { data, error } = await supabase

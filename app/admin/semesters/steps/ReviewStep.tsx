@@ -22,6 +22,10 @@ export default function ReviewStep({
   onBack,
   onPublish,
 }: ReviewStepProps) {
+  console.group("📋 ReviewStep State Check");
+  console.log("Full state:", state);
+  console.log("state.details:", state.details);
+  console.groupEnd();
   /*
    |--------------------------------------------------------------------------
    | Safe Normalization
@@ -144,6 +148,12 @@ export default function ReviewStep({
       };
     })
     .filter(Boolean);
+
+  console.log("Applications:", safeAppliedDiscounts);
+  console.log(
+    "All discount IDs:",
+    allDiscounts.map((d) => d.id),
+  );
 
   console.log("Final reviewDiscounts:", reviewDiscounts);
 

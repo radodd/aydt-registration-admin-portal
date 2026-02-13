@@ -12,6 +12,17 @@ export async function createDiscount({
 }: CreateDiscountInput): Promise<string> {
   const supabase = createClient();
 
+  console.group("🆕 createDiscount");
+  console.log("Payload:", {
+    name,
+    category,
+    eligibleSessionsMode,
+    giveSessionScope,
+    recipientScope,
+    rules,
+    sessionIds,
+  });
+
   const { data: discount, error: discountError } = await supabase
     .from("discounts")
     .insert({
@@ -49,7 +60,7 @@ export async function createDiscount({
   const { error: rulesError } = await supabase
     .from("discount_rules")
     .insert(rulesPayload);
-
+  console.log("✅ Rules inserted for:", discountId);
   if (rulesError) {
     console.error("Failed to create discount rules.", rulesError);
     throw new Error(rulesError.message);
@@ -81,6 +92,7 @@ export async function createDiscount({
       throw new Error(sessionsError.message);
     }
   }
-
+  console.log("✅ Session restrictions inserted (if any)");
+  console.groupEnd();
   return discountId;
 }

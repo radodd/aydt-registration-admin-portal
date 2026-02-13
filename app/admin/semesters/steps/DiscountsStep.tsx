@@ -1,5 +1,6 @@
 "use client";
 
+import CreateDiscountForm from "@/app/components/CreateDiscountForm";
 import { getDiscounts } from "@/queries/admin";
 import {
   DiscountApplication,
@@ -7,7 +8,9 @@ import {
   SemesterDiscount,
 } from "@/types";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+// import CreateDiscountForm from "../new/discounts/page";
+// import CreateDiscountForm from "../new/discounts/page";
 
 export default function DiscountsStep({
   state,
@@ -15,31 +18,84 @@ export default function DiscountsStep({
   onNext,
   onBack,
 }: DiscountsStepProps) {
-  const [discounts, setDiscounts] = useState<SemesterDiscount[] | null>([]);
+  const [discounts, setDiscounts] = useState<SemesterDiscount[]>([]);
   const [applications, setApplications] = useState<DiscountApplication[]>(
     state.discounts?.appliedDiscounts ?? [],
   );
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   /* ------------------------------------------------------------------------ */
   /* Data loading                                                             */
   /* ------------------------------------------------------------------------ */
 
+  // const loadDiscounts = useCallback(async () => {
+  //   console.log("🔄 Loading discounts...");
+  //   const data = await getDiscounts();
+  //   setDiscounts(data);
+  // }, []);
+
+  // useEffect(() => {
+  //   let active = true;
+
+  //   async function loadDiscounts() {
+  //     const data = await getDiscounts();
+  //     if (active) {
+  //       setDiscounts(data);
+  //     }
+  //   }
+
+  //   loadDiscounts();
+
+  //   return () => {
+  //     active = false;
+  //   };
+  // }, [discounts]);
+
+  const loadDiscounts = useCallback(async () => {
+    console.group("📡 useCallback loadDiscounts");
+    console.log("Triggered loadDiscounts()");
+
+    const data = await getDiscounts();
+
+    console.log("Fetched discounts:", data);
+    console.log("Fetched count:", data?.length);
+
+    setDiscounts(data ?? []);
+
+    console.log("setDiscounts called");
+    console.groupEnd();
+  }, []);
+
   useEffect(() => {
+    console.group("⚡ useEffect loadDiscounts");
+    console.log("Effect triggered");
+    console.log("Current discounts length:", discounts.length);
+
     let active = true;
 
-    async function loadDiscounts() {
+    async function fetchDiscounts() {
+      console.log("Inside effect fetchDiscounts()");
       const data = await getDiscounts();
+
+      console.log("Effect fetched discounts:", data);
+      console.log("Effect fetched count:", data?.length);
+
       if (active) {
-        setDiscounts(data);
+        console.log("Effect updating state...");
+        setDiscounts(data ?? []);
+      } else {
+        console.log("Effect skipped update (inactive)");
       }
     }
 
-    loadDiscounts();
+    fetchDiscounts();
 
     return () => {
+      console.log("Effect cleanup triggered");
       active = false;
+      console.groupEnd();
     };
-  }, []);
+  }, [discounts.length]);
 
   function isSelected(discountId: string) {
     return applications.some((a) => a.discountId === discountId);
@@ -64,12 +120,19 @@ export default function DiscountsStep({
   }
 
   function handleSubmit() {
+    console.group("🏷 DiscountsStep.handleSubmit");
+    console.log("Selected Applications:", applications);
+
     dispatch({
       type: "SET_DISCOUNTS",
       payload: {
         appliedDiscounts: applications,
       },
     });
+
+    console.log("Reducer updated with discounts");
+    console.groupEnd();
+
     onNext();
   }
 
@@ -92,13 +155,27 @@ export default function DiscountsStep({
 
         {/* Create Discount Link */}
         <div>
-          <Link
-            href="/admin/semesters/new/discounts"
+          <button
+            onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
           >
             + Create New Discount
-          </Link>
+          </button>
         </div>
+
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-blur  bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl shadow-lg p-8 max-w-2xl w-full mx-4">
+              <CreateDiscountForm
+                onCreated={async () => {
+                  await loadDiscounts();
+                  setShowCreateModal(false);
+                }}
+                onCancel={() => setShowCreateModal(false)}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Discount List */}
         <div className="space-y-4">

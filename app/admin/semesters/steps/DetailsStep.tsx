@@ -31,8 +31,51 @@ export default function DetailsStep({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  // async function handleDetailsNext(formValues: DetailsFormState) {
+  //   if (!form.name.trim()) {
+  //     alert("Name is required");
+  //     return;
+  //   }
+
+  //   try {
+  //     let semesterId = state.id;
+
+  //     if (!semesterId) {
+  //       // First time → create draft
+  //       semesterId = await createSemesterDraft();
+  //       dispatch({ type: "SET_ID", payload: semesterId });
+  //     }
+
+  //     await updateSemesterDetails(semesterId!, formValues);
+
+  //     // router.push("/admin/semesters/new?step=sessions");
+
+  //     dispatch({
+  //       type: "SET_DETAILS",
+  //       payload: {
+  //         name: form.name.trim(),
+  //         trackingMode: form.trackingMode,
+  //         capacityWarningThreshold:
+  //           form.capacityWarningThreshold !== ""
+  //             ? Number(form.capacityWarningThreshold)
+  //             : 0,
+  //       },
+  //     });
+
+  //     onNext();
+  //   } catch (err: any) {
+  //     alert(err.message);
+  //   }
+  // }
+
   async function handleDetailsNext(formValues: DetailsFormState) {
+    console.group("📝 DetailsStep.handleDetailsNext");
+    console.log("Current state.id:", state.id);
+    console.log("Form values:", formValues);
+
     if (!form.name.trim()) {
+      console.warn("Name missing — aborting");
+      console.groupEnd();
       alert("Name is required");
       return;
     }
@@ -41,14 +84,20 @@ export default function DetailsStep({
       let semesterId = state.id;
 
       if (!semesterId) {
-        // First time → create draft
+        console.log("No semester ID found. Creating draft...");
+
         semesterId = await createSemesterDraft();
+
+        console.log("✅ Draft created with ID:", semesterId);
+
         dispatch({ type: "SET_ID", payload: semesterId });
+      } else {
+        console.log("Using existing semester ID:", semesterId);
       }
 
+      console.log("Updating semester details in DB...");
       await updateSemesterDetails(semesterId!, formValues);
-
-      // router.push("/admin/semesters/new?step=sessions");
+      console.log("✅ Details persisted");
 
       dispatch({
         type: "SET_DETAILS",
@@ -62,9 +111,15 @@ export default function DetailsStep({
         },
       });
 
+      console.log("Reducer updated with details");
+      console.log("Proceeding to next step");
+
       onNext();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      console.error("❌ Details step failed:", err);
+      alert((err as Error).message);
+    } finally {
+      console.groupEnd();
     }
   }
 
