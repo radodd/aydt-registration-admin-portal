@@ -1,6 +1,6 @@
 "use client";
 
-import CreateDiscountForm from "@/app/components/CreateDiscountForm";
+import CreateDiscountForm from "@/app/components/semester-flow/CreateDiscountForm";
 import { getDiscounts } from "@/queries/admin";
 import {
   DiscountApplication,
@@ -17,6 +17,7 @@ export default function DiscountsStep({
   dispatch,
   onNext,
   onBack,
+  allDiscounts,
 }: DiscountsStepProps) {
   const [discounts, setDiscounts] = useState<SemesterDiscount[]>([]);
   const [applications, setApplications] = useState<DiscountApplication[]>(

@@ -18,7 +18,10 @@ export default async function SemesterDetailPage({ params }: PageProps) {
     .select(
       `
   *,
-  sessions(*),
+  sessions(*,
+  session_group_sessions(
+  session_group:session_groups(
+  id, name))),
   semester_payment_plans(*),
   semester_payment_installments(*),
   semester_discounts(
@@ -96,32 +99,52 @@ export default async function SemesterDetailPage({ params }: PageProps) {
         </h2>
 
         <div className="space-y-4">
-          {semester.sessions?.map((session: any) => (
-            <div
-              key={session.id}
-              className="border border-gray-200 rounded-xl p-4"
-            >
-              <div className="font-medium">{session.title}</div>
+          {semester.sessions?.map((session: any) => {
+            const group = session.session_group_sessions?.session_group ?? null;
+            console.log(
+              "🔍 Session Object in GROUPS:",
+              session.session_group_sessions?.session_group,
+            );
 
-              <div className="text-sm text-gray-500">
-                {session.start_date} → {session.end_date}
-              </div>
+            return (
+              <div
+                key={session.id}
+                className="border border-gray-200 rounded-xl p-4"
+              >
+                <div className="font-medium">{session.title}</div>
 
-              {session.days_of_week && (
+                {group ? (
+                  <span className="text-xs font-medium bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">
+                    {group.name}
+                  </span>
+                ) : (
+                  <span className="text-xs font-medium bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
+                    Unassigned
+                  </span>
+                )}
+
                 <div className="text-sm text-gray-500">
-                  Days: {session.days_of_week.join(", ")}
+                  {session.start_date} → {session.end_date}
                 </div>
-              )}
 
-              <div className="text-sm text-gray-500">
-                Capacity: {session.capacity}
+                {session.days_of_week && (
+                  <div className="text-sm text-gray-500">
+                    Days: {session.days_of_week.join(", ")}
+                  </div>
+                )}
+
+                <div className="text-sm text-gray-500">
+                  Capacity: {session.capacity}
+                </div>
+                <div className="text-sm text-gray-500">
+                  Status: {session.is_active ? "Active" : "Inactive"}
+                </div>
+                <div className="text-sm text-gray-500">
+                  Type: {session.type}
+                </div>
               </div>
-              <div className="text-sm text-gray-500">
-                Status: {session.is_active ? "Active" : "Inactive"}
-              </div>
-              <div className="text-sm text-gray-500">Type: {session.type}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

@@ -156,6 +156,14 @@ export type SemesterDraft = {
     appliedSessions: SemesterSession[];
   };
 
+  sessionGroups?: {
+    groups: {
+      id: string;
+      name: string;
+      sessionIds: string[];
+    }[];
+  };
+
   paymentPlan?: {
     type: "pay_in_full" | "deposit_flat" | "deposit_percent" | "installments";
     depositAmount?: number;
@@ -176,6 +184,7 @@ export type SemesterAction =
   | { type: "SET_ID"; payload: SemesterDraft["id"] }
   | { type: "SET_DETAILS"; payload: SemesterDraft["details"] }
   | { type: "SET_SESSIONS"; payload: SemesterDraft["sessions"] }
+  | { type: "SET_SESSION_GROUPS"; payload: SemesterDraft["sessionGroups"] }
   | { type: "SET_PAYMENT"; payload: SemesterDraft["paymentPlan"] }
   | { type: "SET_DISCOUNTS"; payload: SemesterDraft["discounts"] }
   | { type: "RESET" };
@@ -211,6 +220,7 @@ export type SemesterDiscount = {
   eligibleSessionIds?: string[];
 
   rules: DiscountRule[];
+  created_at: string;
 
   // lifecycle controls
   enabled: boolean;
@@ -293,6 +303,8 @@ export type DiscountsStepProps = {
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
   onBack: () => void;
+  allDiscounts: Discount[];
+  refreshDiscounts: () => Promise<void>;
 };
 
 export type ReviewStepProps = {

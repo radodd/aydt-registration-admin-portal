@@ -4,43 +4,11 @@ import { SemesterDraft } from "@/types";
 import { useRouter } from "next/navigation";
 import SemesterForm from "../SemesterForm";
 import { publishSemester } from "../actions/publishSemester";
-import { syncSemesterDiscounts } from "../actions/synchSemesterDiscounts";
+import { syncSemesterDiscounts } from "../actions/syncSemesterDiscounts";
 import { updateSemesterDetails } from "../actions/updateSemesterDetails";
 import { syncSemesterSessions } from "../actions/syncSemesterSessions";
 import { syncSemesterPayment } from "../actions/syncSemesterPayments";
-
-// import { useRouter } from "next/navigation";
-// import { SemesterDraft } from "@/types";
-
-// import { publishSemester } from "../actions/publishSemester";
-
-// import SemesterForm from "../SemesterForm";
-
-// /* -------------------------------------------------------------------------- */
-// /* Page Component                                                             */
-// /* -------------------------------------------------------------------------- */
-
-// export default function NewSemesterPage() {
-//   const router = useRouter();
-
-//   async function handleCreate(state: SemesterDraft) {
-//     if (!state.id) {
-//       throw new Error("Cannot publish semester without ID");
-//     }
-//     await publishSemester(state.id);
-//     router.push("/admin/semesters");
-//   }
-
-//   /* ---------------------------------------------------------------------- */
-
-//   return (
-//     <SemesterForm
-//       mode="create"
-//       basePath="/admin/semesters/new"
-//       onFinalSubmit={handleCreate}
-//     />
-//   );
-// }
+import { syncSemesterSessionGroups } from "../actions/syncSemesterGroups";
 
 export default function NewSemesterPage() {
   const router = useRouter();
@@ -58,16 +26,19 @@ export default function NewSemesterPage() {
     try {
       const appliedDiscounts = state.discounts?.appliedDiscounts ?? [];
 
-      console.log("Syncing semester discounts:", appliedDiscounts);
-
       // 🔴 Persist discount bridge rows
       await syncSemesterDiscounts(state.id, appliedDiscounts);
       await updateSemesterDetails(state.id, state.details);
-      await syncSemesterSessions(
+      const idMap = await syncSemesterSessions(
         state.id,
         state.sessions?.appliedSessions ?? [],
       );
       await syncSemesterPayment(state.id, state.paymentPlan);
+      await syncSemesterSessionGroups(
+        state.id,
+        state.sessionGroups?.groups ?? [],
+        idMap,
+      );
 
       console.log("Publishing semester with ID:", state.id);
 

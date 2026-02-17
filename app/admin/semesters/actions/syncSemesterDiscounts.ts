@@ -10,20 +10,25 @@ export async function syncSemesterDiscounts(
   const supabase = await createClient();
 
   // Remove existing mappings
-  const { error: deleteError } = await supabase
+  const { data: deletedRows, error: deleteError } = await supabase
     .from("semester_discounts")
     .delete()
     .eq("semester_id", semesterId);
 
+  console.log("Deleted rows:", deletedRows);
   if (deleteError) {
     throw new Error(deleteError.message);
   }
 
   if (!applications.length) return;
 
-  const rows = applications.map((app) => ({
+  const uniqueDiscountsIds = Array.from(
+    new Set(applications.map((app) => app.discountId)),
+  );
+
+  const rows = uniqueDiscountsIds.map((discountId) => ({
     semester_id: semesterId,
-    discount_id: app.discountId,
+    discount_id: discountId,
   }));
 
   const { error: insertError } = await supabase

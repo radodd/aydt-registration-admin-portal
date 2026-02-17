@@ -35,6 +35,7 @@ export default function ReviewStep({
   const safeDetails = state.details;
   const safeSessions = state.sessions?.appliedSessions ?? [];
   const safePayment = state.paymentPlan;
+  const safeSessionGroups = state.sessionGroups?.groups ?? [];
   // const safeAppliedDiscounts = state.discounts?.appliedDiscounts ?? [];
 
   /*
@@ -43,49 +44,7 @@ export default function ReviewStep({
    |--------------------------------------------------------------------------
    */
 
-  // const discountMap = new Map(allDiscounts.map((d) => [d.id, d]));
-
   const sessionMap = new Map(safeSessions.map((s) => [s.sessionId, s]));
-
-  //   const [allDiscounts, setAllDiscounts] = useState<Discount[]>([]);
-
-  // useEffect(() => {
-  //   async function load() {
-  //     const data = await getDiscounts(); // your DB query
-  //     setAllDiscounts(data);
-  //   }
-
-  //   load();
-  // }, []);
-
-  /*
-   |--------------------------------------------------------------------------
-   | Enrich Discount Applications (Review Model)
-   |--------------------------------------------------------------------------
-   */
-
-  // const reviewDiscounts = safeAppliedDiscounts
-  //   .map((app) => {
-  //     const discount = discountMap.get(app.discountId);
-  //     if (!discount) return null;
-
-  //     return {
-  //       id: discount.id,
-  //       name: discount.name,
-  //       category: discount.category,
-  //       rules: discount.rules,
-  //       scope: app.scope,
-  //       sessionIds: app.sessionIds,
-  //     };
-  //   })
-  //   .filter(Boolean) as {
-  //   id: string;
-  //   name: string;
-  //   category: DiscountCategory;
-  //   rules: DiscountRule[];
-  //   scope: "all_sessions" | "selected_sessions";
-  //   sessionIds?: string[];
-  // }[];
 
   /*
    |--------------------------------------------------------------------------
@@ -257,6 +216,29 @@ export default function ReviewStep({
             })}
           </div>
         </section>
+
+        {/* Session Groups */}
+        {safeSessionGroups.length > 0 && (
+          <section className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Session Groups ({safeSessionGroups.length})
+            </h3>
+
+            <div className="space-y-4">
+              {safeSessionGroups.map((group) => (
+                <div
+                  key={group.id}
+                  className="border border-gray-200 rounded-xl p-4 space-y-2"
+                >
+                  <div className="font-medium text-gray-900">{group.name}</div>
+                  <div className="text-sm text-gray-500">
+                    Sessions: {group.sessionIds.length}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Payment Plan */}
         {safePayment && (

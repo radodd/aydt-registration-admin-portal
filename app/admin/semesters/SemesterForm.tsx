@@ -5,40 +5,13 @@
 import { getDiscounts } from "@/queries/admin";
 import { Discount, SemesterAction, SemesterDraft } from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
-import { JSX, useCallback, useEffect, useReducer, useState } from "react";
+import { JSX, useEffect, useReducer, useState } from "react";
 import DetailsStep from "./steps/DetailsStep";
 import SessionsStep from "./steps/SessionsStep";
 import PaymentStep from "./steps/PaymentStep";
 import DiscountsStep from "./steps/DiscountsStep";
 import ReviewStep from "./steps/ReviewStep";
-import { publishSemester } from "./actions/publishSemester";
-
-// function semesterReducer(
-//   state: SemesterDraft,
-//   action: SemesterAction,
-// ): SemesterDraft {
-//   switch (action.type) {
-//     case "SET_ID":
-//       return { ...state, id: action.payload };
-//     case "SET_DETAILS":
-//       return { ...state, details: action.payload };
-
-//     case "SET_SESSIONS":
-//       return { ...state, sessions: action.payload };
-
-//     case "SET_PAYMENT":
-//       return { ...state, paymentPlan: action.payload };
-
-//     case "SET_DISCOUNTS":
-//       return { ...state, discounts: action.payload };
-
-//     case "RESET":
-//       return {};
-
-//     default:
-//       return state;
-//   }
-// }
+import SessionsGroupsStep from "./steps/SessionGroupsStep";
 
 function semesterReducer(
   state: SemesterDraft,
@@ -61,6 +34,10 @@ function semesterReducer(
 
     case "SET_SESSIONS":
       nextState = { ...state, sessions: action.payload };
+      break;
+
+    case "SET_SESSION_GROUPS":
+      nextState = { ...state, sessionGroups: action.payload };
       break;
 
     case "SET_PAYMENT":
@@ -92,6 +69,7 @@ function semesterReducer(
 const STEPS = [
   { key: "details", label: "Details" },
   { key: "sessions", label: "Sessions" },
+  { key: "sessionGroups", label: "Session Groups" },
   { key: "payment", label: "Payment" },
   { key: "discounts", label: "Discounts" },
   { key: "review", label: "Review" },
@@ -153,26 +131,6 @@ export default function SemesterForm({
 
   const [allDiscounts, setAllDiscounts] = useState<Discount[]>([]);
 
-  // useEffect(() => {
-  //   async function load() {
-  //     const data = await getDiscounts(); // your DB query
-  //     setAllDiscounts(data);
-  //   }
-
-  //   load();
-  // }, []);
-
-  // const [allDiscounts, setAllDiscounts] = useState<Discount[]>([]);
-
-  // const loadDiscounts = useCallback(async () => {
-  //   const data = await getDiscounts();
-  //   setAllDiscounts(data);
-  // }, []);
-
-  // useEffect(() => {
-  //   loadDiscounts();
-  // }, [loadDiscounts]);
-
   useEffect(() => {
     let active = true;
 
@@ -201,36 +159,6 @@ export default function SemesterForm({
 
   /* ------------------------------ Publish -------------------------------- */
 
-  //  async function handlePublish() {
-  //   console.log("[Publish] Attempt started");
-  //   console.log("[Publish] Current draft state:", state);
-
-  //   if (!state.id) {
-  //     console.error("[Publish] Aborted — state.id is missing");
-  //     alert("Cannot publish: Semester ID is missing.");
-  //     return;
-  //   }
-
-  //   try {
-  //     console.log("[Publish] Calling publishSemester with ID:", state.id);
-
-  //     const result = await publishSemester(state.id);
-
-  //     console.log("[Publish] publishSemester resolved:", result);
-
-  //     console.log("[Publish] Redirecting to /admin/semesters");
-  //     router.push("/admin/semesters");
-
-  //     console.log("[Publish] Resetting reducer state");
-  //     dispatch({ type: "RESET" });
-
-  //   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  //   } catch (error: any) {
-  //     console.error("[Publish] Failed:", error);
-  //     alert(error?.message ?? "Unexpected error during publish.");
-  //   }
-  // }
-
   async function handleFinalSubmit() {
     console.group("📦 SemesterForm.handleFinalSubmit");
     console.log("Final draft state before publish:", state);
@@ -246,6 +174,14 @@ export default function SemesterForm({
     ),
     sessions: (
       <SessionsStep
+        state={state}
+        dispatch={dispatch}
+        onNext={nextStep}
+        onBack={previousStep}
+      />
+    ),
+    sessionGroups: (
+      <SessionsGroupsStep
         state={state}
         dispatch={dispatch}
         onNext={nextStep}

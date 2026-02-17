@@ -112,13 +112,13 @@ export default function SemesterListPage() {
                   <div className="space-y-1">
                     <div className="font-medium text-gray-900">{s.name}</div>
                     <StatusBadge status={s.status} />
-                    <div className="text-sm text-gray-500">
+                    {/* <div className="text-sm text-gray-500">
                       {s.publish_at
                         ? `Published: ${new Date(
                             s.publish_at,
                           ).toLocaleDateString()}`
                         : "Unpublished"}
-                    </div>
+                    </div> */}
                   </div>
 
                   {/* Actions */}

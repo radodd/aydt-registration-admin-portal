@@ -140,6 +140,7 @@ export async function getSessions() {
   const { data, error } = await supabase
     .from("sessions")
     .select("*")
+
     .order("start_date", { ascending: false });
   if (error) {
     console.error("Failed to load sessions.", error.message);

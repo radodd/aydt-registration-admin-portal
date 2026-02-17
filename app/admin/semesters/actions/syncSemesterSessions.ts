@@ -19,7 +19,7 @@ export async function syncSemesterSessions(
     throw new Error(deleteError.message);
   }
 
-  if (!appliedSessions?.length) return;
+  if (!appliedSessions?.length) return new Map();
 
   // 2️⃣ Insert new sessions (materialized copy)
   const rows = appliedSessions.map((s) => ({
@@ -45,9 +45,16 @@ export async function syncSemesterSessions(
     is_active: true,
   }));
 
-  const { error: insertError } = await supabase.from("sessions").insert(rows);
+  const { data, error } = await supabase.from("sessions").insert(rows).select(); // ← critical
 
-  if (insertError) {
-    throw new Error(insertError.message);
-  }
+  if (error) throw new Error(error.message);
+
+  // Build mapping
+  const idMap = new Map<string, string>();
+
+  appliedSessions.forEach((draftSession, index) => {
+    idMap.set(draftSession.sessionId, data[index].id);
+  });
+
+  return idMap;
 }
