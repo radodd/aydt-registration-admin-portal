@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Session, SessionsStepProps } from "@/types";
 
 type PageProps = {
   params: {
@@ -17,23 +18,33 @@ export default async function SemesterDetailPage({ params }: PageProps) {
     .from("semesters")
     .select(
       `
-  *,
-  sessions(*,
-  session_group_sessions(
-  session_group:session_groups(
-  id, name))),
-  semester_payment_plans(*),
-  semester_payment_installments(*),
-  semester_discounts(
-    semester_id,
-    discount_id,
-    discount:discounts(
+    *,
+    sessions(
       *,
-      discount_rules(*),
-      discount_rule_sessions(*)
+      session_group_sessions(
+        session_group:session_groups(
+          id, name
+        )
+      )
+    ),
+    semester_payment_plans(*),
+    semester_payment_installments(*),
+    semester_discounts(
+      semester_id,
+      discount_id,
+      discount:discounts(
+        *,
+        discount_rules(*),
+        discount_rule_sessions(
+          session_id,
+          sessions(
+            id,
+            title
+          )
+        )
+      )
     )
-  )
-`,
+    `,
     )
     .eq("id", id)
     .single();
@@ -174,38 +185,116 @@ export default async function SemesterDetailPage({ params }: PageProps) {
       )}
 
       {/* Discounts */}
-      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
-        <h2 className="text-lg font-semibold">
-          Discounts ({semester.semester_discounts?.length ?? 0})
-        </h2>
+      {/* Discounts */}
+      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Discounts</h2>
+          <span className="text-sm text-gray-500">
+            {semester.semester_discounts?.length ?? 0} applied
+          </span>
+        </div>
 
-        <div className="space-y-4">
-          {semester.semester_discounts?.length === 0 && (
-            <div className="text-sm text-gray-500">No discounts applied</div>
-          )}
+        {semester.semester_discounts?.length === 0 && (
+          <div className="text-sm text-gray-500 border border-gray-200 rounded-xl p-4">
+            No discounts applied to this semester.
+          </div>
+        )}
 
-          {semester.semester_discounts?.map((sd: any) => (
-            <div
-              key={`${sd.semester_id}-${sd.discount_id}`}
-              className="border border-gray-200 rounded-xl p-4"
-            >
-              <div className="text-sm">Discount ID: {sd.discount_id}</div>
+        <div className="space-y-5">
+          {semester.semester_discounts?.map((sd: any) => {
+            const discount = sd.discount;
 
-              <div className="text-sm text-gray-500">Scope: {sd.scope}</div>
-              <div className="text-sm text-gray-500">
-                Name: {sd.discount.name}
+            const restrictedSessions =
+              discount.eligible_sessions_mode === "selected"
+                ? (discount.discount_rule_sessions?.map(
+                    (s: any) => s.sessions?.title ?? "Unknown session",
+                  ) ?? [])
+                : [];
+
+            return (
+              <div
+                key={`${sd.semester_id}-${sd.discount_id}`}
+                className="border border-gray-200 rounded-2xl p-5 space-y-4 hover:border-gray-300 transition"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="text-base font-semibold text-gray-900">
+                      {discount.name}
+                    </div>
+
+                    <div className="text-sm text-gray-500 capitalize">
+                      {discount.category.replaceAll("_", " ")}
+                    </div>
+                  </div>
+
+                  <span className="text-xs px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 font-medium capitalize">
+                    {discount.eligible_sessions_mode === "all"
+                      ? "All sessions"
+                      : "Selected sessions"}
+                  </span>
+                </div>
+
+                {/* Rules */}
+                {discount.discount_rules?.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-gray-700">
+                      Discount Rules
+                    </div>
+
+                    <div className="space-y-1 text-sm text-gray-600">
+                      {discount.discount_rules.map(
+                        (rule: any, index: number) => {
+                          const unit =
+                            rule.threshold_unit === "person"
+                              ? "people"
+                              : "sessions";
+
+                          const value =
+                            rule.value_type === "percent"
+                              ? `${rule.value}% off`
+                              : `$${rule.value} off`;
+
+                          return (
+                            <div key={index}>
+                              {rule.threshold}+ {unit} → {value}
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Restricted Sessions */}
+                {restrictedSessions.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-gray-700">
+                      Applies To
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {restrictedSessions.map((title: string, i: number) => (
+                        <span
+                          key={i}
+                          className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700"
+                        >
+                          {title}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Recipient Scope */}
+                {discount.recipient_scope && (
+                  <div className="text-sm text-gray-500 capitalize">
+                    Recipient: {discount.recipient_scope.replaceAll("_", " ")}
+                  </div>
+                )}
               </div>
-              <div className="text-sm text-gray-500">
-                Category: {sd.discount.category}
-              </div>
-              <div className="text-sm text-gray-500">
-                Eligible Sessions: {sd.discount.eligible_sessions_mode}
-              </div>
-              <div className="text-sm text-gray-500">
-                Recipient Scope: {sd.discount.recipient_scope}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </div>

@@ -3,13 +3,14 @@
 import {
   Discount,
   DiscountCategory,
-  DiscountRule,
+  DiscountRules,
+  HydratedDiscount,
   SemesterDraft,
 } from "@/types";
 
 type ReviewStepProps = {
   state: SemesterDraft;
-  allDiscounts?: Discount[];
+  allDiscounts?: HydratedDiscount[];
   mode: "create" | "edit";
   onBack: () => void;
   onPublish: () => void;
@@ -52,7 +53,7 @@ export default function ReviewStep({
    |--------------------------------------------------------------------------
    */
 
-  function formatRule(rule: DiscountRule, category: DiscountCategory) {
+  function formatRule(rule: DiscountRules, category: DiscountCategory) {
     const unit = category === "multi_person" ? "people" : "sessions";
 
     const value =
@@ -69,54 +70,14 @@ export default function ReviewStep({
 |--------------------------------------------------------------------------
 */
 
-  console.group("🔎 ReviewStep Discounts Debug");
+  console.log("ReviewStep allDiscounts:", allDiscounts);
 
-  console.log("Full state.discounts:", state.discounts);
-  console.log("Applied Discounts:", state.discounts?.appliedDiscounts);
+  const appliedDiscountIds =
+    state.discounts?.appliedDiscounts.map((d) => d.discountId) ?? [];
 
-  console.log("All Discounts from DB:", allDiscounts);
-
-  const safeAppliedDiscounts = state.discounts?.appliedDiscounts ?? [];
-
-  console.log("Safe Applied Discounts (normalized):", safeAppliedDiscounts);
-
-  const discountMap = new Map((allDiscounts ?? []).map((d) => [d.id, d]));
-
-  console.log("Discount Map Keys:", Array.from(discountMap.keys()));
-
-  const reviewDiscounts = safeAppliedDiscounts
-    .map((app) => {
-      console.log("Processing application:", app);
-
-      const discount = discountMap.get(app.discountId);
-
-      console.log("Lookup result for", app.discountId, ":", discount);
-
-      if (!discount) {
-        console.warn("❌ No matching discount found for ID:", app.discountId);
-        return null;
-      }
-
-      return {
-        id: discount.id,
-        name: discount.name,
-        category: discount.category,
-        // rules: discount.rules,
-        scope: app.scope,
-        sessionIds: app.sessionIds,
-      };
-    })
-    .filter(Boolean);
-
-  console.log("Applications:", safeAppliedDiscounts);
-  console.log(
-    "All discount IDs:",
-    allDiscounts.map((d) => d.id),
+  const reviewDiscounts = allDiscounts.filter((d) =>
+    appliedDiscountIds.includes(d.id),
   );
-
-  console.log("Final reviewDiscounts:", reviewDiscounts);
-
-  console.groupEnd();
 
   /*
    |--------------------------------------------------------------------------
@@ -289,10 +250,10 @@ export default function ReviewStep({
 
             {reviewDiscounts.map((d) => {
               const selectedSessionNames =
-                d?.scope === "selected_sessions" && d.sessionIds
-                  ? d.sessionIds.map(
-                      (id) => sessionMap.get(id)?.title ?? "Unknown session",
-                    )
+                d.eligible_sessions_mode === "selected"
+                  ? (d.discount_rule_sessions?.map(
+                      (s) => s.sessions?.title ?? "Unknown session",
+                    ) ?? [])
                   : [];
 
               return (
@@ -308,7 +269,7 @@ export default function ReviewStep({
 
                   <div className="text-sm text-gray-500">
                     Applies to:{" "}
-                    {d?.scope === "all_sessions"
+                    {d?.eligible_sessions_mode === "all"
                       ? "All sessions"
                       : "Selected sessions"}
                   </div>

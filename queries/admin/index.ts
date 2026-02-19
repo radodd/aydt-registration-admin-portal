@@ -1,4 +1,4 @@
-import { Discount, SemesterDiscount } from "@/types";
+import { Discount, HydratedDiscount, SemesterDiscount } from "@/types";
 import { createClient } from "@/utils/supabase/client";
 
 // export async function getFamilies() {
@@ -219,12 +219,25 @@ export async function getUsers() {
 //   return data;
 // }
 
-export async function getDiscounts(): Promise<SemesterDiscount[]> {
+export async function getDiscounts(): Promise<HydratedDiscount[]> {
   const supabase = createClient();
 
   const { data, error } = await supabase
     .from("discounts")
-    .select("*")
+    .select(
+      `
+      *,
+      discount_rules (*),
+      discount_rule_sessions (
+        session_id,
+        sessions (
+          id,
+          title
+        )
+        )
+        `,
+    )
+
     .order("created_at", { ascending: false });
   if (error) {
     console.error("Failed to load discounts.", error.message);

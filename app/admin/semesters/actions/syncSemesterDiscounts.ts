@@ -1,11 +1,11 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { DiscountApplication } from "@/types";
+import { AppliedSemesterDiscount } from "@/types";
 
 export async function syncSemesterDiscounts(
   semesterId: string,
-  applications: DiscountApplication[],
+  appliedDiscounts: AppliedSemesterDiscount[],
 ) {
   const supabase = await createClient();
 
@@ -20,16 +20,18 @@ export async function syncSemesterDiscounts(
     throw new Error(deleteError.message);
   }
 
-  if (!applications.length) return;
+  if (!appliedDiscounts.length) return;
 
-  const uniqueDiscountsIds = Array.from(
-    new Set(applications.map((app) => app.discountId)),
-  );
+  // const uniqueDiscountsIds = Array.from(
+  //   new Set(appliedDiscounts.map((app) => app.discountId)),
+  // );
 
-  const rows = uniqueDiscountsIds.map((discountId) => ({
+  const rows = appliedDiscounts.map((discount) => ({
     semester_id: semesterId,
-    discount_id: discountId,
+    discount_id: discount.discountId,
   }));
+
+  console.log("Inserting rows:", rows);
 
   const { error: insertError } = await supabase
     .from("semester_discounts")

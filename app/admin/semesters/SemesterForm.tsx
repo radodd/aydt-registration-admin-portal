@@ -3,7 +3,12 @@
 /* -------------------------------------------------------------------------- */
 
 import { getDiscounts } from "@/queries/admin";
-import { Discount, SemesterAction, SemesterDraft } from "@/types";
+import {
+  Discount,
+  HydratedDiscount,
+  SemesterAction,
+  SemesterDraft,
+} from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JSX, useEffect, useReducer, useState } from "react";
 import DetailsStep from "./steps/DetailsStep";
@@ -129,7 +134,7 @@ export default function SemesterForm({
 
   /* ----------------------------- Discount Loading ------------------------------ */
 
-  const [allDiscounts, setAllDiscounts] = useState<Discount[]>([]);
+  const [allDiscounts, setAllDiscounts] = useState<HydratedDiscount[]>([]);
 
   useEffect(() => {
     let active = true;

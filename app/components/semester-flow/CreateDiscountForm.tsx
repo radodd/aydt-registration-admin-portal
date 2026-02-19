@@ -2,7 +2,7 @@
 
 import {
   DiscountCategory,
-  DiscountRule,
+  DiscountRules,
   EligibleSessionsMode,
   GiveSessionScope,
   RecipientScope,
@@ -15,9 +15,14 @@ import { createDiscount } from "../../admin/semesters/new/discounts/CreateDiscou
 type Props = {
   onCreated?: () => void;
   onCancel?: () => void;
+  sessions?: { id: string; title: string }[] | null;
 };
 
-export default function CreateDiscountForm({ onCreated, onCancel }: Props) {
+export default function CreateDiscountForm({
+  onCreated,
+  onCancel,
+  sessions,
+}: Props) {
   const [name, setName] = useState("");
   const [category, setCategory] = useState<DiscountCategory>("multi_person");
   const [giveSessionScope, setGiveSessionScope] =
@@ -27,13 +32,20 @@ export default function CreateDiscountForm({ onCreated, onCancel }: Props) {
   const [eligibleSessionsMode, setEligibleSessionsMode] =
     useState<EligibleSessionsMode>("all");
 
-  const [sessions, setSessions] = useState<
-    { id: string; name: string }[] | null
-  >([]);
+  // const [sessions, setSessions] = useState<
+  //   { id: string; title: string }[] | null
+  // >([]);
+
+  console.log("CreateDiscountForm rendered with sessions:", sessions);
 
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
 
-  const [rules, setRules] = useState<DiscountRule[]>([
+  console.log(
+    "CreateDiscountForm rendered with selectedSessionIds:",
+    selectedSessionIds,
+  );
+
+  const [rules, setRules] = useState<DiscountRules[]>([
     {
       threshold: 2,
       value: 0,
@@ -47,22 +59,22 @@ export default function CreateDiscountForm({ onCreated, onCancel }: Props) {
   /* Load Sessions (if needed)                                                */
   /* ------------------------------------------------------------------------ */
 
-  useEffect(() => {
-    if (eligibleSessionsMode !== "selected") return;
+  // useEffect(() => {
+  //   if (eligibleSessionsMode !== "selected") return;
 
-    let active = true;
+  //   let active = true;
 
-    async function loadSessions() {
-      const data = await getSessions();
-      if (active) setSessions(data);
-    }
+  //   async function loadSessions() {
+  //     const data = await getSessions();
+  //     if (active) setSessions(data);
+  //   }
 
-    loadSessions();
+  //   loadSessions();
 
-    return () => {
-      active = false;
-    };
-  }, [eligibleSessionsMode]);
+  //   return () => {
+  //     active = false;
+  //   };
+  // }, [eligibleSessionsMode]);
 
   /* ------------------------------------------------------------------------ */
   /* Rule Helpers                                                             */
@@ -89,10 +101,10 @@ export default function CreateDiscountForm({ onCreated, onCancel }: Props) {
     setRules((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function updateRule<K extends keyof DiscountRule>(
+  function updateRule<K extends keyof DiscountRules>(
     index: number,
     key: K,
-    value: DiscountRule[K],
+    value: DiscountRules[K],
   ) {
     setRules((prev) => {
       const next = [...prev];
@@ -221,7 +233,7 @@ export default function CreateDiscountForm({ onCreated, onCancel }: Props) {
             </div>
 
             {eligibleSessionsMode === "selected" && (
-              <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <div className="border border-gray-200 rounded-xl p-4 space-y-3 overflow-scroll h-52">
                 <div className="text-sm font-medium text-gray-800">
                   Select sessions
                 </div>
@@ -237,7 +249,7 @@ export default function CreateDiscountForm({ onCreated, onCancel }: Props) {
                       onChange={() => toggleSession(session.id)}
                       className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                     />
-                    {session.name}
+                    {session.title}
                   </label>
                 ))}
               </div>

@@ -176,7 +176,7 @@ export type SemesterDraft = {
   discounts?: {
     // semesterDiscountIds: string[];
     // sessionDiscounts: Record<string, string[]>;
-    appliedDiscounts: DiscountApplication[];
+    appliedDiscounts: AppliedSemesterDiscount[];
   };
 };
 
@@ -219,7 +219,7 @@ export type SemesterDiscount = {
   eligibleSessionsMode: "all" | "selected";
   eligibleSessionIds?: string[];
 
-  rules: DiscountRule[];
+  rules: DiscountRules[];
   created_at: string;
 
   // lifecycle controls
@@ -234,20 +234,21 @@ export type Discount = {
   id: string;
   name: string;
   category: DiscountCategory;
-  rules: DiscountRule[];
+  rules: DiscountRules[];
   enabled: boolean;
   created_at: string;
+  eligible_sessions_mode: "all" | "selected";
 };
 
-export type DiscountApplication = {
+export type AppliedSemesterDiscount = {
   discountId: string;
-  scope: "all_sessions" | "selected_sessions";
-  sessionIds?: string[];
+  // scope: "all_sessions" | "selected_sessions";
+  // sessionIds?: string[];
 };
 
 export type DiscountCategory = "multi_person" | "multi_session" | "custom";
 
-export type DiscountRule = {
+export type DiscountRules = {
   threshold: number;
   value: number;
   valueType: "flat" | "percent";
@@ -261,6 +262,34 @@ export type DiscountRule = {
     | "threshold_and_additional_sessions";
 
   recipientScope?: "threshold_only" | "threshold_and_additional";
+};
+
+export type HydratedDiscount = {
+  id: string;
+  name: string;
+  category: DiscountCategory;
+  eligible_sessions_mode: "all" | "selected";
+  give_session_scope: string;
+  recipient_scope: "threshold_only" | "threshold_and_additional" | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+
+  discount_rules: {
+    id: string;
+    threshold: number;
+    threshold_unit: "person" | "session";
+    value: number;
+    value_type: "flat" | "percent";
+  }[];
+
+  discount_rule_sessions: {
+    session_id: string;
+    sessions: {
+      id: string;
+      title: string;
+    } | null;
+  }[];
 };
 
 /* -------------------------------------------------------------------------- */
@@ -303,7 +332,7 @@ export type DiscountsStepProps = {
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
   onBack: () => void;
-  allDiscounts: Discount[];
+  allDiscounts: HydratedDiscount[];
   refreshDiscounts: () => Promise<void>;
 };
 
@@ -342,6 +371,6 @@ export type CreateDiscountInput = {
   eligibleSessionsMode: EligibleSessionsMode;
   giveSessionScope: GiveSessionScope;
   recipientScope?: RecipientScope;
-  rules: DiscountRule[];
+  rules: DiscountRules[];
   sessionIds?: string[];
 };

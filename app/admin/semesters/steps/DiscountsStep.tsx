@@ -3,54 +3,36 @@
 import CreateDiscountForm from "@/app/components/semester-flow/CreateDiscountForm";
 import { getDiscounts } from "@/queries/admin";
 import {
-  DiscountApplication,
+  AppliedSemesterDiscount,
   DiscountsStepProps,
+  HydratedDiscount,
   SemesterDiscount,
 } from "@/types";
-import Link from "next/link";
+import { refresh } from "next/cache";
+
 import { useCallback, useEffect, useState } from "react";
-// import CreateDiscountForm from "../new/discounts/page";
-// import CreateDiscountForm from "../new/discounts/page";
 
 export default function DiscountsStep({
   state,
   dispatch,
   onNext,
   onBack,
+  refreshDiscounts,
   allDiscounts,
 }: DiscountsStepProps) {
-  const [discounts, setDiscounts] = useState<SemesterDiscount[]>([]);
-  const [applications, setApplications] = useState<DiscountApplication[]>(
+  const [discounts, setDiscounts] = useState<HydratedDiscount[]>([]);
+  const [applications, setApplications] = useState<AppliedSemesterDiscount[]>(
     state.discounts?.appliedDiscounts ?? [],
   );
   const [showCreateModal, setShowCreateModal] = useState(false);
-
+  console.log(
+    "Draft Sessions in DiscountsStep:",
+    state.sessions?.appliedSessions,
+  );
+  console.log("DiscountsStep render sessions:", state.sessions);
   /* ------------------------------------------------------------------------ */
   /* Data loading                                                             */
   /* ------------------------------------------------------------------------ */
-
-  // const loadDiscounts = useCallback(async () => {
-  //   console.log("🔄 Loading discounts...");
-  //   const data = await getDiscounts();
-  //   setDiscounts(data);
-  // }, []);
-
-  // useEffect(() => {
-  //   let active = true;
-
-  //   async function loadDiscounts() {
-  //     const data = await getDiscounts();
-  //     if (active) {
-  //       setDiscounts(data);
-  //     }
-  //   }
-
-  //   loadDiscounts();
-
-  //   return () => {
-  //     active = false;
-  //   };
-  // }, [discounts]);
 
   const loadDiscounts = useCallback(async () => {
     console.group("📡 useCallback loadDiscounts");
@@ -168,8 +150,12 @@ export default function DiscountsStep({
           <div className="fixed inset-0 bg-blur  bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl shadow-lg p-8 max-w-2xl w-full mx-4">
               <CreateDiscountForm
+                sessions={state.sessions?.appliedSessions.map((s) => ({
+                  id: s.sessionId,
+                  title: s.title,
+                }))}
                 onCreated={async () => {
-                  await loadDiscounts();
+                  await refreshDiscounts();
                   setShowCreateModal(false);
                 }}
                 onCancel={() => setShowCreateModal(false)}
