@@ -34,20 +34,20 @@ export default function DiscountsStep({
   /* Data loading                                                             */
   /* ------------------------------------------------------------------------ */
 
-  const loadDiscounts = useCallback(async () => {
-    console.group("📡 useCallback loadDiscounts");
-    console.log("Triggered loadDiscounts()");
+  // const loadDiscounts = useCallback(async () => {
+  //   console.group("📡 useCallback loadDiscounts");
+  //   console.log("Triggered loadDiscounts()");
 
-    const data = await getDiscounts();
+  //   const data = await getDiscounts();
 
-    console.log("Fetched discounts:", data);
-    console.log("Fetched count:", data?.length);
+  //   console.log("Fetched discounts:", data);
+  //   console.log("Fetched count:", data?.length);
 
-    setDiscounts(data ?? []);
+  //   setDiscounts(data ?? []);
 
-    console.log("setDiscounts called");
-    console.groupEnd();
-  }, []);
+  //   console.log("setDiscounts called");
+  //   console.groupEnd();
+  // }, []);
 
   useEffect(() => {
     console.group("⚡ useEffect loadDiscounts");
@@ -156,6 +156,7 @@ export default function DiscountsStep({
                 }))}
                 onCreated={async () => {
                   await refreshDiscounts();
+
                   setShowCreateModal(false);
                 }}
                 onCancel={() => setShowCreateModal(false)}
@@ -166,13 +167,13 @@ export default function DiscountsStep({
 
         {/* Discount List */}
         <div className="space-y-4">
-          {discounts?.length === 0 && (
+          {allDiscounts?.length === 0 && (
             <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
               <p className="text-sm text-gray-500">No discounts available</p>
             </div>
           )}
 
-          {discounts?.map((discount) => (
+          {allDiscounts?.map((discount) => (
             <div
               key={discount.id}
               className="flex items-start gap-3 border border-gray-200 rounded-xl p-4 hover:border-gray-300 transition"

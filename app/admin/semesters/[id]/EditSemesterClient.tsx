@@ -11,7 +11,7 @@ type SemesterWithRelations = {
   id: string;
   name: string;
   tracking_mode: boolean;
-  capacity_warning_threshold: number | null;
+  capacity_warning_threshold: string | null;
   publish_at: string | null;
 
   sessions: any[];
@@ -37,8 +37,8 @@ export default function EditSemesterClient({
       details: {
         name: semester.name,
         trackingMode: semester.tracking_mode,
-        capacity_warning_threshold: semester.capacity_warning_threshold,
-        publish_at: semester.publish_at,
+        capacityWarningThreshold: semester.capacity_warning_threshold,
+        publishAt: semester.publish_at,
       },
       sessions: {
         appliedSessions: semester.sessions.map((s) => ({
@@ -80,8 +80,13 @@ export default function EditSemesterClient({
         appliedDiscounts:
           semester.semester_discounts?.map((sd) => ({
             discountId: sd.discount_id,
-            scope: "all_sessions", // until you persist scope properly
-            sessionIds: [],
+            scope: sd.discount.eligible_sessions_mode,
+            sessionIds:
+              sd.discount.eligible_sessions_mode === "selected"
+                ? (sd.discount.discount_rule_sessions?.map(
+                    (s: any) => s.session_id,
+                  ) ?? [])
+                : [],
           })) ?? [],
       },
     };

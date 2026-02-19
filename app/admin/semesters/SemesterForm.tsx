@@ -1,14 +1,5 @@
-/* -------------------------------------------------------------------------- */
-/* Reducer                                                                    */
-/* -------------------------------------------------------------------------- */
-
 import { getDiscounts } from "@/queries/admin";
-import {
-  Discount,
-  HydratedDiscount,
-  SemesterAction,
-  SemesterDraft,
-} from "@/types";
+import { HydratedDiscount, SemesterAction, SemesterDraft } from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JSX, useEffect, useReducer, useState } from "react";
 import DetailsStep from "./steps/DetailsStep";
@@ -22,6 +13,7 @@ import {
   saveSemesterDraft,
   scheduleSemester,
 } from "./actions/semesterLifecycle";
+import { persistSemesterDraft } from "./actions/persistSemesterDraft";
 
 function semesterReducer(
   state: SemesterDraft,
@@ -95,14 +87,12 @@ type SemesterFormProps = {
   mode: "create" | "edit";
   basePath: string; // "/admin/semesters/new" or "/admin/semesters/123"
   initialState?: SemesterDraft;
-  onFinalSubmit: (state: SemesterDraft) => Promise<void>;
 };
 
 export default function SemesterForm({
   mode,
   basePath,
   initialState,
-  onFinalSubmit,
 }: SemesterFormProps) {
   const [state, dispatch] = useReducer(
     semesterReducer,
@@ -157,23 +147,9 @@ export default function SemesterForm({
   }, []);
 
   async function refreshDiscounts() {
-    console.group("🔄 refreshDiscounts");
     const data = await getDiscounts();
-    console.log(
-      "Fetched discount IDs:",
-      data.map((d) => d.id),
-    );
     setAllDiscounts(data);
     console.groupEnd();
-  }
-
-  /* ------------------------------ Publish -------------------------------- */
-
-  async function handleFinalSubmit() {
-    console.group("📦 SemesterForm.handleFinalSubmit");
-    console.log("Final draft state before publish:", state);
-    console.groupEnd();
-    await onFinalSubmit(state);
   }
 
   /* ---------------------------- Step Render ------------------------------ */
@@ -222,9 +198,23 @@ export default function SemesterForm({
         mode={mode}
         allDiscounts={allDiscounts}
         onBack={previousStep}
-        onPublishNow={() => state.id && publishSemesterNow(state.id)}
-        onSaveDraft={() => state.id && saveSemesterDraft(state.id)}
-        onSchedule={(date) => state.id && scheduleSemester(state.id, date)}
+        onPublishNow={async () => {
+          if (!state.id) return;
+          await persistSemesterDraft(state);
+          await publishSemesterNow(state.id);
+        }}
+        onSaveDraft={async () => {
+          if (!state.id) return;
+          await persistSemesterDraft(state);
+          await saveSemesterDraft(state.id);
+
+          router.push("/admin/semesters");
+        }}
+        onSchedule={async (date) => {
+          if (!state.id) return;
+          await persistSemesterDraft(state);
+          await scheduleSemester(state.id, date);
+        }}
       />
     ),
   };

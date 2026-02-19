@@ -62,11 +62,22 @@ export default async function SemesterDetailPage({ params }: PageProps) {
           <h1 className="text-2xl font-semibold">{semester.name}</h1>
         </div>
 
-        <SemesterLifecycleActions
-          semesterId={id}
-          status={semester.status}
-          publishAt={semester.publish_at}
-        />
+        <div className="flex items-center gap-3">
+          {semester.status !== "published" && (
+            <Link
+              href={`/admin/semesters/${id}/edit`}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition"
+            >
+              Edit
+            </Link>
+          )}
+
+          <SemesterLifecycleActions
+            semesterId={id}
+            status={semester.status}
+            publishAt={semester.publish_at}
+          />
+        </div>
       </div>
 
       {/* Semester Details */}

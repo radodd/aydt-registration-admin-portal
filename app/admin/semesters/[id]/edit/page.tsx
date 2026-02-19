@@ -17,6 +17,8 @@ export default async function EditPage({ params }: { params: { id: string } }) {
     semester_payment_plans(*),
     semester_payment_installments(*),
     semester_discounts(
+    semester_id,
+    discount_id,
       discount:discounts(
         *,
         discount_rules(*),
