@@ -3,7 +3,12 @@
 import { SemesterDraft } from "@/types";
 import { useRouter } from "next/navigation";
 import SemesterForm from "../SemesterForm";
-import { publishSemester } from "../actions/publishSemester";
+// import { publishSemester } from "../actions/publishSemester";
+import {
+  publishSemesterNow,
+  saveSemesterDraft,
+  scheduleSemester,
+} from "../actions/semesterLifecycle";
 import { syncSemesterDiscounts } from "../actions/syncSemesterDiscounts";
 import { updateSemesterDetails } from "../actions/updateSemesterDetails";
 import { syncSemesterSessions } from "../actions/syncSemesterSessions";
@@ -42,7 +47,7 @@ export default function NewSemesterPage() {
 
       console.log("Publishing semester with ID:", state.id);
 
-      await publishSemester(state.id);
+      await publishSemesterNow(state.id);
 
       console.log("✅ Publish successful");
       console.log("Redirecting to /admin/semesters");

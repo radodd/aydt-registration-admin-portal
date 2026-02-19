@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Session, SessionsStepProps } from "@/types";
+import SemesterLifecycleActions from "./SemesterLifecycleActions";
 
 type PageProps = {
   params: {
@@ -59,26 +60,13 @@ export default async function SemesterDetailPage({ params }: PageProps) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">{semester.name}</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Status: {semester.status}
-          </p>
         </div>
 
-        <div className="flex gap-4">
-          <Link
-            href={`/admin/semesters/${semester.id}/edit`}
-            className="px-4 py-2 rounded-xl bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 transition"
-          >
-            Edit
-          </Link>
-
-          <Link
-            href="/admin/semesters"
-            className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-          >
-            Back
-          </Link>
-        </div>
+        <SemesterLifecycleActions
+          semesterId={id}
+          status={semester.status}
+          publishAt={semester.publish_at}
+        />
       </div>
 
       {/* Semester Details */}

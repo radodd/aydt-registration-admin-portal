@@ -17,6 +17,11 @@ import PaymentStep from "./steps/PaymentStep";
 import DiscountsStep from "./steps/DiscountsStep";
 import ReviewStep from "./steps/ReviewStep";
 import SessionsGroupsStep from "./steps/SessionGroupsStep";
+import {
+  publishSemesterNow,
+  saveSemesterDraft,
+  scheduleSemester,
+} from "./actions/semesterLifecycle";
 
 function semesterReducer(
   state: SemesterDraft,
@@ -217,7 +222,9 @@ export default function SemesterForm({
         mode={mode}
         allDiscounts={allDiscounts}
         onBack={previousStep}
-        onPublish={handleFinalSubmit}
+        onPublishNow={() => state.id && publishSemesterNow(state.id)}
+        onSaveDraft={() => state.id && saveSemesterDraft(state.id)}
+        onSchedule={(date) => state.id && scheduleSemester(state.id, date)}
       />
     ),
   };

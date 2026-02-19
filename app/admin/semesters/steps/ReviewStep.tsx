@@ -7,13 +7,16 @@ import {
   HydratedDiscount,
   SemesterDraft,
 } from "@/types";
+import { useState } from "react";
 
 type ReviewStepProps = {
   state: SemesterDraft;
   allDiscounts?: HydratedDiscount[];
   mode: "create" | "edit";
   onBack: () => void;
-  onPublish: () => void;
+  onPublishNow: () => void;
+  onSaveDraft: () => void;
+  onSchedule: (publishAt: string) => void;
 };
 
 export default function ReviewStep({
@@ -21,8 +24,12 @@ export default function ReviewStep({
   mode,
   allDiscounts = [],
   onBack,
-  onPublish,
+  onPublishNow,
+  onSaveDraft,
+  onSchedule,
 }: ReviewStepProps) {
+  const [scheduledDate, setScheduledDate] = useState<string>("");
+
   console.group("📋 ReviewStep State Check");
   console.log("Full state:", state);
   console.log("state.details:", state.details);
@@ -292,20 +299,52 @@ export default function ReviewStep({
         </section>
 
         {/* Actions */}
-        <div className="flex justify-between pt-6 border-t border-gray-200">
-          <button
-            onClick={onBack}
-            className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-          >
-            Back
-          </button>
+        {/* Actions */}
+        <div className="flex flex-col gap-4 pt-6 border-t border-gray-200">
+          <div className="flex justify-between">
+            <button
+              onClick={onBack}
+              className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+            >
+              Back
+            </button>
 
-          <button
-            onClick={onPublish}
-            className="px-6 py-2.5 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
-          >
-            Publish Semester
-          </button>
+            <div className="flex gap-3">
+              {/* Save Draft */}
+              <button
+                onClick={onSaveDraft}
+                className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              >
+                Save as Draft
+              </button>
+
+              {/* Publish Immediately */}
+              <button
+                onClick={onPublishNow}
+                className="px-6 py-2.5 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition"
+              >
+                Publish Now
+              </button>
+            </div>
+          </div>
+
+          {/* Schedule Publish */}
+          <div className="flex items-center gap-3">
+            <input
+              type="datetime-local"
+              value={scheduledDate}
+              onChange={(e) => setScheduledDate(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-xl text-sm"
+            />
+
+            <button
+              disabled={!scheduledDate}
+              onClick={() => onSchedule(scheduledDate)}
+              className="px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
+            >
+              Schedule Publish
+            </button>
+          </div>
         </div>
       </div>
     </div>
