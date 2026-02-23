@@ -139,6 +139,35 @@ export interface Registration {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Registration Form Domain                                                   */
+/* -------------------------------------------------------------------------- */
+
+export type RegistrationElementType = "question" | "subheader" | "text_block";
+
+export type QuestionInputType =
+  | "short_answer"
+  | "long_answer"
+  | "select"
+  | "checkbox"
+  | "date"
+  | "phone_number";
+
+export type RegistrationFormElement = {
+  id: string;
+  type: RegistrationElementType;
+  // order: number;
+
+  // Question fields
+  label?: string;
+  reportLabel?: string;
+  inputType?: QuestionInputType;
+  required?: boolean;
+  instructionalText?: string;
+  options?: string[]; // for select/checkbox
+  sessionIds?: string[]; // applicability
+};
+
+/* -------------------------------------------------------------------------- */
 /* Semester Domain                                                                */
 /* -------------------------------------------------------------------------- */
 
@@ -175,6 +204,10 @@ export type SemesterDraft = {
     installments?: { number: number; amount: number; dueDate: string }[];
   };
 
+  registrationForm?: {
+    elements: RegistrationFormElement[];
+  };
+
   discounts?: {
     // semesterDiscountIds: string[];
     // sessionDiscounts: Record<string, string[]>;
@@ -189,6 +222,14 @@ export type SemesterAction =
   | { type: "SET_SESSION_GROUPS"; payload: SemesterDraft["sessionGroups"] }
   | { type: "SET_PAYMENT"; payload: SemesterDraft["paymentPlan"] }
   | { type: "SET_DISCOUNTS"; payload: SemesterDraft["discounts"] }
+  | {
+      type: "SET_REGISTRATION_FORM";
+      payload: SemesterDraft["registrationForm"];
+    }
+  | { type: "ADD_FORM_ELEMENT"; payload: RegistrationFormElement }
+  | { type: "UPDATE_FORM_ELEMENT"; payload: RegistrationFormElement }
+  | { type: "REMOVE_FORM_ELEMENT"; payload: string }
+  | { type: "REORDER_FORM_ELEMENTS"; payload: RegistrationFormElement[] }
   | { type: "RESET" };
 
 export type SemesterSession = {

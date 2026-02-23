@@ -13,6 +13,7 @@ import {
   scheduleSemester,
 } from "./actions/semesterLifecycle";
 import { persistSemesterDraft } from "./actions/persistSemesterDraft";
+import RegistrationFormStep from "./steps/RegistrationFormStep";
 
 function semesterReducer(
   state: SemesterDraft,
@@ -49,6 +50,53 @@ function semesterReducer(
       nextState = { ...state, discounts: action.payload };
       break;
 
+    case "SET_REGISTRATION_FORM":
+      nextState = { ...state, registrationForm: action.payload };
+      break;
+
+    case "ADD_FORM_ELEMENT":
+      nextState = {
+        ...state,
+        registrationForm: {
+          elements: [
+            ...(state.registrationForm?.elements ?? []),
+            action.payload,
+          ],
+        },
+      };
+      break;
+
+    case "UPDATE_FORM_ELEMENT":
+      nextState = {
+        ...state,
+        registrationForm: {
+          elements: (state.registrationForm?.elements ?? []).map((el) =>
+            el.id === action.payload.id ? action.payload : el,
+          ),
+        },
+      };
+      break;
+
+    case "REMOVE_FORM_ELEMENT":
+      nextState = {
+        ...state,
+        registrationForm: {
+          elements: (state.registrationForm?.elements ?? []).filter(
+            (el) => el.id !== action.payload,
+          ),
+        },
+      };
+      break;
+
+    case "REORDER_FORM_ELEMENTS":
+      nextState = {
+        ...state,
+        registrationForm: {
+          elements: action.payload,
+        },
+      };
+      break;
+
     case "RESET":
       nextState = {};
       break;
@@ -73,6 +121,8 @@ const STEPS = [
   { key: "sessionGroups", label: "Session Groups" },
   { key: "payment", label: "Payment" },
   { key: "discounts", label: "Discounts" },
+  { key: "registrationForm", label: "Registration Form" },
+
   { key: "review", label: "Review" },
 ] as const;
 
@@ -158,6 +208,14 @@ export default function SemesterForm({
     ),
     discounts: (
       <DiscountsStep
+        state={state}
+        dispatch={dispatch}
+        onNext={nextStep}
+        onBack={previousStep}
+      />
+    ),
+    registrationForm: (
+      <RegistrationFormStep
         state={state}
         dispatch={dispatch}
         onNext={nextStep}

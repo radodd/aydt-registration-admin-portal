@@ -1,8 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Session, SessionsStepProps } from "@/types";
+import { SemesterSession, Session, SessionsStepProps } from "@/types";
 import SemesterLifecycleActions from "./SemesterLifecycleActions";
+import RegistrationFormRenderer from "@/app/components/semester-flow/RegistrationFormRender";
 
 type PageProps = {
   params: {
@@ -179,7 +180,33 @@ export default async function SemesterDetailPage({ params }: PageProps) {
         </section>
       )}
 
-      {/* Discounts */}
+      {/* Registration Form */}
+      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
+        <h2 className="text-lg font-semibold">Registration Form</h2>
+
+        {semester.registration_form?.elements?.length ? (
+          <RegistrationFormRenderer
+            elements={semester.registration_form.elements}
+            sessions={
+              semester.sessions.map((s) => ({
+                sessionId: s.id,
+                title: s.title,
+                type: s.type,
+                capacity: s.capacity,
+                startDate: s.start_date,
+                endDate: s.end_date,
+                daysOfWeek: s.days_of_week,
+              })) as SemesterSession[]
+            }
+            mode="preview"
+          />
+        ) : (
+          <div className="text-sm text-gray-500 border border-gray-200 rounded-xl p-4">
+            No registration form configured.
+          </div>
+        )}
+      </section>
+
       {/* Discounts */}
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-6">
         <div className="flex items-center justify-between">

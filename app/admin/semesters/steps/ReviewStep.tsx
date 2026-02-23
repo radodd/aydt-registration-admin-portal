@@ -8,6 +8,7 @@ import {
 } from "@/types";
 import { useEffect, useState } from "react";
 import { getDiscounts } from "@/queries/admin";
+import RegistrationFormRenderer from "@/app/components/semester-flow/RegistrationFormRender";
 
 type ReviewStepProps = {
   state: SemesterDraft;
@@ -307,7 +308,22 @@ export default function ReviewStep({
           </div>
         </section>
 
-        {/* Actions */}
+        <section>
+          {state.registrationForm?.elements?.length && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Registration Form Preview
+              </h2>
+
+              <RegistrationFormRenderer
+                elements={state.registrationForm.elements}
+                sessions={state.sessions?.appliedSessions ?? []}
+                mode="preview"
+              />
+            </div>
+          )}
+        </section>
+
         {/* Actions */}
         <div className="flex flex-col gap-4 pt-6 border-t border-gray-200">
           <div className="flex justify-between">
