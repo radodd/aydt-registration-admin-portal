@@ -60,6 +60,6 @@ export default async function Profile() {
   } else {
     console.log("Fetched Family Data:", dancers);
   }
-
+  // @ts-expect-error define dancer props later
   return <FamilyProfileCard user={user} dancers={dancers} />;
 }
