@@ -189,6 +189,19 @@ export type RegistrationFormElement = {
 
 export type SemesterStatus = "draft" | "scheduled" | "published" | "archived";
 
+export type WaitlistConfig = {
+  enabled: boolean;
+  sessionSettings: Record<string, { enabled: boolean }>; // keyed by sessionId
+  inviteExpiryHours: number;
+  stopDaysBeforeClose: number;
+  invitationEmail: {
+    subject: string;
+    fromName: string;
+    fromEmail: string;
+    htmlBody: string;
+  };
+};
+
 export type SemesterDraft = {
   id?: string;
 
@@ -231,6 +244,8 @@ export type SemesterDraft = {
     htmlBody: string;
   };
 
+  waitlist?: WaitlistConfig;
+
   discounts?: {
     // semesterDiscountIds: string[];
     // sessionDiscounts: Record<string, string[]>;
@@ -253,6 +268,7 @@ export type SemesterAction =
       type: "SET_CONFIRMATION_EMAIL";
       payload: SemesterDraft["confirmationEmail"];
     }
+  | { type: "SET_WAITLIST"; payload: SemesterDraft["waitlist"] }
   | { type: "ADD_FORM_ELEMENT"; payload: RegistrationFormElement }
   | { type: "UPDATE_FORM_ELEMENT"; payload: RegistrationFormElement }
   | { type: "REMOVE_FORM_ELEMENT"; payload: string }
@@ -269,6 +285,8 @@ export type SemesterSession = {
   startDate: string | null;
   endDate: string | null;
   daysOfWeek: string[];
+
+  registrationCloseAt?: string | null; // ISO datetime (TIMESTAMPTZ)
 
   overriddenTitle?: string | null;
   overriddenCategory?: string | null;

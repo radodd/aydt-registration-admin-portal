@@ -20,7 +20,8 @@ type TabKey =
   | "payment"
   | "discounts"
   | "registrationForm"
-  | "confirmationEmail";
+  | "confirmationEmail"
+  | "waitlist";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "details", label: "Details" },
@@ -30,6 +31,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "discounts", label: "Discounts" },
   { key: "registrationForm", label: "Registration Form" },
   { key: "confirmationEmail", label: "Confirmation Email" },
+  { key: "waitlist", label: "Waitlist" },
 ];
 
 export default function ReviewStep({
@@ -138,6 +140,16 @@ export default function ReviewStep({
                   <div className="text-sm text-gray-500">
                     Type: {type} · Capacity: {capacity}
                   </div>
+                  {s.registrationCloseAt && (
+                    <div className="text-xs text-gray-400">
+                      Registration closes:{" "}
+                      {new Date(s.registrationCloseAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </div>
+                  )}
                   {hasOverrides && (
                     <div className="text-xs font-medium text-indigo-600">
                       Overrides applied
@@ -173,12 +185,28 @@ export default function ReviewStep({
       case "payment":
         return safePayment ? (
           <div className="border border-gray-200 rounded-xl p-4 text-sm space-y-3">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-gray-500">Type</span>
-              <span className="font-medium text-gray-900 capitalize">
+              <span className="font-medium bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs capitalize">
                 {safePayment.type.replaceAll("_", " ")}
               </span>
             </div>
+            {safePayment.depositAmount != null && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Deposit Amount</span>
+                <span className="font-medium text-gray-900">
+                  ${safePayment.depositAmount.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {safePayment.depositPercent != null && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Deposit Percent</span>
+                <span className="font-medium text-gray-900">
+                  {safePayment.depositPercent}%
+                </span>
+              </div>
+            )}
             {safePayment.installmentCount && (
               <div className="flex justify-between">
                 <span className="text-gray-500">Installments</span>
@@ -289,6 +317,112 @@ export default function ReviewStep({
                     sandbox="allow-same-origin"
                   />
                 </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      case "waitlist": {
+        const waitlist = state.waitlist;
+        if (!waitlist) {
+          return <EmptyState message="No waitlist configuration. Waitlist is disabled." />;
+        }
+        return (
+          <div className="space-y-4 text-sm">
+            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Status</span>
+                <span
+                  className={`font-medium px-2 py-0.5 rounded-full text-xs ${
+                    waitlist.enabled
+                      ? "bg-green-100 text-green-700"
+                      : "bg-gray-100 text-gray-500"
+                  }`}
+                >
+                  {waitlist.enabled ? "Enabled" : "Disabled"}
+                </span>
+              </div>
+              {waitlist.enabled && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Invite Expiry</span>
+                    <span className="font-medium text-gray-900">
+                      {waitlist.inviteExpiryHours} hours
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Stop Invites Before Close</span>
+                    <span className="font-medium text-gray-900">
+                      {waitlist.stopDaysBeforeClose} day
+                      {waitlist.stopDaysBeforeClose !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {waitlist.enabled && safeSessions.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Per-Session Status
+                </p>
+                {safeSessions.map((s) => {
+                  const sessionEnabled =
+                    waitlist.sessionSettings?.[s.sessionId]?.enabled ?? true;
+                  return (
+                    <div
+                      key={s.sessionId}
+                      className="flex justify-between items-center border border-gray-200 rounded-xl px-4 py-2.5"
+                    >
+                      <div>
+                        <span className="font-medium text-gray-900">
+                          {s.overriddenTitle ?? s.title}
+                        </span>
+                        {s.registrationCloseAt && (
+                          <span className="text-xs text-gray-400 ml-2">
+                            · closes{" "}
+                            {new Date(s.registrationCloseAt).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        )}
+                      </div>
+                      <span
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          sessionEnabled
+                            ? "bg-green-100 text-green-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {sessionEnabled ? "On" : "Off"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {waitlist.invitationEmail?.subject && (
+              <div className="border border-gray-200 rounded-xl p-4 space-y-2">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Invitation Email
+                </p>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Subject</span>
+                  <span className="font-medium text-gray-900 text-right max-w-xs truncate">
+                    {waitlist.invitationEmail.subject}
+                  </span>
+                </div>
+                {waitlist.invitationEmail.fromName && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">From</span>
+                    <span className="font-medium text-gray-900">
+                      {waitlist.invitationEmail.fromName}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>

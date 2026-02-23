@@ -141,28 +141,56 @@ export default function DiscountsStep({
             </div>
           )}
 
-          {allDiscounts.map((discount) => (
-            <div
-              key={discount.id}
-              className="flex items-start gap-3 border border-gray-200 rounded-xl p-4 hover:border-gray-300 transition"
-            >
-              <input
-                id={`discount-${discount.id}`}
-                type="checkbox"
-                checked={isSelected(discount.id)}
-                onChange={() => !isLocked && toggleSelection(discount.id)}
-                disabled={isLocked}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
-              />
+          {allDiscounts.map((discount) => {
+            const selected = isSelected(discount.id);
+            const categoryLabel = discount.category.replaceAll("_", " ");
+            const rulesCount = discount.discount_rules?.length ?? 0;
 
-              <label
-                htmlFor={`discount-${discount.id}`}
-                className="text-sm font-medium text-gray-800 cursor-pointer"
+            return (
+              <div
+                key={discount.id}
+                onClick={() => !isLocked && toggleSelection(discount.id)}
+                className={`flex items-start gap-3 border rounded-xl p-4 transition cursor-pointer ${
+                  selected
+                    ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400"
+                    : "border-gray-200 hover:border-gray-300 bg-white"
+                } ${isLocked ? "cursor-default opacity-60" : ""}`}
               >
-                {discount.name}
-              </label>
-            </div>
-          ))}
+                <input
+                  id={`discount-${discount.id}`}
+                  type="checkbox"
+                  checked={selected}
+                  onChange={() => !isLocked && toggleSelection(discount.id)}
+                  disabled={isLocked}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50 shrink-0"
+                />
+
+                <div className="flex-1 min-w-0">
+                  <label
+                    htmlFor={`discount-${discount.id}`}
+                    className={`text-sm font-medium cursor-pointer ${selected ? "text-indigo-800" : "text-gray-800"}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {discount.name}
+                  </label>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full capitalize">
+                      {categoryLabel}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {rulesCount} rule{rulesCount !== 1 ? "s" : ""}
+                    </span>
+                    {discount.eligible_sessions_mode === "selected" && (
+                      <span className="text-xs text-amber-600">
+                        Selected sessions only
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Navigation */}

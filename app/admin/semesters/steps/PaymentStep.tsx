@@ -88,27 +88,36 @@ export default function PaymentStep({
         )}
 
         <fieldset disabled={isLocked} className="space-y-6">
-          {/* Plan Type */}
-          <div className="space-y-2">
-            <label
-              htmlFor="payment-type"
-              className="text-sm font-medium text-gray-700"
-            >
-              Payment type
-            </label>
-            <select
-              id="payment-type"
-              value={form.type}
-              onChange={(e) =>
-                updateField("type", e.target.value as PaymentFormState["type"])
-              }
-              className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition bg-white"
-            >
-              <option value="pay_in_full">Pay in Full</option>
-              <option value="deposit_flat">Flat Deposit</option>
-              <option value="deposit_percent">Percent Deposit</option>
-              <option value="installments">Installments</option>
-            </select>
+          {/* Plan Type — card radio buttons */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-gray-700">Payment type</label>
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  { value: "pay_in_full", label: "Pay in Full", desc: "Full payment due on one date" },
+                  { value: "deposit_flat", label: "Flat Deposit", desc: "Fixed deposit, balance due later" },
+                  { value: "deposit_percent", label: "Percent Deposit", desc: "% of total due upfront" },
+                  { value: "installments", label: "Installments", desc: "Split into multiple payments" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={isLocked}
+                  onClick={() => updateField("type", option.value)}
+                  className={`text-left border rounded-xl px-4 py-3 transition focus:outline-none disabled:opacity-50 ${
+                    form.type === option.value
+                      ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
+                      : "border-gray-200 hover:border-gray-300 bg-white"
+                  }`}
+                >
+                  <p className={`text-sm font-medium ${form.type === option.value ? "text-indigo-700" : "text-gray-900"}`}>
+                    {option.label}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">{option.desc}</p>
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Installment Count (Conditional) */}

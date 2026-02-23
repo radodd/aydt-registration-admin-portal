@@ -159,7 +159,7 @@ export default function SessionsStep({
               key={session.sessionId}
               className="border border-gray-200 rounded-xl p-4 flex justify-between items-start hover:border-gray-300 transition"
             >
-              <div className="space-y-1">
+              <div className="space-y-1 flex-1">
                 <div className="font-medium text-gray-900">
                   {session.overriddenTitle ?? session.title}
                 </div>
@@ -185,6 +185,36 @@ export default function SessionsStep({
                     session.overriddenCapacity,
                     session.capacity,
                   )}
+                </div>
+
+                {/* Registration close date */}
+                <div className="flex items-center gap-2 pt-1">
+                  <label className="text-xs text-gray-500 shrink-0">
+                    Registration closes:
+                  </label>
+                  <input
+                    type="datetime-local"
+                    disabled={isLocked}
+                    value={
+                      session.registrationCloseAt
+                        ? session.registrationCloseAt.slice(0, 16)
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const updated = {
+                        ...session,
+                        registrationCloseAt: e.target.value
+                          ? new Date(e.target.value).toISOString()
+                          : null,
+                      };
+                      setAppliedSessions((prev) =>
+                        prev.map((s) =>
+                          s.sessionId === session.sessionId ? updated : s,
+                        ),
+                      );
+                    }}
+                    className="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                  />
                 </div>
               </div>
 

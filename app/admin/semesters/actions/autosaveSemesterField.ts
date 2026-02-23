@@ -2,7 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 
-type AutosaveField = "registration_form" | "confirmation_email";
+type AutosaveField = "registration_form" | "confirmation_email" | "waitlist_settings";
 
 export async function autosaveSemesterField(
   semesterId: string,

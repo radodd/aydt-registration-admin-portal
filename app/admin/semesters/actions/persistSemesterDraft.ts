@@ -92,6 +92,7 @@ export async function persistSemesterDraft(
         status: "draft",
         registration_form: state.registrationForm ?? { elements: [] },
         confirmation_email: state.confirmationEmail ?? {},
+        waitlist_settings: state.waitlist ?? { enabled: false },
       })
       .select("id")
       .single();
@@ -108,6 +109,7 @@ export async function persistSemesterDraft(
       .update({
         registration_form: state.registrationForm ?? { elements: [] },
         confirmation_email: state.confirmationEmail ?? {},
+        waitlist_settings: state.waitlist ?? { enabled: false },
       })
       .eq("id", semesterId);
 

@@ -10,6 +10,7 @@ import DiscountsStep from "./steps/DiscountsStep";
 import ReviewStep from "./steps/ReviewStep";
 import SessionsGroupsStep from "./steps/SessionGroupsStep";
 import ConfirmationEmailStep from "./steps/ConfirmationEmailStep";
+import WaitlistStep from "./steps/WaitlistStep";
 import {
   publishSemesterNow,
   saveSemesterDraft,
@@ -55,6 +56,10 @@ function semesterReducer(
 
     case "SET_CONFIRMATION_EMAIL":
       nextState = { ...state, confirmationEmail: action.payload };
+      break;
+
+    case "SET_WAITLIST":
+      nextState = { ...state, waitlist: action.payload };
       break;
 
     case "ADD_FORM_ELEMENT":
@@ -123,6 +128,7 @@ const STEPS = [
   { key: "discounts", label: "Discounts" },
   { key: "registrationForm", label: "Registration Form" },
   { key: "confirmationEmail", label: "Confirmation Email" },
+  { key: "waitlist", label: "Waitlist" },
   { key: "review", label: "Review" },
 ] as const;
 
@@ -265,6 +271,16 @@ export default function SemesterForm({
         isLocked={isLocked}
       />
     ),
+    waitlist: (
+      <WaitlistStep
+        state={state}
+        dispatch={dispatch}
+        onNext={nextStep}
+        onBack={previousStep}
+        isLocked={isLocked}
+        semesterId={state.id}
+      />
+    ),
     review: (
       <ReviewStep
         state={state}
@@ -330,18 +346,19 @@ export default function SemesterForm({
         )}
 
         {/* Step Indicator */}
-        <div className="mb-8 flex flex-wrap gap-4">
+        <div className="mb-8 flex flex-wrap gap-2">
           {STEPS.map((step, index) => (
-            <div
+            <button
               key={step.key}
-              className={`text-sm ${
+              onClick={() => navigateToStep(index)}
+              className={`text-sm px-3 py-1 rounded-lg transition-colors ${
                 index === activeStepIndex
-                  ? "font-semibold underline"
-                  : "text-gray-400"
+                  ? "font-semibold text-indigo-700 bg-indigo-50"
+                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
               }`}
             >
               {index + 1}. {step.label}
-            </div>
+            </button>
           ))}
         </div>
 
