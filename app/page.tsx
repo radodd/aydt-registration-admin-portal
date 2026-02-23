@@ -30,7 +30,7 @@ export default async function Home() {
   const { data: semesters, error } = await supabase
     .from("semesters")
     .select("*")
-    .eq("is_active", true)
+    .eq("status", "published")
     .order("created_at", { ascending: true });
   console.log("Fetched semesters:", semesters);
   if (error) {

@@ -202,6 +202,7 @@ export default function SemesterForm({
           if (!state.id) return;
           await persistSemesterDraft(state);
           await publishSemesterNow(state.id);
+          router.push("/admin/semesters");
         }}
         onSaveDraft={async () => {
           if (!state.id) return;
@@ -214,6 +215,7 @@ export default function SemesterForm({
           if (!state.id) return;
           await persistSemesterDraft(state);
           await scheduleSemester(state.id, date);
+          router.push("/admin/semesters");
         }}
       />
     ),

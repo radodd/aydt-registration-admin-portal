@@ -14,6 +14,9 @@ export default async function EditPage({ params }: { params: { id: string } }) {
       `
  *,
     sessions(*),
+session_groups(
+id, name, session_group_sessions(session_id))
+
     semester_payment_plans(*),
     semester_payment_installments(*),
     semester_discounts(

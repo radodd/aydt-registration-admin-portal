@@ -41,11 +41,11 @@ export default function SessionsStep({
 
   useEffect(() => {
     async function loadSessions() {
-      const data = await getSessions();
+      const data = await getSessions(state.id);
       setAllSessions(data);
     }
     loadSessions();
-  }, []);
+  }, [state.id]);
 
   /* ------------------------------------------------------------------------ */
   /* Derived data                                                             */

@@ -111,10 +111,6 @@ export default async function SemesterDetailPage({ params }: PageProps) {
         <div className="space-y-4">
           {semester.sessions?.map((session: any) => {
             const group = session.session_group_sessions?.session_group ?? null;
-            console.log(
-              "🔍 Session Object in GROUPS:",
-              session.session_group_sessions?.session_group,
-            );
 
             return (
               <div

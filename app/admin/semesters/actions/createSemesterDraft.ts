@@ -9,8 +9,6 @@ export async function createSemesterDraft() {
     .from("semesters")
     .insert({
       name: "Untitled Semester",
-      is_published: false,
-      is_active: false,
     })
     .select("id")
     .single();

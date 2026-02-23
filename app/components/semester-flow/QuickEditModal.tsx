@@ -11,7 +11,7 @@ export default function QuickEditSession({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState<SemesterSession>(session);
-
+  console.log("draft", draft);
   function toggleDay(day: string) {
     const days = draft.overriddenDaysOfWeek ?? draft.daysOfWeek;
 
@@ -86,7 +86,15 @@ export default function QuickEditSession({
           </label>
 
           <div className="flex flex-wrap gap-2">
-            {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => {
+            {[
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday",
+            ].map((d) => {
               const active = (
                 draft.overriddenDaysOfWeek ?? draft.daysOfWeek
               ).includes(d);
@@ -103,7 +111,7 @@ export default function QuickEditSession({
                     : "border-gray-300 text-gray-700 hover:bg-gray-50"
                 }`}
                 >
-                  {d}
+                  {d.slice(0, 3)}
                 </button>
               );
             })}

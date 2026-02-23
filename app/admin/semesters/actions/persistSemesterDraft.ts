@@ -1,11 +1,11 @@
 "use server";
 
-import { syncSemesterDiscounts } from "./syncSemesterDiscounts";
-import { updateSemesterDetails } from "./updateSemesterDetails";
-import { syncSemesterSessions } from "./syncSemesterSessions";
-import { syncSemesterPayment } from "./syncSemesterPayments";
-import { syncSemesterSessionGroups } from "./syncSemesterGroups";
 import { SemesterDraft } from "@/types";
+import { syncSemesterDiscounts } from "./syncSemesterDiscounts";
+import { syncSemesterSessionGroups } from "./syncSemesterGroups";
+import { syncSemesterPayment } from "./syncSemesterPayments";
+import { syncSemesterSessions } from "./syncSemesterSessions";
+import { updateSemesterDetails } from "./updateSemesterDetails";
 
 export async function persistSemesterDraft(state: SemesterDraft) {
   if (!state.id) {

@@ -48,9 +48,6 @@ export default function PaymentStep({
   function handleSubmit() {
     if (!isValid()) return;
 
-    console.group("💳 PaymentStep.handleSubmit");
-    console.log("Form state:", form);
-
     dispatch({
       type: "SET_PAYMENT",
       payload: {
@@ -63,7 +60,6 @@ export default function PaymentStep({
       },
     });
 
-    console.log("Reducer updated with payment plan");
     console.groupEnd();
     onNext();
   }

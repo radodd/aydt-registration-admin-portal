@@ -1,29 +1,12 @@
 "use client";
 
 import { SemesterDraft } from "@/types";
-import { updateSemesterDetails } from "../actions/updateSemesterDetails";
 import SemesterForm from "../SemesterForm";
-// import { updateSemester } from "../actions/updateSemester";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-
-type SemesterWithRelations = {
-  id: string;
-  name: string;
-  tracking_mode: boolean;
-  capacity_warning_threshold: string | null;
-  publish_at: string | null;
-
-  sessions: any[];
-  payment_plan: any[];
-  semester_payment_plans: any;
-  semester_payment_installments: any[];
-  semester_discounts: any[];
-  discounts: any[];
-};
+import { useEffect, useState } from "react";
 
 type EditSemesterClientProps = {
-  semester: SemesterWithRelations;
+  semester: any;
 };
 
 export default function EditSemesterClient({
@@ -31,7 +14,7 @@ export default function EditSemesterClient({
 }: EditSemesterClientProps) {
   const router = useRouter();
 
-  function mapSemesterToDraft(semester: SemesterWithRelations) {
+  function mapSemesterToDraft(semester: any): SemesterDraft {
     return {
       id: semester.id,
       details: {
@@ -41,18 +24,14 @@ export default function EditSemesterClient({
         publishAt: semester.publish_at,
       },
       sessions: {
-        appliedSessions: semester.sessions.map((s) => ({
+        appliedSessions: semester.sessions.map((s: any) => ({
           sessionId: s.id,
-
           title: s.title,
           type: s.type,
           capacity: s.capacity,
-
           startDate: s.start_date,
           endDate: s.end_date,
           daysOfWeek: s.days_of_week,
-
-          // no overrides when editing existing
           overriddenTitle: null,
           overriddenCategory: null,
           overriddenType: null,
@@ -62,6 +41,15 @@ export default function EditSemesterClient({
           overriddenDaysOfWeek: null,
         })),
       },
+      sessionGroups: {
+        groups: (semester.session_groups ?? []).map((g: any) => ({
+          id: g.id,
+          name: g.name,
+          sessionIds: (g.session_group_sessions ?? []).map(
+            (sgs: any) => sgs.session_id,
+          ),
+        })),
+      },
       paymentPlan: semester.semester_payment_plans
         ? {
             type: semester.semester_payment_plans.type,
@@ -69,16 +57,18 @@ export default function EditSemesterClient({
             depositPercent: semester.semester_payment_plans.deposit_percent,
             installmentCount: semester.semester_payment_plans.installment_count,
             dueDate: semester.semester_payment_plans.due_date,
-            installments: semester.semester_payment_installments?.map((i) => ({
-              number: i.installment_number,
-              amount: i.amount,
-              dueDate: i.due_date,
-            })),
+            installments: semester.semester_payment_installments?.map(
+              (i: any) => ({
+                number: i.installment_number,
+                amount: i.amount,
+                dueDate: i.due_date,
+              }),
+            ),
           }
         : undefined,
       discounts: {
         appliedDiscounts:
-          semester.semester_discounts?.map((sd) => ({
+          semester.semester_discounts?.map((sd: any) => ({
             discountId: sd.discount_id,
             scope: sd.discount.eligible_sessions_mode,
             sessionIds:
@@ -92,27 +82,14 @@ export default function EditSemesterClient({
     };
   }
 
-  async function handleUpdate(state: SemesterDraft) {
-    await updateSemesterDetails(semester.id, state);
-    router.push("/admin/semesters");
-  }
-
-  useEffect(() => {
-    console.group("🔎 EditSemesterClient: Raw Semester");
-    console.log(semester);
-    console.log("Sessions:", semester.sessions);
-    console.log("Payment Plan:", semester.payment_plan);
-    console.log("Semester Discounts:", semester.semester_discounts);
-    console.log("Discounts:", semester.discounts);
-    console.groupEnd();
-  }, [semester]);
+  // 🔥 This is the important line
+  const [draft] = useState(() => mapSemesterToDraft(semester));
 
   return (
     <SemesterForm
       mode="edit"
       basePath={`/admin/semesters/${semester.id}/edit`}
-      initialState={mapSemesterToDraft(semester)}
-      onFinalSubmit={handleUpdate}
+      initialState={draft}
     />
   );
 }

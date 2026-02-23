@@ -69,10 +69,6 @@ export default function DetailsStep({
   // }
 
   async function handleDetailsNext(formValues: DetailsFormState) {
-    console.group("📝 DetailsStep.handleDetailsNext");
-    console.log("Current state.id:", state.id);
-    console.log("Form values:", formValues);
-
     if (!form.name.trim()) {
       console.warn("Name missing — aborting");
       console.groupEnd();
@@ -82,23 +78,11 @@ export default function DetailsStep({
 
     try {
       let semesterId = state.id;
-
       if (!semesterId) {
-        console.log("No semester ID found. Creating draft...");
-
         semesterId = await createSemesterDraft();
-
-        console.log("✅ Draft created with ID:", semesterId);
-
         dispatch({ type: "SET_ID", payload: semesterId });
-      } else {
-        console.log("Using existing semester ID:", semesterId);
       }
-
-      console.log("Updating semester details in DB...");
       await updateSemesterDetails(semesterId!, formValues);
-      console.log("✅ Details persisted");
-
       dispatch({
         type: "SET_DETAILS",
         payload: {
@@ -110,9 +94,6 @@ export default function DetailsStep({
               : 0,
         },
       });
-
-      console.log("Reducer updated with details");
-      console.log("Proceeding to next step");
 
       onNext();
     } catch (err) {

@@ -25,56 +25,25 @@ export default function DiscountsStep({
     state.discounts?.appliedDiscounts ?? [],
   );
   const [showCreateModal, setShowCreateModal] = useState(false);
-  console.log(
-    "Draft Sessions in DiscountsStep:",
-    state.sessions?.appliedSessions,
-  );
-  console.log("DiscountsStep render sessions:", state.sessions);
+
   /* ------------------------------------------------------------------------ */
   /* Data loading                                                             */
   /* ------------------------------------------------------------------------ */
 
-  // const loadDiscounts = useCallback(async () => {
-  //   console.group("📡 useCallback loadDiscounts");
-  //   console.log("Triggered loadDiscounts()");
-
-  //   const data = await getDiscounts();
-
-  //   console.log("Fetched discounts:", data);
-  //   console.log("Fetched count:", data?.length);
-
-  //   setDiscounts(data ?? []);
-
-  //   console.log("setDiscounts called");
-  //   console.groupEnd();
-  // }, []);
-
   useEffect(() => {
-    console.group("⚡ useEffect loadDiscounts");
-    console.log("Effect triggered");
-    console.log("Current discounts length:", discounts.length);
-
     let active = true;
 
     async function fetchDiscounts() {
-      console.log("Inside effect fetchDiscounts()");
       const data = await getDiscounts();
 
-      console.log("Effect fetched discounts:", data);
-      console.log("Effect fetched count:", data?.length);
-
       if (active) {
-        console.log("Effect updating state...");
         setDiscounts(data ?? []);
-      } else {
-        console.log("Effect skipped update (inactive)");
       }
     }
 
     fetchDiscounts();
 
     return () => {
-      console.log("Effect cleanup triggered");
       active = false;
       console.groupEnd();
     };
@@ -103,9 +72,6 @@ export default function DiscountsStep({
   }
 
   function handleSubmit() {
-    console.group("🏷 DiscountsStep.handleSubmit");
-    console.log("Selected Applications:", applications);
-
     dispatch({
       type: "SET_DISCOUNTS",
       payload: {
@@ -113,7 +79,6 @@ export default function DiscountsStep({
       },
     });
 
-    console.log("Reducer updated with discounts");
     console.groupEnd();
 
     onNext();

@@ -28,7 +28,7 @@ function revalidateSemester(semesterId: string) {
 
 export async function saveSemesterDraft(semesterId: string) {
   const supabase = await createClient();
-
+  console.log("Save Semester Draft");
   const { error } = await supabase
     .from("semesters")
     .update({

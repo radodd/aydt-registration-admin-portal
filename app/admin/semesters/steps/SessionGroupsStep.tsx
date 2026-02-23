@@ -132,10 +132,6 @@ export default function SessionsGroupsStep({
   }
 
   function handleSubmit() {
-    console.group("📦 SessionGroupsStep.handleSubmit");
-    console.log("Applied Session Groups:", groups);
-    console.groupEnd();
-
     dispatch({
       type: "SET_SESSION_GROUPS",
       payload: {
