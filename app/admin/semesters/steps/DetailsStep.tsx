@@ -2,8 +2,6 @@
 
 import { DetailsFormState, DetailsStepProps } from "@/types";
 import { useState } from "react";
-import { createSemesterDraft } from "../actions/createSemesterDraft";
-import { updateSemesterDetails } from "../actions/updateSemesterDetails";
 
 /* -------------------------------------------------------------------------- */
 /* Component                                                                  */
@@ -31,77 +29,25 @@ export default function DetailsStep({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  // async function handleDetailsNext(formValues: DetailsFormState) {
-  //   if (!form.name.trim()) {
-  //     alert("Name is required");
-  //     return;
-  //   }
-
-  //   try {
-  //     let semesterId = state.id;
-
-  //     if (!semesterId) {
-  //       // First time → create draft
-  //       semesterId = await createSemesterDraft();
-  //       dispatch({ type: "SET_ID", payload: semesterId });
-  //     }
-
-  //     await updateSemesterDetails(semesterId!, formValues);
-
-  //     // router.push("/admin/semesters/new?step=sessions");
-
-  //     dispatch({
-  //       type: "SET_DETAILS",
-  //       payload: {
-  //         name: form.name.trim(),
-  //         trackingMode: form.trackingMode,
-  //         capacityWarningThreshold:
-  //           form.capacityWarningThreshold !== ""
-  //             ? Number(form.capacityWarningThreshold)
-  //             : 0,
-  //       },
-  //     });
-
-  //     onNext();
-  //   } catch (err: any) {
-  //     alert(err.message);
-  //   }
-  // }
-
-  async function handleDetailsNext(formValues: DetailsFormState) {
+  function handleDetailsNext() {
     if (!form.name.trim()) {
-      console.warn("Name missing — aborting");
-      console.groupEnd();
       alert("Name is required");
       return;
     }
 
-    try {
-      let semesterId = state.id;
-      if (!semesterId) {
-        semesterId = await createSemesterDraft();
-        dispatch({ type: "SET_ID", payload: semesterId });
-      }
-      await updateSemesterDetails(semesterId!, formValues);
-      dispatch({
-        type: "SET_DETAILS",
-        payload: {
-          name: form.name.trim(),
-          trackingMode: form.trackingMode,
-          capacityWarningThreshold:
-            form.capacityWarningThreshold !== ""
-              ? Number(form.capacityWarningThreshold)
-              : 0,
-        },
-      });
+    dispatch({
+      type: "SET_DETAILS",
+      payload: {
+        name: form.name.trim(),
+        trackingMode: form.trackingMode,
+        capacityWarningThreshold:
+          form.capacityWarningThreshold !== ""
+            ? Number(form.capacityWarningThreshold)
+            : 0,
+      },
+    });
 
-      onNext();
-    } catch (err) {
-      console.error("❌ Details step failed:", err);
-      alert((err as Error).message);
-    } finally {
-      console.groupEnd();
-    }
+    onNext();
   }
 
   return (
@@ -191,7 +137,7 @@ export default function DetailsStep({
           {/* Actions */}
           <div className="pt-4 flex justify-end">
             <button
-              onClick={() => handleDetailsNext(form)}
+              onClick={handleDetailsNext}
               className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
             >
               Next

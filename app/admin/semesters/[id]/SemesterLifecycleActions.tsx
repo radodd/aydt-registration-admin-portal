@@ -6,6 +6,9 @@ import {
   scheduleSemester,
   saveSemesterDraft,
 } from "../actions/semesterLifecycle";
+import { archiveSemester } from "../actions/archiveSemester";
+import { unpublishSemester } from "../actions/unpublishSemester";
+import { restoreSemester } from "../actions/restoreSemester";
 
 type Props = {
   semesterId: string;
@@ -41,6 +44,24 @@ export default function SemesterLifecycleActions({
     });
   }
 
+  function handleArchive() {
+    startTransition(async () => {
+      await archiveSemester(semesterId);
+    });
+  }
+
+  function handleUnpublish() {
+    startTransition(async () => {
+      await unpublishSemester(semesterId);
+    });
+  }
+
+  function handleRestore() {
+    startTransition(async () => {
+      await restoreSemester(semesterId);
+    });
+  }
+
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-6">
       <h2 className="text-lg font-semibold">Lifecycle Controls</h2>
@@ -51,7 +72,7 @@ export default function SemesterLifecycleActions({
       </div>
 
       <div className="flex flex-wrap gap-3">
-        {status !== "published" && (
+        {(status === "draft" || status === "scheduled") && (
           <button
             onClick={handlePublishNow}
             disabled={pending}
@@ -61,7 +82,7 @@ export default function SemesterLifecycleActions({
           </button>
         )}
 
-        {status !== "draft" && (
+        {(status === "scheduled" || status === "published") && (
           <button
             onClick={handleSaveDraft}
             disabled={pending}
@@ -70,10 +91,40 @@ export default function SemesterLifecycleActions({
             Revert to Draft
           </button>
         )}
+
+        {status === "published" && (
+          <button
+            onClick={handleUnpublish}
+            disabled={pending}
+            className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Unpublish
+          </button>
+        )}
+
+        {status === "published" && (
+          <button
+            onClick={handleArchive}
+            disabled={pending}
+            className="px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+          >
+            Archive
+          </button>
+        )}
+
+        {status === "archived" && (
+          <button
+            onClick={handleRestore}
+            disabled={pending}
+            className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Restore
+          </button>
+        )}
       </div>
 
       {/* Scheduling */}
-      <div className="space-y-3">
+      {status !== "archived" && <div className="space-y-3">
         <div className="text-sm font-medium text-gray-700">
           Schedule Publish
         </div>
@@ -100,7 +151,7 @@ export default function SemesterLifecycleActions({
             Currently scheduled for: {publishAt}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

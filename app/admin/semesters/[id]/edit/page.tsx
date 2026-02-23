@@ -33,5 +33,7 @@ id, name, session_group_sessions(session_id))
     .eq("id", id)
     .single();
 
+  if (!semester) notFound();
+
   return <EditSemesterClient semester={semester} />;
 }

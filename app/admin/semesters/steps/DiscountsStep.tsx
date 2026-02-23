@@ -6,21 +6,17 @@ import {
   AppliedSemesterDiscount,
   DiscountsStepProps,
   HydratedDiscount,
-  SemesterDiscount,
 } from "@/types";
-import { refresh } from "next/cache";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function DiscountsStep({
   state,
   dispatch,
   onNext,
   onBack,
-  refreshDiscounts,
-  allDiscounts,
 }: DiscountsStepProps) {
-  const [discounts, setDiscounts] = useState<HydratedDiscount[]>([]);
+  const [allDiscounts, setAllDiscounts] = useState<HydratedDiscount[]>([]);
   const [applications, setApplications] = useState<AppliedSemesterDiscount[]>(
     state.discounts?.appliedDiscounts ?? [],
   );
@@ -33,21 +29,22 @@ export default function DiscountsStep({
   useEffect(() => {
     let active = true;
 
-    async function fetchDiscounts() {
+    async function load() {
       const data = await getDiscounts();
-
-      if (active) {
-        setDiscounts(data ?? []);
-      }
+      if (active) setAllDiscounts(data ?? []);
     }
 
-    fetchDiscounts();
+    load();
 
     return () => {
       active = false;
-      console.groupEnd();
     };
-  }, [discounts.length]);
+  }, []);
+
+  async function refreshDiscounts() {
+    const data = await getDiscounts();
+    setAllDiscounts(data ?? []);
+  }
 
   function isSelected(discountId: string) {
     return applications.some((a) => a.discountId === discountId);
@@ -78,8 +75,6 @@ export default function DiscountsStep({
         appliedDiscounts: applications,
       },
     });
-
-    console.groupEnd();
 
     onNext();
   }
@@ -121,7 +116,6 @@ export default function DiscountsStep({
                 }))}
                 onCreated={async () => {
                   await refreshDiscounts();
-
                   setShowCreateModal(false);
                 }}
                 onCancel={() => setShowCreateModal(false)}
@@ -132,13 +126,13 @@ export default function DiscountsStep({
 
         {/* Discount List */}
         <div className="space-y-4">
-          {allDiscounts?.length === 0 && (
+          {allDiscounts.length === 0 && (
             <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
               <p className="text-sm text-gray-500">No discounts available</p>
             </div>
           )}
 
-          {allDiscounts?.map((discount) => (
+          {allDiscounts.map((discount) => (
             <div
               key={discount.id}
               className="flex items-start gap-3 border border-gray-200 rounded-xl p-4 hover:border-gray-300 transition"
@@ -147,23 +141,7 @@ export default function DiscountsStep({
                 id={`discount-${discount.id}`}
                 type="checkbox"
                 checked={isSelected(discount.id)}
-                onChange={() => {
-                  toggleSelection(discount.id);
-
-                  console.table(
-                    discounts?.map((d) => ({
-                      discountId: d.id,
-                      name: d.name,
-                    })),
-                  );
-
-                  console.log(
-                    "Toggled discount",
-                    discount.id,
-                    "Selected:",
-                    !isSelected(discount.id),
-                  );
-                }}
+                onChange={() => toggleSelection(discount.id)}
                 className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
               />
 

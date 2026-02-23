@@ -1,7 +1,6 @@
-import { getDiscounts } from "@/queries/admin";
-import { HydratedDiscount, SemesterAction, SemesterDraft } from "@/types";
+import { SemesterAction, SemesterDraft } from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
-import { JSX, useEffect, useReducer, useState } from "react";
+import { JSX, useReducer } from "react";
 import DetailsStep from "./steps/DetailsStep";
 import SessionsStep from "./steps/SessionsStep";
 import PaymentStep from "./steps/PaymentStep";
@@ -127,31 +126,6 @@ export default function SemesterForm({
     navigateToStep(activeStepIndex - 1);
   }
 
-  /* ----------------------------- Discount Loading ------------------------------ */
-
-  const [allDiscounts, setAllDiscounts] = useState<HydratedDiscount[]>([]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function load() {
-      const data = await getDiscounts();
-      if (active) setAllDiscounts(data);
-    }
-
-    load();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function refreshDiscounts() {
-    const data = await getDiscounts();
-    setAllDiscounts(data);
-    console.groupEnd();
-  }
-
   /* ---------------------------- Step Render ------------------------------ */
 
   const stepRenderers: Record<StepKey, JSX.Element> = {
@@ -188,33 +162,29 @@ export default function SemesterForm({
         dispatch={dispatch}
         onNext={nextStep}
         onBack={previousStep}
-        allDiscounts={allDiscounts}
-        refreshDiscounts={refreshDiscounts}
       />
     ),
     review: (
       <ReviewStep
         state={state}
         mode={mode}
-        allDiscounts={allDiscounts}
         onBack={previousStep}
         onPublishNow={async () => {
-          if (!state.id) return;
-          await persistSemesterDraft(state);
-          await publishSemesterNow(state.id);
+          const { semesterId } = await persistSemesterDraft(state);
+          dispatch({ type: "SET_ID", payload: semesterId });
+          await publishSemesterNow(semesterId);
           router.push("/admin/semesters");
         }}
         onSaveDraft={async () => {
-          if (!state.id) return;
-          await persistSemesterDraft(state);
-          await saveSemesterDraft(state.id);
-
+          const { semesterId } = await persistSemesterDraft(state);
+          dispatch({ type: "SET_ID", payload: semesterId });
+          await saveSemesterDraft(semesterId);
           router.push("/admin/semesters");
         }}
         onSchedule={async (date) => {
-          if (!state.id) return;
-          await persistSemesterDraft(state);
-          await scheduleSemester(state.id, date);
+          const { semesterId } = await persistSemesterDraft(state);
+          dispatch({ type: "SET_ID", payload: semesterId });
+          await scheduleSemester(semesterId, date);
           router.push("/admin/semesters");
         }}
       />

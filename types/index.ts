@@ -142,6 +142,8 @@ export interface Registration {
 /* Semester Domain                                                                */
 /* -------------------------------------------------------------------------- */
 
+export type SemesterStatus = "draft" | "scheduled" | "published" | "archived";
+
 export type SemesterDraft = {
   id?: string;
 
@@ -332,8 +334,6 @@ export type DiscountsStepProps = {
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
   onBack: () => void;
-  allDiscounts: HydratedDiscount[];
-  refreshDiscounts: () => Promise<void>;
 };
 
 export type ReviewStepProps = {

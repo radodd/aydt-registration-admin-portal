@@ -1,17 +1,16 @@
 "use client";
 
 import {
-  Discount,
   DiscountCategory,
   DiscountRules,
   HydratedDiscount,
   SemesterDraft,
 } from "@/types";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getDiscounts } from "@/queries/admin";
 
 type ReviewStepProps = {
   state: SemesterDraft;
-  allDiscounts?: HydratedDiscount[];
   mode: "create" | "edit";
   onBack: () => void;
   onPublishNow: () => void;
@@ -22,13 +21,23 @@ type ReviewStepProps = {
 export default function ReviewStep({
   state,
   mode,
-  allDiscounts = [],
   onBack,
   onPublishNow,
   onSaveDraft,
   onSchedule,
 }: ReviewStepProps) {
   const [scheduledDate, setScheduledDate] = useState<string>("");
+  const [allDiscounts, setAllDiscounts] = useState<HydratedDiscount[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    getDiscounts().then((data) => {
+      if (active) setAllDiscounts(data ?? []);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   console.group("📋 ReviewStep State Check");
   console.log("Full state:", state);

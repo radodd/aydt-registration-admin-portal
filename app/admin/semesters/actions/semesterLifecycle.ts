@@ -2,20 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-
-type SemesterStatus = "draft" | "scheduled" | "published";
-
-async function logAudit(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  semesterId: string,
-  action: string,
-) {
-  await supabase.from("semester_audit_logs").insert({
-    semester_id: semesterId,
-    action,
-    created_at: new Date(),
-  });
-}
+import { logAudit } from "./logAudit";
 
 function revalidateSemester(semesterId: string) {
   revalidatePath("/admin/semesters");
@@ -28,7 +15,6 @@ function revalidateSemester(semesterId: string) {
 
 export async function saveSemesterDraft(semesterId: string) {
   const supabase = await createClient();
-  console.log("Save Semester Draft");
   const { error } = await supabase
     .from("semesters")
     .update({
@@ -43,7 +29,7 @@ export async function saveSemesterDraft(semesterId: string) {
     throw new Error(error.message);
   }
 
-  await logAudit(supabase, semesterId, "saved_draft");
+  await logAudit({ semesterId, action: "saved_draft" });
   revalidateSemester(semesterId);
 
   return { success: true };
@@ -81,7 +67,7 @@ export async function publishSemesterNow(semesterId: string) {
     throw new Error(error.message);
   }
 
-  await logAudit(supabase, semesterId, "published_now");
+  await logAudit({ semesterId, action: "published_now" });
   revalidateSemester(semesterId);
 
   return { success: true };
@@ -108,7 +94,7 @@ export async function scheduleSemester(semesterId: string, publishAt: string) {
     throw new Error(error.message);
   }
 
-  await logAudit(supabase, semesterId, "scheduled_publish");
+  await logAudit({ semesterId, action: "scheduled_publish" });
   revalidateSemester(semesterId);
 
   return { success: true };
