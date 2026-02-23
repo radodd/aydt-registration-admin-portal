@@ -1,12 +1,15 @@
+"use client";
+
 import { SemesterAction, SemesterDraft } from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
-import { JSX, useReducer } from "react";
+import { JSX, useEffect, useReducer, useRef, useState } from "react";
 import DetailsStep from "./steps/DetailsStep";
 import SessionsStep from "./steps/SessionsStep";
 import PaymentStep from "./steps/PaymentStep";
 import DiscountsStep from "./steps/DiscountsStep";
 import ReviewStep from "./steps/ReviewStep";
 import SessionsGroupsStep from "./steps/SessionGroupsStep";
+import ConfirmationEmailStep from "./steps/ConfirmationEmailStep";
 import {
   publishSemesterNow,
   saveSemesterDraft,
@@ -19,10 +22,6 @@ function semesterReducer(
   state: SemesterDraft,
   action: SemesterAction,
 ): SemesterDraft {
-  console.group("🧠 semesterReducer");
-  console.log("Previous State:", state);
-  console.log("Action:", action);
-
   let nextState: SemesterDraft;
 
   switch (action.type) {
@@ -52,6 +51,10 @@ function semesterReducer(
 
     case "SET_REGISTRATION_FORM":
       nextState = { ...state, registrationForm: action.payload };
+      break;
+
+    case "SET_CONFIRMATION_EMAIL":
+      nextState = { ...state, confirmationEmail: action.payload };
       break;
 
     case "ADD_FORM_ELEMENT":
@@ -105,9 +108,6 @@ function semesterReducer(
       nextState = state;
   }
 
-  console.log("Next State:", nextState);
-  console.groupEnd();
-
   return nextState;
 }
 
@@ -122,7 +122,7 @@ const STEPS = [
   { key: "payment", label: "Payment" },
   { key: "discounts", label: "Discounts" },
   { key: "registrationForm", label: "Registration Form" },
-
+  { key: "confirmationEmail", label: "Confirmation Email" },
   { key: "review", label: "Review" },
 ] as const;
 
@@ -134,14 +134,16 @@ function isStepKey(value: string | null): value is StepKey {
 
 type SemesterFormProps = {
   mode: "create" | "edit";
-  basePath: string; // "/admin/semesters/new" or "/admin/semesters/123"
+  basePath: string;
   initialState?: SemesterDraft;
+  isLocked?: boolean;
 };
 
 export default function SemesterForm({
   mode,
   basePath,
   initialState,
+  isLocked = false,
 }: SemesterFormProps) {
   const [state, dispatch] = useReducer(
     semesterReducer,
@@ -154,16 +156,43 @@ export default function SemesterForm({
   const activeStepKey: StepKey = isStepKey(stepParam) ? stepParam : "details";
   const activeStepIndex = STEPS.findIndex((step) => step.key === activeStepKey);
 
+  /* ----------------------------- Dirty State ----------------------------- */
+
+  const persistedSnapshotRef = useRef<string>(
+    JSON.stringify(initialState ?? {}),
+  );
+  const isDirty = JSON.stringify(state) !== persistedSnapshotRef.current;
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
   /* ----------------------------- Navigation ------------------------------ */
 
-  function navigateToStep(index: number) {
+  async function navigateToStep(index: number) {
     const boundedIndex = Math.min(Math.max(index, 0), STEPS.length - 1);
 
-    console.group("➡️ Step Navigation");
-    console.log("Current Step:", activeStepKey);
-    console.log("Next Step Index:", boundedIndex);
-    console.log("Next Step Key:", STEPS[boundedIndex].key);
-    console.groupEnd();
+    setIsSaving(true);
+    try {
+      const { semesterId } = await persistSemesterDraft(state);
+      if (!state.id) dispatch({ type: "SET_ID", payload: semesterId });
+      persistedSnapshotRef.current = JSON.stringify({
+        ...state,
+        id: state.id ?? semesterId,
+      });
+    } catch {
+      // persist failure — navigate anyway, retry on next transition
+    } finally {
+      setIsSaving(false);
+    }
 
     router.push(`${basePath}?step=${STEPS[boundedIndex].key}`);
   }
@@ -188,6 +217,7 @@ export default function SemesterForm({
         dispatch={dispatch}
         onNext={nextStep}
         onBack={previousStep}
+        isLocked={isLocked}
       />
     ),
     sessionGroups: (
@@ -204,6 +234,7 @@ export default function SemesterForm({
         dispatch={dispatch}
         onNext={nextStep}
         onBack={previousStep}
+        isLocked={isLocked}
       />
     ),
     discounts: (
@@ -212,6 +243,7 @@ export default function SemesterForm({
         dispatch={dispatch}
         onNext={nextStep}
         onBack={previousStep}
+        isLocked={isLocked}
       />
     ),
     registrationForm: (
@@ -220,6 +252,17 @@ export default function SemesterForm({
         dispatch={dispatch}
         onNext={nextStep}
         onBack={previousStep}
+        isLocked={isLocked}
+        semesterId={state.id}
+      />
+    ),
+    confirmationEmail: (
+      <ConfirmationEmailStep
+        state={state}
+        dispatch={dispatch}
+        onNext={nextStep}
+        onBack={previousStep}
+        isLocked={isLocked}
       />
     ),
     review: (
@@ -229,18 +272,30 @@ export default function SemesterForm({
         onPublishNow={async () => {
           const { semesterId } = await persistSemesterDraft(state);
           dispatch({ type: "SET_ID", payload: semesterId });
+          persistedSnapshotRef.current = JSON.stringify({
+            ...state,
+            id: semesterId,
+          });
           await publishSemesterNow(semesterId);
           router.push("/admin/semesters");
         }}
         onSaveDraft={async () => {
           const { semesterId } = await persistSemesterDraft(state);
           dispatch({ type: "SET_ID", payload: semesterId });
+          persistedSnapshotRef.current = JSON.stringify({
+            ...state,
+            id: semesterId,
+          });
           await saveSemesterDraft(semesterId);
           router.push("/admin/semesters");
         }}
         onSchedule={async (date) => {
           const { semesterId } = await persistSemesterDraft(state);
           dispatch({ type: "SET_ID", payload: semesterId });
+          persistedSnapshotRef.current = JSON.stringify({
+            ...state,
+            id: semesterId,
+          });
           await scheduleSemester(semesterId, date);
           router.push("/admin/semesters");
         }}
@@ -251,11 +306,31 @@ export default function SemesterForm({
   return (
     <>
       <div className="mx-auto max-w-5xl p-6 text-slate-700">
-        <h1 className="mb-6 text-2xl font-semibold">
+        <h1 className="mb-4 text-2xl font-semibold">
           {mode === "create" ? "Create New" : "Edit"} Semester
         </h1>
+
+        {/* Unsaved changes banner */}
+        {isDirty && !isSaving && (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+            <span>You have unsaved changes.</span>
+            <button
+              onClick={() => navigateToStep(activeStepIndex)}
+              className="font-medium underline hover:no-underline"
+            >
+              Save Now
+            </button>
+          </div>
+        )}
+
+        {isSaving && (
+          <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm text-indigo-700">
+            Saving...
+          </div>
+        )}
+
         {/* Step Indicator */}
-        <div className="mb-8 flex gap-4">
+        <div className="mb-8 flex flex-wrap gap-4">
           {STEPS.map((step, index) => (
             <div
               key={step.key}
@@ -269,6 +344,7 @@ export default function SemesterForm({
             </div>
           ))}
         </div>
+
         {/* Step Content */}
         {stepRenderers[activeStepKey]}
       </div>

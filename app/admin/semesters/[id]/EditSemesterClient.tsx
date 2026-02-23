@@ -6,11 +6,15 @@ import { useState } from "react";
 
 type EditSemesterClientProps = {
   semester: any;
+  registrationCount?: number;
 };
 
 export default function EditSemesterClient({
   semester,
+  registrationCount = 0,
 }: EditSemesterClientProps) {
+
+  const isLocked = semester.status === "published" && registrationCount > 0;
 
   function mapSemesterToDraft(semester: any): SemesterDraft {
     return {
@@ -78,10 +82,17 @@ export default function EditSemesterClient({
           })) ?? [],
       },
       registrationForm: semester.registration_form ?? { elements: [] },
+      confirmationEmail: semester.confirmation_email
+        ? {
+            subject: semester.confirmation_email.subject ?? "",
+            fromName: semester.confirmation_email.fromName ?? "",
+            fromEmail: semester.confirmation_email.fromEmail ?? "",
+            htmlBody: semester.confirmation_email.htmlBody ?? "",
+          }
+        : undefined,
     };
   }
 
-  // 🔥 This is the important line
   const [draft] = useState(() => mapSemesterToDraft(semester));
 
   return (
@@ -89,6 +100,7 @@ export default function EditSemesterClient({
       mode="edit"
       basePath={`/admin/semesters/${semester.id}/edit`}
       initialState={draft}
+      isLocked={isLocked}
     />
   );
 }

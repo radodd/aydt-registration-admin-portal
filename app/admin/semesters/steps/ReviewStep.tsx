@@ -19,7 +19,8 @@ type TabKey =
   | "sessionGroups"
   | "payment"
   | "discounts"
-  | "registrationForm";
+  | "registrationForm"
+  | "confirmationEmail";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "details", label: "Details" },
@@ -28,6 +29,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "payment", label: "Payment" },
   { key: "discounts", label: "Discounts" },
   { key: "registrationForm", label: "Registration Form" },
+  { key: "confirmationEmail", label: "Confirmation Email" },
 ];
 
 export default function ReviewStep({
@@ -245,6 +247,53 @@ export default function ReviewStep({
         ) : (
           <EmptyState message="No registration form configured." />
         );
+
+      case "confirmationEmail": {
+        const email = state.confirmationEmail;
+        if (!email?.subject && !email?.htmlBody) {
+          return <EmptyState message="No confirmation email configured." />;
+        }
+        return (
+          <div className="space-y-4 text-sm">
+            {email?.subject && (
+              <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Subject</span>
+                  <span className="font-medium text-gray-900">{email.subject}</span>
+                </div>
+                {email.fromName && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">From Name</span>
+                    <span className="font-medium text-gray-900">{email.fromName}</span>
+                  </div>
+                )}
+                {email.fromEmail && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">From Email</span>
+                    <span className="font-medium text-gray-900">{email.fromEmail}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {email?.htmlBody && (
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
+                  Email body preview
+                </div>
+                <div className="p-4">
+                  <iframe
+                    srcDoc={email.htmlBody}
+                    title="Email preview"
+                    className="w-full rounded border border-gray-100"
+                    style={{ height: "320px" }}
+                    sandbox="allow-same-origin"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
     }
   }
 

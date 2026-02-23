@@ -8,6 +8,7 @@ export default function PaymentStep({
   dispatch,
   onNext,
   onBack,
+  isLocked = false,
 }: PaymentStepProps) {
   const [form, setForm] = useState<PaymentFormState>({
     type: state.paymentPlan?.type ?? "pay_in_full",
@@ -80,7 +81,13 @@ export default function PaymentStep({
           </p>
         </div>
 
-        <div className="space-y-6">
+        {isLocked && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            This semester has active registrations. The payment plan is locked.
+          </div>
+        )}
+
+        <fieldset disabled={isLocked} className="space-y-6">
           {/* Plan Type */}
           <div className="space-y-2">
             <label
@@ -151,7 +158,7 @@ export default function PaymentStep({
               className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
             />
           </div>
-        </div>
+        </fieldset>
 
         {/* Navigation */}
         <div className="flex justify-between pt-4">

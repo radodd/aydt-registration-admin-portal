@@ -180,6 +180,7 @@ export type RegistrationFormElement = {
 
   // Text block fields
   textFormatting?: TextBlockFormatting;
+  htmlContent?: string; // TipTap HTML output (preferred for new elements)
 };
 
 /* -------------------------------------------------------------------------- */
@@ -223,6 +224,13 @@ export type SemesterDraft = {
     elements: RegistrationFormElement[];
   };
 
+  confirmationEmail?: {
+    subject: string;
+    fromName: string;
+    fromEmail: string;
+    htmlBody: string;
+  };
+
   discounts?: {
     // semesterDiscountIds: string[];
     // sessionDiscounts: Record<string, string[]>;
@@ -240,6 +248,10 @@ export type SemesterAction =
   | {
       type: "SET_REGISTRATION_FORM";
       payload: SemesterDraft["registrationForm"];
+    }
+  | {
+      type: "SET_CONFIRMATION_EMAIL";
+      payload: SemesterDraft["confirmationEmail"];
     }
   | { type: "ADD_FORM_ELEMENT"; payload: RegistrationFormElement }
   | { type: "UPDATE_FORM_ELEMENT"; payload: RegistrationFormElement }
@@ -376,6 +388,7 @@ export type SessionsStepProps = {
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
   onBack: () => void;
+  isLocked?: boolean;
 };
 
 export type PaymentStepProps = {
@@ -383,6 +396,7 @@ export type PaymentStepProps = {
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
   onBack: () => void;
+  isLocked?: boolean;
 };
 
 export type DiscountsStepProps = {
@@ -390,6 +404,7 @@ export type DiscountsStepProps = {
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
   onBack: () => void;
+  isLocked?: boolean;
 };
 
 export type ReviewStepProps = {

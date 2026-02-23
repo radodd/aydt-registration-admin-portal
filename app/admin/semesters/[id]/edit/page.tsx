@@ -6,32 +6,43 @@ export default async function EditPage({ params }: { params: { id: string } }) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: semester } = await supabase
-    .from("semesters")
-    .select(
-      `
-      *,
-      sessions(*),
-      session_groups(
-        id, name, session_group_sessions(session_id)
-      ),
-      semester_payment_plans(*),
-      semester_payment_installments(*),
-      semester_discounts(
-        semester_id,
-        discount_id,
-        discount:discounts(
-          *,
-          discount_rules(*),
-          discount_rule_sessions(*)
+  const [semesterResult, regCountResult] = await Promise.all([
+    supabase
+      .from("semesters")
+      .select(
+        `
+        *,
+        sessions(*),
+        session_groups(
+          id, name, session_group_sessions(session_id)
+        ),
+        semester_payment_plans(*),
+        semester_payment_installments(*),
+        semester_discounts(
+          semester_id,
+          discount_id,
+          discount:discounts(
+            *,
+            discount_rules(*),
+            discount_rule_sessions(*)
+          )
         )
+        `,
       )
-      `,
-    )
-    .eq("id", id)
-    .single();
+      .eq("id", id)
+      .single(),
+    supabase
+      .from("registrations")
+      .select("*, sessions!inner(semester_id)", { count: "exact", head: true })
+      .eq("sessions.semester_id", id),
+  ]);
 
-  if (!semester) notFound();
+  if (!semesterResult.data) notFound();
 
-  return <EditSemesterClient semester={semester} />;
+  return (
+    <EditSemesterClient
+      semester={semesterResult.data}
+      registrationCount={regCountResult.count ?? 0}
+    />
+  );
 }

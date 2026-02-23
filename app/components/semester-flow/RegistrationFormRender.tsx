@@ -164,6 +164,16 @@ export default function RegistrationFormRenderer({
         }
 
         if (el.type === "text_block") {
+          // Prefer TipTap HTML output; fall back to legacy textFormatting
+          if (el.htmlContent) {
+            return (
+              <div
+                key={el.id}
+                className="prose prose-sm max-w-none text-gray-700"
+                dangerouslySetInnerHTML={{ __html: el.htmlContent }}
+              />
+            );
+          }
           return (
             <div key={el.id}>
               <TextBlockContent el={el} />

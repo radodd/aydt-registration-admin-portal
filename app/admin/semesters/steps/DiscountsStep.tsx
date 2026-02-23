@@ -15,6 +15,7 @@ export default function DiscountsStep({
   dispatch,
   onNext,
   onBack,
+  isLocked = false,
 }: DiscountsStepProps) {
   const [allDiscounts, setAllDiscounts] = useState<HydratedDiscount[]>([]);
   const [applications, setApplications] = useState<AppliedSemesterDiscount[]>(
@@ -96,15 +97,23 @@ export default function DiscountsStep({
           </p>
         </div>
 
+        {isLocked && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            This semester has active registrations. Discounts are locked.
+          </div>
+        )}
+
         {/* Create Discount Link */}
-        <div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
-          >
-            + Create New Discount
-          </button>
-        </div>
+        {!isLocked && (
+          <div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
+            >
+              + Create New Discount
+            </button>
+          </div>
+        )}
 
         {showCreateModal && (
           <div className="fixed inset-0 bg-blur  bg-opacity-50 flex items-center justify-center z-50">
@@ -141,8 +150,9 @@ export default function DiscountsStep({
                 id={`discount-${discount.id}`}
                 type="checkbox"
                 checked={isSelected(discount.id)}
-                onChange={() => toggleSelection(discount.id)}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                onChange={() => !isLocked && toggleSelection(discount.id)}
+                disabled={isLocked}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
               />
 
               <label

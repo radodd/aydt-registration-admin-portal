@@ -90,7 +90,8 @@ export async function persistSemesterDraft(
           state.details?.capacityWarningThreshold ?? null,
         publish_at: state.details?.publishAt ?? null,
         status: "draft",
-        registration_form: state.registrationForm ?? { elements: [] }, // include here
+        registration_form: state.registrationForm ?? { elements: [] },
+        confirmation_email: state.confirmationEmail ?? {},
       })
       .select("id")
       .single();
@@ -106,6 +107,7 @@ export async function persistSemesterDraft(
       .from("semesters")
       .update({
         registration_form: state.registrationForm ?? { elements: [] },
+        confirmation_email: state.confirmationEmail ?? {},
       })
       .eq("id", semesterId);
 

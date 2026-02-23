@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { StatusBadge } from "@/app/components/SemesterStatusBadge";
-import SemesterForm from "../SemesterForm";
+import { createSemesterDraft } from "../actions/createSemesterDraft";
+import { cloneSemester } from "../actions/cloneSemester";
 
 type Semester = {
   id: string;
@@ -19,29 +19,37 @@ export default function NewSemesterPage() {
   const router = useRouter();
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     async function fetchSemesters() {
       const { data, error } = await createClient()
         .from("semesters")
-        .select("*")
+        .select("id, name, status, publish_at, created_at")
         .order("created_at", { ascending: false });
 
-      if (!error && data) {
-        setSemesters(data as Semester[]);
-      }
+      if (!error && data) setSemesters(data as Semester[]);
     }
-
     fetchSemesters();
   }, []);
 
   async function handleBlank() {
     setLoadingId("blank");
-    setShowForm(true);
+    try {
+      const id = await createSemesterDraft();
+      router.push(`/admin/semesters/${id}/edit?step=details`);
+    } catch {
+      setLoadingId(null);
+    }
   }
-  if (showForm) {
-    return <SemesterForm mode="create" basePath="/admin/semesters/new" />;
+
+  async function handleTemplate(sourceId: string) {
+    setLoadingId(sourceId);
+    try {
+      const newId = await cloneSemester(sourceId);
+      router.push(`/admin/semesters/${newId}/edit?step=details`);
+    } catch {
+      setLoadingId(null);
+    }
   }
 
   return (
@@ -62,7 +70,7 @@ export default function NewSemesterPage() {
           <button
             onClick={handleBlank}
             disabled={loadingId !== null}
-            className="w-full text-left border border-gray-200 rounded-2xl p-6 hover:border-indigo-400 hover:bg-indigo-50/40 transition group"
+            className="w-full text-left border border-gray-200 rounded-2xl p-6 hover:border-indigo-400 hover:bg-indigo-50/40 transition group disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <div className="flex justify-between items-center">
               <div>
@@ -73,9 +81,8 @@ export default function NewSemesterPage() {
                   Create a completely new semester configuration.
                 </div>
               </div>
-
               <div className="text-sm font-medium text-indigo-600">
-                {loadingId === "blank" ? "Creating..." : "Create"}
+                {loadingId === "blank" ? "Creating..." : "Create →"}
               </div>
             </div>
           </button>
@@ -93,27 +100,25 @@ export default function NewSemesterPage() {
             {semesters.map((s) => (
               <button
                 key={s.id}
-                onClick={() => router.push(`/admin/semesters/${s.id}/edit`)}
+                onClick={() => handleTemplate(s.id)}
                 disabled={loadingId !== null}
-                className="text-left border border-gray-200 rounded-2xl p-5 hover:border-indigo-400 hover:shadow-md transition group bg-white"
+                className="text-left border border-gray-200 rounded-2xl p-5 hover:border-indigo-400 hover:shadow-md transition group bg-white disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <div className="font-medium text-gray-900 group-hover:text-indigo-700 transition">
+                    <div className="font-medium text-gray-900 group-hover:text-indigo-700 transition truncate pr-2">
                       {s.name}
                     </div>
                     <StatusBadge status={s.status} />
                   </div>
-
                   {s.publish_at && (
                     <div className="text-xs text-gray-400">
                       Published {new Date(s.publish_at).toLocaleDateString()}
                     </div>
                   )}
                 </div>
-
                 <div className="mt-4 text-sm font-medium text-indigo-600">
-                  {loadingId === s.id ? "Cloning..." : "Use Template"}
+                  {loadingId === s.id ? "Cloning..." : "Use Template →"}
                 </div>
               </button>
             ))}

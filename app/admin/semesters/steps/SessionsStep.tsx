@@ -26,6 +26,7 @@ export default function SessionsStep({
   dispatch,
   onNext,
   onBack,
+  isLocked = false,
 }: SessionsStepProps) {
   const [allSessions, setAllSessions] = useState<Session[] | null>([]);
   const [appliedSessions, setAppliedSessions] = useState<SemesterSession[]>(
@@ -134,6 +135,12 @@ export default function SessionsStep({
         </p>
       </div>
 
+      {isLocked && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          This semester has active registrations. Sessions are locked.
+        </div>
+      )}
+
       {/* Applied Sessions */}
       <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -181,20 +188,22 @@ export default function SessionsStep({
                 </div>
               </div>
 
-              <div className="flex gap-3 shrink-0">
-                <button
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
-                  onClick={() => setEditingSession(session)}
-                >
-                  Quick edit
-                </button>
-                <button
-                  className="text-sm font-medium text-red-600 hover:text-red-700 transition"
-                  onClick={() => handleRemoveSession(session.sessionId)}
-                >
-                  Remove
-                </button>
-              </div>
+              {!isLocked && (
+                <div className="flex gap-3 shrink-0">
+                  <button
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
+                    onClick={() => setEditingSession(session)}
+                  >
+                    Quick edit
+                  </button>
+                  <button
+                    className="text-sm font-medium text-red-600 hover:text-red-700 transition"
+                    onClick={() => handleRemoveSession(session.sessionId)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -224,12 +233,14 @@ export default function SessionsStep({
                 </div>
               </div>
 
-              <button
-                className="text-sm font-medium text-green-600 hover:text-green-700 transition shrink-0"
-                onClick={() => handleAddSession(s)}
-              >
-                Add
-              </button>
+              {!isLocked && (
+                <button
+                  className="text-sm font-medium text-green-600 hover:text-green-700 transition shrink-0"
+                  onClick={() => handleAddSession(s)}
+                >
+                  Add
+                </button>
+              )}
             </li>
           ))}
         </ul>
