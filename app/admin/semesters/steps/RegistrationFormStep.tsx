@@ -7,7 +7,8 @@ import {
   RegistrationFormElement,
 } from "@/types";
 import CustomQuestionModal from "@/app/components/semester-flow/CustomQuestionModal";
-import { v4 as uuid } from "uuid";
+import SubheaderModal from "@/app/components/semester-flow/SubheaderModal";
+import TextBlockModal from "@/app/components/semester-flow/TextBlockModal";
 
 type Props = {
   state: SemesterDraft;
@@ -15,6 +16,8 @@ type Props = {
   onNext: () => void;
   onBack: () => void;
 };
+
+type ActiveModal = "question" | "subheader" | "text_block" | null;
 
 export default function RegistrationFormStep({
   state,
@@ -24,27 +27,35 @@ export default function RegistrationFormStep({
 }: Props) {
   const elements = state.registrationForm?.elements ?? [];
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [editingElement, setEditingElement] =
     useState<RegistrationFormElement | null>(null);
+
+  /* -------------------------------------------------------------------------- */
+  /* Modal Controls                                                             */
+  /* -------------------------------------------------------------------------- */
+
+  function openModal(modal: ActiveModal, element: RegistrationFormElement | null = null) {
+    setEditingElement(element);
+    setActiveModal(modal);
+  }
+
+  function closeModal() {
+    setActiveModal(null);
+    setEditingElement(null);
+  }
 
   /* -------------------------------------------------------------------------- */
   /* Element Operations                                                         */
   /* -------------------------------------------------------------------------- */
 
-  function handleAddQuestion() {
-    setEditingElement(null);
-    setIsModalOpen(true);
-  }
-
-  function handleSaveQuestion(element: RegistrationFormElement) {
+  function handleSaveElement(element: RegistrationFormElement) {
     if (editingElement) {
       dispatch({ type: "UPDATE_FORM_ELEMENT", payload: element });
     } else {
       dispatch({ type: "ADD_FORM_ELEMENT", payload: element });
     }
-    setIsModalOpen(false);
-    setEditingElement(null);
+    closeModal();
   }
 
   function handleDelete(id: string) {
@@ -75,26 +86,6 @@ export default function RegistrationFormStep({
     dispatch({ type: "REORDER_FORM_ELEMENTS", payload: reordered });
   }
 
-  function handleAddSubheader() {
-    const newElement: RegistrationFormElement = {
-      id: uuid(),
-      type: "subheader",
-      label: "New Section Header",
-    };
-
-    dispatch({ type: "ADD_FORM_ELEMENT", payload: newElement });
-  }
-
-  function handleAddTextBlock() {
-    const newElement: RegistrationFormElement = {
-      id: uuid(),
-      type: "text_block",
-      label: "Informational text...",
-    };
-
-    dispatch({ type: "ADD_FORM_ELEMENT", payload: newElement });
-  }
-
   /* -------------------------------------------------------------------------- */
   /* Validation                                                                 */
   /* -------------------------------------------------------------------------- */
@@ -117,6 +108,28 @@ export default function RegistrationFormStep({
   }
 
   /* -------------------------------------------------------------------------- */
+  /* Render Helpers                                                             */
+  /* -------------------------------------------------------------------------- */
+
+  function elementSummary(el: RegistrationFormElement): string {
+    if (el.type === "question") {
+      return `${el.inputType ?? "unknown"}${el.required ? " · Required" : ""}`;
+    }
+    if (el.type === "subheader") {
+      return el.subtitle ? `Subtitle: ${el.subtitle}` : "Section header";
+    }
+    if (el.type === "text_block") {
+      const fmt = el.textFormatting;
+      const parts: string[] = [];
+      if (fmt?.style === "header") parts.push("Header style");
+      if (fmt?.bold) parts.push("Bold");
+      if (fmt?.listType) parts.push(fmt.listType === "bullet" ? "Bullet list" : "Numbered list");
+      return parts.length > 0 ? parts.join(" · ") : "Text block";
+    }
+    return "";
+  }
+
+  /* -------------------------------------------------------------------------- */
   /* Render                                                                     */
   /* -------------------------------------------------------------------------- */
 
@@ -133,23 +146,23 @@ export default function RegistrationFormStep({
       </div>
 
       {/* Add Controls */}
-      <div className="flex gap-4">
+      <div className="flex gap-4 flex-wrap">
         <button
-          onClick={handleAddQuestion}
+          onClick={() => openModal("question")}
           className="px-4 py-2 rounded-xl border border-indigo-500 text-indigo-600 hover:bg-indigo-50 transition text-sm font-medium"
         >
           + Custom Question
         </button>
 
         <button
-          onClick={handleAddSubheader}
+          onClick={() => openModal("subheader")}
           className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition text-sm"
         >
           + Subheader
         </button>
 
         <button
-          onClick={handleAddTextBlock}
+          onClick={() => openModal("text_block")}
           className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition text-sm"
         >
           + Text Block
@@ -169,27 +182,39 @@ export default function RegistrationFormStep({
             key={el.id}
             className="border border-gray-200 rounded-xl p-4 flex justify-between items-start"
           >
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               {el.type === "question" && (
                 <>
                   <div className="font-medium text-gray-900">{el.label}</div>
                   <div className="text-xs text-gray-500">
-                    Type: {el.inputType}
-                    {el.required && " • Required"}
+                    {elementSummary(el)}
                   </div>
                 </>
               )}
 
               {el.type === "subheader" && (
-                <div className="font-semibold text-gray-700">{el.label}</div>
+                <>
+                  <div className="font-semibold text-gray-700">{el.label}</div>
+                  {el.subtitle && (
+                    <div className="text-xs text-gray-500">{el.subtitle}</div>
+                  )}
+                  <div className="text-xs text-gray-400">Subheader</div>
+                </>
               )}
 
               {el.type === "text_block" && (
-                <div className="text-sm text-gray-600">{el.label}</div>
+                <>
+                  <div className="text-sm text-gray-600 truncate max-w-sm">
+                    {el.label}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {elementSummary(el)}
+                  </div>
+                </>
               )}
             </div>
 
-            <div className="flex flex-col items-end gap-2 text-sm">
+            <div className="flex flex-col items-end gap-2 text-sm ml-4 shrink-0">
               <div className="flex gap-2">
                 <button
                   onClick={() => moveUp(index)}
@@ -205,17 +230,12 @@ export default function RegistrationFormStep({
                 </button>
               </div>
 
-              {el.type === "question" && (
-                <button
-                  onClick={() => {
-                    setEditingElement(el);
-                    setIsModalOpen(true);
-                  }}
-                  className="text-indigo-600 hover:underline"
-                >
-                  Edit
-                </button>
-              )}
+              <button
+                onClick={() => openModal(el.type, el)}
+                className="text-indigo-600 hover:underline"
+              >
+                Edit
+              </button>
 
               <button
                 onClick={() => handleDelete(el.id)}
@@ -250,16 +270,29 @@ export default function RegistrationFormStep({
         </button>
       </div>
 
-      {/* Modal */}
-      {isModalOpen && (
+      {/* Modals */}
+      {activeModal === "question" && (
         <CustomQuestionModal
           initialElement={editingElement}
-          onClose={() => {
-            setIsModalOpen(false);
-            setEditingElement(null);
-          }}
-          onSave={handleSaveQuestion}
+          onClose={closeModal}
+          onSave={handleSaveElement}
           sessions={state.sessions?.appliedSessions ?? []}
+        />
+      )}
+
+      {activeModal === "subheader" && (
+        <SubheaderModal
+          initialElement={editingElement}
+          onClose={closeModal}
+          onSave={handleSaveElement}
+        />
+      )}
+
+      {activeModal === "text_block" && (
+        <TextBlockModal
+          initialElement={editingElement}
+          onClose={closeModal}
+          onSave={handleSaveElement}
         />
       )}
     </div>

@@ -1,13 +1,97 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RegistrationFormElement, SemesterSession } from "@/types";
+import { RegistrationFormElement, SemesterSession, TextBlockFormatting } from "@/types";
 
 type Props = {
   elements: RegistrationFormElement[];
   sessions: SemesterSession[];
   mode?: "preview" | "live";
 };
+
+/* -------------------------------------------------------------------------- */
+/* Text Block Rendering Helpers                                                */
+/* -------------------------------------------------------------------------- */
+
+function buildTextClasses(fmt: TextBlockFormatting | undefined): string {
+  if (!fmt) return "text-sm text-gray-600 leading-relaxed";
+
+  const colorClass =
+    fmt.color === "indigo"
+      ? "text-indigo-600"
+      : fmt.color === "gray"
+        ? "text-gray-500"
+        : "text-gray-900";
+
+  return [
+    fmt.style === "header" ? "text-lg font-semibold" : "text-sm",
+    fmt.bold ? "font-bold" : "",
+    fmt.italic ? "italic" : "",
+    fmt.underline ? "underline" : "",
+    colorClass,
+    "leading-relaxed",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function TextBlockContent({
+  el,
+}: {
+  el: RegistrationFormElement;
+}) {
+  const fmt = el.textFormatting;
+  const textClass = buildTextClasses(fmt);
+  const content = el.label ?? "";
+
+  function wrapLink(node: React.ReactNode): React.ReactNode {
+    if (fmt?.link) {
+      return (
+        <a
+          href={fmt.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          {node}
+        </a>
+      );
+    }
+    return node;
+  }
+
+  if (fmt?.listType === "bullet") {
+    return (
+      <ul className={`list-disc list-inside space-y-1 ${textClass}`}>
+        {content
+          .split("\n")
+          .filter((l) => l.trim())
+          .map((line, i) => (
+            <li key={i}>{wrapLink(line)}</li>
+          ))}
+      </ul>
+    );
+  }
+
+  if (fmt?.listType === "numbered") {
+    return (
+      <ol className={`list-decimal list-inside space-y-1 ${textClass}`}>
+        {content
+          .split("\n")
+          .filter((l) => l.trim())
+          .map((line, i) => (
+            <li key={i}>{wrapLink(line)}</li>
+          ))}
+      </ol>
+    );
+  }
+
+  return <div className={textClass}>{wrapLink(content)}</div>;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Main Component                                                              */
+/* -------------------------------------------------------------------------- */
 
 export default function RegistrationFormRenderer({
   elements,
@@ -72,14 +156,17 @@ export default function RegistrationFormRenderer({
               <h3 className="text-lg font-semibold text-gray-900">
                 {el.label}
               </h3>
+              {el.subtitle && (
+                <p className="text-sm text-gray-500 mt-0.5">{el.subtitle}</p>
+              )}
             </div>
           );
         }
 
         if (el.type === "text_block") {
           return (
-            <div key={el.id} className="text-sm text-gray-600 leading-relaxed">
-              {el.label}
+            <div key={el.id}>
+              <TextBlockContent el={el} />
             </div>
           );
         }

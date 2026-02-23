@@ -225,7 +225,6 @@ export default function SemesterForm({
     review: (
       <ReviewStep
         state={state}
-        mode={mode}
         onBack={previousStep}
         onPublishNow={async () => {
           const { semesterId } = await persistSemesterDraft(state);

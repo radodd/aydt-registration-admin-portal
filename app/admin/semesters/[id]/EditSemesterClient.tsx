@@ -2,8 +2,7 @@
 
 import { SemesterDraft } from "@/types";
 import SemesterForm from "../SemesterForm";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type EditSemesterClientProps = {
   semester: any;
@@ -12,7 +11,6 @@ type EditSemesterClientProps = {
 export default function EditSemesterClient({
   semester,
 }: EditSemesterClientProps) {
-  const router = useRouter();
 
   function mapSemesterToDraft(semester: any): SemesterDraft {
     return {
@@ -79,6 +77,7 @@ export default function EditSemesterClient({
                 : [],
           })) ?? [],
       },
+      registrationForm: semester.registration_form ?? { elements: [] },
     };
   }
 

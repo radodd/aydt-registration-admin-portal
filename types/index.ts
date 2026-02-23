@@ -152,12 +152,21 @@ export type QuestionInputType =
   | "date"
   | "phone_number";
 
+export type TextBlockFormatting = {
+  style: "normal" | "header";
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  color: "gray" | "black" | "indigo";
+  listType?: "bullet" | "numbered" | null;
+  link?: string;
+};
+
 export type RegistrationFormElement = {
   id: string;
   type: RegistrationElementType;
-  // order: number;
 
-  // Question fields
+  // Shared / Question fields
   label?: string;
   reportLabel?: string;
   inputType?: QuestionInputType;
@@ -165,6 +174,12 @@ export type RegistrationFormElement = {
   instructionalText?: string;
   options?: string[]; // for select/checkbox
   sessionIds?: string[]; // applicability
+
+  // Subheader fields
+  subtitle?: string;
+
+  // Text block fields
+  textFormatting?: TextBlockFormatting;
 };
 
 /* -------------------------------------------------------------------------- */
