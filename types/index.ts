@@ -463,3 +463,232 @@ export type CreateDiscountInput = {
   rules: DiscountRules[];
   sessionIds?: string[];
 };
+
+/* -------------------------------------------------------------------------- */
+/* Email Broadcast Domain                                                      */
+/* -------------------------------------------------------------------------- */
+
+export type EmailStatus = "draft" | "scheduled" | "sent" | "cancelled";
+
+export type Email = {
+  id: string;
+  subject: string;
+  body_html: string;
+  body_json: Record<string, unknown>;
+  status: EmailStatus;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  sender_name: string;
+  sender_email: string;
+  reply_to_email: string | null;
+  include_signature: boolean;
+  created_by_admin_id: string;
+  updated_by_admin_id: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
+export type EmailTemplate = {
+  id: string;
+  name: string;
+  subject: string;
+  body_html: string;
+  body_json: Record<string, unknown>;
+  created_by_admin_id: string;
+  updated_by_admin_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmailRecipient = {
+  id: string;
+  email_id: string;
+  user_id: string;
+  email_address: string;
+  first_name: string;
+  last_name: string;
+  created_at: string;
+};
+
+export type EmailDelivery = {
+  id: string;
+  email_id: string;
+  user_id: string;
+  email_address: string;
+  resend_message_id: string | null;
+  status: "pending" | "sent" | "delivered" | "bounced" | "complained";
+  delivered_at: string | null;
+  bounced_at: string | null;
+  opened_at: string | null;
+  clicked_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmailSubscription = {
+  user_id: string;
+  is_subscribed: boolean;
+  unsubscribed_at: string | null;
+  updated_at: string;
+};
+
+export type EmailActivityLog = {
+  id: string;
+  email_id: string;
+  action:
+    | "created"
+    | "edited"
+    | "scheduled"
+    | "sent"
+    | "cancelled"
+    | "cloned"
+    | "deleted";
+  admin_id: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type EmailAnalytics = {
+  id: string;
+  subject: string;
+  sent_at: string;
+  sender_name: string;
+  recipient_count: number;
+  delivered_count: number;
+  opened_count: number;
+  clicked_count: number;
+  bounced_count: number;
+  open_rate: number;
+  click_rate: number;
+};
+
+/* Email wizard draft state */
+
+export type EmailDraft = {
+  id?: string;
+  setup?: {
+    subject: string;
+    senderName: string;
+    senderEmail: string;
+    replyToEmail?: string;
+    includeSignature: boolean;
+  };
+  recipients?: {
+    selections: EmailSelectionCriteria[];
+    manualAdditions: ManualUserEntry[];
+    exclusions: string[];
+    resolvedCount?: number;
+  };
+  design?: {
+    bodyHtml: string;
+    bodyJson: Record<string, unknown>;
+  };
+  schedule?: {
+    sendMode: "now" | "scheduled";
+    scheduledAt?: string;
+  };
+};
+
+export type EmailSelectionCriteria = {
+  localId: string;
+  type: "semester" | "session";
+  semesterId: string;
+  semesterName: string;
+  sessionId?: string;
+  sessionName?: string;
+};
+
+export type ManualUserEntry = {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+};
+
+export type EmailWizardAction =
+  | { type: "SET_ID"; payload: string }
+  | { type: "SET_SETUP"; payload: EmailDraft["setup"] }
+  | { type: "SET_RECIPIENTS"; payload: EmailDraft["recipients"] }
+  | { type: "ADD_SELECTION"; payload: EmailSelectionCriteria }
+  | { type: "REMOVE_SELECTION"; payload: string }
+  | { type: "ADD_MANUAL_USER"; payload: ManualUserEntry }
+  | { type: "REMOVE_MANUAL_USER"; payload: string }
+  | { type: "TOGGLE_EXCLUSION"; payload: string }
+  | { type: "SET_RESOLVED_COUNT"; payload: number }
+  | { type: "SET_DESIGN"; payload: EmailDraft["design"] }
+  | { type: "SET_SCHEDULE"; payload: EmailDraft["schedule"] }
+  | { type: "RESET" };
+
+export type AdminSignature = {
+  display_name: string | null;
+  signature_html: string | null;
+  reply_to_email: string | null;
+};
+
+export type EmailTab =
+  | "drafts"
+  | "scheduled"
+  | "sent"
+  | "templates"
+  | "unsubscribed"
+  | "subscribed";
+
+export type PaginatedResult<T> = {
+  data: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type EmailListRow = Email & {
+  recipient_count: number;
+  created_by: { first_name: string; last_name: string } | null;
+  updated_by: { first_name: string; last_name: string } | null;
+};
+
+export type EmailAnalyticsRow = EmailAnalytics & {
+  created_by: { first_name: string; last_name: string } | null;
+};
+
+export type TemplateListRow = EmailTemplate & {
+  created_by: { first_name: string; last_name: string } | null;
+};
+
+export type SubscriptionListRow = EmailSubscription & {
+  users: { email: string; first_name: string; last_name: string } | null;
+};
+
+export type FamilyEmailHistoryRow = {
+  email_id: string;
+  subject: string;
+  sent_at: string;
+  opened: boolean;
+  clicked: boolean;
+  status: string;
+};
+
+/* ============================================================================
+   MEDIA
+============================================================================ */
+
+export const MEDIA_FOLDERS = ["general", "banners", "logos"] as const;
+export type MediaFolder = (typeof MEDIA_FOLDERS)[number];
+
+export type MediaImage = {
+  id: string;
+  display_name: string;
+  storage_path: string;
+  public_url: string;
+  folder: string;
+  tags: string[];
+  mime_type: string;
+  size_bytes: number;
+  width: number | null;
+  height: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ImageLayout = "inline" | "banner";

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
   --background: #ffffff;
@@ -23,4 +24,53 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* TipTap email image constraints */
+.ProseMirror img.email-image[data-layout="banner"] {
+  display: block;
+  width: 100%;
+  max-width: 600px;
+  object-fit: cover;
+  margin: 12px 0;
+}
+
+.ProseMirror img.email-image[data-layout="banner"][data-banner-height="small"] {
+  height: 160px;
+}
+
+.ProseMirror img.email-image[data-layout="banner"][data-banner-height="medium"] {
+  height: 240px;
+}
+
+.ProseMirror img.email-image[data-layout="banner"][data-banner-height="large"] {
+  height: 320px;
+}
+
+/* Default banner height when no data-banner-height set */
+.ProseMirror img.email-image[data-layout="banner"]:not([data-banner-height]) {
+  height: 240px;
+}
+
+.ProseMirror img.email-image[data-layout="inline"] {
+  display: inline-block;
+  max-width: 100%;
+  max-height: 400px;
+  height: auto;
+}
+
+/* Toast fade-in animation for auto-save indicator */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out both;
 }

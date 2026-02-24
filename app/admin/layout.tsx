@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/utils/supabase/client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
@@ -29,7 +30,7 @@ export default function AdminLayout({
         .eq("id", authUser.id)
         .single();
 
-      if (user?.role !== "admin") {
+      if (user?.role !== "super_admin") {
         router.push("/private");
       } else {
         setIsAdmin(true);
@@ -46,27 +47,30 @@ export default function AdminLayout({
       <aside className="w-64 bg-gray-800 text-white p-4">
         <h2 className="font-bold text-lg mb-4">Admin Dashboard</h2>
         <nav className="space-y-2">
-          <a href="/admin" className="block hover:underline">
+          {/* <a href="/admin" className="block hover:underline">
             Overview
-          </a>
-          <a href="/admin/semesters" className="block hover:underline">
+          </a> */}
+          <Link href="/admin/semesters" className="block hover:underline">
             Semesters
-          </a>
-          <a href="/admin/sessions" className="block hover:underline">
+          </Link>
+          <Link href="/admin/sessions" className="block hover:underline">
             Sessions
-          </a>
-          <a href="/admin/registrations" className="block hover:underline">
-            Registrations
-          </a>
-          <a href="/admin/dancers" className="block hover:underline">
+          </Link>
+          <Link href="/admin/emails" className="block hover:underline">
+            Emails
+          </Link>
+          <Link href="/admin/media" className="block hover:underline">
+            Media
+          </Link>
+          <Link href="/admin/dancers" className="block hover:underline">
             Dancers
-          </a>
-          <a href="/admin/families" className="block hover:underline">
+          </Link>
+          <Link href="/admin/families" className="block hover:underline">
             Families
-          </a>
-          <a href="/admin/users" className="block hover:underline">
+          </Link>
+          <Link href="/admin/users" className="block hover:underline">
             Users
-          </a>
+          </Link>
         </nav>
       </aside>
 
