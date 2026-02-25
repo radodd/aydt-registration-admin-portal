@@ -100,10 +100,15 @@ export interface CartItem {
   sessionName: string;
   /** IDs of PublicAvailableDay the user selected */
   selectedDayIds: string[];
+  /** Full day objects snapshotted at add-time (for display without re-fetching semester) */
+  selectedDays: PublicAvailableDay[];
   pricePerDay: number;
   /** pricePerDay * selectedDayIds.length */
   subtotal: number;
   addedAt: string; // ISO timestamp
+  /** Session age constraints — snapshotted for use in participant validation */
+  minAge: number | null;
+  maxAge: number | null;
 }
 
 export interface CartState {

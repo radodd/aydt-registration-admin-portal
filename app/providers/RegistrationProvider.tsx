@@ -127,12 +127,27 @@ export function RegistrationProvider({
   /* Hydrate from sessionStorage on mount */
   useEffect(() => {
     if (preview) return;
+    console.log("[Registration] Hydrating — key:", storageKey);
     try {
       const raw = sessionStorage.getItem(storageKey);
-      if (!raw) return;
+      if (!raw) {
+        console.log("[Registration] Nothing in sessionStorage.");
+        return;
+      }
       const saved: RegistrationState = JSON.parse(raw);
+      console.log("[Registration] Stored state found:", {
+        step: saved.step,
+        email: saved.email,
+        isExistingParent: saved.isExistingParent,
+        parentId: saved.parentId,
+        participantCount: saved.participants?.length ?? 0,
+        batchId: saved.batchId,
+      });
       // Don't restore a completed or payment success state
-      if (saved.step === "success") return;
+      if (saved.step === "success") {
+        console.log("[Registration] Skipping restore — step is 'success'.");
+        return;
+      }
       dispatch({ type: "SET_EMAIL", payload: saved.email });
       dispatch({
         type: "SET_PARENT_CHECK",
@@ -144,8 +159,9 @@ export function RegistrationProvider({
       dispatch({ type: "SET_PARTICIPANTS", payload: saved.participants });
       dispatch({ type: "SET_FORM_DATA", payload: saved.formData });
       dispatch({ type: "SET_STEP", payload: saved.step });
-    } catch {
-      // Corrupt data — ignore
+      console.log("[Registration] State restored to step:", saved.step);
+    } catch (e) {
+      console.error("[Registration] Failed to parse sessionStorage state:", e);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -169,25 +185,26 @@ export function RegistrationProvider({
     [],
   );
 
-  const setEmail = useCallback(
-    (email: string) => dispatch({ type: "SET_EMAIL", payload: email }),
-    [],
-  );
+  const setEmail = useCallback((email: string) => {
+    console.log("[Registration] setEmail:", email);
+    dispatch({ type: "SET_EMAIL", payload: email });
+  }, []);
 
   const setParentCheck = useCallback(
-    (isExisting: boolean, parentId: string | null) =>
+    (isExisting: boolean, parentId: string | null) => {
+      console.log("[Registration] setParentCheck — isExisting:", isExisting, "parentId:", parentId);
       dispatch({
         type: "SET_PARENT_CHECK",
         payload: { isExisting, parentId },
-      }),
+      });
+    },
     [],
   );
 
-  const setParticipants = useCallback(
-    (participants: ParticipantAssignment[]) =>
-      dispatch({ type: "SET_PARTICIPANTS", payload: participants }),
-    [],
-  );
+  const setParticipants = useCallback((participants: ParticipantAssignment[]) => {
+    console.log("[Registration] setParticipants — count:", participants.length, participants);
+    dispatch({ type: "SET_PARTICIPANTS", payload: participants });
+  }, []);
 
   const setFormData = useCallback(
     (data: Record<string, unknown>) =>

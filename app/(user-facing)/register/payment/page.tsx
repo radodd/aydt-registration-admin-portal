@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { RegistrationProvider, useRegistration } from "@/app/providers/RegistrationProvider";
 import { CartRestoreGuard } from "../CartRestoreGuard";
 import { useCart } from "@/app/providers/CartProvider";
+import { createRegistrations } from "../actions/createRegistrations";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -19,54 +20,100 @@ function formatCurrency(amount: number): string {
 
 function PaymentContent({ semesterId }: { semesterId: string }) {
   const router = useRouter();
-  const { state, reset } = useRegistration();
+  const { state, setPaymentIntent, reset } = useRegistration();
   const { items, total, clearCart } = useCart();
 
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Guard: if registration was already completed (batchId set but user
+  // navigated back), redirect to confirmation rather than allowing re-submit.
+  useEffect(() => {
+    console.log("[Payment] Mount — state.batchId:", state.batchId, "cartItems:", items.length, "participants:", state.participants.length);
+    if (state.batchId && !processing) {
+      console.log("[Payment] batchId already set — redirecting to confirmation.");
+      router.replace(`/register/confirmation?semester=${semesterId}`);
+    }
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleConfirm() {
     setProcessing(true);
     setError(null);
 
+    // Pre-flight: all participants must be assigned
+    const fullyAssigned = state.participants.filter((p) => p.dancerId);
+    console.log("[Payment] handleConfirm — cartItems:", items.length, "participants:", state.participants.length, "fullyAssigned:", fullyAssigned.length);
+
+    if (items.length === 0) {
+      console.warn("[Payment] Pre-flight failed: cart is empty.");
+      setError("Your cart is empty. Please go back and add sessions.");
+      setProcessing(false);
+      return;
+    }
+    if (fullyAssigned.length === 0) {
+      console.warn("[Payment] Pre-flight failed: no assigned participants.");
+      setError("Please assign a dancer to each session before continuing.");
+      setProcessing(false);
+      return;
+    }
+
     if (state.isPreview) {
-      // Preview mode: simulate success without hitting Stripe
-      await new Promise((r) => setTimeout(r, 1000));
+      console.log("[Payment] Preview mode — simulating.");
+      await new Promise((r) => setTimeout(r, 800));
       clearCart();
       reset();
       router.push(`/register/confirmation?preview=1`);
       return;
     }
 
-    // Real mode: create payment intent then show Stripe Elements
-    // TODO: integrate Stripe Elements here once STRIPE_SECRET_KEY is configured.
-    // Example flow:
-    //   const { clientSecret, batchId } = await createPaymentIntent({ semesterId, items, formData: state.formData, participants: state.participants });
-    //   setPaymentIntent(clientSecret, batchId);
-    //   // Then render <Elements stripe={stripePromise}><PaymentElement /></Elements>
-    //   // On stripe.confirmPayment success → clearCart() + reset() + router.push('/confirmation')
+    // Generate a batchId once and store it in RegistrationProvider so that
+    // any retry (network error, double-click) reuses the same key.
+    const batchId = crypto.randomUUID();
+    console.log("[Payment] Calling createRegistrations — batchId:", batchId, "semesterId:", semesterId);
+    setPaymentIntent("", batchId); // intentId is empty until Converge is wired
 
-    setError(
-      "Payment processing is not yet configured. Please contact the studio.",
-    );
-    setProcessing(false);
+    const result = await createRegistrations({
+      semesterId,
+      participants: fullyAssigned.map((p) => ({
+        sessionId: p.sessionId,
+        dancerId: p.dancerId!,
+      })),
+      batchId,
+    });
+
+    console.log("[Payment] createRegistrations result:", result);
+
+    if (!result.success) {
+      console.error("[Payment] createRegistrations failed:", result.error);
+      setError(result.error ?? "Registration failed. Please try again.");
+      setProcessing(false);
+      return;
+    }
+
+    // Success: clear client state and navigate to confirmation
+    console.log("[Payment] Success — clearing cart and resetting registration state.");
+    clearCart();
+    reset();
+    router.push(`/register/confirmation?semester=${semesterId}`);
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 mb-1">
-          Review & Pay
+          Review & Confirm
         </h1>
         <p className="text-gray-500 text-sm">
-          Confirm your registration details before payment.
+          Confirm your registration details below.
         </p>
       </div>
 
       {/* Preview mode banner */}
       {state.isPreview && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 font-medium">
-          Preview mode — no payment will be processed.
+          Preview mode — no registration will be saved.
         </div>
       )}
 
@@ -78,12 +125,17 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
             <div key={item.id} className="flex justify-between text-sm">
               <div>
                 <p className="font-medium text-gray-800">{item.sessionName}</p>
-                {item.selectedDayIds.length > 0 && (
+                {item.selectedDays.length > 0 ? (
+                  <p className="text-gray-400 text-xs mt-0.5">
+                    {item.selectedDays.length} day
+                    {item.selectedDays.length !== 1 ? "s" : ""}
+                  </p>
+                ) : item.selectedDayIds.length > 0 ? (
                   <p className="text-gray-400 text-xs mt-0.5">
                     {item.selectedDayIds.length} day
                     {item.selectedDayIds.length !== 1 ? "s" : ""}
                   </p>
-                )}
+                ) : null}
               </div>
               <span className="font-semibold text-gray-900">
                 {formatCurrency(item.subtotal)}
@@ -127,7 +179,6 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
       {/* Payment section */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5">
         <h2 className="font-semibold text-gray-900 mb-3">Payment</h2>
-
         {state.isPreview ? (
           <p className="text-sm text-gray-500">
             In preview mode, payment is simulated. Click confirm to see the
@@ -135,7 +186,7 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
           </p>
         ) : (
           <p className="text-sm text-gray-400">
-            Stripe payment form will appear here once integrated.
+            Payment will be processed via Converge. Integration coming soon.
           </p>
         )}
       </div>
@@ -165,8 +216,8 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
           {processing
             ? "Processing…"
             : state.isPreview
-              ? "Simulate Payment"
-              : "Pay Now"}
+              ? "Simulate Registration"
+              : "Confirm Registration"}
         </button>
       </div>
     </div>

@@ -24,23 +24,34 @@ export function CartRestoreGuard({ semesterId, children }: CartRestoreGuardProps
 
   useEffect(() => {
     const key = `${STORAGE_KEY_PREFIX}${semesterId}`;
+    console.log("[CartRestoreGuard] Checking localStorage for key:", key);
     try {
       const raw = localStorage.getItem(key);
       if (raw) {
         const cart: CartState = JSON.parse(raw);
-        const valid =
-          cart.items?.length > 0 &&
-          new Date(cart.expiresAt).getTime() > Date.now();
-        if (valid) {
+        const expired = new Date(cart.expiresAt).getTime() <= Date.now();
+        const hasItems = (cart.items?.length ?? 0) > 0;
+        console.log("[CartRestoreGuard] Cart found:", {
+          semesterId: cart.semesterId,
+          itemCount: cart.items?.length ?? 0,
+          expired,
+          expiresAt: cart.expiresAt,
+        });
+        if (hasItems && !expired) {
+          console.log("[CartRestoreGuard] Cart is valid — allowing registration flow.");
           setHasCart(true);
           setReady(true);
           return;
         }
+        console.warn("[CartRestoreGuard] Cart invalid. hasItems:", hasItems, "expired:", expired);
+      } else {
+        console.warn("[CartRestoreGuard] No cart found in localStorage for key:", key);
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      console.error("[CartRestoreGuard] Failed to parse cart:", e);
     }
     // No valid cart — redirect
+    console.log("[CartRestoreGuard] Redirecting to /semester/" + semesterId);
     router.replace(`/semester/${semesterId}`);
   }, [semesterId, router]);
 

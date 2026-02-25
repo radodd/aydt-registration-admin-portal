@@ -59,9 +59,13 @@ export default function ConfirmationEmailStep({
   const [htmlBody, setHtmlBody] = useState(email?.htmlBody ?? "");
 
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
+    "desktop",
+  );
   const [testEmail, setTestEmail] = useState("");
-  const [testStatus, setTestStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [testStatus, setTestStatus] = useState<
+    "idle" | "sending" | "sent" | "error"
+  >("idle");
   const [testError, setTestError] = useState<string | null>(null);
 
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -70,7 +74,9 @@ export default function ConfirmationEmailStep({
   /* Sync local state → reducer                                                 */
   /* -------------------------------------------------------------------------- */
 
-  function syncToReducer(updates: Partial<NonNullable<SemesterDraft["confirmationEmail"]>>) {
+  function syncToReducer(
+    updates: Partial<NonNullable<SemesterDraft["confirmationEmail"]>>,
+  ) {
     dispatch({
       type: "SET_CONFIRMATION_EMAIL",
       payload: {
@@ -134,6 +140,7 @@ export default function ConfirmationEmailStep({
 
   async function handleTestSend() {
     if (!semesterId || !testEmail) return;
+    console.log("SENDING EMAIL");
     setTestStatus("sending");
     setTestError(null);
 
@@ -151,10 +158,12 @@ export default function ConfirmationEmailStep({
 
     const result = await sendTestEmail(semesterId, testEmail);
     if (result.success) {
+      console.log("result", result);
       setTestStatus("sent");
     } else {
       setTestStatus("error");
       setTestError(result.error ?? "Send failed");
+      console.log("ERROR", result.error);
     }
   }
 
@@ -166,7 +175,9 @@ export default function ConfirmationEmailStep({
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">Confirmation Email</h2>
+        <h2 className="text-xl font-semibold text-gray-900">
+          Confirmation Email
+        </h2>
         <p className="text-sm text-gray-500 mt-1">
           Configure the email sent to registrants after sign-up.
         </p>
@@ -175,7 +186,8 @@ export default function ConfirmationEmailStep({
       {/* Locked banner */}
       {isLocked && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-          This semester has active registrations. The confirmation email is locked.
+          This semester has active registrations. The confirmation email is
+          locked.
         </div>
       )}
 
@@ -204,7 +216,9 @@ export default function ConfirmationEmailStep({
         {activeSubStep === "info" && (
           <div className="space-y-6 max-w-xl">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Subject *</label>
+              <label className="text-sm font-medium text-gray-700">
+                Subject *
+              </label>
               <input
                 type="text"
                 value={subject}
@@ -214,12 +228,15 @@ export default function ConfirmationEmailStep({
                 className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
               />
               <p className="text-xs text-gray-400">
-                Tokens: {"{{first_name}}"}, {"{{session_title}}"}, {"{{registration_date}}"}
+                Tokens: {"{{first_name}}"}, {"{{session_title}}"},{" "}
+                {"{{registration_date}}"}
               </p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">From Name</label>
+              <label className="text-sm font-medium text-gray-700">
+                From Name
+              </label>
               <input
                 type="text"
                 value={fromName}
@@ -231,7 +248,9 @@ export default function ConfirmationEmailStep({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">From Email</label>
+              <label className="text-sm font-medium text-gray-700">
+                From Email
+              </label>
               <input
                 type="email"
                 value={fromEmail}
@@ -250,10 +269,22 @@ export default function ConfirmationEmailStep({
             <div className="flex justify-between items-center">
               <p className="text-sm text-gray-500">
                 Build your email body. Use tokens like{" "}
-                <code className="bg-gray-100 px-1 rounded text-xs">{"{{first_name}}"}</code>,{" "}
-                <code className="bg-gray-100 px-1 rounded text-xs">{"{{session_title}}"}</code>,{" "}
-                <code className="bg-gray-100 px-1 rounded text-xs">{"{{total_amount}}"}</code>,{" "}
-                <code className="bg-gray-100 px-1 rounded text-xs">{"{{registration_date}}"}</code>.
+                <code className="bg-gray-100 px-1 rounded text-xs">
+                  {"{{first_name}}"}
+                </code>
+                ,{" "}
+                <code className="bg-gray-100 px-1 rounded text-xs">
+                  {"{{session_title}}"}
+                </code>
+                ,{" "}
+                <code className="bg-gray-100 px-1 rounded text-xs">
+                  {"{{total_amount}}"}
+                </code>
+                ,{" "}
+                <code className="bg-gray-100 px-1 rounded text-xs">
+                  {"{{registration_date}}"}
+                </code>
+                .
               </p>
               {savedAt && (
                 <span className="text-xs text-green-600 font-medium shrink-0 ml-4">
@@ -325,12 +356,18 @@ export default function ConfirmationEmailStep({
         {activeSubStep === "test" && (
           <div className="space-y-6 max-w-md">
             <p className="text-sm text-gray-500">
-              Send a test email with mock token data to verify rendering. The subject will be prefixed with{" "}
-              <span className="font-mono text-xs bg-gray-100 px-1 rounded">[TEST]</span>.
+              Send a test email with mock token data to verify rendering. The
+              subject will be prefixed with{" "}
+              <span className="font-mono text-xs bg-gray-100 px-1 rounded">
+                [TEST]
+              </span>
+              .
             </p>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Test Email Address</label>
+              <label className="text-sm font-medium text-gray-700">
+                Test Email Address
+              </label>
               <input
                 type="email"
                 value={testEmail}
@@ -359,7 +396,8 @@ export default function ConfirmationEmailStep({
 
             {testStatus === "error" && (
               <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                {testError ?? "Failed to send. Check your Resend configuration."}
+                {testError ??
+                  "Failed to send. Check your Resend configuration."}
               </div>
             )}
           </div>

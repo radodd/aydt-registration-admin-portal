@@ -1,5 +1,7 @@
 # AYDT — Full Architectural Diagnostic
+
 ### Date: February 24, 2026
+
 ### Analyst: Systems-Level Audit
 
 ---
@@ -26,19 +28,24 @@ However, the system is mid-development and several critical subsystems have stru
 
 ## Critical Risks (Summary)
 
-| Severity | Risk |
-|----------|------|
-| CRITICAL | Email status is marked "sent" before dispatch — silent send failure is possible |
-| HIGH | Broadcast emails always resolve student_name, semester_name, session_name as empty strings |
-| MEDIUM | Non-atomic waitlist invite — a crash between DB write and email send leaves the entry stuck |
-| MEDIUM | Race condition (TOCTOU) on waitlist capacity check |
-| MEDIUM | Cart holds live session references, not price or attribute snapshots |
-| MEDIUM | Discount computation location unconfirmed — potential client-side manipulation vector |
-| MEDIUM | Payment confirmation mechanism unconfirmed — registration finalization safety unknown |
-| MEDIUM | No optimistic locking on multi-admin semester editing |
-| LOW | DB trigger bug — RETURN NEW instead of RETURN OLD on DELETE for published semesters |
-| LOW | Three divergent token-replacement implementations across the codebase |
-| LOW | Confirmation email JSONB has no version history |
+| Severity | Risk                                                                                                     |
+| -------- | -------------------------------------------------------------------------------------------------------- |
+| CRITICAL | Payment system is a complete stub — no gateway integration, payment page is TODO                         |
+| CRITICAL | Discount computation is not implemented — discountAmount hardcoded to 0 everywhere                       |
+| CRITICAL | Email status is marked "sent" before dispatch — silent send failure is possible                          |
+| HIGH     | Broadcast emails always resolve student_name, semester_name, session_name as empty strings               |
+| HIGH     | No server-side cart price validation — client-side price manipulation possible once payment is wired     |
+| MEDIUM   | Non-atomic waitlist invite — a crash between DB write and email send leaves the entry stuck              |
+| MEDIUM   | Race condition (TOCTOU) on waitlist capacity check                                                       |
+| MEDIUM   | Cart is pure client-local state — no server-side soft hold; overselling guaranteed under concurrent load |
+| MEDIUM   | Cart holds live session references, not price or attribute snapshots                                     |
+| MEDIUM   | Session cloning creates implicit ownership ambiguity — no source session reference stored                |
+| MEDIUM   | Registration hold window (hold_expires_at) not enforced end-to-end through checkout                      |
+| MEDIUM   | No optimistic locking on multi-admin semester editing                                                    |
+| LOW      | DB trigger bug — RETURN NEW instead of RETURN OLD on DELETE for published semesters                      |
+| LOW      | Three divergent token-replacement implementations across the codebase                                    |
+| LOW      | Confirmation email JSONB has no version history                                                          |
+| LOW      | Email subscription check at resolution time only — unsubscribes after snapshot are not honored           |
 
 ---
 
@@ -46,28 +53,28 @@ However, the system is mid-development and several critical subsystems have stru
 
 ## 1.1 Core Entities and Ownership
 
-| Entity | Owner | Mutable After Publish? | Stateful? |
-|--------|-------|------------------------|-----------|
-| Semester | Admin | No (when locked) | Yes — status state machine |
-| Session | Admin → Semester | No (when locked) | No |
-| Session Group | Admin → Semester | No (when locked) | No |
-| Payment Plan | Admin → Semester | No (when locked) | No |
-| Discount (global template) | Admin | Yes — shared across semesters | No |
-| Semester Discount (link) | Admin → Semester | No (when locked) | No (snapshot link) |
-| Registration Form | Admin → Semester | No (when locked) | No |
-| Confirmation Email | Admin → Semester | **YES — JSONB, no lock enforced** | No |
-| Waitlist Settings | Admin → Semester | **YES — JSONB, no lock enforced** | No |
-| Dancer | User / Family | Yes | No |
-| Family | User | Yes | No |
-| Registration | System | Partially (status only) | Yes — status state machine |
-| Waitlist Entry | System | Yes (status transitions) | Yes — status state machine |
-| Cart | User (client) | Yes (ephemeral) | Yes — stored in localStorage |
-| Registration State | User (client) | Yes (ephemeral) | Yes — stored in sessionStorage |
-| Email (broadcast) | Admin | Partially (status only) | Yes — status state machine |
-| Email Recipient | System | No (snapshot at schedule time) | No |
-| Email Delivery | System | Yes (tracking fields) | Yes |
-| Media File | Admin | Yes | No |
-| Audit Log | System | No (append-only) | No |
+| Entity                     | Owner            | Mutable After Publish?            | Stateful?                      |
+| -------------------------- | ---------------- | --------------------------------- | ------------------------------ |
+| Semester                   | Admin            | No (when locked)                  | Yes — status state machine     |
+| Session                    | Admin → Semester | No (when locked)                  | No                             |
+| Session Group              | Admin → Semester | No (when locked)                  | No                             |
+| Payment Plan               | Admin → Semester | No (when locked)                  | No                             |
+| Discount (global template) | Admin            | Yes — shared across semesters     | No                             |
+| Semester Discount (link)   | Admin → Semester | No (when locked)                  | No (snapshot link)             |
+| Registration Form          | Admin → Semester | No (when locked)                  | No                             |
+| Confirmation Email         | Admin → Semester | **YES — JSONB, no lock enforced** | No                             |
+| Waitlist Settings          | Admin → Semester | **YES — JSONB, no lock enforced** | No                             |
+| Dancer                     | User / Family    | Yes                               | No                             |
+| Family                     | User             | Yes                               | No                             |
+| Registration               | System           | Partially (status only)           | Yes — status state machine     |
+| Waitlist Entry             | System           | Yes (status transitions)          | Yes — status state machine     |
+| Cart                       | User (client)    | Yes (ephemeral)                   | Yes — stored in localStorage   |
+| Registration State         | User (client)    | Yes (ephemeral)                   | Yes — stored in sessionStorage |
+| Email (broadcast)          | Admin            | Partially (status only)           | Yes — status state machine     |
+| Email Recipient            | System           | No (snapshot at schedule time)    | No                             |
+| Email Delivery             | System           | Yes (tracking fields)             | Yes                            |
+| Media File                 | Admin            | Yes                               | No                             |
+| Audit Log                  | System           | No (append-only)                  | No                             |
 
 **Critical observation:** `confirmation_email` and `waitlist_settings` are JSONB fields on the `semesters` row. They are NOT covered by the database lock trigger on published semesters. An admin can silently update the confirmation email template after registrations already exist. Future sends will use the new template. There is no version history. Historical and future confirmation emails will differ with no audit trail.
 
@@ -100,15 +107,15 @@ However, the system is mid-development and several critical subsystems have stru
 
 ## 1.3 Mutability Matrix
 
-| What | When it should lock | Current behavior |
-|------|--------------------|--------------------|
-| Sessions, groups, payment plan | Published + registrations exist | Enforced by DB trigger |
-| Registration form JSONB | Published + registrations exist | Enforced by DB trigger |
-| Confirmation email JSONB | Published + registrations exist | NEVER locked — gap |
-| Waitlist settings JSONB | Published + active waitlist exists | NEVER locked — gap |
-| Global discount rules | Linked to published semester | Freely editable — gap |
-| Email recipient snapshot | After scheduleEmail() | Immutable after snapshot |
-| Waitlist invite token | After invitation issued | Immutable |
+| What                           | When it should lock                | Current behavior         |
+| ------------------------------ | ---------------------------------- | ------------------------ |
+| Sessions, groups, payment plan | Published + registrations exist    | Enforced by DB trigger   |
+| Registration form JSONB        | Published + registrations exist    | Enforced by DB trigger   |
+| Confirmation email JSONB       | Published + registrations exist    | NEVER locked — gap       |
+| Waitlist settings JSONB        | Published + active waitlist exists | NEVER locked — gap       |
+| Global discount rules          | Linked to published semester       | Freely editable — gap    |
+| Email recipient snapshot       | After scheduleEmail()              | Immutable after snapshot |
+| Waitlist invite token          | After invitation issued            | Immutable                |
 
 ---
 
@@ -195,10 +202,12 @@ However, the system is mid-development and several critical subsystems have stru
 3. Steps: Setup (subject, sender) → Recipients (targeting) → Design (TipTap editor) → Preview/Schedule
 
 **On scheduleEmail(id, scheduledAt):**
+
 - resolveRecipients() snapshots all eligible recipients into email_recipients table
 - UPDATE emails SET status = "scheduled"
 
 **On sendEmailNow(id):**
+
 - resolveRecipients() snapshots recipients
 - If 500 or fewer: inline send within server action
 - If more than 500: invoke send-email-broadcast edge function
@@ -218,6 +227,7 @@ However, the system is mid-development and several critical subsystems have stru
 6. Upserts email_deliveries record with Resend message ID
 
 **Delivery tracking:**
+
 - Resend webhooks hit /api/webhooks/resend
 - UPDATE email_deliveries SET status, delivered_at, opened_at, clicked_at
 
@@ -228,14 +238,17 @@ However, the system is mid-development and several critical subsystems have stru
 **Trigger:** pg_cron runs every minute → calls process_waitlist() SQL function → invokes process-waitlist edge function
 
 **Step 1 — Expire seat holds:**
+
 - DELETE FROM registrations WHERE status="pending" AND hold_expires_at < now
 
 **Step 2 — Expire stale invites:**
+
 - UPDATE waitlist_entries SET status="expired" WHERE status="invited" AND invitation_expires_at < now
 
 **Step 3 — Send next invites (per session with waiting entries):**
 
 For each session:
+
 1. Check waitlist is enabled at semester level and session level
 2. Check stopDaysBeforeClose window has not been reached
 3. Check no active "invited" entry exists (one-at-a-time rule)
@@ -246,6 +259,7 @@ For each session:
 8. On send failure: attempt rollback to status="waiting" (rollback can also fail silently)
 
 **User acceptance:**
+
 1. User visits /waitlist/accept/[token]
 2. Token validated (not expired, status="invited")
 3. Registration created (status="pending", hold_expires_at = now + 30 minutes)
@@ -257,24 +271,24 @@ For each session:
 
 ## 3.1 Admin Changes → User Impact
 
-| Admin Action | User Impact | Risk |
-|-------------|-------------|------|
-| Edit registration_form JSONB | Dynamic form schema changes on next page load | User mid-registration may encounter a changed form |
-| Edit confirmation_email JSONB | All future confirmation sends use new template | No versioning — historical and future emails differ |
-| Change session capacity after publish | Affects capacity display and waitlist triggering | Blocked by lock unless 0 registrations |
-| Unpublish semester | Semester disappears from user listing | Active carts become orphaned |
-| Delete session during editing | Hard-deletes removed sessions | Cart items referencing that sessionId become stale |
-| Edit global discount rules | Changes pricing for all linked semesters | Silently affects active registrations |
+| Admin Action                          | User Impact                                      | Risk                                                |
+| ------------------------------------- | ------------------------------------------------ | --------------------------------------------------- |
+| Edit registration_form JSONB          | Dynamic form schema changes on next page load    | User mid-registration may encounter a changed form  |
+| Edit confirmation_email JSONB         | All future confirmation sends use new template   | No versioning — historical and future emails differ |
+| Change session capacity after publish | Affects capacity display and waitlist triggering | Blocked by lock unless 0 registrations              |
+| Unpublish semester                    | Semester disappears from user listing            | Active carts become orphaned                        |
+| Delete session during editing         | Hard-deletes removed sessions                    | Cart items referencing that sessionId become stale  |
+| Edit global discount rules            | Changes pricing for all linked semesters         | Silently affects active registrations               |
 
 ## 3.2 User Actions → Admin Impact
 
-| User Action | Admin Impact |
-|------------|--------------|
-| Registration created | isLocked becomes true — semester editing is restricted |
-| Registration confirmed | Reduces available capacity, may trigger waitlist |
-| Registration cancelled | Frees capacity, triggers next waitlist invite |
-| Family profile update | Downstream change in admin family reporting |
-| Email unsubscribe | Affects resolveRecipients() count |
+| User Action            | Admin Impact                                           |
+| ---------------------- | ------------------------------------------------------ |
+| Registration created   | isLocked becomes true — semester editing is restricted |
+| Registration confirmed | Reduces available capacity, may trigger waitlist       |
+| Registration cancelled | Frees capacity, triggers next waitlist invite          |
+| Family profile update  | Downstream change in admin family reporting            |
+| Email unsubscribe      | Affects resolveRecipients() count                      |
 
 ## 3.3 Discount Coupling (Partially Observable)
 
@@ -376,6 +390,7 @@ Between steps 1 and 3, another user can accept a concurrent waitlist invite, fil
 Cart items contain sessionId and selectedDays. There is no snapshot of price, session title, or capacity at the time the item is added.
 
 **Failure scenarios:**
+
 - Admin changes session price between cart-add and checkout → user is charged a different price than shown
 - Admin deletes a session → cart item references a non-existent session
 - Admin unpublishes the semester → cart item has no valid checkout destination
@@ -386,7 +401,132 @@ There is no staleness check at checkout entry.
 
 ---
 
-## Risk 6 — DB Trigger Bug: DELETE on Published Semester
+## Risk 6 — Payment System Is a Complete Stub
+
+**Severity: CRITICAL**
+**File:** app/(user-facing)/register/payment/page.tsx
+
+The payment page contains a TODO comment:
+
+```
+// TODO: integrate Stripe Elements here once STRIPE_SECRET_KEY is configured.
+```
+
+No payment gateway is wired. The payment page renders an order summary but captures no payment instrument. The `paymentIntentId` field in RegistrationState is set to a placeholder. Cart totals are computed client-side with no server re-validation. No `payments` table exists. No registration record is created at checkout.
+
+**Impact:** The system cannot complete a registration in production. Any "confirmed" registrations are either from preview/test mode or require manual admin intervention. This is not a configuration gap — it is a missing subsystem.
+
+**What must be built:**
+
+1. Payment gateway integration (Stripe or custom processor)
+2. Server-side payment intent creation (validates server-computed total, not client total)
+3. Webhook or callback to confirm payment server-side
+4. Registration record creation gated on payment confirmation
+5. Confirmation email trigger on registration confirmed
+
+---
+
+## Risk 7 — Discount Computation Is Not Implemented
+
+**Severity: CRITICAL**
+**File:** app/providers/CartProvider.tsx
+
+`discountAmount` is hardcoded to `0` in CartState initialization and is never updated:
+
+```typescript
+discountAmount: 0,  // ← never computed
+total: subtotal,    // ← always full price
+```
+
+The discount rule schema is complete (category, threshold, value, sessionScope, recipientScope), the `semester_discounts` linkage table exists, and admins can configure discounts — but there is no execution engine that applies them. No server action, edge function, or client-side computation evaluates the rules.
+
+**Impact:** All registrations charge full price regardless of configured discounts. Admins have a fully functional discount configuration UI whose output has no effect on any total.
+
+**What must be built:**
+
+1. Server-side discount computation function: `computeDiscounts(cartItems, applicableDiscounts) → DiscountResult[]`
+2. Called at payment intent creation — never trusted from client
+3. Discount amount snapshotted into registration row for reporting
+4. Client-side preview computation (display only, explicitly labeled as preview)
+5. Explicit stacking rules: is discount A applied to the original price or post-discount-B price?
+
+---
+
+## Risk 8 — No Server-Side Cart Price Validation
+
+**Severity: HIGH**
+**Files:** CartProvider.tsx, app/(user-facing)/register/payment/page.tsx
+
+Cart prices are set client-side at add-time from the publicly rendered `PublicSession.pricePerDay`. No server action re-fetches live session prices before accepting a payment total. Once payment is wired:
+
+- A user could modify `localStorage["aydt_cart_*"]` to set `pricePerDay: 0`
+- The checkout flow would pass that total to the payment intent without challenge
+- The server would create a registration for $0
+
+**Fix:** Before creating a payment intent, a server action must:
+
+1. Fetch live `pricePerDay` for each `sessionId` in the submitted cart
+2. Recompute the total server-side
+3. Reject if the client-submitted total does not match the server-computed total
+4. Return the server-validated total to the payment form (never accept the client's number)
+
+---
+
+## Risk 9 — No Server-Side Soft Hold: Overselling Under Concurrent Load
+
+**Severity: MEDIUM**
+**File:** CartProvider.tsx
+
+Cart items exist only in `localStorage`. No server-side reservation is created when a session is added to cart. If 30 users simultaneously add the last 2 spots of a session to their carts:
+
+- All 30 proceed through the 9-step registration flow
+- All 30 reach the payment page showing the session as available
+- All 30 attempt to pay
+- 28 receive a failure at an undefined point with undefined error messages
+
+There is no soft-hold mechanism preventing this.
+
+**Fix:** When a user begins checkout (step 1 — email entry), create a server-side `cart_holds` record:
+
+```sql
+cart_holds(id, session_id, family_id, expires_at, created_at)
+```
+
+Use `SELECT ... FOR UPDATE SKIP LOCKED` when creating holds to prevent double-assignment. Decrement from available capacity counts. Expire holds via the existing `process-waitlist` cron or a dedicated cleanup job.
+
+---
+
+## Risk 10 — Session Cloning Has No Source Reference
+
+**Severity: MEDIUM**
+**File:** app/admin/semesters/actions/syncSemesterSessions.ts
+
+When a semester clones sessions from another semester, `syncSemesterSessions` creates new session rows with no `original_session_id` column linking back to the source. Consequences:
+
+- Editing a source session does not propagate to clones (expected, but invisible)
+- Admin editing a clone does not know they are editing a copy
+- There is no way to audit which semesters share lineage with which sessions
+- "Copy semester" creates a fully disconnected duplicate with no provenance
+
+**Fix:** Add `cloned_from_session_id UUID REFERENCES sessions(id) ON DELETE SET NULL` to sessions table. Populate on clone. Display in admin UI as "Cloned from: [session name, semester name]".
+
+---
+
+## Risk 11 — Registration Hold Not Enforced End-to-End
+
+**Severity: MEDIUM**
+
+`registrations.hold_expires_at` implies that pending registrations represent a time-bounded seat hold. The `process-waitlist` cron deletes expired holds. However:
+
+1. If a user's hold expires while they are on the payment page, the UI does not detect or notify them
+2. When payment eventually completes (once implemented), the server must re-validate that `hold_expires_at > now()` before confirming the registration — this check does not exist in the current stub
+3. A 30-minute hold may be insufficient for a family registering multiple dancers across multiple sessions with a detailed form
+
+**Fix:** Add an explicit hold-validity check in the payment confirmation server action. Return a `HOLD_EXPIRED` error if the hold is gone. Show an in-browser TTL countdown that warns the user before expiry and offers to renew (by re-checking capacity and re-setting `hold_expires_at`).
+
+---
+
+## Risk 12 — DB Trigger Bug: DELETE on Published Semester
 
 **Severity: LOW**
 **Location:** Supabase database trigger (PREVENT_CHILD_MODIFICATION_IF_SEMESTER_PUBLISHED)
@@ -419,15 +559,15 @@ No conflict error. No last-write-wins warning. No version stamp.
 
 **Severity: LOW**
 
-| File | Behavior on unknown token |
-|------|--------------------------|
-| utils/resolveEmailVariables.ts | Preserves {{key}} — safe, forward-compatible |
+| File                                             | Behavior on unknown token                    |
+| ------------------------------------------------ | -------------------------------------------- |
+| utils/resolveEmailVariables.ts                   | Preserves {{key}} — safe, forward-compatible |
 | supabase/functions/send-email-broadcast/index.ts | Replaces with empty string — data-corrupting |
-| supabase/functions/process-waitlist/index.ts | replaceAll loop — no fallback behavior |
+| supabase/functions/process-waitlist/index.ts     | replaceAll loop — no fallback behavior       |
 
 A future change to the canonical utility will not propagate to edge functions.
 
-**Fix:** Create a shared utility at supabase/functions/_shared/resolveTokens.ts importable by all Deno functions.
+**Fix:** Create a shared utility at supabase/functions/\_shared/resolveTokens.ts importable by all Deno functions.
 
 ---
 
@@ -449,7 +589,7 @@ When an admin updates the confirmation_email field on a published semester, the 
 
 1. Fix send-email-broadcast: populate semester_name, session_name, student_name from the email's recipient selection context
 2. Add "sending" intermediate status to emails table; invert the status/dispatch ordering so "sent" is only set after broadcast confirms
-3. Extract shared token-replacement utility to supabase/functions/_shared/resolveTokens.ts
+3. Extract shared token-replacement utility to supabase/functions/\_shared/resolveTokens.ts
 
 **Near-term — reliability:**
 
@@ -501,10 +641,12 @@ Note: Full recommendations require answers to Clarifying Questions (Part 7).
 The SemesterForm currently conflates two distinct concerns that should have different locking behaviors:
 
 **Semester configuration** (details, sessions, groups, payment):
+
 - Should lock on publish + registrations existing
 - Currently handled correctly
 
 **Semester content** (registration form, confirmation email, waitlist settings):
+
 - Should support independent versioning
 - Confirmation email should lock or version when registrations exist
 - Waitlist invite email should lock when active waitlist entries exist
@@ -524,13 +666,13 @@ Add updated_at timestamp checks before persistSemesterDraft writes. Return a Con
 
 Current audit logging covers semester actions only. Extend to:
 
-| Table | Events to log |
-|-------|---------------|
-| registrations | created, confirmed, cancelled, declined |
-| waitlist_entries | all status transitions |
-| emails | scheduled, sent, cancelled, failed |
-| payments | created, confirmed, failed, refunded |
-| users | role changes, authentication events |
+| Table            | Events to log                           |
+| ---------------- | --------------------------------------- |
+| registrations    | created, confirmed, cancelled, declined |
+| waitlist_entries | all status transitions                  |
+| emails           | scheduled, sent, cancelled, failed      |
+| payments         | created, confirmed, failed, refunded    |
+| users            | role changes, authentication events     |
 
 **Recommended pattern:** PostgreSQL trigger on key tables writing to a generic audit_log table with columns: table_name, row_id, action, actor_id, old_value (JSONB), new_value (JSONB), created_at.
 
@@ -586,15 +728,15 @@ Mitigation: Dirty-check before sync — only write changed sub-entities. Debounc
 
 ## Scaling Mitigations Summary
 
-| Bottleneck | Mitigation |
-|-----------|------------|
-| Email rate limits | Per-batch delay + retry queue |
-| Waitlist cron | Parallel session processing or event-driven trigger |
-| Draft persistence | Dirty-check + debounce |
-| Multi-admin conflicts | Optimistic locking with updated_at |
-| Discount stacking | Server-side floor enforcement + stacking rules |
-| Payment deduplication | Idempotency key on registration creation |
-| Query performance | Indexes on sessions.semester_id, registrations.session_id, waitlist_entries.session_id |
+| Bottleneck            | Mitigation                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| Email rate limits     | Per-batch delay + retry queue                                                          |
+| Waitlist cron         | Parallel session processing or event-driven trigger                                    |
+| Draft persistence     | Dirty-check + debounce                                                                 |
+| Multi-admin conflicts | Optimistic locking with updated_at                                                     |
+| Discount stacking     | Server-side floor enforcement + stacking rules                                         |
+| Payment deduplication | Idempotency key on registration creation                                               |
+| Query performance     | Indexes on sessions.semester_id, registrations.session_id, waitlist_entries.session_id |
 
 ---
 
@@ -607,6 +749,7 @@ When a user adds a session to the cart, is the price captured at that moment, or
 
 **Q2 — Registration creation timing**
 At what exact step is a registrations row created?
+
 - Option A: At start of checkout (pending hold, before payment)
 - Option B: After payment intent is created (holds capacity until payment confirms)
 - Option C: Only after payment is fully confirmed
@@ -641,45 +784,50 @@ Is there a DB-level constraint or trigger preventing registrations from exceedin
 
 # Summary Risk Table
 
-| Severity | Risk | Location |
-|----------|------|----------|
-| CRITICAL | Email status marked "sent" before dispatch | process-scheduled-emails/index.ts |
-| HIGH | Broadcast emails send empty student_name, semester_name, session_name | send-email-broadcast/index.ts |
-| MEDIUM | Non-atomic waitlist invite — crash leaves entry stuck as "invited" | process-waitlist/index.ts |
-| MEDIUM | Race condition on waitlist capacity check | process-waitlist/index.ts |
-| MEDIUM | Cart holds live session references — no price snapshot | CartProvider, cart/ pages |
-| MEDIUM | Discount computation location unknown | Unknown |
-| MEDIUM | Payment confirmation mechanism unknown | Unknown |
-| MEDIUM | No optimistic locking on multi-admin semester editing | SemesterForm.tsx |
-| LOW | DB trigger bug: RETURN NEW instead of RETURN OLD on DELETE | Supabase DB trigger |
-| LOW | Three divergent token-replacement implementations | resolveEmailVariables.ts + edge functions |
-| LOW | Confirmation email JSONB has no version history | semesters table |
-| LOW | Waitlist cron is sequential — bottleneck at scale | process-waitlist/index.ts |
+| Severity | Risk                                                                         | Location                                  |
+| -------- | ---------------------------------------------------------------------------- | ----------------------------------------- |
+| CRITICAL | Payment system is a complete stub — no gateway, no registration creation     | register/payment/page.tsx                 |
+| CRITICAL | Discount computation not implemented — discountAmount hardcoded to 0         | CartProvider.tsx                          |
+| CRITICAL | Email status marked "sent" before dispatch                                   | process-scheduled-emails/index.ts         |
+| HIGH     | Broadcast emails send empty student_name, semester_name, session_name        | send-email-broadcast/index.ts             |
+| HIGH     | No server-side cart price validation — price manipulation vector at checkout | CartProvider + payment action             |
+| MEDIUM   | No server-side soft hold — overselling guaranteed under concurrent load      | CartProvider.tsx                          |
+| MEDIUM   | Non-atomic waitlist invite — crash leaves entry stuck as "invited"           | process-waitlist/index.ts                 |
+| MEDIUM   | Race condition on waitlist capacity check                                    | process-waitlist/index.ts                 |
+| MEDIUM   | Cart holds live session references — no price snapshot                       | CartProvider, cart/ pages                 |
+| MEDIUM   | Session cloning has no source reference — no provenance tracking             | syncSemesterSessions.ts                   |
+| MEDIUM   | Registration hold not enforced end-to-end through payment confirmation       | register/payment/page.tsx                 |
+| MEDIUM   | No optimistic locking on multi-admin semester editing                        | SemesterForm.tsx                          |
+| LOW      | DB trigger bug: RETURN NEW instead of RETURN OLD on DELETE                   | Supabase DB trigger                       |
+| LOW      | Three divergent token-replacement implementations                            | resolveEmailVariables.ts + edge functions |
+| LOW      | Confirmation email JSONB has no version history                              | semesters table                           |
+| LOW      | Email unsubscribes after recipient snapshot are not honored                  | send-email-broadcast/index.ts             |
+| LOW      | Waitlist cron is sequential — bottleneck at scale                            | process-waitlist/index.ts                 |
 
 ---
 
 # Key File Reference
 
-| File | Purpose |
-|------|---------|
-| types/index.ts | All domain types — single source of truth |
-| types/public.ts | Public-safe type subset |
-| app/admin/semesters/SemesterForm.tsx | Multi-step editor orchestrator, useReducer, dirty guard |
-| app/admin/semesters/[id]/EditSemesterClient.tsx | Hydration from DB, isLocked computation |
-| app/admin/semesters/actions/ | All semester server actions |
-| app/admin/emails/actions/ | All email server actions |
-| app/components/semester-flow/TipTapEditor.tsx | Rich text editor with email-safe HTML output |
-| utils/resolveEmailVariables.ts | Canonical token replacement utility |
-| utils/prepareEmailHtml.ts | Outlook img attribute normalization |
-| supabase/functions/process-waitlist/index.ts | Waitlist cron worker |
-| supabase/functions/send-email-broadcast/index.ts | Batch email sender |
-| supabase/functions/process-scheduled-emails/index.ts | Scheduled email dispatcher |
-| lib/schemas/registration.ts | Zod schemas for registration flow |
-| app/providers/ | CartProvider, RegistrationProvider, AuthProvider, SemesterDataProvider |
-| middleware.ts | Auth session middleware |
+| File                                                 | Purpose                                                                |
+| ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| types/index.ts                                       | All domain types — single source of truth                              |
+| types/public.ts                                      | Public-safe type subset                                                |
+| app/admin/semesters/SemesterForm.tsx                 | Multi-step editor orchestrator, useReducer, dirty guard                |
+| app/admin/semesters/[id]/EditSemesterClient.tsx      | Hydration from DB, isLocked computation                                |
+| app/admin/semesters/actions/                         | All semester server actions                                            |
+| app/admin/emails/actions/                            | All email server actions                                               |
+| app/components/semester-flow/TipTapEditor.tsx        | Rich text editor with email-safe HTML output                           |
+| utils/resolveEmailVariables.ts                       | Canonical token replacement utility                                    |
+| utils/prepareEmailHtml.ts                            | Outlook img attribute normalization                                    |
+| supabase/functions/process-waitlist/index.ts         | Waitlist cron worker                                                   |
+| supabase/functions/send-email-broadcast/index.ts     | Batch email sender                                                     |
+| supabase/functions/process-scheduled-emails/index.ts | Scheduled email dispatcher                                             |
+| lib/schemas/registration.ts                          | Zod schemas for registration flow                                      |
+| app/providers/                                       | CartProvider, RegistrationProvider, AuthProvider, SemesterDataProvider |
+| middleware.ts                                        | Auth session middleware                                                |
 
 ---
 
-*Diagnostic date: February 24, 2026*
-*System: AYDT Registration Admin Portal*
-*Audit type: Full systems-level architectural review*
+_Diagnostic date: February 24, 2026_
+_System: AYDT Registration Admin Portal_
+_Audit type: Full systems-level architectural review_

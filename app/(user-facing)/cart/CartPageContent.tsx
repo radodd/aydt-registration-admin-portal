@@ -15,12 +15,45 @@ function formatCurrency(amount: number): string {
 
 export function CartPageContent() {
   const router = useRouter();
-  const { items, subtotal, total, removeItem, clearCart, isExpired, semesterId } =
-    useCart();
+  const {
+    items,
+    subtotal,
+    total,
+    removeItem,
+    clearCart,
+    isExpired,
+    semesterId,
+  } = useCart();
+  useEffect(() => {
+    console.log(
+      "[Cart Page] Mount — semesterId:",
+      semesterId,
+      "itemCount:",
+      items.length,
+      "isExpired:",
+      isExpired,
+    );
+    console.log(
+      "[Cart Page] Items:",
+      items.map((i) => ({
+        sessionId: i.sessionId,
+        sessionName: i.sessionName,
+        selectedDayIds: i.selectedDayIds,
+        subtotal: i.subtotal,
+        minAge: i.minAge,
+        maxAge: i.maxAge,
+      })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items]);
 
   // Redirect on expiry
   useEffect(() => {
     if (isExpired) {
+      console.warn(
+        "[Cart Page] Cart expired — clearing and redirecting to /semester/" +
+          semesterId,
+      );
       clearCart();
       router.push(`/semester/${semesterId}`);
     }
@@ -49,13 +82,13 @@ export function CartPageContent() {
                 <h3 className="font-semibold text-gray-900 mb-1">
                   {item.sessionName}
                 </h3>
-                {item.selectedDayIds.length > 0 && (
+                {item.selectedDayIds.length >= 0 && (
                   <p className="text-sm text-gray-500">
                     {item.selectedDayIds.length} day
                     {item.selectedDayIds.length !== 1 ? "s" : ""} selected
                   </p>
                 )}
-                {item.pricePerDay > 0 && item.selectedDayIds.length > 0 && (
+                {item.pricePerDay > 0 && item.selectedDayIds.length >= 0 && (
                   <p className="text-sm text-gray-400 mt-0.5">
                     {formatCurrency(item.pricePerDay)} ×{" "}
                     {item.selectedDayIds.length}

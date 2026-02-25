@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import { v4 as uuidv4 } from "uuid";
-import type { CartItem, CartState } from "@/types/public";
+import type { CartItem, CartState, PublicAvailableDay } from "@/types/public";
 
 const CART_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 const STORAGE_KEY_PREFIX = "aydt_cart_";
@@ -53,7 +53,10 @@ type CartAction =
         sessionId: string;
         sessionName: string;
         dayIds: string[];
+        selectedDays: PublicAvailableDay[];
         pricePerDay: number;
+        minAge: number | null;
+        maxAge: number | null;
       };
     }
   | { type: "REMOVE_ITEM"; payload: { sessionId: string } }
@@ -70,7 +73,15 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       return action.payload;
 
     case "ADD_ITEM": {
-      const { sessionId, sessionName, dayIds, pricePerDay } = action.payload;
+      const {
+        sessionId,
+        sessionName,
+        dayIds,
+        selectedDays,
+        pricePerDay,
+        minAge,
+        maxAge,
+      } = action.payload;
       // Replace if session already in cart
       const filtered = state.items.filter((i) => i.sessionId !== sessionId);
       const newItem: CartItem = {
@@ -79,9 +90,12 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         sessionId,
         sessionName,
         selectedDayIds: dayIds,
+        selectedDays,
         pricePerDay,
         subtotal: pricePerDay * dayIds.length,
         addedAt: new Date().toISOString(),
+        minAge,
+        maxAge,
       };
       const items = [...filtered, newItem];
       return { ...state, items, ...computeTotals(items) };
@@ -126,7 +140,10 @@ interface CartContextValue extends CartState {
     sessionId: string,
     sessionName: string,
     dayIds: string[],
+    selectedDays: PublicAvailableDay[],
     pricePerDay: number,
+    minAge: number | null,
+    maxAge: number | null,
   ) => void;
   removeItem: (sessionId: string) => void;
   updateDays: (
@@ -183,17 +200,41 @@ export function CartProvider({
   /* ---------------------------------------------------------------------- */
   useEffect(() => {
     if (preview) return;
+    console.log("[Cart] Hydrating — key:", storageKey);
     try {
       const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
+      if (!raw) {
+        console.log("[Cart] Nothing in localStorage for key:", storageKey);
+        return;
+      }
       const parsed: CartState = JSON.parse(raw);
-      if (parsed.semesterId === semesterId && !isExpiredCart(parsed)) {
+      const expired = isExpiredCart(parsed);
+      const semesterMatch = parsed.semesterId === semesterId;
+      console.log("[Cart] Stored cart found:", {
+        semesterId: parsed.semesterId,
+        semesterMatch,
+        expired,
+        itemCount: parsed.items?.length ?? 0,
+        expiresAt: parsed.expiresAt,
+      });
+      if (semesterMatch && !expired) {
+        console.log(
+          "[Cart] LOAD dispatched —",
+          parsed.items.length,
+          "item(s).",
+        );
         dispatch({ type: "LOAD", payload: parsed });
       } else {
+        console.warn(
+          "[Cart] Discarding stored cart. semesterMatch:",
+          semesterMatch,
+          "expired:",
+          expired,
+        );
         localStorage.removeItem(storageKey);
       }
-    } catch {
-      // Corrupt data — ignore
+    } catch (e) {
+      console.error("[Cart] Failed to parse localStorage cart:", e);
     }
     // Run once on mount only
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -238,11 +279,30 @@ export function CartProvider({
       sessionId: string,
       sessionName: string,
       dayIds: string[],
+      selectedDays: PublicAvailableDay[],
       pricePerDay: number,
+      minAge: number | null,
+      maxAge: number | null,
     ) => {
+      console.log("[Cart] addItem:", {
+        sessionId,
+        sessionName,
+        dayCount: dayIds.length,
+        pricePerDay,
+        minAge,
+        maxAge,
+      });
       dispatch({
         type: "ADD_ITEM",
-        payload: { sessionId, sessionName, dayIds, pricePerDay },
+        payload: {
+          sessionId,
+          sessionName,
+          dayIds,
+          selectedDays,
+          pricePerDay,
+          minAge,
+          maxAge,
+        },
       });
     },
     [],
@@ -263,6 +323,10 @@ export function CartProvider({
   );
 
   const clearCart = useCallback(() => {
+    console.log(
+      "[Cart] clearCart called — removing localStorage key:",
+      storageKey,
+    );
     dispatch({ type: "CLEAR" });
     if (!preview) {
       try {

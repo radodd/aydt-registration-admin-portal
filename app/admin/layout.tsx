@@ -31,7 +31,7 @@ export default function AdminLayout({
         .single();
 
       if (user?.role !== "super_admin") {
-        router.push("/private");
+        router.push("/");
       } else {
         setIsAdmin(true);
       }

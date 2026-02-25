@@ -37,11 +37,17 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
 
   function handleAddToCart() {
     if (hasDays && selectedDayIds.length === 0) return;
+    const fullDays = session.availableDays.filter((d) =>
+      selectedDayIds.includes(d.id),
+    );
     addItem(
       session.id,
       session.name,
       hasDays ? selectedDayIds : [],
+      hasDays ? fullDays : [],
       pricePerDay,
+      session.minAge ?? null,
+      session.maxAge ?? null,
     );
   }
 

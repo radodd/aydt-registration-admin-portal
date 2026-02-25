@@ -18,22 +18,28 @@ export function CartRestorer() {
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
+    console.log("[CartRestorer] Scanning localStorage for active cart. Total keys:", localStorage.length);
     let found: string | null = null;
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key?.startsWith(STORAGE_KEY_PREFIX)) continue;
       try {
         const cart: CartState = JSON.parse(localStorage.getItem(key)!);
-        const valid =
-          cart.items?.length > 0 &&
-          new Date(cart.expiresAt).getTime() > Date.now();
-        if (valid) {
+        const expired = new Date(cart.expiresAt).getTime() <= Date.now();
+        const hasItems = (cart.items?.length ?? 0) > 0;
+        console.log("[CartRestorer] Found cart key:", key, "| semesterId:", cart.semesterId, "| items:", cart.items?.length ?? 0, "| expired:", expired);
+        if (hasItems && !expired) {
           found = cart.semesterId;
+          console.log("[CartRestorer] Valid cart found — semesterId:", found);
           break;
         }
       } catch {
         // Corrupt entry — skip
+        console.warn("[CartRestorer] Corrupt entry at key:", localStorage.key(i));
       }
+    }
+    if (!found) {
+      console.warn("[CartRestorer] No valid cart found — will show empty state.");
     }
     setSemesterId(found);
     setChecked(true);

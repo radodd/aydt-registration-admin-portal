@@ -48,12 +48,12 @@ export default async function PublicLayout({
               </Link>
               {user && (
                 <>
-                  <Link
+                  {/* <Link
                     href="/family"
                     className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     My Family
-                  </Link>
+                  </Link> */}
                   <Link
                     href="/profile"
                     className="text-sm text-gray-600 hover:text-gray-900 transition-colors"

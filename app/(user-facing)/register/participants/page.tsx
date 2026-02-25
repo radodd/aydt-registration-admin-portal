@@ -271,24 +271,31 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
+      console.log("[Participants] Auth user:", user ? user.id : "NOT LOGGED IN");
       if (!user) {
+        console.warn("[Participants] No authenticated user — dancer list will be empty.");
         setLoading(false);
         return;
       }
-      const { data: userRecord } = await supabase
+      const { data: userRecord, error: userError } = await supabase
         .from("users")
         .select("family_id")
         .eq("id", user.id)
         .single();
 
+      console.log("[Participants] userRecord:", userRecord, "error:", userError?.message ?? null);
+
       if (userRecord?.family_id) {
         setFamilyId(userRecord.family_id);
-        const { data: dancerRows } = await supabase
+        const { data: dancerRows, error: dancerError } = await supabase
           .from("dancers")
           .select("id, first_name, last_name, birth_date, gender")
           .eq("family_id", userRecord.family_id)
           .order("first_name");
+        console.log("[Participants] Dancers loaded:", dancerRows?.length ?? 0, "error:", dancerError?.message ?? null);
         setDancers((dancerRows as Dancer[]) ?? []);
+      } else {
+        console.warn("[Participants] No family_id on userRecord — can't load dancers.");
       }
       setLoading(false);
     });
@@ -308,6 +315,8 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
   );
 
   function handleContinue() {
+    console.log("[Participants] handleContinue — assignments:", assignments);
+    console.log("[Participants] allAssigned:", allAssigned, "cartItems:", items.length);
     setParticipants(assignments);
     router.push(`/register/form?semester=${semesterId}`);
   }
@@ -343,6 +352,8 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
             assignment={assignments.find((a) => a.sessionId === item.sessionId)}
             onChange={handleAssignmentChange}
             familyId={familyId}
+            minAge={item.minAge}
+            maxAge={item.maxAge}
           />
         ))}
       </div>
