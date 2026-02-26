@@ -3,12 +3,17 @@
 import {
   EmailDraft,
   EmailSelectionCriteria,
+  EmailStatus,
   EmailWizardAction,
   ManualUserEntry,
 } from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
-import { JSX, useReducer, useRef, useState } from "react";
+import { JSX, useEffect, useReducer, useRef, useState } from "react";
 import { updateEmailDraft } from "./actions/updateEmailDraft";
+import { sendEmailNow } from "./actions/sendEmailNow";
+import { scheduleEmail } from "./actions/scheduleEmail";
+import { revertToDraft } from "./actions/revertToDraft";
+import { EmailStatusBadge } from "./EmailStatusBadge";
 import SetupStep from "./steps/SetupStep";
 import RecipientsStep from "./steps/RecipientsStep";
 import DesignStep from "./steps/DesignStep";
@@ -134,9 +139,11 @@ function emailReducer(state: EmailDraft, action: EmailWizardAction): EmailDraft 
 type Props = {
   initialState: EmailDraft;
   isSuperAdmin: boolean;
+  /** Current persisted status of this email (drives header action buttons). */
+  emailStatus?: EmailStatus;
 };
 
-export default function EmailForm({ initialState, isSuperAdmin }: Props) {
+export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "draft" }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, dispatch] = useReducer(emailReducer, initialState);
@@ -146,6 +153,13 @@ export default function EmailForm({ initialState, isSuperAdmin }: Props) {
     JSON.stringify(initialState ?? {}),
   );
 
+  // Header action state
+  const [headerSaving, setHeaderSaving] = useState(false);
+  const [headerSaved, setHeaderSaved] = useState(false);
+  const [headerError, setHeaderError] = useState<string | null>(null);
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [headerScheduledAt, setHeaderScheduledAt] = useState("");
+
   const stepParam = searchParams.get("step") as StepKey | null;
   const currentStepKey: StepKey =
     STEPS.find((s) => s.key === stepParam)?.key ?? "setup";
@@ -154,6 +168,88 @@ export default function EmailForm({ initialState, isSuperAdmin }: Props) {
 
   const isDirty =
     JSON.stringify(state) !== persistedSnapshotRef.current;
+
+  // Block browser/tab close when there are unsaved changes.
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
+
+  async function navigateToList() {
+    if (isDirty && state.id) {
+      try {
+        await updateEmailDraft(state.id, state);
+        persistedSnapshotRef.current = JSON.stringify(state);
+      } catch {
+        // Non-fatal — navigate anyway
+      }
+    }
+    router.push("/admin/emails");
+  }
+
+  async function handleHeaderSave() {
+    if (!state.id) return;
+    setHeaderSaving(true);
+    setHeaderError(null);
+    setHeaderSaved(false);
+    try {
+      await updateEmailDraft(state.id, state);
+      persistedSnapshotRef.current = JSON.stringify(state);
+      setHeaderSaved(true);
+      setTimeout(() => setHeaderSaved(false), 2000);
+    } catch (err) {
+      setHeaderError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setHeaderSaving(false);
+    }
+  }
+
+  async function handleHeaderSendNow() {
+    if (!state.id || !confirm("Send this email now to all recipients?")) return;
+    setHeaderSaving(true);
+    setHeaderError(null);
+    try {
+      await sendEmailNow(state.id, state);
+      router.push("/admin/emails");
+    } catch (err) {
+      setHeaderError(err instanceof Error ? err.message : "Send failed");
+      setHeaderSaving(false);
+    }
+  }
+
+  async function handleHeaderSchedule() {
+    if (!state.id || !headerScheduledAt) return;
+    setHeaderSaving(true);
+    setHeaderError(null);
+    try {
+      await scheduleEmail(state.id, new Date(headerScheduledAt).toISOString(), state);
+      router.push("/admin/emails");
+    } catch (err) {
+      setHeaderError(err instanceof Error ? err.message : "Schedule failed");
+      setHeaderSaving(false);
+    }
+  }
+
+  async function handleHeaderRevertToDraft() {
+    if (!state.id || !confirm("Revert this email to draft? The schedule and recipient snapshot will be cleared.")) return;
+    setHeaderSaving(true);
+    setHeaderError(null);
+    try {
+      await revertToDraft(state.id);
+      router.refresh();
+    } catch (err) {
+      setHeaderError(err instanceof Error ? err.message : "Revert failed");
+      setHeaderSaving(false);
+    }
+  }
+
+  const minDatetime = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16);
 
   async function navigateToStep(index: number) {
     const bounded = Math.max(0, Math.min(index, STEPS.length - 1));
@@ -210,6 +306,102 @@ export default function EmailForm({ initialState, isSuperAdmin }: Props) {
 
   return (
     <div>
+      {/* Lifecycle header */}
+      <div className="flex items-center justify-between gap-4 mb-6 pb-5 border-b border-gray-200">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={navigateToList}
+            className="text-sm text-gray-500 hover:text-gray-700 transition-colors shrink-0"
+          >
+            ← All Emails
+          </button>
+          <span className="text-gray-300">|</span>
+          <EmailStatusBadge status={emailStatus} />
+          <span className="text-sm text-gray-500 truncate max-w-xs">
+            {state.setup?.subject || "(no subject)"}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {headerError && (
+            <span className="text-xs text-red-600">{headerError}</span>
+          )}
+
+          {/* Draft actions */}
+          {emailStatus === "draft" && (
+            <>
+              <button
+                onClick={handleHeaderSave}
+                disabled={headerSaving}
+                className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                {headerSaving ? "Saving…" : headerSaved ? "Saved ✓" : "Save Draft"}
+              </button>
+
+              {isSuperAdmin && (
+                <button
+                  onClick={handleHeaderSendNow}
+                  disabled={headerSaving}
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                >
+                  Send Now
+                </button>
+              )}
+
+              {isSuperAdmin && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowSchedulePicker((v) => !v)}
+                    disabled={headerSaving}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50"
+                  >
+                    Schedule ▾
+                  </button>
+                  {showSchedulePicker && (
+                    <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4 space-y-3 w-64">
+                      <p className="text-xs font-medium text-gray-700">Schedule send</p>
+                      <input
+                        type="datetime-local"
+                        value={headerScheduledAt}
+                        min={minDatetime}
+                        onChange={(e) => setHeaderScheduledAt(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setShowSchedulePicker(false)}
+                          className="flex-1 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => { setShowSchedulePicker(false); handleHeaderSchedule(); }}
+                          disabled={!headerScheduledAt}
+                          className="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-40"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Scheduled / failed actions */}
+          {(emailStatus === "scheduled" || emailStatus === "failed") && isSuperAdmin && (
+            <button
+              onClick={handleHeaderRevertToDraft}
+              disabled={headerSaving}
+              className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              {headerSaving ? "Reverting…" : "Revert to Draft"}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Step indicator */}
       <div className="flex items-center gap-1 mb-8 flex-wrap">
         {STEPS.map((step, i) => {

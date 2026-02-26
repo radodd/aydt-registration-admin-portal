@@ -12,13 +12,21 @@ const CONFIG: Record<
     label: "Scheduled",
     className: "bg-blue-50 text-blue-700 border-blue-200",
   },
+  sending: {
+    label: "Sending…",
+    className: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  },
   sent: {
     label: "Sent",
     className: "bg-green-50 text-green-700 border-green-200",
   },
+  failed: {
+    label: "Failed",
+    className: "bg-red-50 text-red-700 border-red-200",
+  },
   cancelled: {
     label: "Cancelled",
-    className: "bg-red-50 text-red-600 border-red-200",
+    className: "bg-gray-50 text-gray-500 border-gray-200",
   },
 };
 

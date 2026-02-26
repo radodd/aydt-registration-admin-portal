@@ -35,8 +35,10 @@ export default async function EditEmailPage({ params }: Props) {
 
   if (error || !email) notFound();
 
-  // Redirect away from wizard if already sent/cancelled
-  if (email.status === "sent" || email.status === "cancelled") {
+  // Redirect away from wizard if in a terminal or in-flight state.
+  // "sending" can't be edited (in-flight). "sent"/"cancelled" are done.
+  // "scheduled" and "failed" are allowed — header shows Revert to Draft.
+  if (["sent", "cancelled", "sending"].includes(email.status)) {
     redirect(`/admin/emails`);
   }
 
@@ -126,6 +128,7 @@ export default async function EditEmailPage({ params }: Props) {
       <EditEmailClient
         initialState={initialState}
         isSuperAdmin={admin.role === "super_admin"}
+        emailStatus={email.status as import("@/types").EmailStatus}
       />
     </div>
   );

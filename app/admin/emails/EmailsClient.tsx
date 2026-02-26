@@ -16,6 +16,7 @@ import { listTemplates, deleteTemplate, cloneTemplateToEmail } from "./actions/l
 import { listUnsubscribed, listSubscribed } from "./actions/listSubscriptions";
 import { updateSubscription } from "./actions/updateSubscription";
 import { cancelEmail } from "./actions/cancelEmail";
+import { revertToDraft } from "./actions/revertToDraft";
 import { deleteEmail } from "./actions/deleteEmail";
 import { cloneEmail } from "./actions/cloneEmail";
 import { createEmailDraft } from "./actions/createEmailDraft";
@@ -28,6 +29,7 @@ const TABS: { key: EmailTab; label: string }[] = [
   { key: "drafts", label: "Drafts" },
   { key: "scheduled", label: "Scheduled" },
   { key: "sent", label: "Sent" },
+  { key: "failed", label: "Failed" },
   { key: "templates", label: "Templates" },
   { key: "unsubscribed", label: "Unsubscribed" },
   { key: "subscribed", label: "Subscribed" },
@@ -56,6 +58,7 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
   const [draftData, setDraftData] = useState<PaginatedResult<EmailListRow> | null>(null);
   const [scheduledData, setScheduledData] = useState<PaginatedResult<EmailListRow> | null>(null);
   const [sentData, setSentData] = useState<PaginatedResult<EmailAnalyticsRow> | null>(null);
+  const [failedData, setFailedData] = useState<PaginatedResult<EmailListRow> | null>(null);
   const [templatesData, setTemplatesData] = useState<PaginatedResult<TemplateListRow> | null>(null);
   const [unsubData, setUnsubData] = useState<PaginatedResult<SubscriptionListRow> | null>(null);
   const [subData, setSubData] = useState<PaginatedResult<SubscriptionListRow> | null>(null);
@@ -82,6 +85,11 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
           case "sent": {
             const result = await listSentEmails(p);
             setSentData(result);
+            break;
+          }
+          case "failed": {
+            const result = await listEmails("failed", p);
+            setFailedData(result);
             break;
           }
           case "templates": {
@@ -134,6 +142,16 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
       fetchTab("scheduled", page);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Cancel failed");
+    }
+  }
+
+  async function handleRevertToDraft(emailId: string, fromTab: EmailTab) {
+    if (!confirm("Revert this email to draft? The scheduled time and recipient snapshot will be cleared.")) return;
+    try {
+      await revertToDraft(emailId);
+      fetchTab(fromTab, page);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Revert failed");
     }
   }
 
@@ -191,11 +209,13 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
         ? scheduledData?.totalPages
         : activeTab === "sent"
           ? sentData?.totalPages
-          : activeTab === "templates"
-            ? templatesData?.totalPages
-            : activeTab === "unsubscribed"
-              ? unsubData?.totalPages
-              : subData?.totalPages;
+          : activeTab === "failed"
+            ? failedData?.totalPages
+            : activeTab === "templates"
+              ? templatesData?.totalPages
+              : activeTab === "unsubscribed"
+                ? unsubData?.totalPages
+                : subData?.totalPages;
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -317,16 +337,14 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex gap-3">
-                        <button
-                          onClick={() =>
-                            router.push(
-                              `/admin/emails/${row.id}/edit?step=setup`,
-                            )
-                          }
-                          className="text-indigo-600 hover:text-indigo-700 font-medium"
-                        >
-                          Edit
-                        </button>
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => handleRevertToDraft(row.id, "scheduled")}
+                            className="text-indigo-600 hover:text-indigo-700 font-medium"
+                          >
+                            Revert to Draft
+                          </button>
+                        )}
                         {isSuperAdmin && (
                           <button
                             onClick={() => handleCancel(row.id)}
@@ -335,6 +353,46 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                             Cancel
                           </button>
                         )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              />
+            )}
+
+            {/* Failed tab */}
+            {activeTab === "failed" && (
+              <EmailListTable
+                rows={failedData?.data ?? []}
+                emptyLabel="No failed emails."
+                columns={["Subject", "Recipients", "Attempted", "Actions"]}
+                renderRow={(row) => (
+                  <tr key={row.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 font-medium max-w-xs truncate">
+                      {row.subject}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {(row.recipient_count as unknown as { count: number }[])?.[0]?.count?.toLocaleString() ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                      {formatDate(row.sent_at)}
+                    </td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex gap-3">
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => handleRevertToDraft(row.id, "failed")}
+                            className="text-indigo-600 hover:text-indigo-700 font-medium"
+                          >
+                            Revert to Draft
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleClone(row.id)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          Clone
+                        </button>
                       </div>
                     </td>
                   </tr>

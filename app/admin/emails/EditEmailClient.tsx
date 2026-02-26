@@ -1,13 +1,14 @@
 "use client";
 
-import { EmailDraft } from "@/types";
+import { EmailDraft, EmailStatus } from "@/types";
 import EmailForm from "./EmailForm";
 
 type Props = {
   initialState: EmailDraft;
   isSuperAdmin: boolean;
+  emailStatus: EmailStatus;
 };
 
-export default function EditEmailClient({ initialState, isSuperAdmin }: Props) {
-  return <EmailForm initialState={initialState} isSuperAdmin={isSuperAdmin} />;
+export default function EditEmailClient({ initialState, isSuperAdmin, emailStatus }: Props) {
+  return <EmailForm initialState={initialState} isSuperAdmin={isSuperAdmin} emailStatus={emailStatus} />;
 }

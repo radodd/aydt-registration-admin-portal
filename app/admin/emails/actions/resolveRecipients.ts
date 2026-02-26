@@ -9,8 +9,14 @@ export type ResolvedRecipient = {
   lastName: string;
 };
 
+interface ResolveRecipientsOptions {
+  /** When true, skip the email_subscriptions filter — sends to unsubscribed users too. */
+  overrideUnsubscribe?: boolean;
+}
+
 export async function resolveRecipients(
   emailId: string,
+  options: ResolveRecipientsOptions = {},
 ): Promise<ResolvedRecipient[]> {
   const supabase = await createClient();
 
@@ -93,6 +99,11 @@ export async function resolveRecipients(
 
   const allUserIds = Array.from(userMap.keys());
   if (allUserIds.length === 0) return [];
+
+  // Skip subscription filter when admin explicitly overrides (e.g. re-sending to unsubscribed)
+  if (options.overrideUnsubscribe) {
+    return Array.from(userMap.values());
+  }
 
   const { data: unsubscribed } = await supabase
     .from("email_subscriptions")

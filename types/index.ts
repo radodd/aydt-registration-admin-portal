@@ -468,7 +468,7 @@ export type CreateDiscountInput = {
 /* Email Broadcast Domain                                                      */
 /* -------------------------------------------------------------------------- */
 
-export type EmailStatus = "draft" | "scheduled" | "sent" | "cancelled";
+export type EmailStatus = "draft" | "scheduled" | "sending" | "sent" | "failed" | "cancelled";
 
 export type Email = {
   id: string;
@@ -630,6 +630,7 @@ export type EmailTab =
   | "drafts"
   | "scheduled"
   | "sent"
+  | "failed"
   | "templates"
   | "unsubscribed"
   | "subscribed";

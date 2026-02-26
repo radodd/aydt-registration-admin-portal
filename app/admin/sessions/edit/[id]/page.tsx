@@ -14,7 +14,7 @@ export default function EditProgramPage() {
   useEffect(() => {
     (async () => {
       const { data, error } = await supabase
-        .from("programs")
+        .from("sessions")
         .select("*")
         .eq("id", id)
         .single();
@@ -34,7 +34,7 @@ export default function EditProgramPage() {
 
   const handleSave = async () => {
     const { error } = await supabase
-      .from("programs")
+      .from("sessions")
       .update(program)
       .eq("id", id);
 
@@ -42,7 +42,7 @@ export default function EditProgramPage() {
       alert("Failed to save changes to program." + error.message);
     } else {
       alert("Changes to program saved successfully.");
-      router.push("/admin/programs");
+      router.push("/admin/sessions");
     }
   };
 

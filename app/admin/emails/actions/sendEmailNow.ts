@@ -93,16 +93,19 @@ export async function sendEmailNow(
     })),
   );
 
+  // Mark as "sending" before dispatch. The final status ("sent" or "failed")
+  // is stamped after actual delivery — by this function (inline path) or by
+  // send-email-broadcast (edge function path).
   await supabase
     .from("emails")
     .update({
-      status: "sent",
-      sent_at: new Date().toISOString(),
+      status: "sending",
       updated_by_admin_id: admin.id,
     })
     .eq("id", emailId);
 
   if (recipients.length > INLINE_THRESHOLD) {
+    // For large broadcasts, send-email-broadcast sets the final status + sent_at.
     await supabase.functions.invoke("send-email-broadcast", {
       body: { emailId },
     });
@@ -128,6 +131,11 @@ export async function sendEmailNow(
 
     await Promise.allSettled(
       batch.map(async (recipient) => {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+        const unsubscribeFooter = appUrl
+          ? `<p style="font-size:12px;color:#9ca3af;text-align:center;margin-top:32px;"><a href="${appUrl}/unsubscribe?uid=${recipient.userId}" style="color:#9ca3af;">Unsubscribe</a></p>`
+          : "";
+
         const personalizedHtml = prepareEmailHtml(
           resolveEmailVariables(email.body_html, {
             parent: {
@@ -137,7 +145,7 @@ export async function sendEmailNow(
             participant: null, // student_name requires dancer join — resolved in edge function
             semester: semesterName ? { name: semesterName } : null,
             session: sessionName ? { name: sessionName } : null,
-          }) + signatureSuffix,
+          }) + signatureSuffix + unsubscribeFooter,
         );
 
         try {
@@ -177,6 +185,15 @@ export async function sendEmailNow(
       }),
     );
   }
+
+  // Stamp final status after inline delivery. "failed" only if every single
+  // recipient failed; otherwise treat partial success as "sent".
+  const finalStatus = sent > 0 ? "sent" : "failed";
+  await supabase
+    .from("emails")
+    .update({ status: finalStatus, sent_at: new Date().toISOString() })
+    .eq("id", emailId)
+    .eq("status", "sending");
 
   await supabase.from("email_activity_logs").insert({
     email_id: emailId,

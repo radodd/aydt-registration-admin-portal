@@ -48,7 +48,7 @@ export default function Registration() {
       if (userError) {
         console.error(
           "Error fetching user logged in user data.",
-          userError.message
+          userError.message,
         );
       } else {
         console.log("Logged in User", user);
@@ -57,7 +57,7 @@ export default function Registration() {
       // Step 3: Fetch selected program data via params
       if (programId) {
         const { data: prog, error } = await supabase
-          .from("programs")
+          .from("sessions")
           .select("*")
           .eq("id", programId)
           .single();

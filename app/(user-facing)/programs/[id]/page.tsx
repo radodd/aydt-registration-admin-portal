@@ -26,7 +26,7 @@ export default function ProgramDetailPage({
 
       // Fetch program details
       const { data: prog, error: progError } = await supabase
-        .from("programs")
+        .from("sessions")
         .select("*")
         .eq("id", id)
         .single();
@@ -60,7 +60,7 @@ export default function ProgramDetailPage({
     setSelectedDays((prev) =>
       prev.includes(dayId)
         ? prev.filter((id) => id !== dayId)
-        : [...prev, dayId]
+        : [...prev, dayId],
     );
   };
 
@@ -132,7 +132,7 @@ export default function ProgramDetailPage({
                     weekday: "long",
                     month: "short",
                     day: "numeric",
-                  }
+                  },
                 );
                 return (
                   <li key={day.id}>

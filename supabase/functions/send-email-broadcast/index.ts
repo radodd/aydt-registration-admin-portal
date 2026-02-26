@@ -7,6 +7,7 @@ const supabase = createClient(
 );
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
+const APP_URL = Deno.env.get("APP_URL") ?? "";
 const BATCH_SIZE = 100;
 
 function resolveVariables(html: string, vars: Record<string, string>): string {
@@ -45,6 +46,16 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Email not found" }), {
         status: 404,
       });
+    }
+
+    // Guard against double-send: only process emails in "sending" state.
+    // If cron fires twice or this function is invoked a second time after
+    // already completing, skip silently.
+    if (email.status !== "sending") {
+      return new Response(
+        JSON.stringify({ ok: true, skipped: true, status: email.status }),
+        { headers: { "Content-Type": "application/json" } },
+      );
     }
 
     // Fetch admin signature if needed
@@ -87,8 +98,12 @@ Deno.serve(async (req) => {
             session_name: "",
           };
 
+          const unsubscribeFooter = APP_URL
+            ? `<p style="font-size:12px;color:#9ca3af;text-align:center;margin-top:32px;"><a href="${APP_URL}/unsubscribe?uid=${recipient.user_id}" style="color:#9ca3af;">Unsubscribe</a></p>`
+            : "";
+
           const personalizedHtml = prepareEmailHtml(
-            resolveVariables(email.body_html, vars) + signatureSuffix,
+            resolveVariables(email.body_html, vars) + signatureSuffix + unsubscribeFooter,
           );
 
           try {
@@ -132,6 +147,16 @@ Deno.serve(async (req) => {
         }),
       );
     }
+
+    // Update email status to "sent" or "failed" and stamp sent_at.
+    // Guard with status="sending" so a race condition can't overwrite a
+    // manually-cancelled or already-completed record.
+    const finalStatus = sent > 0 ? "sent" : "failed";
+    await supabase
+      .from("emails")
+      .update({ status: finalStatus, sent_at: new Date().toISOString() })
+      .eq("id", emailId)
+      .eq("status", "sending");
 
     return new Response(
       JSON.stringify({ ok: true, sent, failed, total: recipients.length }),

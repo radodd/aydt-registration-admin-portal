@@ -321,14 +321,14 @@ export default function SemesterForm({
 
   return (
     <>
-      <div className="mx-auto max-w-5xl p-6 text-slate-700">
+      <div className="relative mx-auto max-w-5xl p-6 text-slate-700">
         <h1 className="mb-4 text-2xl font-semibold">
           {mode === "create" ? "Create New" : "Edit"} Semester
         </h1>
 
         {/* Unsaved changes banner */}
         {isDirty && !isSaving && (
-          <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <div className="absolute right-0 mt-10 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 ">
             <span>You have unsaved changes.</span>
             <button
               onClick={() => navigateToStep(activeStepIndex)}
@@ -340,7 +340,7 @@ export default function SemesterForm({
         )}
 
         {isSaving && (
-          <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm text-indigo-700">
+          <div className=" absolute right-0 mt-10 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm text-indigo-700">
             Saving...
           </div>
         )}
