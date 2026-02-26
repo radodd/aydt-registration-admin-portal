@@ -326,25 +326,6 @@ export default function SemesterForm({
           {mode === "create" ? "Create New" : "Edit"} Semester
         </h1>
 
-        {/* Unsaved changes banner */}
-        {isDirty && !isSaving && (
-          <div className="absolute right-0 mt-10 flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 ">
-            <span>You have unsaved changes.</span>
-            <button
-              onClick={() => navigateToStep(activeStepIndex)}
-              className="font-medium underline hover:no-underline"
-            >
-              Save Now
-            </button>
-          </div>
-        )}
-
-        {isSaving && (
-          <div className=" absolute right-0 mt-10 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm text-indigo-700">
-            Saving...
-          </div>
-        )}
-
         {/* Step Indicator */}
         <div className="mb-8 flex flex-wrap gap-2">
           {STEPS.map((step, index) => (
@@ -364,6 +345,23 @@ export default function SemesterForm({
 
         {/* Step Content */}
         {stepRenderers[activeStepKey]}
+
+        {/* Unsaved changes toast — fixed, does not affect layout */}
+        {isDirty && (
+          <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl shadow-lg animate-fade-in">
+            <span className="text-amber-700 text-sm font-medium">
+              {isSaving ? "Saving…" : "Unsaved changes"}
+            </span>
+            {!isSaving && (
+              <button
+                onClick={() => navigateToStep(activeStepIndex)}
+                className="text-sm text-amber-700 font-semibold underline"
+              >
+                Save Now
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </>
   );

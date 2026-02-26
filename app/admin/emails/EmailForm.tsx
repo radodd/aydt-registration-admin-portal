@@ -18,6 +18,7 @@ import SetupStep from "./steps/SetupStep";
 import RecipientsStep from "./steps/RecipientsStep";
 import DesignStep from "./steps/DesignStep";
 import PreviewScheduleStep from "./steps/PreviewScheduleStep";
+import { createEmailTemplate } from "./actions/createEmailTemplate";
 
 const STEPS = [
   { key: "setup", label: "Setup" },
@@ -28,7 +29,10 @@ const STEPS = [
 
 type StepKey = (typeof STEPS)[number]["key"];
 
-function emailReducer(state: EmailDraft, action: EmailWizardAction): EmailDraft {
+function emailReducer(
+  state: EmailDraft,
+  action: EmailWizardAction,
+): EmailDraft {
   switch (action.type) {
     case "SET_ID":
       return { ...state, id: action.payload };
@@ -143,7 +147,11 @@ type Props = {
   emailStatus?: EmailStatus;
 };
 
-export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "draft" }: Props) {
+export default function EmailForm({
+  initialState,
+  isSuperAdmin,
+  emailStatus = "draft",
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [state, dispatch] = useReducer(emailReducer, initialState);
@@ -152,6 +160,8 @@ export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "d
   const persistedSnapshotRef = useRef<string>(
     JSON.stringify(initialState ?? {}),
   );
+
+  console.log("STATE", state);
 
   // Header action state
   const [headerSaving, setHeaderSaving] = useState(false);
@@ -166,8 +176,7 @@ export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "d
   const currentStepIndex = STEPS.findIndex((s) => s.key === currentStepKey);
   const basePath = `/admin/emails/${state.id}/edit`;
 
-  const isDirty =
-    JSON.stringify(state) !== persistedSnapshotRef.current;
+  const isDirty = JSON.stringify(state) !== persistedSnapshotRef.current;
 
   // Block browser/tab close when there are unsaved changes.
   useEffect(() => {
@@ -223,12 +232,30 @@ export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "d
     }
   }
 
+  async function handleHeaderSaveAsTemplate() {
+    if (!state.id) return;
+    setHeaderSaving(true);
+    setHeaderError(null);
+    setHeaderSaved(false);
+    try {
+      await createEmailTemplate(state);
+      router.push("/admin/emails");
+    } catch (err) {
+      setHeaderError(err instanceof Error ? err.message : "Template error");
+      setHeaderSaving(false);
+    }
+  }
+
   async function handleHeaderSchedule() {
     if (!state.id || !headerScheduledAt) return;
     setHeaderSaving(true);
     setHeaderError(null);
     try {
-      await scheduleEmail(state.id, new Date(headerScheduledAt).toISOString(), state);
+      await scheduleEmail(
+        state.id,
+        new Date(headerScheduledAt).toISOString(),
+        state,
+      );
       router.push("/admin/emails");
     } catch (err) {
       setHeaderError(err instanceof Error ? err.message : "Schedule failed");
@@ -237,7 +264,13 @@ export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "d
   }
 
   async function handleHeaderRevertToDraft() {
-    if (!state.id || !confirm("Revert this email to draft? The schedule and recipient snapshot will be cleared.")) return;
+    if (
+      !state.id ||
+      !confirm(
+        "Revert this email to draft? The schedule and recipient snapshot will be cleared.",
+      )
+    )
+      return;
     setHeaderSaving(true);
     setHeaderError(null);
     try {
@@ -249,7 +282,9 @@ export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "d
     }
   }
 
-  const minDatetime = new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16);
+  const minDatetime = new Date(Date.now() + 5 * 60 * 1000)
+    .toISOString()
+    .slice(0, 16);
 
   async function navigateToStep(index: number) {
     const bounded = Math.max(0, Math.min(index, STEPS.length - 1));
@@ -273,9 +308,7 @@ export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "d
   const previousStep = () => navigateToStep(currentStepIndex - 1);
 
   const stepRenderers: Record<StepKey, JSX.Element> = {
-    setup: (
-      <SetupStep state={state} dispatch={dispatch} onNext={nextStep} />
-    ),
+    setup: <SetupStep state={state} dispatch={dispatch} onNext={nextStep} />,
     recipients: (
       <RecipientsStep
         state={state}
@@ -335,8 +368,22 @@ export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "d
                 disabled={headerSaving}
                 className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
               >
-                {headerSaving ? "Saving…" : headerSaved ? "Saved ✓" : "Save Draft"}
+                {headerSaving
+                  ? "Saving…"
+                  : headerSaved
+                    ? "Saved ✓"
+                    : "Save Draft"}
               </button>
+
+              {isSuperAdmin && (
+                <button
+                  onClick={handleHeaderSaveAsTemplate}
+                  disabled={headerSaving}
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                >
+                  Safe as template
+                </button>
+              )}
 
               {isSuperAdmin && (
                 <button
@@ -359,7 +406,9 @@ export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "d
                   </button>
                   {showSchedulePicker && (
                     <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4 space-y-3 w-64">
-                      <p className="text-xs font-medium text-gray-700">Schedule send</p>
+                      <p className="text-xs font-medium text-gray-700">
+                        Schedule send
+                      </p>
                       <input
                         type="datetime-local"
                         value={headerScheduledAt}
@@ -375,7 +424,10 @@ export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "d
                           Cancel
                         </button>
                         <button
-                          onClick={() => { setShowSchedulePicker(false); handleHeaderSchedule(); }}
+                          onClick={() => {
+                            setShowSchedulePicker(false);
+                            handleHeaderSchedule();
+                          }}
                           disabled={!headerScheduledAt}
                           className="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-40"
                         >
@@ -390,15 +442,16 @@ export default function EmailForm({ initialState, isSuperAdmin, emailStatus = "d
           )}
 
           {/* Scheduled / failed actions */}
-          {(emailStatus === "scheduled" || emailStatus === "failed") && isSuperAdmin && (
-            <button
-              onClick={handleHeaderRevertToDraft}
-              disabled={headerSaving}
-              className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
-            >
-              {headerSaving ? "Reverting…" : "Revert to Draft"}
-            </button>
-          )}
+          {(emailStatus === "scheduled" || emailStatus === "failed") &&
+            isSuperAdmin && (
+              <button
+                onClick={handleHeaderRevertToDraft}
+                disabled={headerSaving}
+                className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                {headerSaving ? "Reverting…" : "Revert to Draft"}
+              </button>
+            )}
         </div>
       </div>
 
