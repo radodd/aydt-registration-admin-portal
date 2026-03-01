@@ -96,9 +96,335 @@ export interface Family {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Session Domain                                                                */
+/* Class + ClassSession Domain  (Phase 1 — replaces Session)                  */
 /* -------------------------------------------------------------------------- */
 
+/** Discipline values — authoritative list */
+export type Discipline =
+  | "ballet"
+  | "tap"
+  | "broadway"
+  | "hip_hop"
+  | "contemporary"
+  | "technique"
+  | "pointe"
+  | "jazz"
+  | "lyrical"
+  | "acro";
+
+/** Division values — authoritative list */
+export type Division = "early_childhood" | "junior" | "senior" | "competition";
+
+/** Day of week values — lowercase, matching DB constraint */
+export type DayOfWeek =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+/**
+ * DB row type for a class (curriculum entity).
+ * Replaces the old `Session` interface.
+ */
+export interface DanceClass {
+  id: string;
+  semester_id: string;
+  name: string;
+  discipline: string;
+  division: string;
+  level: string | null;
+  description: string | null;
+  min_age: number | null;
+  max_age: number | null;
+  is_active: boolean;
+  is_competition_track: boolean;
+  requires_teacher_rec: boolean;
+  created_at: string;
+  updated_at: string;
+  /** Nested class_sessions — included when queried with select */
+  class_sessions?: ClassSession[];
+}
+
+/**
+ * DB row type for a class session (time-slot offering within a class).
+ * One row = one specific day/time slot.  Replacing session_available_days.
+ */
+export interface ClassSession {
+  id: string;
+  class_id: string;
+  semester_id: string;
+  day_of_week: string;
+  start_time: string | null;    // "HH:MM:SS"
+  end_time: string | null;      // "HH:MM:SS"
+  start_date: string | null;    // "YYYY-MM-DD"
+  end_date: string | null;      // "YYYY-MM-DD"
+  location: string | null;
+  instructor_name: string | null;
+  capacity: number | null;
+  registration_close_at: string | null;
+  is_active: boolean;
+  created_at: string;
+  /** Nested occurrence dates — included when queried with select */
+  session_occurrence_dates?: SessionOccurrenceDate[];
+}
+
+/** Individual calendar date for a class_session (for day picker / attendance). */
+export interface SessionOccurrenceDate {
+  id: string;
+  session_id: string;
+  date: string;           // "YYYY-MM-DD"
+  is_cancelled: boolean;
+  cancellation_reason: string | null;
+  created_at: string;
+}
+
+/** Tuition rate band — one row per (semester, division, weekly_class_count). */
+export interface TuitionRateBand {
+  id: string;
+  semester_id: string;
+  division: string;
+  weekly_class_count: number;
+  base_tuition: number;
+  recital_fee_included: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Per-semester admin-configurable fee constants. */
+export interface SemesterFeeConfig {
+  semester_id: string;
+  registration_fee_per_child: number;
+  family_discount_amount: number;
+  auto_pay_admin_fee_monthly: number;
+  auto_pay_installment_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Pricing Engine Types (Phase 2)                                              */
+/* -------------------------------------------------------------------------- */
+
+/** A tuition rate band as held in the SemesterDraft editor state. */
+export type DraftTuitionRateBand = {
+  /** Temporary client-only key for React lists (before DB save). */
+  _clientKey: string;
+  /** DB id if the row already exists; undefined for new rows. */
+  id?: string;
+  division: "early_childhood" | "junior" | "senior" | "competition";
+  weekly_class_count: number;
+  base_tuition: number;
+  recital_fee_included: number;
+  notes?: string;
+};
+
+/** Per-semester fee constants as held in the SemesterDraft editor state. */
+export type DraftFeeConfig = {
+  registration_fee_per_child: number;  // default 40.00
+  family_discount_amount: number;      // default 50.00
+  auto_pay_admin_fee_monthly: number;  // default 5.00
+  auto_pay_installment_count: number;  // default 5
+};
+
+export interface PricingInput {
+  semesterId: string;
+  /**
+   * Family ID for the discount-already-applied check.
+   * If omitted, the server action resolves it from the auth session.
+   */
+  familyId?: string;
+  enrollments: Array<{
+    dancerId: string;
+    /** Display name override — used for new dancers not yet in DB. */
+    dancerName?: string;
+    sessionIds: string[];
+  }>;
+  paymentPlanType: "pay_in_full" | "deposit_50pct" | "auto_pay_monthly";
+}
+
+export interface LineItem {
+  type:
+    | "tuition"
+    | "recital_fee"
+    | "registration_fee"
+    | "family_discount"
+    | "auto_pay_admin_fee";
+  label: string;
+  amount: number; // positive = charge, negative = credit
+  description?: string;
+}
+
+export interface InstallmentPreview {
+  installmentNumber: number;
+  amountDue: number;
+  dueDate: string; // 'YYYY-MM-DD'
+}
+
+export interface DancerPricingBreakdown {
+  dancerId: string;
+  dancerName: string;
+  division: string;
+  weeklyClassCount: number;
+  tuition: number;
+  recitalFee: number;
+  registrationFee: number;
+  lineItems: LineItem[];
+}
+
+export interface PricingQuote {
+  perDancer: DancerPricingBreakdown[];
+  tuitionSubtotal: number;
+  registrationFeeTotal: number;
+  recitalFeeTotal: number;
+  familyDiscountAmount: number;
+  autoPayAdminFeeTotal: number;
+  grandTotal: number;
+  amountDueNow: number;
+  lineItems: LineItem[];
+  paymentSchedule: InstallmentPreview[];
+}
+
+/** Error returned when server-computed price differs from client-visible quote. */
+export interface PriceChangedError {
+  code: "PRICE_CHANGED";
+  newQuote: PricingQuote;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Validation Engine Types (Phase 3)                                          */
+/* -------------------------------------------------------------------------- */
+
+/** Schedule metadata fetched for a class_session (used for conflict detection). */
+export interface SessionScheduleInfo {
+  sessionId: string;
+  className: string;
+  dayOfWeek: string;
+  startTime: string | null; // 'HH:MM:SS'
+  endTime: string | null;   // 'HH:MM:SS'
+}
+
+export interface ConflictDetail {
+  sessionA: SessionScheduleInfo;
+  sessionB: SessionScheduleInfo;
+}
+
+export interface ConflictResult {
+  hasConflict: boolean;
+  conflicts: ConflictDetail[];
+}
+
+export type ValidationIssueType =
+  | "time_conflict"
+  | "prerequisite_completed"
+  | "concurrent_enrollment"
+  | "teacher_recommendation"
+  | "skill_qualification"
+  | "audition_required"
+  | "age_range";
+
+export interface EnrollmentValidationIssue {
+  type: ValidationIssueType;
+  enforcement: "soft_warn" | "hard_block";
+  message: string;
+  dancerId: string;
+  sessionId?: string;
+  requirementId?: string;
+  isWaivable: boolean;
+}
+
+export interface EnrollmentValidationResult {
+  valid: boolean;
+  hasHardBlock: boolean;
+  issues: EnrollmentValidationIssue[];
+}
+
+/** Prerequisite / concurrent enrollment rule for a class. */
+export interface ClassRequirement {
+  id: string;
+  class_id: string;
+  requirement_type: string;
+  required_discipline: string | null;
+  required_level: string | null;
+  required_class_id: string | null;
+  description: string;
+  enforcement: "soft_warn" | "hard_block";
+  is_waivable: boolean;
+  created_at: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Draft types for the semester editor (admin UI state)                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A single time-slot within a class, as held in the SemesterDraft state.
+ * Maps 1:1 to class_sessions rows in the DB.
+ */
+export type DraftClassSession = {
+  /** DB id if the row already exists; undefined for new (unsaved) sessions */
+  id?: string;
+  dayOfWeek: string;      // lowercase: 'monday', 'tuesday', …
+  startTime?: string;     // 'HH:mm'
+  endTime?: string;       // 'HH:mm'
+  startDate?: string;     // 'YYYY-MM-DD'
+  endDate?: string;       // 'YYYY-MM-DD'
+  location?: string;
+  instructorName?: string;
+  capacity?: number | null;
+  registrationCloseAt?: string | null;
+};
+
+/**
+ * An enrollment rule for a class, as held in the SemesterDraft state.
+ * Maps 1:1 to class_requirements rows in the DB.
+ */
+export type DraftClassRequirement = {
+  /** DB id if the row already exists; undefined for new (unsaved) requirements */
+  id?: string;
+  requirement_type:
+    | "prerequisite_completed"
+    | "concurrent_enrollment"
+    | "teacher_recommendation"
+    | "skill_qualification"
+    | "audition_required";
+  /** Human-readable explanation shown to the user when the rule fires */
+  description: string;
+  enforcement: "soft_warn" | "hard_block";
+  is_waivable: boolean;
+  /** Optionally constrain to a specific discipline (e.g. 'ballet') */
+  required_discipline?: string | null;
+  /** Optionally constrain to a specific level (e.g. '2') */
+  required_level?: string | null;
+  /** Optionally constrain to a specific class DB id */
+  required_class_id?: string | null;
+};
+
+/**
+ * A class (curriculum entity) as held in the SemesterDraft state.
+ * Maps 1:1 to classes rows in the DB, with nested DraftClassSession[].
+ */
+export type DraftClass = {
+  /** DB id if the row already exists; undefined for new (unsaved) classes */
+  id?: string;
+  name: string;
+  discipline: string;
+  division: string;
+  level?: string;
+  description?: string;
+  minAge?: number | null;
+  maxAge?: number | null;
+  isCompetitionTrack?: boolean;
+  requiresTeacherRec?: boolean;
+  sessions: DraftClassSession[];
+  /** Phase 6: enrollment rules (prerequisite, concurrent, audition, etc.) */
+  requirements?: DraftClassRequirement[];
+};
+
+/** @deprecated Use DraftClass / DraftClassSession instead. */
 export interface Session {
   id: string;
   title: string;
@@ -125,7 +451,6 @@ export interface ProgramAvailableDay {
   start_time: string | null;
   end_time: string | null;
   capacity: number | null;
-  // created_at: string;
 }
 
 export interface Registration {
@@ -213,7 +538,8 @@ export type SemesterDraft = {
   };
 
   sessions?: {
-    appliedSessions: SemesterSession[];
+    /** Phase 1+: list of classes (curriculum entities) with nested time-slots */
+    classes: DraftClass[];
   };
 
   sessionGroups?: {
@@ -251,12 +577,18 @@ export type SemesterDraft = {
     // sessionDiscounts: Record<string, string[]>;
     appliedDiscounts: AppliedSemesterDiscount[];
   };
+
+  /** Phase 2: tuition rate bands (division × weekly count → price). */
+  tuitionRateBands?: DraftTuitionRateBand[];
+
+  /** Phase 2: per-semester fee constants (registration fee, family discount, auto-pay). */
+  feeConfig?: DraftFeeConfig;
 };
 
 export type SemesterAction =
   | { type: "SET_ID"; payload: SemesterDraft["id"] }
   | { type: "SET_DETAILS"; payload: SemesterDraft["details"] }
-  | { type: "SET_SESSIONS"; payload: SemesterDraft["sessions"] }
+  | { type: "SET_SESSIONS"; payload: SemesterDraft["sessions"] }   // payload.classes: DraftClass[]
   | { type: "SET_SESSION_GROUPS"; payload: SemesterDraft["sessionGroups"] }
   | { type: "SET_PAYMENT"; payload: SemesterDraft["paymentPlan"] }
   | { type: "SET_DISCOUNTS"; payload: SemesterDraft["discounts"] }
@@ -269,6 +601,8 @@ export type SemesterAction =
       payload: SemesterDraft["confirmationEmail"];
     }
   | { type: "SET_WAITLIST"; payload: SemesterDraft["waitlist"] }
+  | { type: "SET_TUITION_RATE_BANDS"; payload: DraftTuitionRateBand[] }
+  | { type: "SET_FEE_CONFIG"; payload: DraftFeeConfig }
   | { type: "ADD_FORM_ELEMENT"; payload: RegistrationFormElement }
   | { type: "UPDATE_FORM_ELEMENT"; payload: RegistrationFormElement }
   | { type: "REMOVE_FORM_ELEMENT"; payload: string }
@@ -373,9 +707,9 @@ export type HydratedDiscount = {
 
   discount_rule_sessions: {
     session_id: string;
-    sessions: {
+    class_sessions: {
       id: string;
-      title: string;
+      classes: { name: string } | null;
     } | null;
   }[];
 };

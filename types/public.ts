@@ -22,7 +22,9 @@ export interface PublicAvailableDay {
 }
 
 export interface PublicSession {
+  /** class_session id (Phase 1+) */
   id: string;
+  /** Class name, e.g. "Ballet 1A" */
   name: string;
   description?: string | null;
   category?: string | null;
@@ -30,20 +32,30 @@ export interface PublicSession {
   capacity: number;
   enrolledCount: number;
   spotsRemaining: number;
-  /** Price charged per individual available-day selected */
+  /** @deprecated Pricing computed by the pricing engine (Phase 2) */
   pricePerDay?: number | null;
-  /** Flat price for the full session (all days) */
+  /** @deprecated Pricing computed by the pricing engine (Phase 2) */
   priceFull?: number | null;
   minAge?: number | null;
   maxAge?: number | null;
   startDate?: string | null;
   endDate?: string | null;
+  /** Phase 1+: single-element array (one day per class_session) */
   daysOfWeek: string[];
   registrationCloseAt?: string | null;
+  /** Individual occurrence dates sourced from session_occurrence_dates */
   availableDays: PublicAvailableDay[];
   /** Assigned group id for bundle/grouping UI */
   groupId?: string | null;
   waitlistEnabled: boolean;
+  /** Phase 1+: e.g. 'ballet', 'tap', 'hip_hop' */
+  discipline?: string | null;
+  /** Phase 1+: 'early_childhood' | 'junior' | 'senior' | 'competition' */
+  division?: string | null;
+  /** Phase 1+: classes.id this session slot belongs to */
+  classId?: string | null;
+  /** Phase 6: true when the class is part of the competition program */
+  isCompetitionTrack?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */

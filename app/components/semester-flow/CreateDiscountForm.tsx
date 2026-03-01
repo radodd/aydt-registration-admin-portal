@@ -15,7 +15,7 @@ import { createDiscount } from "../../admin/semesters/new/discounts/CreateDiscou
 type Props = {
   onCreated?: () => void;
   onCancel?: () => void;
-  sessions?: { id: string; title: string }[] | null;
+  sessions?: { id: string; name: string }[] | null;
 };
 
 export default function CreateDiscountForm({
@@ -161,12 +161,12 @@ export default function CreateDiscountForm({
         <div className="space-y-8 inset-0 z-40 bg-white border border-gray-200 rounded-2xl shadow-lg p-6 w-full max-w-lg mx-auto my-16 overflow-auto">
           {/* Header */}
           <div>
-            <h2 className="text-xl font-semibold">Create a Discount</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Create a Discount</h2>
           </div>
 
           {/* Discount Name */}
           <input
-            className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm"
+            className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Discount name"
@@ -249,7 +249,7 @@ export default function CreateDiscountForm({
                       onChange={() => toggleSession(session.id)}
                       className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
                     />
-                    {session.title}
+                    {session.name}
                   </label>
                 ))}
               </div>
@@ -296,7 +296,7 @@ export default function CreateDiscountForm({
 
             {category === "multi_session" && (
               <select
-                className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 value={giveSessionScope}
                 onChange={(e) =>
                   setGiveSessionScope(e.target.value as GiveSessionScope)
@@ -331,7 +331,7 @@ export default function CreateDiscountForm({
                   <span>If there are</span>
                   <input
                     type="number"
-                    className="w-20 rounded-lg border border-gray-300 px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     value={rule.threshold}
                     onChange={(e) =>
                       updateRule(i, "threshold", Number(e.target.value))
@@ -348,14 +348,14 @@ export default function CreateDiscountForm({
                   <span>Give</span>
                   <input
                     type="number"
-                    className="w-24 rounded-lg border border-gray-300 px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-24 rounded-lg border border-gray-300 px-2 py-1 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     value={rule.value}
                     onChange={(e) =>
                       updateRule(i, "value", Number(e.target.value))
                     }
                   />
                   <select
-                    className="rounded-lg border border-gray-300 px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="rounded-lg border border-gray-300 px-2 py-1 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     value={rule.valueType}
                     onChange={(e) =>
                       updateRule(
@@ -395,7 +395,7 @@ export default function CreateDiscountForm({
           <div className="flex justify-end gap-3">
             <button
               onClick={onCancel}
-              className="px-4 py-2 border rounded-xl text-sm"
+              className="px-4 py-2 border border-gray-300 rounded-xl text-sm text-slate-700"
             >
               Cancel
             </button>

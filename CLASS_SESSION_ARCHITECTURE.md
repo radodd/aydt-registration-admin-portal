@@ -199,7 +199,7 @@ CREATE INDEX idx_class_sessions_class_id ON public.class_sessions(class_id);
 CREATE INDEX idx_class_sessions_semester_id ON public.class_sessions(semester_id);
 ```
 
-**Key design rule:** `weekly_class_count` for pricing = `COUNT(DISTINCT class_id)` across all sessions a dancer is enrolled in. A dancer enrolled in Ballet 1A (Mon) AND Ballet 1A (Thu) = **1 class/week** (same `class_id`). A dancer enrolled in Ballet 1A (Mon) AND Tap 2 (Wed) = **2 classes/week** (different `class_id`).
+**Key design rule:** `weekly_class_count` for pricing = **total number of enrolled sessions**, not distinct class IDs. Each enrolled session is one weekly class for tuition purposes. A dancer enrolled in Ballet 1A (Mon) AND Ballet 1A (Thu) = **2 classes/week** (two sessions, both count). A dancer enrolled in Ballet 1A (Mon) AND Tap 2 (Wed) = **2 classes/week**. A dancer enrolled in Ballet 1A (Mon), Ballet 1A (Thu), AND Tap 2 (Wed) = **3 classes/week**.
 
 ---
 
@@ -556,7 +556,7 @@ interface DancerPricingBreakdown {
   dancerId:         string;
   dancerName:       string;
   division:         string;           // derived from classes enrolled
-  weeklyClassCount: number;           // COUNT(DISTINCT class_id)
+  weeklyClassCount: number;           // COUNT(enrolled sessions) — each session is one class/week
   tuition:          number;           // from rate band lookup
   recitalFee:       number;           // itemized from tuition
   registrationFee:  number;           // $40
@@ -588,12 +588,16 @@ async function computePricingQuote(input: PricingInput): Promise<PricingQuote> {
   const feeConfig = await getFeeConfig(input.semesterId);
   // → { registrationFeePerChild, familyDiscountAmount, autoPayAdminFeeMonthly, installmentCount }
 
-  // 2. Check if family already has confirmed registrations this semester
-  //    (determines family discount eligibility)
-  const existingFamilyRegistrations = await countConfirmedFamilyRegistrations(
+  // 2. Check if family discount has already been applied for this semester.
+  //    The $50 discount applies once per family per semester — not per checkout.
+  //    It resets each new semester. If the family does a second checkout in the
+  //    same semester (e.g., adds a dancer they missed), the discount is NOT applied again.
+  const familyDiscountAlreadyApplied = await checkFamilyDiscountApplied(
     input.familyId, input.semesterId
   );
-  const isFirstFamilyRegistration = existingFamilyRegistrations === 0;
+  // SELECT COUNT(*) FROM registration_batches
+  // WHERE family_id = ? AND semester_id = ? AND family_discount_amount > 0 AND status = 'confirmed'
+  const isDiscountEligible = !familyDiscountAlreadyApplied;
 
   const perDancer: DancerPricingBreakdown[] = [];
 
@@ -610,8 +614,9 @@ async function computePricingQuote(input: PricingInput): Promise<PricingQuote> {
     const divisions = [...new Set(classes.map(c => c.division))];
     const division = resolveDivision(divisions); // throws if irreconcilable
 
-    // 3c. Weekly class count = distinct class_id count
-    const weeklyClassCount = new Set(classes.map(c => c.id)).size;
+    // 3c. Weekly class count = total enrolled sessions (each session = 1 class/week)
+    // Ballet 1A Mon + Ballet 1A Thu = 2, not 1. Each session independently counts.
+    const weeklyClassCount = sessionIds.length;
 
     // 3d. Look up tuition rate band
     const rateBand = await getRateBand(input.semesterId, division, weeklyClassCount);
@@ -645,7 +650,8 @@ async function computePricingQuote(input: PricingInput): Promise<PricingQuote> {
   const recitalFeeTotal      = perDancer.reduce((s, d) => s + d.recitalFee, 0);
 
   // 5. Family discount: $50 flat, once per family per semester
-  const familyDiscountAmount = isFirstFamilyRegistration
+  //    Resets each new semester. Does NOT apply on a second checkout within the same semester.
+  const familyDiscountAmount = isDiscountEligible
     ? feeConfig.familyDiscountAmount
     : 0;
 
@@ -683,18 +689,21 @@ async function computePricingQuote(input: PricingInput): Promise<PricingQuote> {
 
 ### 3.4 Division Resolution Rules
 
-When a dancer enrolls across multiple classes, all should share the same division. Resolve as follows:
+A dancer's division is determined by the classes they are enrolled in. Competition classes do **not** automatically trigger separate competition pricing — they are treated as regular enrolled sessions counted toward the dancer's weekly class total and priced at their primary division rate unless an explicit competition rate band is configured.
 
 ```
 1. If all classes → same division: use that division. ✓
 2. If classes span junior + senior: use senior (higher tier). Flag as admin warning.
-3. If any class → competition: treat as competition pricing.
+3. If any class is flagged is_competition_track=true:
+     - The session still counts toward weekly_class_count normally.
+     - Priced at the dancer's primary (non-competition) division rate.
+     - ONLY use a 'competition' division rate band if one is explicitly
+       configured in tuition_rate_bands for this semester. If none exists,
+       fall back to the dancer's primary division.
 4. If classes span early_childhood + any other: ERROR — block enrollment.
-5. Competition team + regular classes: use competition pricing for comp class;
-   use regular division pricing for regular classes (billed separately).
 ```
 
-This rule set must be codified server-side and not left to interpretation.
+**Competition pricing is opt-in, not automatic.** An admin must explicitly configure a `tuition_rate_bands` row with `division='competition'` for competition-specific pricing to activate. This rule set must be codified server-side.
 
 ### 3.5 Where computePricingQuote Is Called
 
@@ -1127,7 +1136,7 @@ Separate `competition_programs` table, entirely outside the class/session hierar
 
 Competition team is a **class** with `division='competition'` and `is_competition_track=true`. Required co-enrollments (Technique, specific Ballet level) are modeled as `class_requirements` with `requirement_type='concurrent_enrollment'`. The audition requirement is modeled as `requirement_type='audition_required'`.
 
-**Pricing:** The 'competition' tuition rate band is configured by admin with the competition-specific pricing. Competition dancers may also take regular division classes — those are priced at their regular division rate, with the family discount applied once at the family level.
+**Pricing:** Competition classes are treated as regular enrolled sessions. They count toward the dancer's `weekly_class_count` and are priced at the dancer's primary division rate. A separate `'competition'` tuition rate band is only activated if an admin explicitly configures one in `tuition_rate_bands` — it is never assumed automatically. The family discount ($50) applies once per family per semester regardless of whether competition classes are involved.
 
 **No new tables required.** Everything fits within the schema proposed in Part 2.
 
@@ -1245,11 +1254,11 @@ The migration from `sessions` (curriculum entity) to `classes` + `class_sessions
 
 ---
 
-### Risk 2 — Weekly Class Count Ambiguity (MEDIUM)
+### Risk 2 — Same-Class Multi-Session Enrollment (CLARIFIED — No Risk)
 
-If a dancer enrolls in two sessions of the SAME class (e.g., Ballet 1A Monday AND Ballet 1A Thursday), `COUNT(DISTINCT class_id)` = 1, so they are priced as "1 class/week." This may or may not be intended — typically, a student picks ONE time slot for a given class, not both.
+A dancer enrolling in Ballet 1A (Mon) AND Ballet 1A (Thu) is priced as **2 classes/week**. Each enrolled session counts as one weekly class for tuition purposes. This is the correct and intended behavior per AYDT's business rules — no special flag or constraint is needed to allow it.
 
-**Fix:** Add a constraint in `createRegistrationBatch` that rejects enrollment in multiple sessions of the same class unless a `allow_multiple_sessions_per_class` flag is set on the class. Document this rule explicitly in the admin UI.
+**What to document in the admin UI:** When configuring a class, note that each session offering counts as one weekly class toward tuition. If Ballet 1A offers a Monday and a Thursday slot and a student attends both, they are billed as a 2-class/week student.
 
 ---
 

@@ -16,7 +16,8 @@ type Props = {
 type SemesterOption = {
   id: string;
   name: string;
-  sessions: { id: string; title: string }[];
+  // Flattened class_sessions with display labels built client-side
+  sessions: { id: string; name: string }[];
 };
 
 type UserSearchResult = {
@@ -52,11 +53,23 @@ export default function RecipientsStep({
   useEffect(() => {
     createClient()
       .from("semesters")
-      .select("id, name, sessions(id, title)")
+      .select("id, name, classes(id, name, class_sessions(id, day_of_week, start_time))")
       .in("status", ["published", "archived"])
       .order("created_at", { ascending: false })
       .then(({ data }) => {
-        if (data) setSemesters(data as SemesterOption[]);
+        if (!data) return;
+        // Flatten classes → class_sessions with display labels
+        const mapped: SemesterOption[] = data.map((sem: any) => ({
+          id: sem.id,
+          name: sem.name,
+          sessions: (sem.classes ?? []).flatMap((cls: any) =>
+            (cls.class_sessions ?? []).map((cs: any) => ({
+              id: cs.id,
+              name: `${cls.name} — ${(cs.day_of_week as string).charAt(0).toUpperCase() + (cs.day_of_week as string).slice(1)}${cs.start_time ? ` ${cs.start_time}` : ""}`,
+            })),
+          ),
+        }));
+        setSemesters(mapped);
       });
   }, []);
 
@@ -123,7 +136,7 @@ export default function RecipientsStep({
           semesterName: semester.name,
           sessionId: selectedSessionId,
           sessionName: semester.sessions.find((s) => s.id === selectedSessionId)
-            ?.title,
+            ?.name,
         }
       : {
           localId: uuidv4(),
@@ -192,7 +205,7 @@ export default function RecipientsStep({
               <option value="">All sessions (entire semester)</option>
               {activeSemester.sessions.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.title}
+                  {s.name}
                 </option>
               ))}
             </select>

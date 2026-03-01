@@ -5,13 +5,16 @@ import { createClient } from "@/utils/supabase/server";
 export async function cloneSemester(sourceId: string): Promise<string> {
   const supabase = await createClient();
 
-  // Fetch source semester with all related data
+  // Fetch source semester with all related data (Phase 1: classes + class_sessions)
   const { data: source, error: fetchError } = await supabase
     .from("semesters")
     .select(
       `
       *,
-      sessions(*),
+      classes (
+        *,
+        class_sessions (*)
+      ),
       session_groups(
         id, name, description,
         session_group_sessions(session_id)
@@ -42,43 +45,69 @@ export async function cloneSemester(sourceId: string): Promise<string> {
     .select("id")
     .single();
 
-  if (insertError || !newSemester) throw new Error(insertError?.message ?? "Failed to create clone");
+  if (insertError || !newSemester)
+    throw new Error(insertError?.message ?? "Failed to create clone");
 
   const newId = newSemester.id;
 
-  // Clone sessions, build oldId → newId map for group remapping
+  // Clone classes + class_sessions; build old class_session_id → new id map
   const sessionIdMap: Record<string, string> = {};
 
-  if (source.sessions?.length > 0) {
-    const sessionInserts = source.sessions.map((s: any) => ({
-      semester_id: newId,
-      title: s.title,
-      description: s.description,
-      category: s.category,
-      type: s.type,
-      location: s.location,
-      price: s.price,
-      registration_fee: s.registration_fee,
-      start_date: s.start_date,
-      end_date: s.end_date,
-      days_of_week: s.days_of_week,
-      start_time: s.start_time,
-      end_time: s.end_time,
-      capacity: s.capacity,
-      is_active: s.is_active,
-    }));
+  if (source.classes?.length > 0) {
+    for (const cls of source.classes) {
+      const { data: newClass, error: classErr } = await supabase
+        .from("classes")
+        .insert({
+          semester_id: newId,
+          name: cls.name,
+          discipline: cls.discipline,
+          division: cls.division,
+          level: cls.level ?? null,
+          description: cls.description ?? null,
+          min_age: cls.min_age ?? null,
+          max_age: cls.max_age ?? null,
+          is_active: cls.is_active,
+          is_competition_track: cls.is_competition_track ?? false,
+          requires_teacher_rec: cls.requires_teacher_rec ?? false,
+          cloned_from_class_id: cls.id,
+        })
+        .select("id")
+        .single();
 
-    const { data: newSessions, error: sessionsError } = await supabase
-      .from("sessions")
-      .insert(sessionInserts)
-      .select("id");
+      if (classErr || !newClass)
+        throw new Error(classErr?.message ?? "Class clone failed");
 
-    if (sessionsError) throw new Error(sessionsError.message);
+      const newClassId = newClass.id;
 
-    // Map old session IDs to new ones (positional — same order as insert)
-    source.sessions.forEach((s: any, i: number) => {
-      sessionIdMap[s.id] = newSessions![i].id;
-    });
+      if (cls.class_sessions?.length > 0) {
+        const sessionInserts = cls.class_sessions.map((cs: any) => ({
+          class_id: newClassId,
+          semester_id: newId,
+          day_of_week: cs.day_of_week,
+          start_time: cs.start_time,
+          end_time: cs.end_time,
+          start_date: cs.start_date,
+          end_date: cs.end_date,
+          location: cs.location,
+          instructor_name: cs.instructor_name,
+          capacity: cs.capacity,
+          registration_close_at: cs.registration_close_at,
+          is_active: cs.is_active,
+          cloned_from_session_id: cs.id,
+        }));
+
+        const { data: newSessions, error: sessionsErr } = await supabase
+          .from("class_sessions")
+          .insert(sessionInserts)
+          .select("id");
+
+        if (sessionsErr) throw new Error(sessionsErr.message);
+
+        cls.class_sessions.forEach((cs: any, i: number) => {
+          sessionIdMap[cs.id] = newSessions![i].id;
+        });
+      }
+    }
   }
 
   // Clone session groups
@@ -94,9 +123,9 @@ export async function cloneSemester(sourceId: string): Promise<string> {
         .select("id")
         .single();
 
-      if (groupError || !newGroup) throw new Error(groupError?.message ?? "Group insert failed");
+      if (groupError || !newGroup)
+        throw new Error(groupError?.message ?? "Group insert failed");
 
-      // Clone session_group_sessions with remapped IDs
       const groupSessionLinks = (group.session_group_sessions ?? [])
         .map((sgs: any) => sessionIdMap[sgs.session_id])
         .filter(Boolean)
@@ -131,7 +160,6 @@ export async function cloneSemester(sourceId: string): Promise<string> {
 
     if (planError) throw new Error(planError.message);
 
-    // Clone installments
     if (source.semester_payment_installments?.length > 0) {
       const installmentInserts = source.semester_payment_installments.map(
         (i: any) => ({
@@ -141,11 +169,9 @@ export async function cloneSemester(sourceId: string): Promise<string> {
           due_date: i.due_date,
         }),
       );
-
       const { error: installError } = await supabase
         .from("semester_payment_installments")
         .insert(installmentInserts);
-
       if (installError) throw new Error(installError.message);
     }
   }
@@ -156,11 +182,9 @@ export async function cloneSemester(sourceId: string): Promise<string> {
       semester_id: newId,
       discount_id: sd.discount_id,
     }));
-
     const { error: discountError } = await supabase
       .from("semester_discounts")
       .insert(discountLinks);
-
     if (discountError) throw new Error(discountError.message);
   }
 

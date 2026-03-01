@@ -225,7 +225,7 @@ export default function ConfirmationEmailStep({
                 onChange={(e) => handleInfoChange("subject", e.target.value)}
                 disabled={isLocked}
                 placeholder="Your registration is confirmed!"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
               />
               <p className="text-xs text-gray-400">
                 Tokens: {"{{first_name}}"}, {"{{session_title}}"},{" "}
@@ -243,7 +243,7 @@ export default function ConfirmationEmailStep({
                 onChange={(e) => handleInfoChange("fromName", e.target.value)}
                 disabled={isLocked}
                 placeholder="AYDT Registration"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
 
@@ -257,7 +257,7 @@ export default function ConfirmationEmailStep({
                 onChange={(e) => handleInfoChange("fromEmail", e.target.value)}
                 disabled={isLocked}
                 placeholder="noreply@aydt.com"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
           </div>
@@ -376,7 +376,7 @@ export default function ConfirmationEmailStep({
                   setTestStatus("idle");
                 }}
                 placeholder="you@example.com"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
 

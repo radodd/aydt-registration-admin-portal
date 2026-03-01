@@ -16,8 +16,8 @@ export async function previewRecipientCount(
     if (sel.type === "semester") {
       const { data } = await supabase
         .from("registrations")
-        .select("user_id, sessions!inner(semester_id)")
-        .eq("sessions.semester_id", sel.semesterId);
+        .select("user_id, class_sessions!inner(semester_id)")
+        .eq("class_sessions.semester_id", sel.semesterId);
 
       for (const reg of data ?? []) {
         if (!excludedSet.has(reg.user_id)) userIdSet.add(reg.user_id);

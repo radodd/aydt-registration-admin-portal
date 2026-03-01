@@ -40,18 +40,17 @@ export default function SessionsGroupsStep({
   /* Derived Data                                                             */
   /* ------------------------------------------------------------------------ */
 
+  // Flatten DraftClass[] → { sessionId, title } so group membership uses class_session IDs
   const appliedSessions = useMemo(
-    () => state.sessions?.appliedSessions ?? [],
-    [state.sessions?.appliedSessions],
+    () =>
+      (state.sessions?.classes ?? []).flatMap((cls) =>
+        cls.sessions.map((cs) => ({
+          sessionId: cs.id ?? "",
+          title: `${cls.name} — ${cs.dayOfWeek.charAt(0).toUpperCase() + cs.dayOfWeek.slice(1)}`,
+        })),
+      ),
+    [state.sessions?.classes],
   );
-
-  // Sessions that are not currently assigned to any group
-  //   const ungroupedSessions = useMemo(() => {
-  //     const groupedIds = new Set(groups.flatMap((g) => g.sessionIds));
-  //     return appliedSessions.filter(
-  //       (session) => !groupedIds.has(session.sessionId),
-  //     );
-  //   }, [groups, appliedSessions]);
 
   /* ------------------------------------------------------------------------ */
   /* Derived Data                                                             */
@@ -210,7 +209,7 @@ export default function SessionsGroupsStep({
             placeholder="Group name"
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
-            className="flex-1 rounded-xl border border-gray-300 px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="flex-1 rounded-xl border border-gray-300 px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
           <button
             onClick={handleCreateGroup}

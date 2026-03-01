@@ -30,12 +30,12 @@ export async function getFamilies() {
         registrations:registrations!dancer_id (
           id,
           status,
-          sessions:sessions!session_id (
+          class_sessions!session_id (
             id,
-            title,
-            days_of_week,
+            day_of_week,
             start_time,
-            end_time
+            end_time,
+            classes ( name )
           )
         )
       )
@@ -89,24 +89,33 @@ export async function getDancers() {
   return data;
 }
 
-export async function getSessions(excludeSemesterId?: string) {
+/**
+ * Phase 1: returns classes with nested class_sessions.
+ * Optional semesterId restricts to a specific semester.
+ */
+export async function getClasses(semesterId?: string) {
   const supabase = createClient();
 
   let query = supabase
-    .from("sessions")
-    .select("*")
-    .order("start_date", { ascending: false });
+    .from("classes")
+    .select("*, class_sessions(*)")
+    .order("created_at", { ascending: false });
 
-  if (excludeSemesterId) {
-    query = query.neq("semester_id", excludeSemesterId);
+  if (semesterId) {
+    query = query.eq("semester_id", semesterId);
   }
 
   const { data, error } = await query;
 
   if (error) {
-    console.error("Failed to load sessions.", error.message);
+    console.error("Failed to load classes.", error.message);
   }
   return data ?? [];
+}
+
+/** @deprecated Use getClasses(). Legacy callers receive all classes. */
+export async function getSessions(_excludeSemesterId?: string) {
+  return getClasses();
 }
 
 export async function getUsers() {
@@ -149,9 +158,9 @@ export async function getDiscounts(): Promise<HydratedDiscount[]> {
       discount_rules (*),
       discount_rule_sessions (
         session_id,
-        sessions (
+        class_sessions!session_id (
           id,
-          title
+          classes ( name )
         )
         )
         `,

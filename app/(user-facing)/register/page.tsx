@@ -4,11 +4,17 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, Suspense } from "react";
-import { RegistrationProvider, useRegistration } from "@/app/providers/RegistrationProvider";
+import {
+  RegistrationProvider,
+  useRegistration,
+} from "@/app/providers/RegistrationProvider";
 import { CartProvider } from "@/app/providers/CartProvider";
 import { CartRestoreGuard } from "./CartRestoreGuard";
 import { checkParentByEmail } from "./actions/checkParent";
-import { emailStepSchema, type EmailStepData } from "@/lib/schemas/registration";
+import {
+  emailStepSchema,
+  type EmailStepData,
+} from "@/lib/schemas/registration";
 
 /* -------------------------------------------------------------------------- */
 /* Inner form (needs RegistrationProvider in tree)                            */
@@ -35,7 +41,7 @@ function EmailForm({ semesterId }: { semesterId: string }) {
       const result = await checkParentByEmail(data.email);
       setEmail(data.email);
       setParentCheck(result.exists, result.parentId);
-
+      console.log(result);
       if (result.exists) {
         // Existing parent — redirect to login, return after auth
         router.push(

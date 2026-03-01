@@ -127,12 +127,12 @@ export default function ImagePickerModal({
             placeholder="Search images…"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
+            className="flex-1 text-sm text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <select
             value={folder}
             onChange={(e) => handleFolderChange(e.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
+            className="text-sm text-slate-700 border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">All folders</option>
             {MEDIA_FOLDERS.map((f) => (

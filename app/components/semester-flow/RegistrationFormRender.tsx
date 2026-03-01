@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RegistrationFormElement, SemesterSession, TextBlockFormatting } from "@/types";
+import { RegistrationFormElement, TextBlockFormatting } from "@/types";
 
 type Props = {
   elements: RegistrationFormElement[];
-  sessions: SemesterSession[];
+  sessions: { sessionId: string }[];
   mode?: "preview" | "live";
 };
 

@@ -86,12 +86,21 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
             )}
           </div>
 
-          {/* In-cart badge */}
-          {inCart && (
-            <span className="shrink-0 bg-indigo-50 text-indigo-600 text-xs font-semibold px-2.5 py-1 rounded-full">
-              In cart
-            </span>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Competition track badge */}
+            {session.isCompetitionTrack && (
+              <span className="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-200">
+                Competition
+              </span>
+            )}
+
+            {/* In-cart badge */}
+            {inCart && (
+              <span className="bg-indigo-50 text-indigo-600 text-xs font-semibold px-2.5 py-1 rounded-full">
+                In cart
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Meta row */}
@@ -180,6 +189,20 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
               day: "numeric",
             })}
           </p>
+        )}
+
+        {/* Competition track notice */}
+        {session.isCompetitionTrack && (
+          <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 mb-4">
+            <p className="text-xs font-semibold text-amber-800 mb-0.5">
+              Competition Track
+            </p>
+            <p className="text-xs text-amber-700">
+              Audition or director approval required. Concurrent enrollment in
+              required technique classes may be needed. Contact the studio for
+              eligibility.
+            </p>
+          </div>
         )}
 
         {/* Day picker (toggle) */}

@@ -13,7 +13,7 @@ export default async function HomePage() {
 
   const { data: semesters, error } = await supabase
     .from("semesters")
-    .select("id, name, status, sessions(start_date, end_date)")
+    .select("id, name, status, class_sessions(start_date, end_date)")
     .eq("status", "published")
     .order("created_at", { ascending: false });
   console.log("hello", semesters);
@@ -76,7 +76,7 @@ export default async function HomePage() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {semesters.map((semester) => {
               // Derive date range from sessions
-              const sessions = (semester.sessions ?? []) as {
+              const sessions = (semester.class_sessions ?? []) as {
                 start_date: string | null;
                 end_date: string | null;
               }[];

@@ -12,7 +12,11 @@ export default async function EditPage({ params }: { params: { id: string } }) {
       .select(
         `
         *,
-        sessions(*),
+        classes (
+          *,
+          class_sessions (*),
+          class_requirements!class_requirements_class_id_fkey (*)
+        ),
         session_groups(
           id, name, session_group_sessions(session_id)
         ),
@@ -26,17 +30,23 @@ export default async function EditPage({ params }: { params: { id: string } }) {
             discount_rules(*),
             discount_rule_sessions(*)
           )
-        )
+        ),
+        tuition_rate_bands(*),
+        semester_fee_config(*)
         `,
       )
       .eq("id", id)
       .single(),
     supabase
       .from("registrations")
-      .select("*, sessions!inner(semester_id)", { count: "exact", head: true })
-      .eq("sessions.semester_id", id),
+      .select("*, class_sessions!inner(semester_id)", {
+        count: "exact",
+        head: true,
+      })
+      .eq("class_sessions.semester_id", id),
   ]);
 
+  console.log("CHECK HERE", semesterResult);
   if (!semesterResult.data) notFound();
 
   return (

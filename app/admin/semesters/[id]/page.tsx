@@ -19,13 +19,9 @@ export default async function SemesterDetailPage({ params }: PageProps) {
     .select(
       `
     *,
-    sessions(
+    classes(
       *,
-      session_group_sessions(
-        session_group:session_groups(
-          id, name
-        )
-      )
+      class_sessions(*)
     ),
     semester_payment_plans(*),
     semester_payment_installments(*),
@@ -37,9 +33,9 @@ export default async function SemesterDetailPage({ params }: PageProps) {
         discount_rules(*),
         discount_rule_sessions(
           session_id,
-          sessions(
+          class_sessions!session_id(
             id,
-            title
+            classes(name)
           )
         )
       )

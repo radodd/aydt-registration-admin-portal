@@ -304,7 +304,12 @@ export default function RegistrationFormStep({
           initialElement={editingElement}
           onClose={closeModal}
           onSave={handleSaveElement}
-          sessions={state.sessions?.appliedSessions ?? []}
+          sessions={(state.sessions?.classes ?? []).flatMap((cls) =>
+            cls.sessions.map((cs) => ({
+              sessionId: cs.id ?? "",
+              title: `${cls.name} — ${cs.dayOfWeek}`,
+            })),
+          )}
         />
       )}
       {activeModal === "subheader" && (

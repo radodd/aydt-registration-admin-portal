@@ -49,7 +49,7 @@ export async function sendEmailNow(
     .select(
       `selection_type, semester_id, session_id,
        semesters:semester_id(name),
-       sessions:session_id(name, semesters!sessions_semester_id_fkey(name))`,
+       class_sessions:session_id(classes(name), semesters!class_sessions_semester_id_fkey(name))`,
     )
     .eq("email_id", emailId)
     .eq("is_excluded", false)
@@ -67,13 +67,14 @@ export async function sendEmailNow(
         : selectionContext.semesters;
       semesterName = (sem as { name?: string } | null)?.name ?? "";
     } else if (selectionContext.selection_type === "session") {
-      const sess = Array.isArray(selectionContext.sessions)
-        ? selectionContext.sessions[0]
-        : selectionContext.sessions;
-      sessionName = (sess as { name?: string } | null)?.name ?? "";
-      const parentSem = (
-        sess as { semesters?: { name?: string } | { name?: string }[] } | null
-      )?.semesters;
+      const sess = Array.isArray(selectionContext.class_sessions)
+        ? selectionContext.class_sessions[0]
+        : selectionContext.class_sessions;
+      const cls = Array.isArray((sess as any)?.classes)
+        ? (sess as any)?.classes[0]
+        : (sess as any)?.classes;
+      sessionName = (cls as { name?: string } | null)?.name ?? "";
+      const parentSem = (sess as any)?.semesters;
       const sem = Array.isArray(parentSem) ? parentSem[0] : parentSem;
       semesterName = sem?.name ?? "";
     }

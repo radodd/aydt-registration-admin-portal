@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,8 +10,9 @@ import { CartRestoreGuard } from "../CartRestoreGuard";
 import { useCart } from "@/app/providers/CartProvider";
 import { createDancer } from "../actions/createDancer";
 import { computeAge, newDancerSchema, type NewDancerInput } from "@/lib/schemas/registration";
+import { detectTimeConflicts } from "@/utils/detectTimeConflicts";
 import type { ParticipantAssignment } from "@/types/public";
-import type { Dancer } from "@/types";
+import type { ConflictDetail, Dancer, SessionScheduleInfo } from "@/types";
 
 /* -------------------------------------------------------------------------- */
 /* Dancer row — select existing or create new                                  */
@@ -158,7 +159,7 @@ function DancerSelector({
               </label>
               <input
                 {...register("firstName")}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
               />
               {errors.firstName && (
                 <p className="text-xs text-red-600 mt-1">
@@ -172,7 +173,7 @@ function DancerSelector({
               </label>
               <input
                 {...register("lastName")}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
               />
               {errors.lastName && (
                 <p className="text-xs text-red-600 mt-1">
@@ -189,7 +190,7 @@ function DancerSelector({
             <input
               type="date"
               {...register("dateOfBirth")}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
             />
             {errors.dateOfBirth && (
               <p className="text-xs text-red-600 mt-1">
@@ -204,7 +205,7 @@ function DancerSelector({
             </label>
             <select
               {...register("gender")}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
             >
               <option value="">Prefer not to say</option>
               <option value="female">Female</option>
@@ -267,6 +268,11 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
     state.participants,
   );
 
+  // Session schedule info fetched from DB — used for client-side conflict detection
+  const [scheduleMap, setScheduleMap] = useState<Map<string, SessionScheduleInfo>>(
+    new Map(),
+  );
+
   // Load existing dancers for this family
   useEffect(() => {
     const supabase = createClient();
@@ -301,12 +307,67 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
     });
   }, []);
 
+  // Fetch session schedule info for conflict detection (runs when cart items are ready)
+  useEffect(() => {
+    if (items.length === 0) return;
+    const sessionIds = items.map((i) => i.sessionId);
+    const supabase = createClient();
+    supabase
+      .from("class_sessions")
+      .select("id, day_of_week, start_time, end_time, classes(name)")
+      .in("id", sessionIds)
+      .then(({ data }) => {
+        if (!data) return;
+        const map = new Map<string, SessionScheduleInfo>();
+        for (const row of data) {
+          const cls = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+          map.set(row.id, {
+            sessionId: row.id,
+            className: (cls as any)?.name ?? row.id,
+            dayOfWeek: row.day_of_week,
+            startTime: row.start_time,
+            endTime: row.end_time,
+          });
+        }
+        setScheduleMap(map);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
+
   function handleAssignmentChange(assignment: ParticipantAssignment) {
     setAssignments((prev) => {
       const filtered = prev.filter((a) => a.sessionId !== assignment.sessionId);
       return [...filtered, assignment];
     });
   }
+
+  // Client-side conflict detection — re-runs on every assignment change
+  const conflictsByDancer = useMemo(() => {
+    const result = new Map<string, ConflictDetail[]>();
+
+    // Group assigned sessions by dancerId
+    const dancerSessions = new Map<string, string[]>();
+    for (const a of assignments) {
+      if (!a.dancerId) continue;
+      if (!dancerSessions.has(a.dancerId)) {
+        dancerSessions.set(a.dancerId, []);
+      }
+      dancerSessions.get(a.dancerId)!.push(a.sessionId);
+    }
+
+    // Only check dancers with 2+ sessions
+    for (const [dancerId, sids] of dancerSessions) {
+      if (sids.length < 2) continue;
+      const { conflicts } = detectTimeConflicts(sids, scheduleMap);
+      if (conflicts.length > 0) {
+        result.set(dancerId, conflicts);
+      }
+    }
+
+    return result;
+  }, [assignments, scheduleMap]);
+
+  const hasConflicts = conflictsByDancer.size > 0;
 
   const allAssigned = items.every((item) =>
     assignments.some(
@@ -316,7 +377,7 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
 
   function handleContinue() {
     console.log("[Participants] handleContinue — assignments:", assignments);
-    console.log("[Participants] allAssigned:", allAssigned, "cartItems:", items.length);
+    console.log("[Participants] allAssigned:", allAssigned, "hasConflicts:", hasConflicts, "cartItems:", items.length);
     setParticipants(assignments);
     router.push(`/register/form?semester=${semesterId}`);
   }
@@ -341,6 +402,19 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
           Select a dancer for each session in your cart.
         </p>
       </div>
+
+      {/* Schedule conflict banner — hard block, user must remove a session */}
+      {hasConflicts && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          <p className="font-semibold mb-2">Schedule conflicts detected</p>
+          {[...conflictsByDancer.values()].flat().map((conflict, i) => (
+            <p key={i} className="text-xs mt-1">
+              "{conflict.sessionA.className}" and "{conflict.sessionB.className}" overlap on{" "}
+              {conflict.sessionA.dayOfWeek}. Please go back and remove one session to continue.
+            </p>
+          ))}
+        </div>
+      )}
 
       <div className="space-y-4">
         {items.map((item) => (
@@ -369,7 +443,7 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
         <button
           type="button"
           onClick={handleContinue}
-          disabled={!allAssigned}
+          disabled={!allAssigned || hasConflicts}
           className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Continue

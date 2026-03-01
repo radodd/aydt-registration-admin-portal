@@ -81,11 +81,14 @@ export default async function EditEmailPage({ params }: Props) {
       let sessionName: string | undefined;
       if (sel.session_id) {
         const { data: session } = await supabase
-          .from("sessions")
-          .select("title")
+          .from("class_sessions")
+          .select("id, classes(name)")
           .eq("id", sel.session_id)
           .single();
-        sessionName = session?.title;
+        const cls = Array.isArray((session as any)?.classes)
+          ? (session as any)?.classes[0]
+          : (session as any)?.classes;
+        sessionName = cls?.name;
       }
 
       wizardSelections.push({

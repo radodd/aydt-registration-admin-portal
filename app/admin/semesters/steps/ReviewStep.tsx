@@ -62,7 +62,7 @@ export default function ReviewStep({
    */
 
   const safeDetails = state.details;
-  const safeSessions = state.sessions?.appliedSessions ?? [];
+  const safeClasses = state.sessions?.classes ?? [];
   const safePayment = state.paymentPlan;
   const safeSessionGroups = state.sessionGroups?.groups ?? [];
 
@@ -114,53 +114,43 @@ export default function ReviewStep({
         );
 
       case "sessions":
-        return safeSessions.length > 0 ? (
+        return safeClasses.length > 0 ? (
           <div className="space-y-4">
-            {safeSessions.map((s) => {
-              const days = s.overriddenDaysOfWeek ?? s.daysOfWeek;
-              const type = s.overriddenType ?? s.type;
-              const capacity = s.overriddenCapacity ?? s.capacity;
-              const hasOverrides =
-                s.overriddenDaysOfWeek ||
-                s.overriddenType ||
-                s.overriddenCapacity ||
-                s.overriddenTitle;
-
-              return (
-                <div
-                  key={s.sessionId}
-                  className="border border-gray-200 rounded-xl p-4 space-y-1"
-                >
-                  <div className="font-medium text-gray-900">
-                    {s.overriddenTitle ?? s.title}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    {s.startDate} → {s.endDate} · {days?.join(", ")}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Type: {type} · Capacity: {capacity}
-                  </div>
-                  {s.registrationCloseAt && (
-                    <div className="text-xs text-gray-400">
-                      Registration closes:{" "}
-                      {new Date(s.registrationCloseAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                    </div>
-                  )}
-                  {hasOverrides && (
-                    <div className="text-xs font-medium text-indigo-600">
-                      Overrides applied
-                    </div>
-                  )}
+            {safeClasses.map((cls) => (
+              <div
+                key={cls.id ?? cls.name}
+                className="border border-gray-200 rounded-xl p-4 space-y-2"
+              >
+                <div className="font-medium text-gray-900">{cls.name}</div>
+                <div className="text-sm text-gray-500 capitalize">
+                  {cls.discipline.replace(/_/g, " ")} · {cls.division}
+                  {cls.level ? ` · ${cls.level}` : ""}
                 </div>
-              );
-            })}
+                <div className="space-y-1 pt-1">
+                  {cls.sessions.map((cs, i) => (
+                    <div key={cs.id ?? i} className="text-sm text-gray-500">
+                      {cs.dayOfWeek.charAt(0).toUpperCase() + cs.dayOfWeek.slice(1)}
+                      {cs.startTime ? ` · ${cs.startTime}` : ""}
+                      {cs.endTime ? ` – ${cs.endTime}` : ""}
+                      {cs.capacity != null ? ` · Cap: ${cs.capacity}` : ""}
+                      {cs.registrationCloseAt && (
+                        <span className="text-xs text-gray-400 ml-1">
+                          · closes{" "}
+                          {new Date(cs.registrationCloseAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
-          <EmptyState message="No sessions added." />
+          <EmptyState message="No classes added." />
         );
 
       case "sessionGroups":
@@ -233,7 +223,7 @@ export default function ReviewStep({
               const selectedSessionNames =
                 d.eligible_sessions_mode === "selected"
                   ? (d.discount_rule_sessions?.map(
-                      (s) => s.sessions?.title ?? "Unknown session",
+                      (s) => s.class_sessions?.classes?.name ?? "Unknown session",
                     ) ?? [])
                   : [];
 
@@ -269,7 +259,9 @@ export default function ReviewStep({
         return state.registrationForm?.elements?.length ? (
           <RegistrationFormRenderer
             elements={state.registrationForm.elements}
-            sessions={state.sessions?.appliedSessions ?? []}
+            sessions={(state.sessions?.classes ?? []).flatMap((cls) =>
+              cls.sessions.map((cs) => ({ sessionId: cs.id ?? "" })),
+            )}
             mode="preview"
           />
         ) : (
@@ -362,45 +354,47 @@ export default function ReviewStep({
               )}
             </div>
 
-            {waitlist.enabled && safeSessions.length > 0 && (
+            {waitlist.enabled && safeClasses.flatMap((c) => c.sessions).length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
                   Per-Session Status
                 </p>
-                {safeSessions.map((s) => {
-                  const sessionEnabled =
-                    waitlist.sessionSettings?.[s.sessionId]?.enabled ?? true;
-                  return (
-                    <div
-                      key={s.sessionId}
-                      className="flex justify-between items-center border border-gray-200 rounded-xl px-4 py-2.5"
-                    >
-                      <div>
-                        <span className="font-medium text-gray-900">
-                          {s.overriddenTitle ?? s.title}
-                        </span>
-                        {s.registrationCloseAt && (
-                          <span className="text-xs text-gray-400 ml-2">
-                            · closes{" "}
-                            {new Date(s.registrationCloseAt).toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </span>
-                        )}
-                      </div>
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                          sessionEnabled
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-100 text-gray-500"
-                        }`}
+                {safeClasses.flatMap((cls) =>
+                  cls.sessions.map((cs, i) => {
+                    const csId = cs.id ?? `${cls.name}-${cs.dayOfWeek}-${i}`;
+                    const label = `${cls.name} — ${cs.dayOfWeek.charAt(0).toUpperCase() + cs.dayOfWeek.slice(1)}`;
+                    const sessionEnabled =
+                      waitlist.sessionSettings?.[csId]?.enabled ?? true;
+                    return (
+                      <div
+                        key={csId}
+                        className="flex justify-between items-center border border-gray-200 rounded-xl px-4 py-2.5"
                       >
-                        {sessionEnabled ? "On" : "Off"}
-                      </span>
-                    </div>
-                  );
-                })}
+                        <div>
+                          <span className="font-medium text-gray-900">{label}</span>
+                          {cs.registrationCloseAt && (
+                            <span className="text-xs text-gray-400 ml-2">
+                              · closes{" "}
+                              {new Date(cs.registrationCloseAt).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                              })}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                            sessionEnabled
+                              ? "bg-green-100 text-green-700"
+                              : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {sessionEnabled ? "On" : "Off"}
+                        </span>
+                      </div>
+                    );
+                  }),
+                )}
               </div>
             )}
 

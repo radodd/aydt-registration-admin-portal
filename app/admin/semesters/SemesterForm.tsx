@@ -62,6 +62,14 @@ function semesterReducer(
       nextState = { ...state, waitlist: action.payload };
       break;
 
+    case "SET_TUITION_RATE_BANDS":
+      nextState = { ...state, tuitionRateBands: action.payload };
+      break;
+
+    case "SET_FEE_CONFIG":
+      nextState = { ...state, feeConfig: action.payload };
+      break;
+
     case "ADD_FORM_ELEMENT":
       nextState = {
         ...state,

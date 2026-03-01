@@ -62,9 +62,9 @@ export async function resolveRecipients(
       const { data: registrations } = await supabase
         .from("registrations")
         .select(
-          "user_id, users!registrations_user_id_fkey(id, email, first_name, last_name), sessions!inner(semester_id)",
+          "user_id, users!registrations_user_id_fkey(id, email, first_name, last_name), class_sessions!inner(semester_id)",
         )
-        .eq("sessions.semester_id", sel.semester_id);
+        .eq("class_sessions.semester_id", sel.semester_id);
 
       for (const reg of registrations ?? []) {
         const user = Array.isArray(reg.users) ? reg.users[0] : reg.users;

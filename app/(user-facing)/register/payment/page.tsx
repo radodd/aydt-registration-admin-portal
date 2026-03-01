@@ -6,6 +6,9 @@ import { RegistrationProvider, useRegistration } from "@/app/providers/Registrat
 import { CartRestoreGuard } from "../CartRestoreGuard";
 import { useCart } from "@/app/providers/CartProvider";
 import { createRegistrations } from "../actions/createRegistrations";
+import { computePricingQuote } from "@/app/actions/computePricingQuote";
+import { getConvergePaymentUrl } from "@/app/actions/getConvergePaymentUrl";
+import type { PricingQuote } from "@/types";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -21,46 +24,104 @@ function formatCurrency(amount: number): string {
 function PaymentContent({ semesterId }: { semesterId: string }) {
   const router = useRouter();
   const { state, setPaymentIntent, reset } = useRegistration();
-  const { items, total, clearCart } = useCart();
+  const { items, clearCart } = useCart();
 
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quote, setQuote] = useState<PricingQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
 
-  // Guard: if registration was already completed (batchId set but user
-  // navigated back), redirect to confirmation rather than allowing re-submit.
+  const { secondsRemaining, isExpired } = useCart();
+
+  // Guard: if registration was already completed, redirect to confirmation.
   useEffect(() => {
-    console.log("[Payment] Mount — state.batchId:", state.batchId, "cartItems:", items.length, "participants:", state.participants.length);
     if (state.batchId && !processing) {
-      console.log("[Payment] batchId already set — redirecting to confirmation.");
       router.replace(`/register/confirmation?semester=${semesterId}`);
     }
-    // Only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Guard: if cart hold expires, redirect back to the semester page.
+  useEffect(() => {
+    if (isExpired && !processing && !state.batchId) {
+      clearCart();
+      router.replace(`/?semester=${semesterId}&expired=1`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExpired]);
+
+  // Fetch pricing quote when participants are available
+  useEffect(() => {
+    const fullyAssigned = state.participants.filter((p) => p.dancerId);
+    if (fullyAssigned.length === 0 || state.isPreview) return;
+
+    // Group session IDs by dancer
+    const enrollmentMap = new Map<
+      string,
+      { dancerName?: string; sessionIds: string[] }
+    >();
+    for (const p of fullyAssigned) {
+      if (!p.dancerId) continue;
+      if (!enrollmentMap.has(p.dancerId)) {
+        enrollmentMap.set(p.dancerId, { sessionIds: [] });
+      }
+      enrollmentMap.get(p.dancerId)!.sessionIds.push(p.sessionId);
+    }
+
+    // Include new-dancer name overrides
+    for (const p of state.participants) {
+      if (!p.dancerId || !p.newDancer) continue;
+      const entry = enrollmentMap.get(p.dancerId);
+      if (entry && !entry.dancerName) {
+        entry.dancerName = `${p.newDancer.firstName} ${p.newDancer.lastName}`;
+      }
+    }
+
+    const enrollments = Array.from(enrollmentMap.entries()).map(
+      ([dancerId, { dancerName, sessionIds }]) => ({
+        dancerId,
+        dancerName,
+        sessionIds,
+      }),
+    );
+
+    setQuoteLoading(true);
+    setQuoteError(null);
+
+    computePricingQuote({
+      semesterId,
+      enrollments,
+      paymentPlanType: "pay_in_full",
+    })
+      .then(setQuote)
+      .catch((err) => {
+        setQuoteError(
+          err instanceof Error ? err.message : "Could not load pricing.",
+        );
+      })
+      .finally(() => setQuoteLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.participants, semesterId]);
 
   async function handleConfirm() {
     setProcessing(true);
     setError(null);
 
-    // Pre-flight: all participants must be assigned
     const fullyAssigned = state.participants.filter((p) => p.dancerId);
-    console.log("[Payment] handleConfirm — cartItems:", items.length, "participants:", state.participants.length, "fullyAssigned:", fullyAssigned.length);
 
     if (items.length === 0) {
-      console.warn("[Payment] Pre-flight failed: cart is empty.");
       setError("Your cart is empty. Please go back and add sessions.");
       setProcessing(false);
       return;
     }
     if (fullyAssigned.length === 0) {
-      console.warn("[Payment] Pre-flight failed: no assigned participants.");
       setError("Please assign a dancer to each session before continuing.");
       setProcessing(false);
       return;
     }
 
     if (state.isPreview) {
-      console.log("[Payment] Preview mode — simulating.");
       await new Promise((r) => setTimeout(r, 800));
       clearCart();
       reset();
@@ -68,36 +129,63 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
       return;
     }
 
-    // Generate a batchId once and store it in RegistrationProvider so that
-    // any retry (network error, double-click) reuses the same key.
     const batchId = crypto.randomUUID();
-    console.log("[Payment] Calling createRegistrations — batchId:", batchId, "semesterId:", semesterId);
-    setPaymentIntent("", batchId); // intentId is empty until Converge is wired
+    setPaymentIntent("", batchId);
 
     const result = await createRegistrations({
       semesterId,
       participants: fullyAssigned.map((p) => ({
         sessionId: p.sessionId,
         dancerId: p.dancerId!,
+        newDancer: p.newDancer,
       })),
       batchId,
+      pricingQuote: quote ?? undefined,
     });
 
-    console.log("[Payment] createRegistrations result:", result);
-
     if (!result.success) {
-      console.error("[Payment] createRegistrations failed:", result.error);
-      setError(result.error ?? "Registration failed. Please try again.");
+      if (result.priceChanged && result.newQuote) {
+        setQuote(result.newQuote);
+        setError(
+          "Pricing was updated. Please review the new total and confirm again.",
+        );
+      } else {
+        setError(result.error ?? "Registration failed. Please try again.");
+      }
       setProcessing(false);
       return;
     }
 
-    // Success: clear client state and navigate to confirmation
-    console.log("[Payment] Success — clearing cart and resetting registration state.");
-    clearCart();
-    reset();
-    router.push(`/register/confirmation?semester=${semesterId}`);
+    if (state.isPreview) {
+      // Preview path already returned above — this branch should not be reached
+      setProcessing(false);
+      return;
+    }
+
+    // Registration batch created (pending_payment). Now redirect to Converge.
+    const paymentResult = await getConvergePaymentUrl({
+      batchId: result.batchId ?? batchId,
+      amountDueNow: quote?.amountDueNow ?? quote?.grandTotal ?? 0,
+      semesterId,
+      semesterName: "Registration", // replaced by actual name if available in quote
+    });
+
+    if (paymentResult.error || !paymentResult.hostedPaymentUrl) {
+      setError(
+        paymentResult.error ??
+          "Could not initiate payment. Please try again.",
+      );
+      setProcessing(false);
+      return;
+    }
+
+    // Redirect to Converge HPP — cart/state cleared on confirmation page return
+    window.location.href = paymentResult.hostedPaymentUrl;
   }
+
+  /* ---------------------------------------------------------------------- */
+  /* Render                                                                   */
+  /* ---------------------------------------------------------------------- */
 
   return (
     <div className="space-y-6">
@@ -110,6 +198,16 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
         </p>
       </div>
 
+      {/* Cart hold countdown — warn when < 5 minutes remain */}
+      {!state.isPreview && secondsRemaining > 0 && secondsRemaining < 300 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 font-medium">
+          Your cart reservation expires in{" "}
+          {Math.floor(secondsRemaining / 60)}:
+          {String(secondsRemaining % 60).padStart(2, "0")}. Complete your
+          registration before the hold is released.
+        </div>
+      )}
+
       {/* Preview mode banner */}
       {state.isPreview && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 font-medium">
@@ -117,37 +215,136 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
         </div>
       )}
 
-      {/* Cart summary */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-4">Order Summary</h2>
-        <div className="space-y-3">
-          {items.map((item) => (
-            <div key={item.id} className="flex justify-between text-sm">
-              <div>
-                <p className="font-medium text-gray-800">{item.sessionName}</p>
-                {item.selectedDays.length > 0 ? (
-                  <p className="text-gray-400 text-xs mt-0.5">
-                    {item.selectedDays.length} day
-                    {item.selectedDays.length !== 1 ? "s" : ""}
-                  </p>
-                ) : item.selectedDayIds.length > 0 ? (
-                  <p className="text-gray-400 text-xs mt-0.5">
-                    {item.selectedDayIds.length} day
-                    {item.selectedDayIds.length !== 1 ? "s" : ""}
-                  </p>
-                ) : null}
-              </div>
-              <span className="font-semibold text-gray-900">
-                {formatCurrency(item.subtotal)}
-              </span>
+      {/* Pricing breakdown (Phase 2) */}
+      {!state.isPreview && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
+          <h2 className="font-semibold text-gray-900">Pricing Breakdown</h2>
+
+          {quoteLoading && (
+            <p className="text-sm text-gray-400">Calculating pricing…</p>
+          )}
+
+          {quoteError && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+              <p className="font-medium">Pricing unavailable</p>
+              <p className="mt-1 text-xs">{quoteError}</p>
+              <p className="mt-1 text-xs">
+                The admin may need to configure tuition rate bands for this
+                semester.
+              </p>
             </div>
-          ))}
+          )}
+
+          {quote && !quoteLoading && (
+            <div className="space-y-4">
+              {/* Per-dancer breakdowns */}
+              {quote.perDancer.map((dancer) => (
+                <div
+                  key={dancer.dancerId}
+                  className="border border-gray-100 rounded-xl p-4 space-y-2"
+                >
+                  <p className="text-sm font-medium text-gray-900">
+                    {dancer.dancerName}
+                  </p>
+                  <p className="text-xs text-gray-400 capitalize">
+                    {dancer.division.replace("_", " ")} ·{" "}
+                    {dancer.weeklyClassCount} class
+                    {dancer.weeklyClassCount !== 1 ? "es" : ""}/week
+                  </p>
+                  <div className="space-y-1">
+                    {dancer.lineItems.map((li, i) => (
+                      <div
+                        key={i}
+                        className="flex justify-between text-sm text-gray-700"
+                      >
+                        <span>{li.label}</span>
+                        <span
+                          className={
+                            li.amount < 0 ? "text-green-600" : ""
+                          }
+                        >
+                          {formatCurrency(li.amount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              {/* Family-level adjustments */}
+              {(quote.familyDiscountAmount > 0 ||
+                quote.autoPayAdminFeeTotal > 0) && (
+                <div className="space-y-1 px-1">
+                  {quote.familyDiscountAmount > 0 && (
+                    <div className="flex justify-between text-sm text-green-700 font-medium">
+                      <span>Family Discount</span>
+                      <span>−{formatCurrency(quote.familyDiscountAmount)}</span>
+                    </div>
+                  )}
+                  {quote.autoPayAdminFeeTotal > 0 && (
+                    <div className="flex justify-between text-sm text-gray-700">
+                      <span>Auto-pay Admin Fee</span>
+                      <span>{formatCurrency(quote.autoPayAdminFeeTotal)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Grand total */}
+              <div className="border-t border-gray-100 pt-3 flex justify-between font-bold text-gray-900">
+                <span>Total</span>
+                <span>{formatCurrency(quote.grandTotal)}</span>
+              </div>
+
+              {/* Amount due now */}
+              {quote.amountDueNow !== quote.grandTotal && (
+                <div className="flex justify-between text-sm text-indigo-700 font-medium">
+                  <span>Due today</span>
+                  <span>{formatCurrency(quote.amountDueNow)}</span>
+                </div>
+              )}
+
+              {/* Payment schedule (if multi-installment) */}
+              {quote.paymentSchedule.length > 1 && (
+                <div className="rounded-xl bg-gray-50 p-4 space-y-2">
+                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                    Payment Schedule
+                  </p>
+                  {quote.paymentSchedule.map((inst) => (
+                    <div
+                      key={inst.installmentNumber}
+                      className="flex justify-between text-sm text-gray-700"
+                    >
+                      <span>
+                        Payment {inst.installmentNumber} —{" "}
+                        {new Date(inst.dueDate + "T00:00:00").toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric", year: "numeric" },
+                        )}
+                      </span>
+                      <span>{formatCurrency(inst.amountDue)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
-        <div className="border-t border-gray-100 mt-4 pt-4 flex justify-between font-bold text-gray-900">
-          <span>Total</span>
-          <span>{formatCurrency(total)}</span>
+      )}
+
+      {/* Cart items (simple summary for reference) */}
+      {(state.isPreview || !quote) && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <h2 className="font-semibold text-gray-900 mb-4">Sessions</h2>
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div key={item.id} className="flex justify-between text-sm">
+                <p className="font-medium text-gray-800">{item.sessionName}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Participant summary */}
       {state.participants.length > 0 && (

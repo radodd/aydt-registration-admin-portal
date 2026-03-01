@@ -27,21 +27,39 @@ export default function EditSemesterClient({
         publishAt: semester.publish_at,
       },
       sessions: {
-        appliedSessions: semester.sessions.map((s: any) => ({
-          sessionId: s.id,
-          title: s.title,
-          type: s.type,
-          capacity: s.capacity,
-          startDate: s.start_date,
-          endDate: s.end_date,
-          daysOfWeek: s.days_of_week,
-          overriddenTitle: null,
-          overriddenCategory: null,
-          overriddenType: null,
-          overriddenCapacity: null,
-          overriddenStartDate: null,
-          overriddenEndDate: null,
-          overriddenDaysOfWeek: null,
+        classes: (semester.classes ?? []).map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          discipline: c.discipline ?? "ballet",
+          division: c.division ?? "junior",
+          level: c.level ?? undefined,
+          description: c.description ?? undefined,
+          minAge: c.min_age ?? undefined,
+          maxAge: c.max_age ?? undefined,
+          isCompetitionTrack: c.is_competition_track ?? false,
+          requiresTeacherRec: c.requires_teacher_rec ?? false,
+          requirements: (c.class_requirements ?? []).map((r: any) => ({
+            id: r.id,
+            requirement_type: r.requirement_type,
+            description: r.description,
+            enforcement: r.enforcement,
+            is_waivable: r.is_waivable,
+            required_discipline: r.required_discipline ?? null,
+            required_level: r.required_level ?? null,
+            required_class_id: r.required_class_id ?? null,
+          })),
+          sessions: (c.class_sessions ?? []).map((cs: any) => ({
+            id: cs.id,
+            dayOfWeek: cs.day_of_week,
+            startTime: cs.start_time ?? undefined,
+            endTime: cs.end_time ?? undefined,
+            startDate: cs.start_date ?? undefined,
+            endDate: cs.end_date ?? undefined,
+            location: cs.location ?? undefined,
+            instructorName: cs.instructor_name ?? undefined,
+            capacity: cs.capacity ?? undefined,
+            registrationCloseAt: cs.registration_close_at ?? null,
+          })),
         })),
       },
       sessionGroups: {
@@ -89,6 +107,31 @@ export default function EditSemesterClient({
             fromName: semester.confirmation_email.fromName ?? "",
             fromEmail: semester.confirmation_email.fromEmail ?? "",
             htmlBody: semester.confirmation_email.htmlBody ?? "",
+          }
+        : undefined,
+      tuitionRateBands: (semester.tuition_rate_bands ?? []).map((b: any) => ({
+        _clientKey: b.id,
+        id: b.id,
+        division: b.division,
+        weekly_class_count: b.weekly_class_count,
+        base_tuition: Number(b.base_tuition),
+        recital_fee_included: Number(b.recital_fee_included),
+        notes: b.notes ?? undefined,
+      })),
+      feeConfig: semester.semester_fee_config
+        ? {
+            registration_fee_per_child: Number(
+              semester.semester_fee_config.registration_fee_per_child,
+            ),
+            family_discount_amount: Number(
+              semester.semester_fee_config.family_discount_amount,
+            ),
+            auto_pay_admin_fee_monthly: Number(
+              semester.semester_fee_config.auto_pay_admin_fee_monthly,
+            ),
+            auto_pay_installment_count: Number(
+              semester.semester_fee_config.auto_pay_installment_count,
+            ),
           }
         : undefined,
     };

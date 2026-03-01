@@ -87,12 +87,13 @@ Deno.serve(async (_req) => {
 /* -------------------------------------------------------------------------- */
 
 async function processSession(sessionId: string, now: string) {
-  // 1. Fetch session + semester waitlist settings
+  // 1. Fetch class_session + class name + semester waitlist settings (Phase 1)
   const { data: session } = await supabase
-    .from("sessions")
+    .from("class_sessions")
     .select(
       `
-      id, title, capacity, registration_close_at, semester_id,
+      id, capacity, registration_close_at, semester_id,
+      classes ( name ),
       semesters ( waitlist_settings )
     `,
     )

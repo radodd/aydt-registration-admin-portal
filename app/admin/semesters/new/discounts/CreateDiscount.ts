@@ -70,29 +70,31 @@ export async function createDiscount({
   /* Insert Session Restrictions                                                    */
   /* -------------------------------------------------------------------------- */
 
-  if (
-    eligibleSessionsMode === "selected" &&
-    sessionIds &&
-    sessionIds.length > 0
-  ) {
-    const sessionPayload = sessionIds.map((sessionId) => ({
-      discount_id: discountId,
-      session_id: sessionId,
-    }));
+  if (eligibleSessionsMode === "selected") {
+    const validSessionIds = (sessionIds ?? []).filter(
+      (id) => typeof id === "string" && id.trim() !== "",
+    );
 
-    const { error: sessionsError } = await supabase
-      .from("discount_rule_sessions")
-      .insert(sessionPayload);
+    if (validSessionIds.length > 0) {
+      const sessionPayload = validSessionIds.map((sessionId) => ({
+        discount_id: discountId,
+        session_id: sessionId,
+      }));
 
-    if (sessionsError) {
-      console.error(
-        "Failed to create discount session restrictions.",
-        sessionsError,
-      );
-      throw new Error(sessionsError.message);
+      const { error: sessionsError } = await supabase
+        .from("discount_rule_sessions")
+        .insert(sessionPayload);
+
+      if (sessionsError) {
+        console.error(
+          "Failed to create discount session restrictions.",
+          sessionsError,
+        );
+        throw new Error(sessionsError.message);
+      }
     }
+    console.log("✅ Session restrictions inserted (if any)");
+    console.groupEnd();
+    return discountId;
   }
-  console.log("✅ Session restrictions inserted (if any)");
-  console.groupEnd();
-  return discountId;
 }

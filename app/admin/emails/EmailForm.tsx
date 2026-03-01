@@ -381,7 +381,7 @@ export default function EmailForm({
                   disabled={headerSaving}
                   className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
                 >
-                  Safe as template
+                  Save as template
                 </button>
               )}
 

@@ -68,6 +68,9 @@ export default function AdminLayout({
           <Link href="/admin/families" className="block hover:underline">
             Families
           </Link>
+          <Link href="/admin/payments" className="block hover:underline">
+            Payments
+          </Link>
           <Link href="/admin/users" className="block hover:underline">
             Users
           </Link>

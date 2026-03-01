@@ -120,7 +120,7 @@ export async function persistSemesterDraft(
 
   const idMap = await syncSemesterSessions(
     semesterId,
-    state.sessions?.appliedSessions ?? [],
+    state.sessions?.classes ?? [],
   );
 
   await syncSemesterPayment(semesterId, state.paymentPlan);
@@ -131,5 +131,74 @@ export async function persistSemesterDraft(
     idMap,
   );
 
+  // Phase 2: sync tuition rate bands
+  if (state.tuitionRateBands !== undefined) {
+    await syncTuitionRateBands(supabase, semesterId, state.tuitionRateBands);
+  }
+
+  // Phase 2: upsert fee config
+  if (state.feeConfig !== undefined) {
+    await upsertFeeConfig(supabase, semesterId, state.feeConfig);
+  }
+
   return { semesterId };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Phase 2 helpers                                                             */
+/* -------------------------------------------------------------------------- */
+
+type SupabaseClient = Awaited<
+  ReturnType<typeof import("@/utils/supabase/server").createClient>
+>;
+
+async function syncTuitionRateBands(
+  supabase: SupabaseClient,
+  semesterId: string,
+  bands: import("@/types").DraftTuitionRateBand[],
+) {
+  // Delete all existing bands for this semester, then re-insert.
+  const { error: deleteError } = await supabase
+    .from("tuition_rate_bands")
+    .delete()
+    .eq("semester_id", semesterId);
+
+  if (deleteError) throw new Error(deleteError.message);
+
+  if (bands.length === 0) return;
+
+  const rows = bands.map((b) => ({
+    ...(b.id ? { id: b.id } : {}),
+    semester_id: semesterId,
+    division: b.division,
+    weekly_class_count: b.weekly_class_count,
+    base_tuition: b.base_tuition,
+    recital_fee_included: b.recital_fee_included,
+    notes: b.notes ?? null,
+  }));
+
+  const { error: insertError } = await supabase
+    .from("tuition_rate_bands")
+    .insert(rows);
+
+  if (insertError) throw new Error(insertError.message);
+}
+
+async function upsertFeeConfig(
+  supabase: SupabaseClient,
+  semesterId: string,
+  feeConfig: import("@/types").DraftFeeConfig,
+) {
+  const { error } = await supabase.from("semester_fee_config").upsert(
+    {
+      semester_id: semesterId,
+      registration_fee_per_child: feeConfig.registration_fee_per_child,
+      family_discount_amount: feeConfig.family_discount_amount,
+      auto_pay_admin_fee_monthly: feeConfig.auto_pay_admin_fee_monthly,
+      auto_pay_installment_count: feeConfig.auto_pay_installment_count,
+    },
+    { onConflict: "semester_id" },
+  );
+
+  if (error) throw new Error(error.message);
 }

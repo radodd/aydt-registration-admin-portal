@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import {
   RegistrationFormElement,
   QuestionInputType,
-  SemesterSession,
 } from "@/types";
 import { v4 as uuid } from "uuid";
 
@@ -12,7 +11,7 @@ type Props = {
   initialElement: RegistrationFormElement | null;
   onSave: (element: RegistrationFormElement) => void;
   onClose: () => void;
-  sessions: SemesterSession[];
+  sessions: { sessionId: string; title: string }[];
 };
 
 const QUESTION_TYPES: QuestionInputType[] = [
@@ -162,7 +161,7 @@ export default function CustomQuestionModal({
             type="text"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
 
@@ -175,7 +174,7 @@ export default function CustomQuestionModal({
             type="text"
             value={reportLabel}
             onChange={(e) => setReportLabel(e.target.value)}
-            className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
 
@@ -187,7 +186,7 @@ export default function CustomQuestionModal({
           <select
             value={inputType}
             onChange={(e) => setInputType(e.target.value as QuestionInputType)}
-            className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           >
             {QUESTION_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -219,7 +218,7 @@ export default function CustomQuestionModal({
                   type="text"
                   value={opt}
                   onChange={(e) => updateOption(index, e.target.value)}
-                  className="flex-1 border border-gray-300 rounded-xl px-4 py-2 text-sm"
+                  className="flex-1 border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400"
                 />
                 <button
                   type="button"
@@ -263,7 +262,7 @@ export default function CustomQuestionModal({
             {sessions.map((s) => (
               <label
                 key={s.sessionId}
-                className="flex items-center gap-2 text-sm"
+                className="flex items-center gap-2 text-sm text-slate-700"
               >
                 <input
                   type="checkbox"

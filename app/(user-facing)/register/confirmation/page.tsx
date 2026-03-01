@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { ConfirmationCleanup } from "./ConfirmationCleanup";
 
 export const metadata: Metadata = {
   title: "Registration Confirmed — AYDT",
@@ -8,13 +9,15 @@ export const metadata: Metadata = {
 export default async function ConfirmationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string }>;
+  searchParams: Promise<{ preview?: string; semester?: string }>;
 }) {
-  const { preview } = await searchParams;
+  const { preview, semester } = await searchParams;
   const isPreview = preview === "1";
+  const semesterId = semester ?? "";
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-20 text-center">
+      <ConfirmationCleanup semesterId={semesterId} isPreview={isPreview} />
       {isPreview && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 font-medium mb-8">
           Preview mode — this is a simulated confirmation.

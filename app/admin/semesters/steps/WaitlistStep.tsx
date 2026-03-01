@@ -64,7 +64,13 @@ export default function WaitlistStep({
   semesterId,
 }: Props) {
   const waitlist = state.waitlist ?? DEFAULT_WAITLIST;
-  const appliedSessions = state.sessions?.appliedSessions ?? [];
+  const appliedSessions = (state.sessions?.classes ?? []).flatMap((cls) =>
+    cls.sessions.map((cs) => ({
+      sessionId: cs.id ?? "",
+      title: `${cls.name} — ${cs.dayOfWeek.charAt(0).toUpperCase() + cs.dayOfWeek.slice(1)}`,
+      registrationCloseAt: cs.registrationCloseAt,
+    })),
+  );
 
   /* -------------------------------------------------------------------------- */
   /* Local state                                                                 */
@@ -291,7 +297,7 @@ export default function WaitlistStep({
                       value={inviteExpiryHours}
                       onChange={(e) => handleExpiryChange(e.target.value)}
                       disabled={isLocked}
-                      className="w-24 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                      className="w-24 border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
                     />
                     <span className="text-sm text-gray-600">hours</span>
                   </div>
@@ -309,7 +315,7 @@ export default function WaitlistStep({
                       value={stopDaysBeforeClose}
                       onChange={(e) => handleStopDaysChange(e.target.value)}
                       disabled={isLocked}
-                      className="w-24 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                      className="w-24 border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
                     />
                     <span className="text-sm text-gray-600">days before registration close</span>
                   </div>
@@ -327,7 +333,7 @@ export default function WaitlistStep({
                       {appliedSessions.map((session) => {
                         const sessionEnabled =
                           sessionSettings[session.sessionId]?.enabled ?? true;
-                        const title = session.overriddenTitle ?? session.title;
+                        const title = session.title;
                         const closeAt = session.registrationCloseAt;
 
                         return (
@@ -393,7 +399,7 @@ export default function WaitlistStep({
                 onChange={(e) => handleEmailInfoChange("subject", e.target.value)}
                 disabled={isLocked}
                 placeholder="You're off the waitlist — claim your spot!"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
               />
               <p className="text-xs text-gray-400">
                 Tokens:{" "}
@@ -420,7 +426,7 @@ export default function WaitlistStep({
                 onChange={(e) => handleEmailInfoChange("fromName", e.target.value)}
                 disabled={isLocked}
                 placeholder="AYDT Registration"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
 
@@ -432,7 +438,7 @@ export default function WaitlistStep({
                 onChange={(e) => handleEmailInfoChange("fromEmail", e.target.value)}
                 disabled={isLocked}
                 placeholder="noreply@aydt.com"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
           </div>
@@ -534,7 +540,7 @@ export default function WaitlistStep({
                   setTestStatus("idle");
                 }}
                 placeholder="you@example.com"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
 

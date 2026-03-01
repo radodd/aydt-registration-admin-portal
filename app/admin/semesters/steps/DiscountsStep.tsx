@@ -119,10 +119,12 @@ export default function DiscountsStep({
           <div className="fixed inset-0 bg-blur  bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl shadow-lg p-8 max-w-2xl w-full mx-4">
               <CreateDiscountForm
-                sessions={state.sessions?.appliedSessions.map((s) => ({
-                  id: s.sessionId,
-                  title: s.title,
-                }))}
+                sessions={(state.sessions?.classes ?? []).flatMap((cls) =>
+                  cls.sessions.map((cs) => ({
+                    id: cs.id ?? "",
+                    name: `${cls.name} — ${cs.dayOfWeek.charAt(0).toUpperCase() + cs.dayOfWeek.slice(1)}`,
+                  })),
+                )}
                 onCreated={async () => {
                   await refreshDiscounts();
                   setShowCreateModal(false);

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import RegistrationFormRenderer from "@/app/components/semester-flow/RegistrationFormRender";
-import { SemesterSession } from "@/types";
 
 type TabKey =
   | "details"
@@ -26,16 +25,11 @@ type Props = {
 export default function SemesterDetailTabs({ semester }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("details");
 
-  const semesterSessions: SemesterSession[] = (semester.sessions ?? []).map(
-    (s: any) => ({
-      sessionId: s.id,
-      title: s.title,
-      type: s.type,
-      capacity: s.capacity,
-      startDate: s.start_date,
-      endDate: s.end_date,
-      daysOfWeek: s.days_of_week ?? [],
-    }),
+  // Flat list of class_sessions for RegistrationFormRenderer session filtering
+  const semesterSessions = (semester.classes ?? []).flatMap((cls: any) =>
+    (cls.class_sessions ?? []).map((cs: any) => ({
+      sessionId: cs.id,
+    })),
   );
 
   function renderContent() {
@@ -71,51 +65,36 @@ export default function SemesterDetailTabs({ semester }: Props) {
         );
 
       case "sessions":
-        return semester.sessions?.length > 0 ? (
+        return (semester.classes ?? []).length > 0 ? (
           <div className="space-y-4">
-            {semester.sessions.map((session: any) => {
-              const group =
-                session.session_group_sessions?.session_group ?? null;
-
-              return (
-                <div
-                  key={session.id}
-                  className="border border-gray-200 rounded-xl p-4 space-y-2"
-                >
-                  <div className="font-medium text-gray-900">
-                    {session.title}
-                  </div>
-
-                  {group ? (
-                    <span className="inline-block text-xs font-medium bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">
-                      {group.name}
-                    </span>
-                  ) : (
-                    <span className="inline-block text-xs font-medium bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
-                      Unassigned
-                    </span>
-                  )}
-
-                  <div className="text-sm text-gray-500">
-                    {session.start_date} → {session.end_date}
-                  </div>
-                  {session.days_of_week && (
-                    <div className="text-sm text-gray-500">
-                      Days: {session.days_of_week.join(", ")}
-                    </div>
-                  )}
-                  <div className="text-sm text-gray-500">
-                    Capacity: {session.capacity} · Type: {session.type}
-                  </div>
-                  <div className="text-sm text-gray-500">
-                    Status: {session.is_active ? "Active" : "Inactive"}
-                  </div>
+            {(semester.classes ?? []).map((cls: any) => (
+              <div
+                key={cls.id}
+                className="border border-gray-200 rounded-xl p-4 space-y-2"
+              >
+                <div className="font-medium text-gray-900">{cls.name}</div>
+                <div className="text-sm text-gray-500 capitalize">
+                  {cls.discipline?.replace(/_/g, " ")} · {cls.division}
+                  {cls.level ? ` · ${cls.level}` : ""}
                 </div>
-              );
-            })}
+                <div className="space-y-1 pt-1">
+                  {(cls.class_sessions ?? []).map((cs: any) => (
+                    <div key={cs.id} className="text-sm text-gray-500">
+                      {cs.day_of_week.charAt(0).toUpperCase() + cs.day_of_week.slice(1)}
+                      {cs.start_time ? ` · ${cs.start_time}` : ""}
+                      {cs.end_time ? ` – ${cs.end_time}` : ""}
+                      {cs.capacity != null ? ` · Cap: ${cs.capacity}` : ""}
+                    </div>
+                  ))}
+                </div>
+                <div className="text-sm text-gray-500">
+                  Status: {cls.is_active ? "Active" : "Inactive"}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
-          <EmptyState message="No sessions configured." />
+          <EmptyState message="No classes configured." />
         );
 
       case "payment":
@@ -182,7 +161,7 @@ export default function SemesterDetailTabs({ semester }: Props) {
               const restrictedSessions =
                 discount.eligible_sessions_mode === "selected"
                   ? (discount.discount_rule_sessions?.map(
-                      (s: any) => s.sessions?.title ?? "Unknown session",
+                      (s: any) => s.class_sessions?.classes?.name ?? "Unknown session",
                     ) ?? [])
                   : [];
 
