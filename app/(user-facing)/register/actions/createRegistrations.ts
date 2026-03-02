@@ -12,6 +12,8 @@ export interface CreateRegistrationsInput {
     sessionId: string;
     dancerId: string;
     newDancer?: NewDancerDraft;
+    /** session_occurrence_dates IDs selected by the parent in the cart */
+    selectedDayIds?: string[];
   }>;
   batchId: string;
   /** Client-visible pricing quote — server re-computes and validates it matches. */
@@ -229,7 +231,7 @@ export async function createRegistrations(
   const { data: created, error: insertError } = await supabase
     .from("registrations")
     .insert(rows)
-    .select("id");
+    .select("id, session_id, dancer_id");
 
   if (insertError) {
     return {
@@ -239,7 +241,47 @@ export async function createRegistrations(
     };
   }
 
-  // 9. Insert payment schedule installments
+  // 9. Insert registration_days — one row per (registration, selected occurrence date)
+  const createdById: Record<string, string> = {};
+  for (const r of created ?? []) {
+    createdById[`${r.session_id}:${r.dancer_id}`] = r.id as string;
+  }
+
+  const allSelectedDayIds = input.participants.flatMap((p) => p.selectedDayIds ?? []);
+  if (allSelectedDayIds.length > 0) {
+    const { data: occurrenceRows } = await supabase
+      .from("session_occurrence_dates")
+      .select("id, date")
+      .in("id", [...new Set(allSelectedDayIds)]);
+
+    const dateById = new Map<string, string>(
+      (occurrenceRows ?? []).map((o) => [o.id as string, o.date as string]),
+    );
+
+    const dayRows = input.participants.flatMap((p) => {
+      const registrationId = createdById[`${p.sessionId}:${p.dancerId}`];
+      if (!registrationId) return [];
+      return (p.selectedDayIds ?? []).flatMap((dayId) => {
+        const date = dateById.get(dayId);
+        if (!date) return [];
+        return [{ registration_id: registrationId, available_day_id: dayId, day: date }];
+      });
+    });
+
+    if (dayRows.length > 0) {
+      // Non-fatal: day tracking failure should not block the registration
+      await supabase
+        .from("registration_days")
+        .insert(dayRows)
+        .then(({ error }) => {
+          if (error) {
+            console.warn("[createRegistrations] Failed to insert registration_days:", error.message);
+          }
+        });
+    }
+  }
+
+  // 10. Insert payment schedule installments
   if (serverQuote && serverQuote.paymentSchedule.length > 0) {
     const installmentRows = serverQuote.paymentSchedule.map((inst) => ({
       batch_id: input.batchId,

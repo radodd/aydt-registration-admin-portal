@@ -32,6 +32,11 @@ export default function SemesterDetailTabs({ semester }: Props) {
     })),
   );
 
+  console.log(
+    "Semester sessions payload:",
+    JSON.stringify(semester.sessions, null, 2),
+  );
+
   function renderContent() {
     switch (activeTab) {
       case "details":
@@ -80,7 +85,8 @@ export default function SemesterDetailTabs({ semester }: Props) {
                 <div className="space-y-1 pt-1">
                   {(cls.class_sessions ?? []).map((cs: any) => (
                     <div key={cs.id} className="text-sm text-gray-500">
-                      {cs.day_of_week.charAt(0).toUpperCase() + cs.day_of_week.slice(1)}
+                      {cs.day_of_week.charAt(0).toUpperCase() +
+                        cs.day_of_week.slice(1)}
                       {cs.start_time ? ` · ${cs.start_time}` : ""}
                       {cs.end_time ? ` – ${cs.end_time}` : ""}
                       {cs.capacity != null ? ` · Cap: ${cs.capacity}` : ""}
@@ -161,7 +167,8 @@ export default function SemesterDetailTabs({ semester }: Props) {
               const restrictedSessions =
                 discount.eligible_sessions_mode === "selected"
                   ? (discount.discount_rule_sessions?.map(
-                      (s: any) => s.class_sessions?.classes?.name ?? "Unknown session",
+                      (s: any) =>
+                        s.class_sessions?.classes?.name ?? "Unknown session",
                     ) ?? [])
                   : [];
 
@@ -233,8 +240,7 @@ export default function SemesterDetailTabs({ semester }: Props) {
 
                   {discount.recipient_scope && (
                     <div className="text-sm text-gray-500 capitalize">
-                      Recipient:{" "}
-                      {discount.recipient_scope.replaceAll("_", " ")}
+                      Recipient: {discount.recipient_scope.replaceAll("_", " ")}
                     </div>
                   )}
                 </div>

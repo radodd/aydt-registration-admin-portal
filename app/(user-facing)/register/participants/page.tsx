@@ -378,7 +378,12 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
   function handleContinue() {
     console.log("[Participants] handleContinue — assignments:", assignments);
     console.log("[Participants] allAssigned:", allAssigned, "hasConflicts:", hasConflicts, "cartItems:", items.length);
-    setParticipants(assignments);
+    // Enrich each assignment with the selectedDayIds from the corresponding cart item
+    const enriched = assignments.map((a) => {
+      const cartItem = items.find((i) => i.sessionId === a.sessionId);
+      return { ...a, selectedDayIds: cartItem?.selectedDayIds ?? [] };
+    });
+    setParticipants(enriched);
     router.push(`/register/form?semester=${semesterId}`);
   }
 

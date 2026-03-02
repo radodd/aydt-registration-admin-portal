@@ -7,7 +7,7 @@ import { CartRestoreGuard } from "../CartRestoreGuard";
 import { useCart } from "@/app/providers/CartProvider";
 import { createRegistrations } from "../actions/createRegistrations";
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
-import { getConvergePaymentUrl } from "@/app/actions/getConvergePaymentUrl";
+import { createEPGPaymentSession } from "@/app/actions/createEPGPaymentSession";
 import type { PricingQuote } from "@/types";
 
 function formatCurrency(amount: number): string {
@@ -138,6 +138,7 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
         sessionId: p.sessionId,
         dancerId: p.dancerId!,
         newDancer: p.newDancer,
+        selectedDayIds: p.selectedDayIds,
       })),
       batchId,
       pricingQuote: quote ?? undefined,
@@ -162,15 +163,15 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
       return;
     }
 
-    // Registration batch created (pending_payment). Now redirect to Converge.
-    const paymentResult = await getConvergePaymentUrl({
+    // Registration batch created (pending_payment). Now redirect to EPG HPP.
+    const paymentResult = await createEPGPaymentSession({
       batchId: result.batchId ?? batchId,
       amountDueNow: quote?.amountDueNow ?? quote?.grandTotal ?? 0,
       semesterId,
-      semesterName: "Registration", // replaced by actual name if available in quote
+      semesterName: "Registration",
     });
 
-    if (paymentResult.error || !paymentResult.hostedPaymentUrl) {
+    if (paymentResult.error || !paymentResult.paymentSessionUrl) {
       setError(
         paymentResult.error ??
           "Could not initiate payment. Please try again.",
@@ -179,8 +180,8 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
       return;
     }
 
-    // Redirect to Converge HPP — cart/state cleared on confirmation page return
-    window.location.href = paymentResult.hostedPaymentUrl;
+    // Redirect to EPG HPP — cart/state cleared on confirmation page return
+    window.location.href = paymentResult.paymentSessionUrl;
   }
 
   /* ---------------------------------------------------------------------- */

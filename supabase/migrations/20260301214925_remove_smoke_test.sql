@@ -1,0 +1,1 @@
+drop table if exists public._migration_smoke_test;

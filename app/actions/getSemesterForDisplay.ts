@@ -114,11 +114,16 @@ export async function getSemesterForDisplay(
         .map((cs: ClassSessionRow) => cs.id),
   );
 
+  // Count confirmed registrations + pending registrations whose hold has not expired.
+  // This prevents users from seeing available spots that are actually held by others.
+  const now = new Date().toISOString();
   const { data: registrationRows } = await supabase
     .from("registrations")
     .select("session_id")
     .in("session_id", classSessionIds)
-    .eq("status", "confirmed");
+    .or(
+      `status.eq.confirmed,and(status.eq.pending,or(hold_expires_at.is.null,hold_expires_at.gt.${now}))`,
+    );
 
   const enrolledBySession: Record<string, number> = {};
   for (const row of registrationRows ?? []) {
@@ -180,6 +185,8 @@ export async function getSemesterForDisplay(
             startDate: cs.start_date,
             endDate: cs.end_date,
             daysOfWeek: [cs.day_of_week],
+            startTime: cs.start_time,
+            endTime: cs.end_time,
             registrationCloseAt: cs.registration_close_at,
             availableDays,
             waitlistEnabled: sessionWaitlistEnabled,

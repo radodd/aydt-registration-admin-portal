@@ -1027,3 +1027,37 @@ export type MediaImage = {
 };
 
 export type ImageLayout = "inline" | "banner";
+
+/* -------------------------------------------------------------------------- */
+/* EPG Payment Types                                                           */
+/* -------------------------------------------------------------------------- */
+
+/** State machine for the payments table, aligned with EPG EventType values. */
+export type PaymentState =
+  | "initiated"           // Row created; no EPG calls made yet
+  | "pending_authorization" // Payment session created; user on EPG HPP
+  | "authorized"          // saleAuthorized webhook received
+  | "captured"            // saleCaptured (only relevant if doCapture=false flow)
+  | "settled"             // saleSettled
+  | "declined"            // saleDeclined
+  | "voided"              // voidAuthorized
+  | "refunded"            // refundAuthorized
+  | "held_for_review";    // saleHeldForReview
+
+/** A row in the `payments` table. */
+export interface Payment {
+  id: string;
+  registration_batch_id: string;
+  order_id: string | null;
+  payment_session_id: string | null;
+  transaction_id: string | null;
+  custom_reference: string;
+  amount: number;
+  currency: string;
+  state: PaymentState;
+  event_type: string | null;
+  raw_notification: Record<string, unknown> | null;
+  raw_transaction: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}

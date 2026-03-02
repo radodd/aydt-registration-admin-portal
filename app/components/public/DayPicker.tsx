@@ -3,7 +3,7 @@
 import type { PublicAvailableDay } from "@/types/public";
 
 interface DayPickerProps {
-  days: PublicAvailableDay[];
+  days: { id: string; label: string }[];
   selectedIds: string[];
   onChange: (ids: string[]) => void;
   disabled?: boolean;
@@ -99,7 +99,7 @@ export function DayPicker({
                 }
               `}
             >
-              <span className="block">{formatDay(day)}</span>
+              {/* <span className="block">{formatDay(day)}</span>
               {(day.startTime || day.endTime) && (
                 <span
                   className={`block mt-0.5 ${
@@ -108,8 +108,8 @@ export function DayPicker({
                 >
                   {formatTime(day.startTime)}
                   {day.endTime ? ` – ${formatTime(day.endTime)}` : ""}
-                </span>
-              )}
+                </span> */}
+              {day.label}
             </button>
           );
         })}

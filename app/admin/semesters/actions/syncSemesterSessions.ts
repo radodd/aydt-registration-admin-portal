@@ -129,9 +129,10 @@ export async function syncSemesterSessions(
       if (delErr) throw new Error(delErr.message);
     }
 
-    // Upsert each class_session
+    // Upsert each class_session + sync its occurrence dates
     for (const draftSession of draftClass.sessions) {
       const sessionRow = buildSessionRow(draftSession, classId, semesterId);
+      let dbSessionId: string;
 
       if (draftSession.id && existingSessionIds.has(draftSession.id)) {
         // UPDATE
@@ -141,6 +142,7 @@ export async function syncSemesterSessions(
           .eq("id", draftSession.id);
         if (updErr) throw new Error(updErr.message);
         classSessionIdMap.set(draftSession.id, draftSession.id);
+        dbSessionId = draftSession.id;
       } else {
         // INSERT
         const { data: newSession, error: insErr } = await supabase
@@ -152,6 +154,18 @@ export async function syncSemesterSessions(
         // Map draft id (if any) to new DB id; also register DB id → itself
         if (draftSession.id) classSessionIdMap.set(draftSession.id, newSession.id);
         classSessionIdMap.set(newSession.id, newSession.id);
+        dbSessionId = newSession.id;
+      }
+
+      // Sync session_occurrence_dates from day_of_week + start_date + end_date
+      if (draftSession.startDate && draftSession.endDate) {
+        await syncOccurrenceDates(
+          supabase,
+          dbSessionId,
+          draftSession.dayOfWeek,
+          draftSession.startDate,
+          draftSession.endDate,
+        );
       }
     }
 
@@ -226,4 +240,98 @@ async function syncClassRequirements(
     .from("class_requirements")
     .insert(rows);
   if (insErr) throw new Error(insErr.message);
+}
+
+/**
+ * Syncs session_occurrence_dates for a single class_session.
+ *
+ * Computes all calendar dates in [startDate, endDate] that fall on dayOfWeek,
+ * then merges them with the existing DB rows using an add/remove strategy:
+ *   - Dates not yet in DB → INSERT (is_cancelled = false)
+ *   - Dates no longer in the computed range → DELETE
+ *   - Existing dates within range → unchanged (preserves admin-set is_cancelled)
+ */
+async function syncOccurrenceDates(
+  supabase: SupabaseClient,
+  sessionId: string,
+  dayOfWeek: string,
+  startDate: string,
+  endDate: string,
+) {
+  const expected = computeOccurrenceDates(dayOfWeek, startDate, endDate);
+  const expectedSet = new Set(expected);
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from("session_occurrence_dates")
+    .select("id, date")
+    .eq("session_id", sessionId);
+
+  if (fetchErr) throw new Error(fetchErr.message);
+
+  const existingByDate = new Map<string, string>(); // date → id
+  for (const row of existing ?? []) {
+    existingByDate.set(row.date as string, row.id as string);
+  }
+
+  // Dates to add (expected but missing from DB)
+  const toInsert = expected.filter((d) => !existingByDate.has(d));
+  if (toInsert.length > 0) {
+    const { error: insErr } = await supabase
+      .from("session_occurrence_dates")
+      .insert(toInsert.map((d) => ({ session_id: sessionId, date: d, is_cancelled: false })));
+    if (insErr) throw new Error(insErr.message);
+  }
+
+  // Dates to remove (in DB but no longer in the computed range)
+  const idsToDelete = [...existingByDate.entries()]
+    .filter(([date]) => !expectedSet.has(date))
+    .map(([, id]) => id);
+
+  if (idsToDelete.length > 0) {
+    const { error: delErr } = await supabase
+      .from("session_occurrence_dates")
+      .delete()
+      .in("id", idsToDelete);
+    if (delErr) throw new Error(delErr.message);
+  }
+}
+
+const DAY_OF_WEEK_INDEX: Record<string, number> = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+};
+
+/**
+ * Returns all 'YYYY-MM-DD' strings between startDate and endDate (inclusive)
+ * that fall on the given dayOfWeek (lowercase, e.g. 'monday').
+ */
+function computeOccurrenceDates(
+  dayOfWeek: string,
+  startDate: string,
+  endDate: string,
+): string[] {
+  const targetDay = DAY_OF_WEEK_INDEX[dayOfWeek.toLowerCase()];
+  if (targetDay === undefined) return [];
+
+  const result: string[] = [];
+  // Use noon UTC to avoid DST boundary issues when converting back to date string
+  const current = new Date(startDate + "T12:00:00Z");
+  const end = new Date(endDate + "T12:00:00Z");
+
+  // Advance to the first occurrence of targetDay on or after startDate
+  while (current.getUTCDay() !== targetDay) {
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
+  while (current <= end) {
+    result.push(current.toISOString().slice(0, 10));
+    current.setUTCDate(current.getUTCDate() + 7);
+  }
+
+  return result;
 }

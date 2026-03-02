@@ -42,6 +42,10 @@ export interface PublicSession {
   endDate?: string | null;
   /** Phase 1+: single-element array (one day per class_session) */
   daysOfWeek: string[];
+  /** Time the class starts, e.g. "10:00" — sourced directly from class_sessions.start_time */
+  startTime?: string | null;
+  /** Time the class ends, e.g. "11:00" — sourced directly from class_sessions.end_time */
+  endTime?: string | null;
   registrationCloseAt?: string | null;
   /** Individual occurrence dates sourced from session_occurrence_dates */
   availableDays: PublicAvailableDay[];
@@ -150,6 +154,8 @@ export interface ParticipantAssignment {
   dancerId: string | null;
   newDancer?: NewDancerDraft;
   ageStatus: "valid" | "warning" | "error" | "unchecked";
+  /** IDs of session_occurrence_dates selected in the cart for this session */
+  selectedDayIds?: string[];
 }
 
 export interface NewDancerDraft {

@@ -29,11 +29,12 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const pricePerDay = session.pricePerDay ?? 0;
-  const hasDays = session.availableDays.length > 0;
+  const hasDays = session.daysOfWeek.length > 0;
   const subtotal = pricePerDay * selectedDayIds.length;
 
-  const isFull =
-    session.spotsRemaining === 0 && !session.waitlistEnabled;
+  console.log("HAS DAYS STATE", hasDays);
+
+  const isFull = session.spotsRemaining === 0 && !session.waitlistEnabled;
 
   function handleAddToCart() {
     if (hasDays && selectedDayIds.length === 0) return;
@@ -62,6 +63,8 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
       updateDays(session.id, ids, pricePerDay);
     }
   }
+
+  console.log("SESSION IN SESSION CARD", session);
 
   return (
     <div
@@ -102,6 +105,26 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
             )}
           </div>
         </div>
+
+        {/* Day + time row */}
+        {(session.daysOfWeek.length > 0 || session.startTime) && (
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            {session.daysOfWeek.map((d) => (
+              <span
+                key={d}
+                className="bg-indigo-50 text-indigo-700 text-xs font-medium px-2.5 py-1 rounded-full capitalize"
+              >
+                {d}
+              </span>
+            ))}
+            {session.startTime && (
+              <span className="text-xs text-gray-500">
+                {fmtTime(session.startTime)}
+                {session.endTime ? ` – ${fmtTime(session.endTime)}` : ""}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Meta row */}
         <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-3">
@@ -175,7 +198,8 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
 
           {pricePerDay > 0 && (
             <span className="font-semibold text-gray-900">
-              {formatCurrency(pricePerDay)}{hasDays ? " / day" : ""}
+              {formatCurrency(pricePerDay)}
+              {hasDays ? " / day" : ""}
             </span>
           )}
         </div>
@@ -232,7 +256,10 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
             {isExpanded && (
               <div className="mb-4">
                 <DayPicker
-                  days={session.availableDays}
+                  days={session.daysOfWeek.map((d) => ({
+                    id: d,
+                    label: d.charAt(0).toUpperCase() + d.slice(1),
+                  }))}
                   selectedIds={selectedDayIds}
                   onChange={handleDayChange}
                   disabled={isFull && !inCart}
@@ -269,8 +296,7 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
             type="button"
             onClick={handleAddToCart}
             disabled={
-              isFull ||
-              (hasDays && selectedDayIds.length === 0 && isExpanded)
+              isFull || (hasDays && selectedDayIds.length === 0 && isExpanded)
             }
             className="w-full text-sm py-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -293,4 +319,13 @@ function fmtDate(d: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+function fmtTime(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return m === 0
+    ? `${hour} ${period}`
+    : `${hour}:${String(m).padStart(2, "0")} ${period}`;
 }

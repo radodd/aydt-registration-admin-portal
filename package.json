@@ -13,7 +13,10 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:new": "supabase migration new",
+    "db:status": "supabase migration list",
+    "db:repair:applied": "supabase migration repair --status applied"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
