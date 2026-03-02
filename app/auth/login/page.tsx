@@ -1,18 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { login } from "../actions";
 import { FormField } from "@/app/components/form/FormField";
 
-export default function LogInPage() {
+function LogInForm() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") ?? "";
+  const errorParam = searchParams.get("error");
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("error") === "email_exists") {
+    if (errorParam === "email_exists") {
       alert(
         "An account with this email already exists. Please log in instead."
       );
     }
-  }, []);
+  }, [errorParam]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
@@ -21,6 +26,9 @@ export default function LogInPage() {
         </h1>
 
         <form className="space-y-4">
+          {/* Pass next through the form so the server action can redirect correctly */}
+          <input type="hidden" name="next" value={next} />
+
           <div>
             <FormField
               label={"Email"}
@@ -65,5 +73,13 @@ export default function LogInPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LogInPage() {
+  return (
+    <Suspense>
+      <LogInForm />
+    </Suspense>
   );
 }

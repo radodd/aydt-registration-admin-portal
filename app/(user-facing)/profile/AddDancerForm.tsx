@@ -26,17 +26,13 @@ export default function AddDancerForm({ familyId }: AddDancerFormProps) {
     setIsSubmitting(true);
     setErrorMsg("");
 
-    const { data, error } = await supabase
-      .from("dancers")
-      .insert({
-        first_name: firstName,
-        last_name: lastName,
-        birth_date: birthDate || null,
-        grade: grade || null,
-        family_id: familyId,
-      })
-      .select("*")
-      .single();
+    const { error } = await supabase.from("dancers").insert({
+      first_name: firstName,
+      last_name: lastName,
+      birth_date: birthDate || null,
+      grade: grade || null,
+      family_id: familyId,
+    });
 
     setIsSubmitting(false);
 
@@ -45,60 +41,95 @@ export default function AddDancerForm({ familyId }: AddDancerFormProps) {
       return;
     }
 
-    // Redirect back to profile page
-    router.push("/profile");
+    router.refresh(); // cleaner than push for dashboard updates
   };
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 border p-6 rounded-xl bg-gray-50"
+      className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm space-y-6"
     >
-      {errorMsg && <p className="text-red-600 font-medium">{errorMsg}</p>}
+      {/* Error */}
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          {errorMsg}
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <input
-          type="text"
-          placeholder="First Name"
-          className="border rounded-lg p-2"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Last Name"
-          className="border rounded-lg p-2"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          required
-        />
+      {/* Name Fields */}
+      <div className="grid sm:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-gray-700">
+            First Name
+          </label>
+          <input
+            type="text"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-slate-700
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                       transition"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-gray-700">Last Name</label>
+          <input
+            type="text"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-slate-700
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                       transition"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            required
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <input
-          type="date"
-          placeholder="Birth Date"
-          className="border rounded-lg p-2"
-          value={birthDate}
-          onChange={(e) => setBirthDate(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="Grade"
-          className="border rounded-lg p-2"
-          value={grade}
-          onChange={(e) => setGrade(e.target.value)}
-        />
+      {/* Secondary Fields */}
+      <div className="grid sm:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-gray-700">
+            Birth Date
+          </label>
+          <input
+            type="date"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-slate-700
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                       transition"
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-gray-700">Grade</label>
+          <input
+            type="text"
+            className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+                       transition"
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+            placeholder="Optional"
+          />
+        </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-      >
-        {isSubmitting ? "Adding..." : "Add Dancer"}
-      </button>
+      {/* Submit */}
+      <div className="pt-2">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full sm:w-auto inline-flex items-center justify-center
+                     rounded-2xl bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white
+                     hover:bg-indigo-700 transition
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSubmitting ? "Adding..." : "Add Dancer"}
+        </button>
+      </div>
     </form>
   );
 }

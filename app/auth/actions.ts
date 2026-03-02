@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/server";
 import { signUpSchema } from "../lib/validation/auth";
-import { request } from "http";
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
@@ -16,14 +15,16 @@ export async function login(formData: FormData) {
   };
 
   const { error } = await supabase.auth.signInWithPassword(data);
-  console.log(error);
   if (error) {
-    console.log(error);
     redirect("/error");
   }
 
   revalidatePath("/", "layout");
-  redirect("/private");
+
+  // Honor next param — must start with "/" to prevent open redirect
+  const next = formData.get("next") as string | null;
+  const safePath = next?.startsWith("/") ? next : "/";
+  redirect(safePath);
 }
 
 export async function signUp(formData: FormData) {
@@ -49,6 +50,13 @@ export async function signUp(formData: FormData) {
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      // emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+      data: {
+        first_name,
+        last_name,
+      },
+    },
   });
   console.log("Auth Data", authData);
 
@@ -93,9 +101,11 @@ export async function signUp(formData: FormData) {
     redirect("/error");
   }
 
-  // 🧠 5. Revalidate and redirect
+  // 5. Revalidate and redirect
   revalidatePath("/", "layout");
-  redirect("/private");
+  const next = formData.get("next") as string | null;
+  const safePath = next?.startsWith("/") ? next : "/";
+  redirect(safePath);
 }
 
 export async function signOut() {

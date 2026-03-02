@@ -115,14 +115,14 @@ export default function SignUpPage() {
           <div className="h-px flex-1 bg-gray-300"></div>
         </div>
 
-        <div className="flex gap-3">
+        {/* <div className="flex gap-3">
           <button className="flex-1 border border-gray-300 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-100 transition">
             <span className="text-lg">🌐</span> Google
           </button>
           <button className="flex-1 border border-gray-300 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-100 transition">
             <span className="text-lg">📘</span> Facebook
           </button>
-        </div>
+        </div> */}
 
         <p className="text-center text-sm text-gray-600 mt-6">
           Already have an account?{" "}

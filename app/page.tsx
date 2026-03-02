@@ -1,110 +1,149 @@
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
+import type { Metadata } from "next";
 
-export default async function Home() {
+export const metadata: Metadata = {
+  title: "American Youth Dance Theater — Registration",
+  description:
+    "Explore available dance programs and register your child for our upcoming semesters.",
+};
+
+export default async function HomePage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: semesters, error } = await supabase
+    .from("semesters")
+    .select("id, name, status, class_sessions(start_date, end_date)")
+    .eq("status", "published")
+    .order("created_at", { ascending: false });
+  console.log("hello", semesters);
 
-  if (!user) {
-    console.log("No user logged in");
-  }
-  let loggedInUser = null;
-  if (user) {
-    console.log("User is logged in:", user);
-    const { data } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", user.id)
-      .single();
-
-    loggedInUser = data;
-  }
-
-  const { data: programs, error } = await supabase
-    .from("programs")
-    .select("*")
-    .order("start_date", { ascending: true });
-
-  if (error) {
-    console.error("Error loading programs", error.message);
-    return <p className="text-red-500">Failed to load programs.</p>;
-  }
-
-  if (!programs || programs.length === 0) {
-    return <p className="text-gray-500">No programs available</p>;
-  }
-
+  console.log("error:", error);
   return (
-    <main className="max-w-4xl mx-auto p-6">
-      <header className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-4xl font-bold text-black">
-            Welcome to the New Portal
-            {loggedInUser.first_name}
-          </h1>
-        </div>
-
-        {/* Right side: conditional profile button */}
-        <div>
-          {user ? (
-            <Link href="/profile">
-              <button className="bg-gray-800 text-white rounded-xl px-4 py-2 hover:bg-black transition">
-                View Profile
-              </button>
-            </Link>
-          ) : (
-            <Link href="/login">
-              <button className="bg-blue-600 text-white rounded-xl px-4 py-2 hover:bg-blue-700 transition">
-                Log In
-              </button>
-            </Link>
-          )}
-        </div>
-      </header>
-      <h1 className="text-3xl font-bold mb-6 text-black">Available Programs</h1>
-
-      <div className="grid gap-6 sm:grid-cols-2">
-        {programs.map((program) => (
-          <div
-            key={program.id}
-            className="border rounded-2xl p-4 shadow-sm hover:shadow-md transition bg-white"
-          >
-            <h2 className="text-xl font-semibold text-gray-800 mb-1">
-              {program.title}
-            </h2>
-            <p className="text-sm text-gray-500 mb-3">
-              {program.category === "workshop" ? "Workshop" : "Session"} •{" "}
-              {program.type}
+    <div>
+      {/* ------------------------------------------------------------------ */}
+      {/* Hero                                                                */}
+      {/* ------------------------------------------------------------------ */}
+      <section className="bg-white border-b border-gray-200">
+        <div className="max-w-6xl mx-auto px-6 py-16 sm:py-20">
+          <div className="max-w-2xl">
+            <p className="text-indigo-600 font-semibold text-sm tracking-wide uppercase mb-3">
+              Enrollment Open
             </p>
-            <p className="text-gray-700 mb-3">{program.description}</p>
-
-            <div className="text-sm text-gray-600 space-y-1">
-              <p>
-                📍 <strong>Location:</strong> {program.location}
-              </p>
-              <p>
-                📅 <strong>Dates:</strong> {program.start_date} →{" "}
-                {program.end_date}
-              </p>
-              <p>
-                🕒 <strong>Time:</strong> {program.start_time} –{" "}
-                {program.end_time}
-              </p>
-              <p>
-                💲 <strong>Price:</strong> ${program.price}
-              </p>
-            </div>
-            <Link href={`/programs/${program.id}`}>
-              <button className="mt-4 w-full bg-blue-600 text-white rounded-xl py-2 font-medium hover:bg-blue-700 transition">
-                View Details
-              </button>
-            </Link>
+            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-5">
+              Dance Programs for Young Artists
+            </h1>
+            <p className="text-gray-600 text-lg leading-relaxed mb-8">
+              American Youth Dance Theater offers world-class dance training for
+              children and young adults. Browse our upcoming semesters and
+              secure your spot today.
+            </p>
+            <a
+              href="#semesters"
+              className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors"
+            >
+              View Available Semesters
+            </a>
           </div>
-        ))}
-      </div>
-    </main>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Semesters grid                                                      */}
+      {/* ------------------------------------------------------------------ */}
+      <section id="semesters" className="max-w-6xl mx-auto px-6 py-14">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          Available Semesters
+        </h2>
+        <p className="text-gray-500 mb-8">
+          Select a semester to view sessions, schedules, and pricing.
+        </p>
+
+        {error ? (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-red-700 text-sm">
+            Unable to load semesters. Please try again shortly.
+          </div>
+        ) : !semesters || semesters.length === 0 ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center">
+            <p className="text-gray-500 font-medium">
+              No semesters are currently open for registration.
+            </p>
+            <p className="text-gray-400 text-sm mt-1">
+              Check back soon for upcoming programs.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {semesters.map((semester) => {
+              // Derive date range from sessions
+              const sessions = (semester.class_sessions ?? []) as {
+                start_date: string | null;
+                end_date: string | null;
+              }[];
+              const allDates = sessions.flatMap((s) =>
+                [s.start_date, s.end_date].filter(Boolean),
+              ) as string[];
+              const earliest =
+                allDates.length > 0
+                  ? allDates.reduce((a, b) => (a < b ? a : b))
+                  : null;
+              const latest =
+                allDates.length > 0
+                  ? allDates.reduce((a, b) => (a > b ? a : b))
+                  : null;
+
+              return (
+                <div
+                  key={semester.id}
+                  className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col"
+                >
+                  {/* Header */}
+                  <div className="mb-4 flex-1">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      {semester.name}
+                    </h3>
+
+                    {/* Date range */}
+                    {earliest && latest && (
+                      <p className="text-sm text-indigo-600 font-medium mb-2">
+                        {formatDate(earliest)} – {formatDate(latest)}
+                      </p>
+                    )}
+
+                    {/* {semester.description && (
+                      <p className="text-gray-500 text-sm leading-relaxed line-clamp-3">
+                        {semester.description}
+                      </p> */}
+                  </div>
+
+                  {/* Sessions count pill */}
+                  {sessions.length > 0 && (
+                    <p className="text-xs text-gray-400 mb-4">
+                      {sessions.length} session
+                      {sessions.length !== 1 ? "s" : ""} available
+                    </p>
+                  )}
+
+                  <Link
+                    href={`/semester/${semester.id}`}
+                    className="block text-center bg-indigo-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-indigo-700 transition-colors"
+                  >
+                    View Sessions
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    </div>
   );
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 }

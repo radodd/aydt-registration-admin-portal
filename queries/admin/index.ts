@@ -1,3 +1,4 @@
+import { Discount, HydratedDiscount, SemesterDiscount } from "@/types";
 import { createClient } from "@/utils/supabase/client";
 
 export async function getFamilies() {
@@ -7,44 +8,47 @@ export async function getFamilies() {
     .from("families")
     .select(
       `
+      id,
+      family_name,
+      created_at,
+
+      users:users!family_id (
+        id,
+        first_name,
+        last_name,
+        email,
+        phone_number,
+        is_primary_parent
+      ),
+
+      dancers:dancers!family_id (
+        id,
+        first_name,
+        last_name,
+        is_self,
+
+        registrations:registrations!dancer_id (
           id,
-          family_name,
-          created_at,
-
-          users:users!family_id (
+          status,
+          class_sessions!session_id (
             id,
-            first_name,
-            last_name,
-            email,
-            phone_number,
-            is_primary_parent
-          ),
-
-          dancers:dancers!family_id (
-            id,
-            first_name,
-            last_name,
-
-            registrations:registrations!dancer_id (
-              id,
-              programs:programs!program_id (
-                id,
-                title,
-                days_of_week,
-                start_time,
-                end_time
-              )
-            )
+            day_of_week,
+            start_time,
+            end_time,
+            classes ( name )
           )
-        `
+        )
+      )
+    `,
     )
     .order("family_name", { ascending: true });
 
-  if (error) console.error("Failed to load families:", error.message);
+  if (error) {
+    console.error("Failed to load families:", error);
+  }
 
   return data;
 }
-
 export async function getDancers() {
   const supabase = createClient();
 
@@ -75,7 +79,7 @@ export async function getDancers() {
             email
           )
           
-        `
+        `,
     )
     .order("created_at", { ascending: true });
 
@@ -85,17 +89,33 @@ export async function getDancers() {
   return data;
 }
 
-export async function getPrograms() {
+/**
+ * Phase 1: returns classes with nested class_sessions.
+ * Optional semesterId restricts to a specific semester.
+ */
+export async function getClasses(semesterId?: string) {
   const supabase = createClient();
 
-  const { data, error } = await supabase
-    .from("programs")
-    .select("*")
-    .order("start_date", { ascending: false });
-  if (error) {
-    console.error("Failed to load programs.", error.message);
+  let query = supabase
+    .from("classes")
+    .select("*, class_sessions(*)")
+    .order("created_at", { ascending: false });
+
+  if (semesterId) {
+    query = query.eq("semester_id", semesterId);
   }
-  return data;
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Failed to load classes.", error.message);
+  }
+  return data ?? [];
+}
+
+/** @deprecated Use getClasses(). Legacy callers receive all classes. */
+export async function getSessions(_excludeSemesterId?: string) {
+  return getClasses();
 }
 
 export async function getUsers() {
@@ -117,7 +137,7 @@ export async function getUsers() {
             status,
             created_at
 
-          `
+          `,
     )
     .order("created_at", { ascending: true });
 
@@ -125,4 +145,30 @@ export async function getUsers() {
     console.error("Failed to load users.", error.message);
   }
   return data;
+}
+
+export async function getDiscounts(): Promise<HydratedDiscount[]> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("discounts")
+    .select(
+      `
+      *,
+      discount_rules (*),
+      discount_rule_sessions (
+        session_id,
+        class_sessions!session_id (
+          id,
+          classes ( name )
+        )
+        )
+        `,
+    )
+
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("Failed to load discounts.", error.message);
+  }
+  return data ?? [];
 }
