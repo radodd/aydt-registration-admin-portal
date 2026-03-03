@@ -21,7 +21,7 @@ export interface CreateEPGPaymentSessionResult {
 }
 
 export async function createEPGPaymentSession(
-  input: CreateEPGPaymentSessionInput
+  input: CreateEPGPaymentSessionInput,
 ): Promise<CreateEPGPaymentSessionResult> {
   const { batchId, amountDueNow, semesterId, semesterName } = input;
 
@@ -42,7 +42,7 @@ export async function createEPGPaymentSession(
   if (batchErr || !batch) return { error: "Registration batch not found" };
   if (batch.status === "confirmed")
     return { error: "This registration has already been paid" };
-  if (batch.status !== "pending_payment")
+  if (batch.status !== "pending")
     return { error: "Registration batch is not in a payable state" };
 
   // 3. Idempotency check — return existing session if already initiated
@@ -63,7 +63,7 @@ export async function createEPGPaymentSession(
       // Re-fetch the existing session URL rather than creating a new EPG Order
       try {
         const session = await fetchEpgPaymentSession(
-          `${process.env.EPG_BASE_URL}/payment-sessions/${existing.payment_session_id}`
+          `${process.env.EPG_BASE_URL}/payment-sessions/${existing.payment_session_id}`,
         );
         if (session.url) return { paymentSessionUrl: session.url };
       } catch {
@@ -75,13 +75,14 @@ export async function createEPGPaymentSession(
   // 4. Construct callback URLs
   const headersList = await headers();
   const host = headersList.get("host") ?? "";
-  const proto =
-    process.env.NODE_ENV === "production" ? "https" : "http";
+  const proto = process.env.NODE_ENV === "production" ? "https" : "http";
   const siteUrl = process.env.SITE_URL ?? `${proto}://${host}`;
 
   const returnUrl = `${siteUrl}/register/confirmation?semester=${semesterId}&batch=${batchId}`;
   const cancelUrl = `${siteUrl}/register/payment?semester=${semesterId}&payment_cancelled=1`;
 
+  console.log("returnUrl:", returnUrl);
+  console.log("cancelUrl:", cancelUrl);
   // 5. Create EPG Order
   let order;
   try {
@@ -107,7 +108,17 @@ export async function createEPGPaymentSession(
       doThreeDSecure: true,
     });
   } catch (err) {
-    console.error("[EPG] createEpgPaymentSession failed:", err);
+    // console.error("[EPG] createEpgPaymentSession failed:", err);
+    console.error("[EPG] createEpgOrder failed:", {
+      batchId,
+      amountDueNow,
+      semesterName,
+      error: err,
+    });
+    if (err instanceof Error) {
+      console.error(err.message);
+      console.error(err.stack);
+    }
     return { error: "Failed to create payment session. Please try again." };
   }
 
@@ -123,7 +134,7 @@ export async function createEPGPaymentSession(
       state: "pending_authorization",
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "custom_reference" }
+    { onConflict: "custom_reference" },
   );
 
   if (upsertErr) {

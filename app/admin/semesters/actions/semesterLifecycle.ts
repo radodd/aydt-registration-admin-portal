@@ -46,8 +46,8 @@ export async function publishSemesterNow(semesterId: string) {
   // 1️⃣ Pre-flight: semester must have at least one class session
   const { count, error: countError } = await supabase
     .from("class_sessions")
-    .select("id, classes!inner(semester_id)", { count: "exact", head: true })
-    .eq("classes.semester_id", semesterId);
+    .select("id", { count: "exact", head: true })
+    .eq("semester_id", semesterId);
 
   if (countError) {
     throw new Error(countError.message);

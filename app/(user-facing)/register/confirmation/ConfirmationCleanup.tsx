@@ -19,6 +19,7 @@ export function ConfirmationCleanup({
     try {
       localStorage.removeItem(`aydt_cart_${semesterId}`);
       localStorage.removeItem(`aydt_registration_${semesterId}`);
+      sessionStorage.removeItem(`aydt_payment_batch_${semesterId}`);
     } catch {
       // localStorage unavailable — no-op
     }

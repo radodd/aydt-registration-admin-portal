@@ -13,7 +13,7 @@ export const runtime = "nodejs";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -39,12 +39,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const expectedRaw = `${process.env.EPG_WEBHOOK_USERNAME}:${process.env.EPG_WEBHOOK_PASSWORD}`;
   const expected = "Basic " + Buffer.from(expectedRaw).toString("base64");
 
+  console.log("[EPG WEBHOOK] received");
+
   let authValid = false;
   try {
     const expectedBuf = Buffer.from(expected);
     // Pad to same length before comparing to avoid length-based timing leak
     const actualBuf = Buffer.from(
-      authHeader.padEnd(expected.length, "\0").slice(0, expected.length)
+      authHeader.padEnd(expected.length, "\0").slice(0, expected.length),
     );
     authValid =
       expectedBuf.length === Buffer.from(authHeader).length &&
@@ -80,7 +82,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { eventType, resourceType, resource } = notification;
 
   console.log(
-    `[epg-webhook] notification id=${notification.id} eventType=${eventType} resourceType=${resourceType}`
+    `[epg-webhook] notification id=${notification.id} eventType=${eventType} resourceType=${resourceType}`,
   );
 
   // -------------------------------------------------------------------------
@@ -96,7 +98,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     "refundAuthorized",
   ];
 
-  if (resourceType !== "transaction" || !eventType || !trackedEvents.includes(eventType)) {
+  if (
+    resourceType !== "transaction" ||
+    !eventType ||
+    !trackedEvents.includes(eventType)
+  ) {
     return NextResponse.json({ ok: true });
   }
 
@@ -114,7 +120,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (err) {
     // EPG API down or credential issue — return 500 so EPG retries
     console.error("[epg-webhook] Failed to fetch transaction from EPG:", err);
-    return NextResponse.json({ error: "Failed to fetch transaction" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch transaction" },
+      { status: 500 },
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -136,14 +145,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .maybeSingle();
 
   if (!payment) {
-    console.warn(`[epg-webhook] No payment record for customReference=${batchId} — ignoring`);
+    console.warn(
+      `[epg-webhook] No payment record for customReference=${batchId} — ignoring`,
+    );
     return NextResponse.json({ ok: true });
   }
 
   // Skip if already in a terminal state (replay protection)
-  const terminalStates = ["authorized", "captured", "settled", "declined", "voided", "refunded"];
+  const terminalStates = [
+    "authorized",
+    "captured",
+    "settled",
+    "declined",
+    "voided",
+    "refunded",
+  ];
   if (terminalStates.includes(payment.state)) {
-    console.log(`[epg-webhook] Payment for batch ${batchId} already in terminal state ${payment.state} — skipping`);
+    console.log(
+      `[epg-webhook] Payment for batch ${batchId} already in terminal state ${payment.state} — skipping`,
+    );
     return NextResponse.json({ ok: true });
   }
 
@@ -152,7 +172,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // -------------------------------------------------------------------------
   const newState = epgEventTypeToPaymentState(eventType);
   if (!newState) {
-    console.warn(`[epg-webhook] Unrecognised eventType=${eventType} — skipping state update`);
+    console.warn(
+      `[epg-webhook] Unrecognised eventType=${eventType} — skipping state update`,
+    );
     return NextResponse.json({ ok: true });
   }
 
@@ -191,7 +213,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!batch) {
       // Already confirmed (duplicate webhook) — safe to return
-      console.log(`[epg-webhook] Batch ${batchId} already confirmed — skipping`);
+      console.log(
+        `[epg-webhook] Batch ${batchId} already confirmed — skipping`,
+      );
       return NextResponse.json({ ok: true });
     }
 
@@ -217,7 +241,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 9d. Send confirmation email (non-fatal)
     await sendConfirmationEmail(batchId, batch.semester_id, batch.parent_id);
 
-    console.log(`[epg-webhook] Batch ${batchId} confirmed (eventType=${eventType} txnId=${transaction.id})`);
+    console.log(
+      `[epg-webhook] Batch ${batchId} confirmed (eventType=${eventType} txnId=${transaction.id})`,
+    );
   }
 
   return NextResponse.json({ ok: true });
@@ -230,7 +256,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 async function sendConfirmationEmail(
   batchId: string,
   semesterId: string,
-  parentId: string | null
+  parentId: string | null,
 ): Promise<void> {
   try {
     const { data: semester } = await supabase
@@ -240,7 +266,9 @@ async function sendConfirmationEmail(
       .single();
 
     if (!semester?.confirmation_email) {
-      console.warn(`[epg-webhook] No confirmation_email configured for semester ${semesterId}`);
+      console.warn(
+        `[epg-webhook] No confirmation_email configured for semester ${semesterId}`,
+      );
       return;
     }
 
@@ -252,7 +280,9 @@ async function sendConfirmationEmail(
     };
 
     if (!emailTemplate.subject || !emailTemplate.htmlBody) {
-      console.warn(`[epg-webhook] confirmation_email template incomplete for semester ${semesterId}`);
+      console.warn(
+        `[epg-webhook] confirmation_email template incomplete for semester ${semesterId}`,
+      );
       return;
     }
 
@@ -271,7 +301,7 @@ async function sendConfirmationEmail(
     const { data: registrations } = await supabase
       .from("registrations")
       .select(
-        "id, dancer_id, dancers(first_name, last_name), class_sessions(classes(name))"
+        "id, dancer_id, dancers(first_name, last_name), class_sessions(classes(name))",
       )
       .eq("registration_batch_id", batchId);
 
@@ -280,7 +310,7 @@ async function sendConfirmationEmail(
         (registrations ?? []).map((r: any) => {
           const dancer = Array.isArray(r.dancers) ? r.dancers[0] : r.dancers;
           return dancer ? `${dancer.first_name} ${dancer.last_name}` : "Dancer";
-        })
+        }),
       ),
     ].join(", ");
 
@@ -296,7 +326,7 @@ async function sendConfirmationEmail(
               : session.classes
             : null;
           return cls?.name ?? "Class";
-        })
+        }),
       ),
     ].join(", ");
 
@@ -329,12 +359,12 @@ async function sendConfirmationEmail(
     });
 
     console.log(
-      `[epg-webhook] Confirmation email sent to ${parent.email} for batch ${batchId}`
+      `[epg-webhook] Confirmation email sent to ${parent.email} for batch ${batchId}`,
     );
   } catch (err) {
     console.error(
       `[epg-webhook] Failed to send confirmation email for batch ${batchId}:`,
-      err
+      err,
     );
   }
 }

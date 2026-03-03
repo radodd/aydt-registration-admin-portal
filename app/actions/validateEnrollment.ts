@@ -33,6 +33,8 @@ export async function validateEnrollment(
   const supabase = await createClient();
   const issues: EnrollmentValidationIssue[] = [];
 
+  console.log("Participants:", input.participants);
+
   const sessionIds = [...new Set(input.participants.map((p) => p.sessionId))];
 
   /* ---------------------------------------------------------------------- */
@@ -83,6 +85,8 @@ export async function validateEnrollment(
     }
     dancerSessions.get(p.dancerId)!.push(p.sessionId);
   }
+
+  console.log("Dancer sessions map:", dancerSessions);
 
   /* ---------------------------------------------------------------------- */
   /* 3. Time conflict check per dancer                                        */

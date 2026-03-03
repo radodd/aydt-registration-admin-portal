@@ -179,6 +179,30 @@ export async function createRegistrations(
 
   const familyId = (userProfile as any)?.family_id ?? null;
 
+  // 6.5. Cancel any stale pending batches for this parent+semester
+  // This prevents the time-conflict trigger from firing when the user retries
+  // with a different cart (new batchId) while old registrations hold seats.
+  const { data: staleBatches } = await supabase
+    .from("registration_batches")
+    .select("id")
+    .eq("parent_id", user.id)
+    .eq("semester_id", input.semesterId)
+    .eq("status", "pending")
+    .neq("id", input.batchId);
+
+  if (staleBatches?.length) {
+    const staleIds = staleBatches.map((b) => b.id as string);
+    await supabase
+      .from("registrations")
+      .update({ status: "cancelled" })
+      .in("registration_batch_id", staleIds)
+      .eq("status", "pending_payment");
+    await supabase
+      .from("registration_batches")
+      .update({ status: "failed" })
+      .in("id", staleIds);
+  }
+
   // 7. Insert registration_batches record
   const grandTotal = serverQuote?.grandTotal ?? 0;
   const amountDueNow = serverQuote?.amountDueNow ?? grandTotal;
@@ -202,8 +226,7 @@ export async function createRegistrations(
         dancerId: p.dancerId,
         sessionId: p.sessionId,
       })),
-      // Batch is pending until Converge webhook confirms payment (Phase 5)
-      status: "pending_payment",
+      status: "pending",
     });
 
   if (batchInsertError) {
@@ -220,12 +243,10 @@ export async function createRegistrations(
   const rows = input.participants.map((p) => ({
     dancer_id: p.dancerId,
     session_id: p.sessionId,
-    // Pending until payment webhook confirms (Phase 5)
-    status: "pending",
+    status: "pending_payment",
     total_amount: 0,
     hold_expires_at: holdExpiresAt,
-    batch_id: input.batchId,           // legacy idempotency column
-    registration_batch_id: input.batchId, // Phase 2 FK column
+    registration_batch_id: input.batchId,
   }));
 
   const { data: created, error: insertError } = await supabase

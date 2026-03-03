@@ -35,6 +35,30 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
 
+  // Stable batchId: same cart + retry = same ID, so createRegistrations()
+  // idempotency guard returns existing registrations without duplicate DB inserts.
+  // If cart assignments change the fingerprint shifts, a new ID is generated,
+  // and the stale batch is cleaned up by createRegistrations() on the next call.
+  const [batchId] = useState<string>(() => {
+    const fingerprint = state.participants
+      .filter((p) => p.dancerId)
+      .map((p) => `${p.dancerId}:${p.sessionId}`)
+      .sort()
+      .join("|");
+    const key = `aydt_payment_batch_${semesterId}`;
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(key) ?? "null");
+      if (stored?.fingerprint === fingerprint && stored?.batchId) {
+        return stored.batchId as string;
+      }
+    } catch {}
+    const id = crypto.randomUUID();
+    try {
+      sessionStorage.setItem(key, JSON.stringify({ batchId: id, fingerprint }));
+    } catch {}
+    return id;
+  });
+
   const { secondsRemaining, isExpired } = useCart();
 
   // Guard: if registration was already completed, redirect to confirmation.
@@ -132,7 +156,6 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
       return;
     }
 
-    const batchId = crypto.randomUUID();
     setPaymentIntent("", batchId);
 
     const result = await createRegistrations({
