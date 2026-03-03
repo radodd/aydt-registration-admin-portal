@@ -43,13 +43,20 @@ export async function publishSemesterNow(semesterId: string) {
   const supabase = await createClient();
   const now = new Date().toISOString();
 
-  // 1️⃣ Run canonical publish logic
-  const { error: rpcError } = await supabase.rpc("publish_semester", {
-    p_semester_id: semesterId,
-  });
+  // 1️⃣ Pre-flight: semester must have at least one class session
+  const { count, error: countError } = await supabase
+    .from("class_sessions")
+    .select("id, classes!inner(semester_id)", { count: "exact", head: true })
+    .eq("classes.semester_id", semesterId);
 
-  if (rpcError) {
-    throw new Error(rpcError.message);
+  if (countError) {
+    throw new Error(countError.message);
+  }
+
+  if (!count || count === 0) {
+    throw new Error(
+      "Cannot publish: this semester has no class sessions. Add at least one class with a session before publishing.",
+    );
   }
 
   // 2️⃣ Lifecycle mutation

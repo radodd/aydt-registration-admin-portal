@@ -2,7 +2,10 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { RegistrationProvider, useRegistration } from "@/app/providers/RegistrationProvider";
+import {
+  RegistrationProvider,
+  useRegistration,
+} from "@/app/providers/RegistrationProvider";
 import { CartRestoreGuard } from "../CartRestoreGuard";
 import { useCart } from "@/app/providers/CartProvider";
 import { createRegistrations } from "../actions/createRegistrations";
@@ -173,8 +176,7 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
 
     if (paymentResult.error || !paymentResult.paymentSessionUrl) {
       setError(
-        paymentResult.error ??
-          "Could not initiate payment. Please try again.",
+        paymentResult.error ?? "Could not initiate payment. Please try again.",
       );
       setProcessing(false);
       return;
@@ -202,8 +204,7 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
       {/* Cart hold countdown — warn when < 5 minutes remain */}
       {!state.isPreview && secondsRemaining > 0 && secondsRemaining < 300 && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 font-medium">
-          Your cart reservation expires in{" "}
-          {Math.floor(secondsRemaining / 60)}:
+          Your cart reservation expires in {Math.floor(secondsRemaining / 60)}:
           {String(secondsRemaining % 60).padStart(2, "0")}. Complete your
           registration before the hold is released.
         </div>
@@ -259,11 +260,7 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
                         className="flex justify-between text-sm text-gray-700"
                       >
                         <span>{li.label}</span>
-                        <span
-                          className={
-                            li.amount < 0 ? "text-green-600" : ""
-                          }
-                        >
+                        <span className={li.amount < 0 ? "text-green-600" : ""}>
                           {formatCurrency(li.amount)}
                         </span>
                       </div>
@@ -318,10 +315,13 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
                     >
                       <span>
                         Payment {inst.installmentNumber} —{" "}
-                        {new Date(inst.dueDate + "T00:00:00").toLocaleDateString(
-                          "en-US",
-                          { month: "short", day: "numeric", year: "numeric" },
-                        )}
+                        {new Date(
+                          inst.dueDate + "T00:00:00",
+                        ).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
                       </span>
                       <span>{formatCurrency(inst.amountDue)}</span>
                     </div>
@@ -384,7 +384,8 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
           </p>
         ) : (
           <p className="text-sm text-gray-400">
-            Payment will be processed via Converge. Integration coming soon.
+            You will be redirected to a secure Elavon payment page to complete
+            your payment.
           </p>
         )}
       </div>
@@ -432,9 +433,9 @@ function PaymentPageInner() {
 
   return (
     <CartRestoreGuard semesterId={semesterId}>
-      <RegistrationProvider semesterId={semesterId}>
-        <PaymentContent semesterId={semesterId} />
-      </RegistrationProvider>
+      {/* <RegistrationProvider semesterId={semesterId}> */}
+      <PaymentContent semesterId={semesterId} />
+      {/* </RegistrationProvider> */}
     </CartRestoreGuard>
   );
 }

@@ -5,11 +5,18 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createClient } from "@/utils/supabase/client";
-import { RegistrationProvider, useRegistration } from "@/app/providers/RegistrationProvider";
+import {
+  RegistrationProvider,
+  useRegistration,
+} from "@/app/providers/RegistrationProvider";
 import { CartRestoreGuard } from "../CartRestoreGuard";
 import { useCart } from "@/app/providers/CartProvider";
 import { createDancer } from "../actions/createDancer";
-import { computeAge, newDancerSchema, type NewDancerInput } from "@/lib/schemas/registration";
+import {
+  computeAge,
+  newDancerSchema,
+  type NewDancerInput,
+} from "@/lib/schemas/registration";
 import { detectTimeConflicts } from "@/utils/detectTimeConflicts";
 import type { ParticipantAssignment } from "@/types/public";
 import type { ConflictDetail, Dancer, SessionScheduleInfo } from "@/types";
@@ -40,7 +47,11 @@ function DancerSelector({
   familyId,
 }: DancerSelectorProps) {
   const [mode, setMode] = useState<"select" | "create">(
-    assignment?.dancerId ? "select" : existingDancers.length === 0 ? "create" : "select",
+    assignment?.dancerId
+      ? "select"
+      : existingDancers.length === 0
+        ? "create"
+        : "select",
   );
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -56,7 +67,9 @@ function DancerSelector({
 
   const dobValue = watch("dateOfBirth");
 
-  function validateAge(dob: string): "valid" | "warning" | "error" | "unchecked" {
+  function validateAge(
+    dob: string,
+  ): "valid" | "warning" | "error" | "unchecked" {
     if (!dob) return "unchecked";
     const age = computeAge(dob);
     if (minAge != null && age < minAge) return "error";
@@ -96,7 +109,7 @@ function DancerSelector({
   const ageStatus =
     assignment?.dancerId && dobValue
       ? validateAge(dobValue)
-      : assignment?.ageStatus ?? "unchecked";
+      : (assignment?.ageStatus ?? "unchecked");
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-5">
@@ -215,9 +228,7 @@ function DancerSelector({
             </select>
           </div>
 
-          {createError && (
-            <p className="text-xs text-red-600">{createError}</p>
-          )}
+          {createError && <p className="text-xs text-red-600">{createError}</p>}
 
           <button
             type="submit"
@@ -269,17 +280,22 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
   );
 
   // Session schedule info fetched from DB — used for client-side conflict detection
-  const [scheduleMap, setScheduleMap] = useState<Map<string, SessionScheduleInfo>>(
-    new Map(),
-  );
+  const [scheduleMap, setScheduleMap] = useState<
+    Map<string, SessionScheduleInfo>
+  >(new Map());
 
   // Load existing dancers for this family
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      console.log("[Participants] Auth user:", user ? user.id : "NOT LOGGED IN");
+      console.log(
+        "[Participants] Auth user:",
+        user ? user.id : "NOT LOGGED IN",
+      );
       if (!user) {
-        console.warn("[Participants] No authenticated user — dancer list will be empty.");
+        console.warn(
+          "[Participants] No authenticated user — dancer list will be empty.",
+        );
         setLoading(false);
         return;
       }
@@ -289,7 +305,12 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
         .eq("id", user.id)
         .single();
 
-      console.log("[Participants] userRecord:", userRecord, "error:", userError?.message ?? null);
+      console.log(
+        "[Participants] userRecord:",
+        userRecord,
+        "error:",
+        userError?.message ?? null,
+      );
 
       if (userRecord?.family_id) {
         setFamilyId(userRecord.family_id);
@@ -298,10 +319,17 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
           .select("id, first_name, last_name, birth_date, gender")
           .eq("family_id", userRecord.family_id)
           .order("first_name");
-        console.log("[Participants] Dancers loaded:", dancerRows?.length ?? 0, "error:", dancerError?.message ?? null);
+        console.log(
+          "[Participants] Dancers loaded:",
+          dancerRows?.length ?? 0,
+          "error:",
+          dancerError?.message ?? null,
+        );
         setDancers((dancerRows as Dancer[]) ?? []);
       } else {
-        console.warn("[Participants] No family_id on userRecord — can't load dancers.");
+        console.warn(
+          "[Participants] No family_id on userRecord — can't load dancers.",
+        );
       }
       setLoading(false);
     });
@@ -370,14 +398,19 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
   const hasConflicts = conflictsByDancer.size > 0;
 
   const allAssigned = items.every((item) =>
-    assignments.some(
-      (a) => a.sessionId === item.sessionId && a.dancerId,
-    ),
+    assignments.some((a) => a.sessionId === item.sessionId && a.dancerId),
   );
 
   function handleContinue() {
     console.log("[Participants] handleContinue — assignments:", assignments);
-    console.log("[Participants] allAssigned:", allAssigned, "hasConflicts:", hasConflicts, "cartItems:", items.length);
+    console.log(
+      "[Participants] allAssigned:",
+      allAssigned,
+      "hasConflicts:",
+      hasConflicts,
+      "cartItems:",
+      items.length,
+    );
     // Enrich each assignment with the selectedDayIds from the corresponding cart item
     const enriched = assignments.map((a) => {
       const cartItem = items.find((i) => i.sessionId === a.sessionId);
@@ -391,7 +424,10 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
     return (
       <div className="space-y-4 animate-pulse">
         {[1, 2].map((i) => (
-          <div key={i} className="bg-white border border-gray-200 rounded-2xl p-5 h-40" />
+          <div
+            key={i}
+            className="bg-white border border-gray-200 rounded-2xl p-5 h-40"
+          />
         ))}
       </div>
     );
@@ -414,8 +450,9 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
           <p className="font-semibold mb-2">Schedule conflicts detected</p>
           {[...conflictsByDancer.values()].flat().map((conflict, i) => (
             <p key={i} className="text-xs mt-1">
-              "{conflict.sessionA.className}" and "{conflict.sessionB.className}" overlap on{" "}
-              {conflict.sessionA.dayOfWeek}. Please go back and remove one session to continue.
+              "{conflict.sessionA.className}" and "{conflict.sessionB.className}
+              " overlap on {conflict.sessionA.dayOfWeek}. Please go back and
+              remove one session to continue.
             </p>
           ))}
         </div>
@@ -468,9 +505,9 @@ function ParticipantsPageInner() {
 
   return (
     <CartRestoreGuard semesterId={semesterId}>
-      <RegistrationProvider semesterId={semesterId}>
-        <ParticipantsContent semesterId={semesterId} />
-      </RegistrationProvider>
+      {/* <RegistrationProvider semesterId={semesterId}> */}
+      <ParticipantsContent semesterId={semesterId} />
+      {/* </RegistrationProvider> */}
     </CartRestoreGuard>
   );
 }

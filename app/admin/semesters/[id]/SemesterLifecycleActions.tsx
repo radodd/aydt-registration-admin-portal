@@ -23,48 +23,84 @@ export default function SemesterLifecycleActions({
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [scheduledDate, setScheduledDate] = useState<string>("");
+  const [actionError, setActionError] = useState<string | null>(null);
 
   function handlePublishNow() {
+    setActionError(null);
     startTransition(async () => {
-      await publishSemesterNow(semesterId);
+      try {
+        await publishSemesterNow(semesterId);
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : "Failed to publish.");
+      }
     });
   }
 
   function handleSaveDraft() {
+    setActionError(null);
     startTransition(async () => {
-      await saveSemesterDraft(semesterId);
+      try {
+        await saveSemesterDraft(semesterId);
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : "Failed to save draft.");
+      }
     });
   }
 
   function handleSchedule() {
     if (!scheduledDate) return;
-
+    setActionError(null);
     startTransition(async () => {
-      await scheduleSemester(semesterId, scheduledDate);
+      try {
+        await scheduleSemester(semesterId, scheduledDate);
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : "Failed to schedule.");
+      }
     });
   }
 
   function handleArchive() {
+    setActionError(null);
     startTransition(async () => {
-      await archiveSemester(semesterId);
+      try {
+        await archiveSemester(semesterId);
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : "Failed to archive.");
+      }
     });
   }
 
   function handleUnpublish() {
+    setActionError(null);
     startTransition(async () => {
-      await unpublishSemester(semesterId);
+      try {
+        await unpublishSemester(semesterId);
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : "Failed to unpublish.");
+      }
     });
   }
 
   function handleRestore() {
+    setActionError(null);
     startTransition(async () => {
-      await restoreSemester(semesterId);
+      try {
+        await restoreSemester(semesterId);
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : "Failed to restore.");
+      }
     });
   }
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-6">
       <h2 className="text-lg font-semibold">Lifecycle Controls</h2>
+
+      {actionError && (
+        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
 
       {/* Current Status */}
       <div className="text-sm text-gray-600">

@@ -4,7 +4,10 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { RegistrationProvider, useRegistration } from "@/app/providers/RegistrationProvider";
+import {
+  RegistrationProvider,
+  useRegistration,
+} from "@/app/providers/RegistrationProvider";
 import { CartRestoreGuard } from "../CartRestoreGuard";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
 import { buildDynamicFormSchema } from "@/lib/schemas/registration";
@@ -199,10 +202,14 @@ function FormContent({ semesterId }: { semesterId: string }) {
     // No form elements — skip this step automatically
     return (
       <div className="text-center py-10">
-        <p className="text-gray-500 mb-4">No additional information required.</p>
+        <p className="text-gray-500 mb-4">
+          No additional information required.
+        </p>
         <button
           type="button"
-          onClick={() => router.push(`/register/payment?semester=${semesterId}`)}
+          onClick={() =>
+            router.push(`/register/payment?semester=${semesterId}`)
+          }
           className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm"
         >
           Continue to Payment
@@ -253,9 +260,9 @@ function FormPageInner() {
 
   return (
     <CartRestoreGuard semesterId={semesterId}>
-      <RegistrationProvider semesterId={semesterId}>
-        <FormContent semesterId={semesterId} />
-      </RegistrationProvider>
+      {/* <RegistrationProvider semesterId={semesterId}> */}
+      <FormContent semesterId={semesterId} />
+      {/* </RegistrationProvider> */}
     </CartRestoreGuard>
   );
 }

@@ -1,8 +1,11 @@
+"use client";
+import { RegistrationProvider } from "@/app/providers/RegistrationProvider";
 import type { Metadata } from "next";
+import { useSearchParams } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Registration — AYDT",
-};
+// export const metadata: Metadata = {
+//   title: "Registration — AYDT",
+// };
 
 const STEPS = [
   { key: "email", label: "Account" },
@@ -22,6 +25,8 @@ export default function RegisterLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const params = useSearchParams();
+  const semesterId = params.get("semester") ?? "";
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Step indicator bar */}
@@ -48,7 +53,9 @@ export default function RegisterLayout({
       </div>
 
       {/* Page content */}
-      <div className="max-w-2xl mx-auto px-6 py-10">{children}</div>
+      <RegistrationProvider semesterId={semesterId}>
+        <div className="max-w-2xl mx-auto px-6 py-10">{children}</div>
+      </RegistrationProvider>
     </div>
   );
 }
