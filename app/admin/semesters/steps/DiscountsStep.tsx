@@ -120,9 +120,9 @@ export default function DiscountsStep({
             <div className="bg-white rounded-2xl shadow-lg p-8 max-w-2xl w-full mx-4">
               <CreateDiscountForm
                 sessions={(state.sessions?.classes ?? []).flatMap((cls) =>
-                  cls.sessions.map((cs) => ({
+                  (cls.schedules ?? []).map((cs) => ({
                     id: cs.id ?? "",
-                    name: `${cls.name} — ${cs.dayOfWeek.charAt(0).toUpperCase() + cs.dayOfWeek.slice(1)}`,
+                    name: `${cls.name} — ${cs.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}`,
                   })),
                 )}
                 onCreated={async () => {

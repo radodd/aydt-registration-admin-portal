@@ -91,10 +91,10 @@ export async function computePricingQuote(
   for (const { dancerId, dancerName: dancerNameOverride, sessionIds } of input.enrollments) {
     if (sessionIds.length === 0) continue;
 
-    // Fetch the class for each session (to get division)
+    // Fetch the class + schedule_date for each session (schedule_date drives per-day pricing)
     const { data: sessionRows, error: sessionError } = await supabase
       .from("class_sessions")
-      .select("id, classes(id, name, division, is_competition_track)")
+      .select("id, schedule_date, day_of_week, classes(id, name, division, is_competition_track)")
       .in("id", sessionIds);
 
     if (sessionError) throw new Error(sessionError.message);
@@ -137,53 +137,105 @@ export async function computePricingQuote(
 
     const division = resolveDivision(divisions);
 
-    // Weekly class count = number of enrolled sessions (each session = 1 class/week)
-    const weeklyClassCount = sessionIds.length;
+    // Per-day model: weekly class count = distinct (class_id, day_of_week) pairs.
+    // Legacy model: weekly class count = total enrolled sessions.
+    const isPerDayModel = sessionRows.some((s) => (s as any).schedule_date !== null);
+    let weeklyClassCount: number;
+    if (isPerDayModel) {
+      const classDayPairs = new Set(
+        sessionRows.map((s) => {
+          const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+          return `${(cls as any)?.id ?? ""}:${(s as any).day_of_week ?? ""}`;
+        }),
+      );
+      weeklyClassCount = classDayPairs.size;
+    } else {
+      weeklyClassCount = sessionIds.length;
+    }
 
-    // Look up tuition rate band
-    const { data: rateBand, error: bandError } = await supabase
-      .from("tuition_rate_bands")
-      .select("base_tuition, recital_fee_included")
-      .eq("semester_id", input.semesterId)
-      .eq("division", division)
-      .eq("weekly_class_count", weeklyClassCount)
-      .maybeSingle();
+    // Dual-path pricing: check for per-session price rows first,
+    // fall back to tuition_rate_bands for sessions without explicit prices.
+    const { data: priceRowsData, error: priceRowsError } = await supabase
+      .from("class_session_price_rows")
+      .select("class_session_id, amount")
+      .in("class_session_id", sessionIds)
+      .eq("is_default", true);
 
-    if (bandError) throw new Error(bandError.message);
-    if (!rateBand) {
-      throw new Error(
-        `No tuition rate configured for division="${division}", ` +
-          `weekly_class_count=${weeklyClassCount} in semester ${input.semesterId}. ` +
-          `Please configure tuition rate bands in the semester's Payment step.`,
+    if (priceRowsError) throw new Error(priceRowsError.message);
+
+    const priceRowMap = new Map<string, number>();
+    for (const row of priceRowsData ?? []) {
+      priceRowMap.set(row.class_session_id as string, Number(row.amount));
+    }
+
+    const perSessionIds = sessionIds.filter((id) => priceRowMap.has(id));
+    const rateBandIds = sessionIds.filter((id) => !priceRowMap.has(id));
+
+    const lineItems: LineItem[] = [];
+    let tuition = 0;
+    let recitalFee = 0;
+
+    // Per-session priced sessions (additive, no recital fee)
+    if (perSessionIds.length > 0) {
+      const perSessionTotal = round2(
+        perSessionIds.reduce((sum, id) => sum + priceRowMap.get(id)!, 0),
+      );
+      tuition += perSessionTotal;
+      lineItems.push({
+        type: "tuition",
+        label: `Tuition (${perSessionIds.length} session${perSessionIds.length !== 1 ? "s" : ""}, per-session pricing)`,
+        amount: perSessionTotal,
+      });
+    }
+
+    // Rate-band sessions (use division + count of this subset)
+    if (rateBandIds.length > 0) {
+      const bandCount = rateBandIds.length;
+      const { data: rateBand, error: bandError } = await supabase
+        .from("tuition_rate_bands")
+        .select("base_tuition, recital_fee_included")
+        .eq("semester_id", input.semesterId)
+        .eq("division", division)
+        .eq("weekly_class_count", bandCount)
+        .maybeSingle();
+
+      if (bandError) throw new Error(bandError.message);
+      if (!rateBand) {
+        throw new Error(
+          `No tuition rate configured for division="${division}", ` +
+            `weekly_class_count=${bandCount} in semester ${input.semesterId}. ` +
+            `Please configure tuition rate bands in the semester's Payment step.`,
+        );
+      }
+
+      const bandTotal = Number(rateBand.base_tuition);
+      const bandRecital = Number(rateBand.recital_fee_included);
+      tuition += bandTotal;
+      recitalFee += bandRecital;
+      lineItems.push(
+        {
+          type: "tuition",
+          label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
+          amount: round2(bandTotal - bandRecital),
+        },
+        { type: "recital_fee", label: "Recital Fee", amount: bandRecital },
       );
     }
 
-    const tuition = Number(rateBand.base_tuition);
-    const recitalFee = Number(rateBand.recital_fee_included);
-    const tuitionBase = round2(tuition - recitalFee);
     const registrationFee = feeConfig.registration_fee_per_child;
-
-    const lineItems: LineItem[] = [
-      {
-        type: "tuition",
-        label: `Tuition (${divisionLabel(division)}, ${weeklyClassCount}x/week)`,
-        amount: tuitionBase,
-      },
-      { type: "recital_fee", label: "Recital Fee", amount: recitalFee },
-      {
-        type: "registration_fee",
-        label: "Registration Fee",
-        amount: registrationFee,
-      },
-    ];
+    lineItems.push({
+      type: "registration_fee",
+      label: "Registration Fee",
+      amount: registrationFee,
+    });
 
     perDancer.push({
       dancerId,
       dancerName,
       division,
       weeklyClassCount,
-      tuition,
-      recitalFee,
+      tuition: round2(tuition),
+      recitalFee: round2(recitalFee),
       registrationFee,
       lineItems,
     });

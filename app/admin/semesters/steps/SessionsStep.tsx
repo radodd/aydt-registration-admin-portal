@@ -1,6 +1,14 @@
 "use client";
 
-import { DraftClass, DraftClassRequirement, DraftClassSession, SessionsStepProps } from "@/types";
+import {
+  DraftClass,
+  DraftClassRequirement,
+  DraftClassSchedule,
+  DraftSessionExcludedDate,
+  DraftSessionOption,
+  DraftSessionPriceRow,
+  SessionsStepProps,
+} from "@/types";
 import { useState } from "react";
 
 /* -------------------------------------------------------------------------- */
@@ -41,32 +49,84 @@ const DAYS_OF_WEEK = [
 /* Empty scaffolds                                                            */
 /* -------------------------------------------------------------------------- */
 
-function emptySession(): DraftClassSession {
+function emptySchedule(): DraftClassSchedule {
   return {
-    dayOfWeek: "monday",
+    _clientKey: Date.now().toString() + Math.random(),
+    daysOfWeek: [],
     startTime: "",
     endTime: "",
     startDate: "",
     endDate: "",
     location: "",
+    instructorName: "",
     capacity: undefined,
     registrationCloseAt: null,
+    registrationOpenAt: null,
+    genderRestriction: null,
+    urgencyThreshold: null,
+    priceRows: [],
+    options: [],
+    excludedDates: [],
   };
 }
 
 function emptyClass(): DraftClass {
   return {
     name: "",
+    displayName: "",
     discipline: "ballet",
     division: "junior",
     level: "",
     description: "",
     minAge: undefined,
     maxAge: undefined,
+    minGrade: undefined,
+    maxGrade: undefined,
     isCompetitionTrack: false,
     requiresTeacherRec: false,
-    sessions: [emptySession()],
+    schedules: [emptySchedule()],
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Generated sessions preview helper                                          */
+/* -------------------------------------------------------------------------- */
+
+function computeGeneratedCount(schedule: DraftClassSchedule): number {
+  if (
+    !schedule.startDate ||
+    !schedule.endDate ||
+    schedule.daysOfWeek.length === 0
+  )
+    return 0;
+  const start = new Date(schedule.startDate + "T00:00:00");
+  const end = new Date(schedule.endDate + "T00:00:00");
+  if (end < start) return 0;
+
+  const excludedSet = new Set(
+    (schedule.excludedDates ?? []).map((d) => d.date),
+  );
+  const dayNames = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
+
+  let count = 0;
+  const cur = new Date(start);
+  while (cur <= end) {
+    const dayName = dayNames[cur.getDay()];
+    if (schedule.daysOfWeek.includes(dayName)) {
+      const dateStr = cur.toISOString().slice(0, 10);
+      if (!excludedSet.has(dateStr)) count++;
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return count;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -110,44 +170,46 @@ export default function SessionsStep({
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Session-level handlers                                                  */
+  /* Schedule-level handlers                                                 */
   /* ---------------------------------------------------------------------- */
 
-  function handleAddSession(classIdx: number) {
+  function handleAddSchedule(classIdx: number) {
     setClasses((prev) =>
       prev.map((c, i) =>
         i === classIdx
-          ? { ...c, sessions: [...c.sessions, emptySession()] }
+          ? { ...c, schedules: [...(c.schedules ?? []), emptySchedule()] }
           : c,
       ),
     );
   }
 
-  function handleRemoveSession(classIdx: number, sessionIdx: number) {
+  function handleRemoveSchedule(classIdx: number, scheduleIdx: number) {
     setClasses((prev) =>
       prev.map((c, i) =>
         i === classIdx
           ? {
               ...c,
-              sessions: c.sessions.filter((_, si) => si !== sessionIdx),
+              schedules: (c.schedules ?? []).filter(
+                (_, si) => si !== scheduleIdx,
+              ),
             }
           : c,
       ),
     );
   }
 
-  function handleUpdateSession(
+  function handleUpdateSchedule(
     classIdx: number,
-    sessionIdx: number,
-    patch: Partial<DraftClassSession>,
+    scheduleIdx: number,
+    patch: Partial<DraftClassSchedule>,
   ) {
     setClasses((prev) =>
       prev.map((c, i) =>
         i === classIdx
           ? {
               ...c,
-              sessions: c.sessions.map((s, si) =>
-                si === sessionIdx ? { ...s, ...patch } : s,
+              schedules: (c.schedules ?? []).map((s, si) =>
+                si === scheduleIdx ? { ...s, ...patch } : s,
               ),
             }
           : c,
@@ -173,18 +235,18 @@ export default function SessionsStep({
       {/* Header */}
       <div>
         <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">
-          Classes &amp; Sessions
+          Classes &amp; Schedules
         </h2>
         <p className="text-sm text-gray-500 mt-1">
           Create the classes offered this semester. Each class can have one or
-          more weekly sessions (day/time slots). Students enroll in individual
-          sessions.
+          more schedule blocks (day/time/date range). The system generates
+          individual sessions for each calendar date automatically.
         </p>
       </div>
 
       {isLocked && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-          This semester has active registrations. Classes and sessions are
+          This semester has active registrations. Classes and schedules are
           locked.
         </div>
       )}
@@ -213,19 +275,25 @@ export default function SessionsStep({
             }
             onUpdateClass={(patch) => handleUpdateClass(classIdx, patch)}
             onRemoveClass={() => handleRemoveClass(classIdx)}
-            onAddSession={() => handleAddSession(classIdx)}
-            onUpdateSession={(sessionIdx, patch) =>
-              handleUpdateSession(classIdx, sessionIdx, patch)
+            onAddSchedule={() => handleAddSchedule(classIdx)}
+            onUpdateSchedule={(scheduleIdx, patch) =>
+              handleUpdateSchedule(classIdx, scheduleIdx, patch)
             }
-            onRemoveSession={(sessionIdx) =>
-              handleRemoveSession(classIdx, sessionIdx)
+            onRemoveSchedule={(scheduleIdx) =>
+              handleRemoveSchedule(classIdx, scheduleIdx)
             }
-            onAddRequirement={(req) => handleUpdateClass(classIdx, {
-              requirements: [...(cls.requirements ?? []), req],
-            })}
-            onRemoveRequirement={(reqIdx) => handleUpdateClass(classIdx, {
-              requirements: (cls.requirements ?? []).filter((_, i) => i !== reqIdx),
-            })}
+            onAddRequirement={(req) =>
+              handleUpdateClass(classIdx, {
+                requirements: [...(cls.requirements ?? []), req],
+              })
+            }
+            onRemoveRequirement={(reqIdx) =>
+              handleUpdateClass(classIdx, {
+                requirements: (cls.requirements ?? []).filter(
+                  (_, i) => i !== reqIdx,
+                ),
+              })
+            }
           />
         ))}
       </div>
@@ -272,9 +340,9 @@ function ClassCard({
   onToggle,
   onUpdateClass,
   onRemoveClass,
-  onAddSession,
-  onUpdateSession,
-  onRemoveSession,
+  onAddSchedule,
+  onUpdateSchedule,
+  onRemoveSchedule,
   onAddRequirement,
   onRemoveRequirement,
 }: {
@@ -285,13 +353,14 @@ function ClassCard({
   onToggle: () => void;
   onUpdateClass: (patch: Partial<DraftClass>) => void;
   onRemoveClass: () => void;
-  onAddSession: () => void;
-  onUpdateSession: (idx: number, patch: Partial<DraftClassSession>) => void;
-  onRemoveSession: (idx: number) => void;
+  onAddSchedule: () => void;
+  onUpdateSchedule: (idx: number, patch: Partial<DraftClassSchedule>) => void;
+  onRemoveSchedule: (idx: number) => void;
   onAddRequirement: (req: DraftClassRequirement) => void;
   onRemoveRequirement: (idx: number) => void;
 }) {
-  const sessionCount = cls.sessions.length;
+  const schedules = cls.schedules ?? [];
+  const scheduleCount = schedules.length;
   const disciplineLabel =
     DISCIPLINES.find((d) => d.value === cls.discipline)?.label ?? cls.discipline;
   const divisionLabel =
@@ -326,7 +395,7 @@ function ClassCard({
               {disciplineLabel} · {divisionLabel}
               {cls.level ? ` · Level ${cls.level}` : ""}
               {" · "}
-              {sessionCount} session{sessionCount !== 1 ? "s" : ""}
+              {scheduleCount} schedule block{scheduleCount !== 1 ? "s" : ""}
             </p>
           </div>
         </div>
@@ -360,6 +429,22 @@ function ClassCard({
                 value={cls.name}
                 onChange={(e) => onUpdateClass({ name: e.target.value })}
                 placeholder="e.g. Ballet 1A"
+                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
+                Display name
+              </label>
+              <input
+                type="text"
+                disabled={isLocked}
+                value={cls.displayName ?? ""}
+                onChange={(e) =>
+                  onUpdateClass({ displayName: e.target.value || undefined })
+                }
+                placeholder="Public-facing name (defaults to class name if blank)"
                 className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
@@ -408,7 +493,9 @@ function ClassCard({
                 type="text"
                 disabled={isLocked}
                 value={cls.level ?? ""}
-                onChange={(e) => onUpdateClass({ level: e.target.value || undefined })}
+                onChange={(e) =>
+                  onUpdateClass({ level: e.target.value || undefined })
+                }
                 placeholder="e.g. 1A, 2, Advanced"
                 className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
               />
@@ -426,7 +513,9 @@ function ClassCard({
                   value={cls.minAge ?? ""}
                   onChange={(e) =>
                     onUpdateClass({
-                      minAge: e.target.value ? Number(e.target.value) : undefined,
+                      minAge: e.target.value
+                        ? Number(e.target.value)
+                        : undefined,
                     })
                   }
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
@@ -443,10 +532,55 @@ function ClassCard({
                   value={cls.maxAge ?? ""}
                   onChange={(e) =>
                     onUpdateClass({
-                      maxAge: e.target.value ? Number(e.target.value) : undefined,
+                      maxAge: e.target.value
+                        ? Number(e.target.value)
+                        : undefined,
                     })
                   }
                   className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-end gap-6">
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
+                  Min grade
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  disabled={isLocked}
+                  value={cls.minGrade ?? ""}
+                  onChange={(e) =>
+                    onUpdateClass({
+                      minGrade: e.target.value
+                        ? Number(e.target.value)
+                        : undefined,
+                    })
+                  }
+                  placeholder="K=0"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
+                  Max grade
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  disabled={isLocked}
+                  value={cls.maxGrade ?? ""}
+                  onChange={(e) =>
+                    onUpdateClass({
+                      maxGrade: e.target.value
+                        ? Number(e.target.value)
+                        : undefined,
+                    })
+                  }
+                  placeholder="12"
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
                 />
               </div>
             </div>
@@ -459,7 +593,9 @@ function ClassCard({
             <textarea
               disabled={isLocked}
               value={cls.description ?? ""}
-              onChange={(e) => onUpdateClass({ description: e.target.value || undefined })}
+              onChange={(e) =>
+                onUpdateClass({ description: e.target.value || undefined })
+              }
               rows={2}
               className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
             />
@@ -494,35 +630,37 @@ function ClassCard({
             </label>
           </div>
 
-          {/* Sessions */}
+          {/* Schedule blocks */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold text-gray-800">
-                Weekly Sessions
+                Schedule Blocks
               </h4>
               {!isLocked && (
                 <button
                   type="button"
-                  onClick={onAddSession}
+                  onClick={onAddSchedule}
                   className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
                 >
-                  + Add session
+                  + Add schedule block
                 </button>
               )}
             </div>
 
-            {cls.sessions.length === 0 && (
-              <p className="text-xs text-gray-400 italic">No sessions yet.</p>
+            {schedules.length === 0 && (
+              <p className="text-xs text-gray-400 italic">
+                No schedule blocks yet.
+              </p>
             )}
 
-            {cls.sessions.map((session, sessionIdx) => (
-              <SessionRow
-                key={sessionIdx}
-                session={session}
+            {schedules.map((schedule, scheduleIdx) => (
+              <ScheduleEditor
+                key={schedule._clientKey ?? scheduleIdx}
+                schedule={schedule}
                 isLocked={isLocked}
-                canRemove={cls.sessions.length > 0}
-                onChange={(patch) => onUpdateSession(sessionIdx, patch)}
-                onRemove={() => onRemoveSession(sessionIdx)}
+                canRemove={schedules.length > 0}
+                onChange={(patch) => onUpdateSchedule(scheduleIdx, patch)}
+                onRemove={() => onRemoveSchedule(scheduleIdx)}
               />
             ))}
           </div>
@@ -541,48 +679,193 @@ function ClassCard({
 }
 
 /* -------------------------------------------------------------------------- */
-/* SessionRow                                                                  */
+/* ScheduleEditor                                                              */
 /* -------------------------------------------------------------------------- */
 
-function SessionRow({
-  session,
+function ScheduleEditor({
+  schedule,
   isLocked,
   canRemove,
   onChange,
   onRemove,
 }: {
-  session: DraftClassSession;
+  schedule: DraftClassSchedule;
   isLocked: boolean;
   canRemove: boolean;
-  onChange: (patch: Partial<DraftClassSession>) => void;
+  onChange: (patch: Partial<DraftClassSchedule>) => void;
   onRemove: () => void;
 }) {
+  const [newExcludedDate, setNewExcludedDate] = useState("");
+  const [newExcludedReason, setNewExcludedReason] = useState("");
+  const [showPriceForm, setShowPriceForm] = useState(false);
+  const [draftPriceRow, setDraftPriceRow] = useState<{
+    label: string;
+    amount: string;
+    isDefault: boolean;
+  }>({
+    label: "",
+    amount: "",
+    isDefault: (schedule.priceRows ?? []).length === 0,
+  });
+  const [showOptionForm, setShowOptionForm] = useState(false);
+  const [draftOption, setDraftOption] = useState<{
+    name: string;
+    description: string;
+    price: string;
+    isRequired: boolean;
+  }>({
+    name: "",
+    description: "",
+    price: "0",
+    isRequired: false,
+  });
+
+  const priceRows = schedule.priceRows ?? [];
+  const options = schedule.options ?? [];
+  const excludedDates = schedule.excludedDates ?? [];
+  const generatedCount = computeGeneratedCount(schedule);
+
+  /* ---------------------------------------------------------------------- */
+  /* Day-of-week toggle                                                      */
+  /* ---------------------------------------------------------------------- */
+
+  function handleToggleDay(day: string) {
+    const current = schedule.daysOfWeek ?? [];
+    const updated = current.includes(day)
+      ? current.filter((d) => d !== day)
+      : [...current, day];
+    onChange({ daysOfWeek: updated });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Excluded dates                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  function handleAddExcludedDate() {
+    if (!newExcludedDate) return;
+    if (excludedDates.some((d) => d.date === newExcludedDate)) return;
+    onChange({
+      excludedDates: [
+        ...excludedDates,
+        { date: newExcludedDate, reason: newExcludedReason || undefined },
+      ],
+    });
+    setNewExcludedDate("");
+    setNewExcludedReason("");
+  }
+
+  function handleRemoveExcludedDate(date: string) {
+    onChange({ excludedDates: excludedDates.filter((d) => d.date !== date) });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Price rows                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  function handleAddPriceRow() {
+    if (!draftPriceRow.label.trim() || draftPriceRow.amount === "") return;
+    const amount = parseFloat(draftPriceRow.amount);
+    if (isNaN(amount) || amount < 0) return;
+    const newRow: DraftSessionPriceRow = {
+      _clientKey: Date.now().toString(),
+      label: draftPriceRow.label.trim(),
+      amount,
+      sortOrder: priceRows.length,
+      isDefault: draftPriceRow.isDefault || priceRows.length === 0,
+    };
+    const updated = draftPriceRow.isDefault
+      ? priceRows.map((r) => ({ ...r, isDefault: false }))
+      : [...priceRows];
+    onChange({ priceRows: [...updated, newRow] });
+    setDraftPriceRow({ label: "", amount: "", isDefault: false });
+    setShowPriceForm(false);
+  }
+
+  function handleSetDefaultPriceRow(clientKey: string) {
+    onChange({
+      priceRows: priceRows.map((r) => ({
+        ...r,
+        isDefault: r._clientKey === clientKey,
+      })),
+    });
+  }
+
+  function handleRemovePriceRow(clientKey: string) {
+    const updated = priceRows.filter((r) => r._clientKey !== clientKey);
+    if (updated.length > 0 && !updated.some((r) => r.isDefault)) {
+      updated[0] = { ...updated[0], isDefault: true };
+    }
+    onChange({ priceRows: updated });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Session options                                                         */
+  /* ---------------------------------------------------------------------- */
+
+  function handleAddOption() {
+    if (!draftOption.name.trim()) return;
+    const price = parseFloat(draftOption.price);
+    if (isNaN(price) || price < 0) return;
+    const newOpt: DraftSessionOption = {
+      _clientKey: Date.now().toString(),
+      name: draftOption.name.trim(),
+      description: draftOption.description || undefined,
+      price,
+      isRequired: draftOption.isRequired,
+      sortOrder: options.length,
+    };
+    onChange({ options: [...options, newOpt] });
+    setDraftOption({ name: "", description: "", price: "0", isRequired: false });
+    setShowOptionForm(false);
+  }
+
+  function handleRemoveOption(clientKey: string) {
+    onChange({ options: options.filter((o) => o._clientKey !== clientKey) });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Render                                                                  */
+  /* ---------------------------------------------------------------------- */
+
   return (
-    <div className="rounded-xl border border-gray-200 p-4 space-y-3 bg-gray-50/50">
-      {/* Row 1: Day + Start/End time */}
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Day *</label>
-          <select
-            disabled={isLocked}
-            value={session.dayOfWeek}
-            onChange={(e) => onChange({ dayOfWeek: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
-          >
-            {DAYS_OF_WEEK.map((d) => (
-              <option key={d.value} value={d.value}>
+    <div className="rounded-xl border border-gray-200 p-4 space-y-4 bg-gray-50/50">
+      {/* Days of week — multi-select checkboxes */}
+      <div>
+        <p className="text-xs text-gray-500 mb-1.5">Days *</p>
+        <div className="flex flex-wrap gap-1.5">
+          {DAYS_OF_WEEK.map((d) => {
+            const active = (schedule.daysOfWeek ?? []).includes(d.value);
+            return (
+              <button
+                key={d.value}
+                type="button"
+                disabled={isLocked}
+                onClick={() => handleToggleDay(d.value)}
+                className={`px-3 py-1 rounded-lg text-xs font-medium border transition
+                  ${active
+                    ? "bg-indigo-600 text-white border-indigo-600"
+                    : "bg-white text-gray-600 border-gray-300 hover:border-indigo-400"
+                  }
+                  disabled:opacity-50 disabled:cursor-default`}
+              >
                 {d.label}
-              </option>
-            ))}
-          </select>
+              </button>
+            );
+          })}
         </div>
+      </div>
+
+      {/* Start/End time */}
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Start time</label>
           <input
             type="time"
             disabled={isLocked}
-            value={session.startTime ?? ""}
-            onChange={(e) => onChange({ startTime: e.target.value || undefined })}
+            value={schedule.startTime ?? ""}
+            onChange={(e) =>
+              onChange({ startTime: e.target.value || undefined })
+            }
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
           />
         </div>
@@ -591,22 +874,24 @@ function SessionRow({
           <input
             type="time"
             disabled={isLocked}
-            value={session.endTime ?? ""}
+            value={schedule.endTime ?? ""}
             onChange={(e) => onChange({ endTime: e.target.value || undefined })}
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
           />
         </div>
       </div>
 
-      {/* Row 2: Start/End date */}
+      {/* Date range */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Start date</label>
           <input
             type="date"
             disabled={isLocked}
-            value={session.startDate ?? ""}
-            onChange={(e) => onChange({ startDate: e.target.value || undefined })}
+            value={schedule.startDate ?? ""}
+            onChange={(e) =>
+              onChange({ startDate: e.target.value || undefined })
+            }
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
           />
         </div>
@@ -615,36 +900,79 @@ function SessionRow({
           <input
             type="date"
             disabled={isLocked}
-            value={session.endDate ?? ""}
-            onChange={(e) => onChange({ endDate: e.target.value || undefined })}
+            value={schedule.endDate ?? ""}
+            onChange={(e) =>
+              onChange({ endDate: e.target.value || undefined })
+            }
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
           />
         </div>
       </div>
 
-      {/* Row 3: Location + Capacity + Reg close */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Location + Instructor */}
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Location</label>
           <input
             type="text"
             disabled={isLocked}
-            value={session.location ?? ""}
-            onChange={(e) => onChange({ location: e.target.value || undefined })}
+            value={schedule.location ?? ""}
+            onChange={(e) =>
+              onChange({ location: e.target.value || undefined })
+            }
             placeholder="Studio A"
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
           />
         </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Instructor</label>
+          <input
+            type="text"
+            disabled={isLocked}
+            value={schedule.instructorName ?? ""}
+            onChange={(e) =>
+              onChange({ instructorName: e.target.value || undefined })
+            }
+            placeholder="e.g. Ms. Johnson"
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+          />
+        </div>
+      </div>
+
+      {/* Capacity + Reg opens + Reg closes */}
+      <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Capacity</label>
           <input
             type="number"
             min={1}
             disabled={isLocked}
-            value={session.capacity ?? ""}
+            value={schedule.capacity ?? ""}
             onChange={(e) =>
               onChange({
                 capacity: e.target.value ? Number(e.target.value) : undefined,
+              })
+            }
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">
+            Registration opens
+          </label>
+          <input
+            type="datetime-local"
+            disabled={isLocked}
+            value={
+              schedule.registrationOpenAt
+                ? schedule.registrationOpenAt.slice(0, 16)
+                : ""
+            }
+            onChange={(e) =>
+              onChange({
+                registrationOpenAt: e.target.value
+                  ? new Date(e.target.value).toISOString()
+                  : null,
               })
             }
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
@@ -658,8 +986,8 @@ function SessionRow({
             type="datetime-local"
             disabled={isLocked}
             value={
-              session.registrationCloseAt
-                ? session.registrationCloseAt.slice(0, 16)
+              schedule.registrationCloseAt
+                ? schedule.registrationCloseAt.slice(0, 16)
                 : ""
             }
             onChange={(e) =>
@@ -674,7 +1002,437 @@ function SessionRow({
         </div>
       </div>
 
-      {/* Remove session */}
+      {/* Gender restriction + Urgency threshold */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">
+            Gender restriction
+          </label>
+          <select
+            disabled={isLocked}
+            value={schedule.genderRestriction ?? "no_restriction"}
+            onChange={(e) =>
+              onChange({
+                genderRestriction:
+                  e.target.value === "no_restriction"
+                    ? null
+                    : (e.target.value as "male" | "female"),
+              })
+            }
+            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+          >
+            <option value="no_restriction">No restriction</option>
+            <option value="male">Male only</option>
+            <option value="female">Female only</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">
+            Urgency threshold
+          </label>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="number"
+              min={0}
+              disabled={isLocked}
+              value={schedule.urgencyThreshold ?? ""}
+              onChange={(e) =>
+                onChange({
+                  urgencyThreshold: e.target.value
+                    ? Number(e.target.value)
+                    : null,
+                })
+              }
+              placeholder="e.g. 5"
+              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            />
+            <span className="text-xs text-gray-400 shrink-0">spots left</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Excluded dates */}
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+          Excluded dates
+        </p>
+        {excludedDates.length === 0 && (
+          <p className="text-xs text-gray-400 italic">No excluded dates.</p>
+        )}
+        <div className="flex flex-wrap gap-1.5">
+          {excludedDates.map((d) => (
+            <span
+              key={d.date}
+              className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-700"
+            >
+              {d.date}
+              {d.reason && (
+                <span className="text-gray-400">({d.reason})</span>
+              )}
+              {!isLocked && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveExcludedDate(d.date)}
+                  className="text-gray-400 hover:text-red-500 transition"
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+        {!isLocked && (
+          <div className="flex gap-2 items-end">
+            <div>
+              <input
+                type="date"
+                value={newExcludedDate}
+                onChange={(e) => setNewExcludedDate(e.target.value)}
+                className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                value={newExcludedReason}
+                onChange={(e) => setNewExcludedReason(e.target.value)}
+                placeholder="Reason (optional)"
+                className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleAddExcludedDate}
+              disabled={!newExcludedDate}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-40 transition"
+            >
+              + Add
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Generated sessions preview */}
+      <div className="rounded-lg bg-indigo-50 border border-indigo-100 px-3 py-2 flex items-center gap-2">
+        <svg
+          className="w-4 h-4 text-indigo-400 shrink-0"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+        <p className="text-xs text-indigo-700">
+          {generatedCount > 0 ? (
+            <>
+              This schedule will generate{" "}
+              <span className="font-semibold">{generatedCount}</span> session
+              {generatedCount !== 1 ? "s" : ""}.
+            </>
+          ) : (
+            "Configure days and date range to preview session count."
+          )}
+        </p>
+      </div>
+
+      {/* Price rows (session-level pricing tiers) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+            Price tiers
+          </p>
+          {!isLocked && !showPriceForm && (
+            <button
+              type="button"
+              onClick={() => setShowPriceForm(true)}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+            >
+              + Add tier
+            </button>
+          )}
+        </div>
+        {priceRows.length === 0 && !showPriceForm && (
+          <p className="text-xs text-gray-400 italic">
+            No price tiers — uses semester tuition rate bands.
+          </p>
+        )}
+        {priceRows.length > 0 && (
+          <div className="rounded-lg border border-gray-200 overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50 text-gray-500">
+                <tr>
+                  <th className="px-3 py-1.5 text-left font-medium">Label</th>
+                  <th className="px-3 py-1.5 text-right font-medium">
+                    Amount
+                  </th>
+                  <th className="px-3 py-1.5 text-center font-medium">
+                    Default
+                  </th>
+                  {!isLocked && <th className="px-3 py-1.5" />}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {priceRows.map((row) => (
+                  <tr key={row._clientKey} className="bg-white">
+                    <td className="px-3 py-1.5 text-gray-700">{row.label}</td>
+                    <td className="px-3 py-1.5 text-right text-gray-700">
+                      ${row.amount.toFixed(2)}
+                    </td>
+                    <td className="px-3 py-1.5 text-center">
+                      {row.isDefault ? (
+                        <span className="text-indigo-600 font-medium">✓</span>
+                      ) : !isLocked ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleSetDefaultPriceRow(row._clientKey)
+                          }
+                          className="text-gray-400 hover:text-indigo-600 transition"
+                        >
+                          Set
+                        </button>
+                      ) : null}
+                    </td>
+                    {!isLocked && (
+                      <td className="px-3 py-1.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePriceRow(row._clientKey)}
+                          className="text-red-400 hover:text-red-600 transition"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {showPriceForm && (
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Label *
+                </label>
+                <input
+                  type="text"
+                  value={draftPriceRow.label}
+                  onChange={(e) =>
+                    setDraftPriceRow((d) => ({ ...d, label: e.target.value }))
+                  }
+                  placeholder="e.g. Regular"
+                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Amount ($) *
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draftPriceRow.amount}
+                  onChange={(e) =>
+                    setDraftPriceRow((d) => ({ ...d, amount: e.target.value }))
+                  }
+                  placeholder="0.00"
+                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={draftPriceRow.isDefault}
+                onChange={(e) =>
+                  setDraftPriceRow((d) => ({
+                    ...d,
+                    isDefault: e.target.checked,
+                  }))
+                }
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-xs text-gray-700">Set as default price</span>
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPriceForm(false);
+                  setDraftPriceRow({ label: "", amount: "", isDefault: false });
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 transition px-2 py-1"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddPriceRow}
+                disabled={
+                  !draftPriceRow.label.trim() || draftPriceRow.amount === ""
+                }
+                className="text-xs font-medium bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+              >
+                Add tier
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Session options (add-ons) */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+            Session options
+          </p>
+          {!isLocked && !showOptionForm && (
+            <button
+              type="button"
+              onClick={() => setShowOptionForm(true)}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+            >
+              + Add option
+            </button>
+          )}
+        </div>
+        {options.length === 0 && !showOptionForm && (
+          <p className="text-xs text-gray-400 italic">
+            No add-ons for this schedule.
+          </p>
+        )}
+        {options.map((opt) => (
+          <div
+            key={opt._clientKey}
+            className="flex items-start justify-between rounded-lg border border-gray-200 px-3 py-2 bg-white"
+          >
+            <div>
+              <p className="text-xs font-medium text-gray-700">
+                {opt.name}
+                {opt.isRequired && (
+                  <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
+                    Required
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-gray-500">
+                ${opt.price.toFixed(2)}
+                {opt.description ? ` · ${opt.description}` : ""}
+              </p>
+            </div>
+            {!isLocked && (
+              <button
+                type="button"
+                onClick={() => handleRemoveOption(opt._clientKey)}
+                className="ml-3 shrink-0 text-xs text-red-500 hover:text-red-700 transition"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
+        {showOptionForm && (
+          <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Option name *
+                </label>
+                <input
+                  type="text"
+                  value={draftOption.name}
+                  onChange={(e) =>
+                    setDraftOption((d) => ({ ...d, name: e.target.value }))
+                  }
+                  placeholder="e.g. Recital Ticket"
+                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Price ($)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={draftOption.price}
+                  onChange={(e) =>
+                    setDraftOption((d) => ({ ...d, price: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                Description (optional)
+              </label>
+              <input
+                type="text"
+                value={draftOption.description}
+                onChange={(e) =>
+                  setDraftOption((d) => ({ ...d, description: e.target.value }))
+                }
+                placeholder="e.g. One ticket included per dancer"
+                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={draftOption.isRequired}
+                onChange={(e) =>
+                  setDraftOption((d) => ({
+                    ...d,
+                    isRequired: e.target.checked,
+                  }))
+                }
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-xs text-gray-700">
+                Required (auto-added at checkout)
+              </span>
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOptionForm(false);
+                  setDraftOption({
+                    name: "",
+                    description: "",
+                    price: "0",
+                    isRequired: false,
+                  });
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700 transition px-2 py-1"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddOption}
+                disabled={!draftOption.name.trim()}
+                className="text-xs font-medium bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+              >
+                Add option
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Remove schedule */}
       {!isLocked && canRemove && (
         <div className="flex justify-end">
           <button
@@ -682,7 +1440,7 @@ function SessionRow({
             onClick={onRemove}
             className="text-xs text-red-500 hover:text-red-700 transition"
           >
-            Remove session
+            Remove schedule block
           </button>
         </div>
       )}
@@ -694,7 +1452,10 @@ function SessionRow({
 /* RequirementsSection                                                         */
 /* -------------------------------------------------------------------------- */
 
-const REQUIREMENT_TYPES: { value: DraftClassRequirement["requirement_type"]; label: string }[] = [
+const REQUIREMENT_TYPES: {
+  value: DraftClassRequirement["requirement_type"];
+  label: string;
+}[] = [
   { value: "prerequisite_completed", label: "Prerequisite completed" },
   { value: "concurrent_enrollment", label: "Concurrent enrollment" },
   { value: "teacher_recommendation", label: "Teacher recommendation" },
@@ -751,7 +1512,8 @@ function RequirementsSection({
 
       {requirements.length === 0 && !showForm && (
         <p className="text-xs text-gray-400 italic">
-          No requirements. Competition classes typically need audition + concurrent technique.
+          No requirements. Competition classes typically need audition +
+          concurrent technique.
         </p>
       )}
 
@@ -762,8 +1524,15 @@ function RequirementsSection({
         >
           <div className="space-y-0.5">
             <p className="text-xs font-medium text-gray-700">
-              {REQUIREMENT_TYPES.find((t) => t.value === req.requirement_type)?.label ?? req.requirement_type}
-              <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${req.enforcement === "hard_block" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-600"}`}>
+              {REQUIREMENT_TYPES.find((t) => t.value === req.requirement_type)
+                ?.label ?? req.requirement_type}
+              <span
+                className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
+                  req.enforcement === "hard_block"
+                    ? "bg-red-50 text-red-600"
+                    : "bg-amber-50 text-amber-600"
+                }`}
+              >
                 {req.enforcement === "hard_block" ? "Hard block" : "Soft warn"}
               </span>
               {req.is_waivable && (
@@ -790,26 +1559,47 @@ function RequirementsSection({
         <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Type *</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                Type *
+              </label>
               <select
                 value={draft.requirement_type}
-                onChange={(e) => setDraft((d) => ({ ...d, requirement_type: e.target.value as DraftClassRequirement["requirement_type"] }))}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    requirement_type: e.target
+                      .value as DraftClassRequirement["requirement_type"],
+                  }))
+                }
                 className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 {REQUIREMENT_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Enforcement *</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                Enforcement *
+              </label>
               <select
                 value={draft.enforcement}
-                onChange={(e) => setDraft((d) => ({ ...d, enforcement: e.target.value as "soft_warn" | "hard_block" }))}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    enforcement: e.target.value as "soft_warn" | "hard_block",
+                  }))
+                }
                 className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
-                <option value="hard_block">Hard block (prevents enrollment)</option>
-                <option value="soft_warn">Soft warning (shows message)</option>
+                <option value="hard_block">
+                  Hard block (prevents enrollment)
+                </option>
+                <option value="soft_warn">
+                  Soft warning (shows message)
+                </option>
               </select>
             </div>
           </div>
@@ -821,7 +1611,9 @@ function RequirementsSection({
             <input
               type="text"
               value={draft.description}
-              onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, description: e.target.value }))
+              }
               placeholder="e.g. Must be concurrently enrolled in Technique 1"
               className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
@@ -829,21 +1621,35 @@ function RequirementsSection({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Required discipline (optional)</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                Required discipline (optional)
+              </label>
               <input
                 type="text"
                 value={draft.required_discipline ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, required_discipline: e.target.value || null }))}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    required_discipline: e.target.value || null,
+                  }))
+                }
                 placeholder="e.g. ballet, technique"
                 className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Required level (optional)</label>
+              <label className="block text-xs text-gray-500 mb-1">
+                Required level (optional)
+              </label>
               <input
                 type="text"
                 value={draft.required_level ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, required_level: e.target.value || null }))}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    required_level: e.target.value || null,
+                  }))
+                }
                 placeholder="e.g. 1, 2, Advanced"
                 className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
@@ -854,7 +1660,9 @@ function RequirementsSection({
             <input
               type="checkbox"
               checked={draft.is_waivable}
-              onChange={(e) => setDraft((d) => ({ ...d, is_waivable: e.target.checked }))}
+              onChange={(e) =>
+                setDraft((d) => ({ ...d, is_waivable: e.target.checked }))
+              }
               className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <span className="text-xs text-gray-700">
@@ -865,7 +1673,10 @@ function RequirementsSection({
           <div className="flex gap-2 justify-end">
             <button
               type="button"
-              onClick={() => { setShowForm(false); setDraft(emptyRequirement()); }}
+              onClick={() => {
+                setShowForm(false);
+                setDraft(emptyRequirement());
+              }}
               className="text-xs text-gray-500 hover:text-gray-700 transition px-3 py-1.5"
             >
               Cancel

@@ -24,40 +24,47 @@ export interface PublicAvailableDay {
 export interface PublicSession {
   /** class_session id (Phase 1+) */
   id: string;
-  /** Class name, e.g. "Ballet 1A" */
+  classId?:
+    | string
+    | null; /** Phase 1+: classes.id this session slot belongs to */
   name: string;
   description?: string | null;
   category?: string | null;
+
+  discipline?: string | null;
+  division?: string | null;
+
   location?: string | null;
+
+  scheduleDate: string;
+  startTime?:
+    | string
+    | null; /** Time the class ends, e.g. "11:00" — sourced directly from class_sessions.end_time */
+  endTime?: string | null;
+  // startDate?: string | null;
+  // endDate?: string | null;
+  /** Phase 1+: single-element array (one day per class_session) */
+  // daysOfWeek: string[];
+  /** Time the class starts, e.g. "10:00" — sourced directly from class_sessions.start_time */
+
+  instructorName?: string | null;
   capacity: number;
   enrolledCount: number;
   spotsRemaining: number;
-  /** @deprecated Pricing computed by the pricing engine (Phase 2) */
-  pricePerDay?: number | null;
-  /** @deprecated Pricing computed by the pricing engine (Phase 2) */
-  priceFull?: number | null;
+  // /** @deprecated Pricing computed by the pricing engine (Phase 2) */
+  // pricePerDay?: number | null;
+  // /** @deprecated Pricing computed by the pricing engine (Phase 2) */
+  // priceFull?: number | null;
   minAge?: number | null;
   maxAge?: number | null;
-  startDate?: string | null;
-  endDate?: string | null;
-  /** Phase 1+: single-element array (one day per class_session) */
-  daysOfWeek: string[];
-  /** Time the class starts, e.g. "10:00" — sourced directly from class_sessions.start_time */
-  startTime?: string | null;
-  /** Time the class ends, e.g. "11:00" — sourced directly from class_sessions.end_time */
-  endTime?: string | null;
+
   registrationCloseAt?: string | null;
   /** Individual occurrence dates sourced from session_occurrence_dates */
-  availableDays: PublicAvailableDay[];
+  // availableDays: PublicAvailableDay[];
   /** Assigned group id for bundle/grouping UI */
   groupId?: string | null;
   waitlistEnabled: boolean;
-  /** Phase 1+: e.g. 'ballet', 'tap', 'hip_hop' */
-  discipline?: string | null;
-  /** Phase 1+: 'early_childhood' | 'junior' | 'senior' | 'competition' */
-  division?: string | null;
-  /** Phase 1+: classes.id this session slot belongs to */
-  classId?: string | null;
+
   /** Phase 6: true when the class is part of the competition program */
   isCompetitionTrack?: boolean;
 }
@@ -114,27 +121,30 @@ export interface CartItem {
   semesterId: string;
   sessionId: string;
   sessionName: string;
+
+  priceSnapshot?: number;
   /** IDs of PublicAvailableDay the user selected */
-  selectedDayIds: string[];
+  // selectedDayIds: string[];
   /** Full day objects snapshotted at add-time (for display without re-fetching semester) */
-  selectedDays: PublicAvailableDay[];
-  pricePerDay: number;
+  // selectedDays: PublicAvailableDay[];
+  // pricePerDay: number;
   /** pricePerDay * selectedDayIds.length */
-  subtotal: number;
+  // subtotal: number;
   addedAt: string; // ISO timestamp
   /** Session age constraints — snapshotted for use in participant validation */
-  minAge: number | null;
-  maxAge: number | null;
+  // minAge: number | null;
+  // maxAge: number | null;
 }
 
 export interface CartState {
   semesterId: string;
-  items: CartItem[];
+  sessionIds: string[];
+  // items: CartItem[];
   /** ISO timestamp — 2h from first addItem */
   expiresAt: string;
-  subtotal: number;
-  discountAmount: number;
-  total: number;
+  // subtotal: number;
+  // discountAmount: number;
+  // total: number;
 }
 
 /* -------------------------------------------------------------------------- */

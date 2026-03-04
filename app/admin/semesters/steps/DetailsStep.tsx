@@ -15,7 +15,6 @@ export default function DetailsStep({
   const [form, setForm] = useState({
     name: state.details?.name ?? "",
     trackingMode: state.details?.trackingMode ?? false,
-    capacityWarningThreshold: state.details?.capacityWarningThreshold ?? "",
   });
 
   /* ------------------------------------------------------------------------ */
@@ -40,10 +39,6 @@ export default function DetailsStep({
       payload: {
         name: form.name.trim(),
         trackingMode: form.trackingMode,
-        capacityWarningThreshold:
-          form.capacityWarningThreshold !== ""
-            ? Number(form.capacityWarningThreshold)
-            : 0,
       },
     });
 
@@ -101,37 +96,6 @@ export default function DetailsStep({
                 Track student attendance for reporting and compliance.
               </p>
             </div>
-          </div>
-
-          {/* Capacity Warning */}
-          <div className="space-y-2">
-            <label
-              htmlFor="capacity-threshold"
-              className="text-sm font-medium text-gray-700"
-            >
-              Capacity warning threshold
-            </label>
-
-            <div className="flex items-center gap-3">
-              <input
-                id="capacity-threshold"
-                type="number"
-                min={0}
-                max={100}
-                placeholder="80"
-                value={form.capacityWarningThreshold}
-                onChange={(e) =>
-                  updateField("capacityWarningThreshold", e.target.value)
-                }
-                className="w-28 rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-              />
-              <span className="text-sm text-gray-500">% full</span>
-            </div>
-
-            <p className="text-xs text-gray-500">
-              When enrollment reaches this percentage, users will see “Only X
-              spots left”.
-            </p>
           </div>
 
           {/* Actions */}

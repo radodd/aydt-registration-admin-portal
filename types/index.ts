@@ -303,8 +303,9 @@ export interface SessionScheduleInfo {
   sessionId: string;
   className: string;
   dayOfWeek: string;
-  startTime: string | null; // 'HH:MM:SS'
-  endTime: string | null;   // 'HH:MM:SS'
+  startTime: string | null;    // 'HH:MM:SS'
+  endTime: string | null;      // 'HH:MM:SS'
+  scheduleDate?: string | null; // 'YYYY-MM-DD'; null/undefined on legacy sessions
 }
 
 export interface ConflictDetail {
@@ -361,8 +362,79 @@ export interface ClassRequirement {
 /* -------------------------------------------------------------------------- */
 
 /**
- * A single time-slot within a class, as held in the SemesterDraft state.
+ * A named price tier for a class_session.
+ * If any rows exist for a session, the default row drives checkout.
+ * Sessions with no rows fall back to tuition_rate_bands.
+ */
+export type DraftSessionPriceRow = {
+  /** Stable React list key — use crypto.randomUUID() or Date.now().toString() */
+  _clientKey: string;
+  /** DB id if already persisted */
+  id?: string;
+  label: string;        // e.g. "Regular", "Early Bird", "Scholarship"
+  amount: number;       // non-negative dollar amount
+  sortOrder: number;
+  isDefault: boolean;   // exactly one row per session should be true
+};
+
+/**
+ * A purchasable add-on attached to a class_session.
+ */
+export type DraftSessionOption = {
+  _clientKey: string;
+  id?: string;
+  name: string;
+  description?: string;
+  price: number;
+  isRequired: boolean;
+  sortOrder: number;
+};
+
+/**
+ * A calendar date on which a recurring session does NOT meet.
+ */
+export type DraftSessionExcludedDate = {
+  id?: string;
+  date: string;    // 'YYYY-MM-DD'
+  reason?: string;
+};
+
+/**
+ * Admin-level schedule configuration block for a class.
+ * Maps 1:1 to class_schedules rows in the DB.
+ * The system auto-generates one class_session per valid calendar date from this config.
+ */
+export type DraftClassSchedule = {
+  /** Stable React list key */
+  _clientKey: string;
+  /** DB id once persisted; undefined for new schedules */
+  id?: string;
+  /** Selected days of week — e.g. ['monday', 'wednesday'] */
+  daysOfWeek: string[];
+  startTime?: string;     // 'HH:mm'
+  endTime?: string;       // 'HH:mm'
+  startDate?: string;     // 'YYYY-MM-DD'
+  endDate?: string;       // 'YYYY-MM-DD'
+  location?: string;
+  instructorName?: string;
+  capacity?: number | null;
+  registrationOpenAt?: string | null;
+  registrationCloseAt?: string | null;
+  genderRestriction?: 'male' | 'female' | 'no_restriction' | null;
+  urgencyThreshold?: number | null;
+  /** Dates on which sessions should NOT be generated (holidays, closures) */
+  excludedDates?: DraftSessionExcludedDate[];
+  /** Named price tiers — if set, overrides tuition_rate_bands for all sessions in this schedule */
+  priceRows?: DraftSessionPriceRow[];
+  /** Purchasable add-ons displayed at checkout for every day in this schedule */
+  options?: DraftSessionOption[];
+};
+
+/**
+ * A single generated time-slot within a class, as held in the SemesterDraft state.
  * Maps 1:1 to class_sessions rows in the DB.
+ * In the per-day enrollment model, class_sessions are generated from DraftClassSchedule
+ * and should not be edited directly in the admin UI.
  */
 export type DraftClassSession = {
   /** DB id if the row already exists; undefined for new (unsaved) sessions */
@@ -376,6 +448,18 @@ export type DraftClassSession = {
   instructorName?: string;
   capacity?: number | null;
   registrationCloseAt?: string | null;
+  /** When registration opens for this session (null = always open) */
+  registrationOpenAt?: string | null;
+  /** Optional gender restriction */
+  genderRestriction?: 'male' | 'female' | 'no_restriction' | null;
+  /** Urgency threshold: show "Only X spots left!" when spots remaining ≤ this value */
+  urgencyThreshold?: number | null;
+  /** Named price tiers. If populated, overrides tuition_rate_bands for this session. */
+  priceRows?: DraftSessionPriceRow[];
+  /** Purchasable add-ons shown during checkout for this session */
+  options?: DraftSessionOption[];
+  /** Calendar dates when this session does NOT meet */
+  excludedDates?: DraftSessionExcludedDate[];
 };
 
 /**
@@ -405,21 +489,27 @@ export type DraftClassRequirement = {
 
 /**
  * A class (curriculum entity) as held in the SemesterDraft state.
- * Maps 1:1 to classes rows in the DB, with nested DraftClassSession[].
+ * Maps 1:1 to classes rows in the DB, with nested DraftClassSchedule[].
  */
 export type DraftClass = {
   /** DB id if the row already exists; undefined for new (unsaved) classes */
   id?: string;
   name: string;
+  /** Optional public-facing display name; falls back to `name` if not set */
+  displayName?: string;
   discipline: string;
   division: string;
   level?: string;
   description?: string;
   minAge?: number | null;
   maxAge?: number | null;
+  /** Optional grade range for enrollment eligibility */
+  minGrade?: number | null;
+  maxGrade?: number | null;
   isCompetitionTrack?: boolean;
   requiresTeacherRec?: boolean;
-  sessions: DraftClassSession[];
+  /** Schedule blocks — each generates per-day class_sessions automatically */
+  schedules: DraftClassSchedule[];
   /** Phase 6: enrollment rules (prerequisite, concurrent, audition, etc.) */
   requirements?: DraftClassRequirement[];
 };
@@ -727,7 +817,6 @@ export type DetailsStepProps = {
 export type DetailsFormState = {
   name: string;
   trackingMode: boolean;
-  capacityWarningThreshold: string;
   publishAt?: string;
 };
 

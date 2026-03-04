@@ -42,7 +42,7 @@ export async function validateEnrollment(
   /* ---------------------------------------------------------------------- */
   const { data: sessionRows, error: sessionError } = await supabase
     .from("class_sessions")
-    .select("id, day_of_week, start_time, end_time, class_id, classes(name)")
+    .select("id, day_of_week, schedule_date, start_time, end_time, class_id, classes(name)")
     .in("id", sessionIds);
 
   if (sessionError || !sessionRows) {
@@ -69,6 +69,7 @@ export async function validateEnrollment(
       sessionId: row.id,
       className: (cls as any)?.name ?? row.id,
       dayOfWeek: row.day_of_week,
+      scheduleDate: (row as any).schedule_date ?? null,
       startTime: row.start_time,
       endTime: row.end_time,
       classId: row.class_id,
@@ -98,14 +99,27 @@ export async function validateEnrollment(
         const b = sessionMap.get(sids[j]);
 
         if (!a || !b) continue;
-        if (a.dayOfWeek !== b.dayOfWeek) continue;
         if (!a.startTime || !a.endTime || !b.startTime || !b.endTime) continue;
 
+        // Per-day sessions conflict only on same calendar date; legacy on same day-of-week.
+        const aIsPerDay = !!a.scheduleDate;
+        const bIsPerDay = !!b.scheduleDate;
+        let sameDay: boolean;
+        if (aIsPerDay && bIsPerDay) {
+          sameDay = a.scheduleDate === b.scheduleDate;
+        } else if (!aIsPerDay && !bIsPerDay) {
+          sameDay = a.dayOfWeek === b.dayOfWeek;
+        } else {
+          continue; // mixed types — incomparable
+        }
+        if (!sameDay) continue;
+
         if (a.startTime < b.endTime && a.endTime > b.startTime) {
+          const dayLabel = aIsPerDay ? a.scheduleDate! : a.dayOfWeek;
           issues.push({
             type: "time_conflict",
             enforcement: "hard_block",
-            message: `Schedule conflict: "${a.className}" and "${b.className}" overlap on ${a.dayOfWeek}.`,
+            message: `Schedule conflict: "${a.className}" and "${b.className}" overlap on ${dayLabel}.`,
             dancerId,
             sessionId: sids[i],
             isWaivable: false,

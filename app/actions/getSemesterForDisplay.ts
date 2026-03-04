@@ -58,11 +58,12 @@ export async function getSemesterForDisplay(
         is_competition_track,
         class_sessions (
           id,
-          day_of_week,
+       
           start_time,
           end_time,
-          start_date,
-          end_date,
+     
+          schedule_date,
+          instructor_name,
           location,
           capacity,
           registration_close_at,
@@ -153,17 +154,18 @@ export async function getSemesterForDisplay(
           const enrolled = enrolledBySession[cs.id] ?? 0;
           const capacity = cs.capacity ?? 0;
 
-          const availableDays: PublicAvailableDay[] = (
-            cs.session_occurrence_dates ?? []
-          )
-            .filter((od: OccurrenceDateRow) => !od.is_cancelled)
-            .map((od: OccurrenceDateRow) => ({
-              id: od.id,
-              date: od.date,
-              dayOfWeek: dayOfWeekFromDate(od.date),
-              startTime: cs.start_time ?? "",
-              endTime: cs.end_time ?? "",
-            }));
+          // const availableDays: PublicAvailableDay[] = (
+          //   cs.session_occurrence_dates ?? []
+          // )
+          // .filter((od: OccurrenceDateRow) => !od.is_cancelled)
+          // .map((od: OccurrenceDateRow) => ({
+          //   id: od.id,
+          //   date: od.date,
+          //   // scheduleData:
+          //   dayOfWeek: dayOfWeekFromDate(od.date),
+          //   startTime: cs.start_time ?? "",
+          //   endTime: cs.end_time ?? "",
+          // }));
 
           const sessionWaitlistEnabled =
             (waitlistSettings.enabled ?? false) &&
@@ -178,17 +180,19 @@ export async function getSemesterForDisplay(
             capacity,
             enrolledCount: enrolled,
             spotsRemaining: Math.max(0, capacity - enrolled),
-            pricePerDay: null,
-            priceFull: null,
+            // pricePerDay: null,
+            // priceFull: null,
             minAge: c.min_age,
             maxAge: c.max_age,
-            startDate: cs.start_date,
-            endDate: cs.end_date,
-            daysOfWeek: [cs.day_of_week],
+            // startDate: cs.start_date,
+            // endDate: cs.end_date,
+            scheduleDate: cs.schedule_date,
+            instructorName: cs.instructor_name,
+            // daysOfWeek: [cs.day_of_week],
             startTime: cs.start_time,
             endTime: cs.end_time,
             registrationCloseAt: cs.registration_close_at,
-            availableDays,
+            // availableDays,
             waitlistEnabled: sessionWaitlistEnabled,
             discipline: c.discipline,
             division: c.division,
@@ -245,11 +249,12 @@ export async function getSemesterForDisplay(
   /* ---------------------------------------------------------------------- */
 
   const allDates = publicSessions
-    .flatMap((s) => [s.startDate, s.endDate])
-    .filter(Boolean) as string[];
+    .map((s) => s.scheduleDate)
+    .filter((d): d is string => Boolean(d));
 
   const startDate =
     allDates.length > 0 ? allDates.reduce((a, b) => (a < b ? a : b)) : null;
+
   const endDate =
     allDates.length > 0 ? allDates.reduce((a, b) => (a > b ? a : b)) : null;
 
@@ -305,16 +310,18 @@ interface OccurrenceDateRow {
 
 interface ClassSessionRow {
   id: string;
-  day_of_week: string;
+  schedule_date: string;
+  instructor_name: string | null;
+  // day_of_week: string;
   start_time: string | null;
   end_time: string | null;
-  start_date: string | null;
-  end_date: string | null;
+  // start_date: string | null;
+  // end_date: string | null;
   location: string | null;
   capacity: number | null;
   registration_close_at: string | null;
   is_active: boolean;
-  session_occurrence_dates: OccurrenceDateRow[];
+  // session_occurrence_dates: OccurrenceDateRow[];
 }
 
 interface ClassRow {

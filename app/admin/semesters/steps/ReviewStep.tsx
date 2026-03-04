@@ -127,9 +127,9 @@ export default function ReviewStep({
                   {cls.level ? ` · ${cls.level}` : ""}
                 </div>
                 <div className="space-y-1 pt-1">
-                  {cls.sessions.map((cs, i) => (
+                  {(cls.schedules ?? []).map((cs, i) => (
                     <div key={cs.id ?? i} className="text-sm text-gray-500">
-                      {cs.dayOfWeek.charAt(0).toUpperCase() + cs.dayOfWeek.slice(1)}
+                      {cs.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}
                       {cs.startTime ? ` · ${cs.startTime}` : ""}
                       {cs.endTime ? ` – ${cs.endTime}` : ""}
                       {cs.capacity != null ? ` · Cap: ${cs.capacity}` : ""}
@@ -260,7 +260,7 @@ export default function ReviewStep({
           <RegistrationFormRenderer
             elements={state.registrationForm.elements}
             sessions={(state.sessions?.classes ?? []).flatMap((cls) =>
-              cls.sessions.map((cs) => ({ sessionId: cs.id ?? "" })),
+              (cls.schedules ?? []).map((cs) => ({ sessionId: cs.id ?? "" })),
             )}
             mode="preview"
           />
@@ -354,15 +354,15 @@ export default function ReviewStep({
               )}
             </div>
 
-            {waitlist.enabled && safeClasses.flatMap((c) => c.sessions).length > 0 && (
+            {waitlist.enabled && safeClasses.flatMap((c) => c.schedules ?? []).length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Per-Session Status
+                  Per-Schedule Status
                 </p>
                 {safeClasses.flatMap((cls) =>
-                  cls.sessions.map((cs, i) => {
-                    const csId = cs.id ?? `${cls.name}-${cs.dayOfWeek}-${i}`;
-                    const label = `${cls.name} — ${cs.dayOfWeek.charAt(0).toUpperCase() + cs.dayOfWeek.slice(1)}`;
+                  (cls.schedules ?? []).map((cs, i) => {
+                    const csId = cs.id ?? `${cls.name}-${cs.daysOfWeek.join("-")}-${i}`;
+                    const label = `${cls.name} — ${cs.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}`;
                     const sessionEnabled =
                       waitlist.sessionSettings?.[csId]?.enabled ?? true;
                     return (

@@ -65,9 +65,9 @@ export default function WaitlistStep({
 }: Props) {
   const waitlist = state.waitlist ?? DEFAULT_WAITLIST;
   const appliedSessions = (state.sessions?.classes ?? []).flatMap((cls) =>
-    cls.sessions.map((cs) => ({
+    (cls.schedules ?? []).map((cs) => ({
       sessionId: cs.id ?? "",
-      title: `${cls.name} — ${cs.dayOfWeek.charAt(0).toUpperCase() + cs.dayOfWeek.slice(1)}`,
+      title: `${cls.name} — ${cs.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}`,
       registrationCloseAt: cs.registrationCloseAt,
     })),
   );

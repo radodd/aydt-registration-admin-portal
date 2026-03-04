@@ -305,9 +305,9 @@ export default function RegistrationFormStep({
           onClose={closeModal}
           onSave={handleSaveElement}
           sessions={(state.sessions?.classes ?? []).flatMap((cls) =>
-            cls.sessions.map((cs) => ({
+            (cls.schedules ?? []).map((cs) => ({
               sessionId: cs.id ?? "",
-              title: `${cls.name} — ${cs.dayOfWeek}`,
+              title: `${cls.name} — ${cs.daysOfWeek.join(", ")}`,
             })),
           )}
         />

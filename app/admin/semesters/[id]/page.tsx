@@ -45,7 +45,11 @@ export default async function SemesterDetailPage({ params }: PageProps) {
     .eq("id", id)
     .single();
 
-  if (!semester || error) notFound();
+  if (!semester || error) {
+    console.log(semester);
+    console.log(error?.message);
+    notFound();
+  }
 
   return (
     <div className="mx-auto max-w-5xl p-6 text-slate-700 space-y-6">
