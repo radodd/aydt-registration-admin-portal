@@ -164,6 +164,23 @@ export default function SemesterForm({
     initialState ?? ({} as SemesterDraft),
   );
 
+  // stateRef always holds the most recent state, even within the same event loop tick
+  // before React has processed the queued dispatch and re-rendered. This is critical
+  // for navigateToStep: steps call dispatch(action) + onNext() in the same event
+  // handler, so 'state' from the closure is still the pre-dispatch value when
+  // navigateToStep runs. Reading stateRef.current instead of state ensures we
+  // always persist the latest data.
+  const stateRef = useRef<SemesterDraft>(initialState ?? ({} as SemesterDraft));
+  stateRef.current = state; // keep in sync after every render
+
+  // Wrapped dispatch: synchronously applies the action to stateRef so that
+  // navigateToStep (called immediately after dispatch in step handleSubmit
+  // functions) sees the updated state without waiting for a React re-render.
+  function dispatchAndSync(action: SemesterAction) {
+    stateRef.current = semesterReducer(stateRef.current, action);
+    dispatch(action);
+  }
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const stepParam = searchParams.get("step");
@@ -193,14 +210,15 @@ export default function SemesterForm({
 
   async function navigateToStep(index: number) {
     const boundedIndex = Math.min(Math.max(index, 0), STEPS.length - 1);
+    const current = stateRef.current;
 
     setIsSaving(true);
     try {
-      const { semesterId } = await persistSemesterDraft(state);
-      if (!state.id) dispatch({ type: "SET_ID", payload: semesterId });
+      const { semesterId } = await persistSemesterDraft(current);
+      if (!current.id) dispatch({ type: "SET_ID", payload: semesterId });
       persistedSnapshotRef.current = JSON.stringify({
-        ...state,
-        id: state.id ?? semesterId,
+        ...current,
+        id: current.id ?? semesterId,
       });
     } catch {
       // persist failure — navigate anyway, retry on next transition
@@ -223,12 +241,12 @@ export default function SemesterForm({
 
   const stepRenderers: Record<StepKey, JSX.Element> = {
     details: (
-      <DetailsStep state={state} dispatch={dispatch} onNext={nextStep} />
+      <DetailsStep state={state} dispatch={dispatchAndSync} onNext={nextStep} />
     ),
     sessions: (
       <SessionsStep
         state={state}
-        dispatch={dispatch}
+        dispatch={dispatchAndSync}
         onNext={nextStep}
         onBack={previousStep}
         isLocked={isLocked}
@@ -237,7 +255,7 @@ export default function SemesterForm({
     sessionGroups: (
       <SessionsGroupsStep
         state={state}
-        dispatch={dispatch}
+        dispatch={dispatchAndSync}
         onNext={nextStep}
         onBack={previousStep}
       />
@@ -245,7 +263,7 @@ export default function SemesterForm({
     payment: (
       <PaymentStep
         state={state}
-        dispatch={dispatch}
+        dispatch={dispatchAndSync}
         onNext={nextStep}
         onBack={previousStep}
         isLocked={isLocked}
@@ -254,7 +272,7 @@ export default function SemesterForm({
     discounts: (
       <DiscountsStep
         state={state}
-        dispatch={dispatch}
+        dispatch={dispatchAndSync}
         onNext={nextStep}
         onBack={previousStep}
         isLocked={isLocked}
@@ -263,7 +281,7 @@ export default function SemesterForm({
     registrationForm: (
       <RegistrationFormStep
         state={state}
-        dispatch={dispatch}
+        dispatch={dispatchAndSync}
         onNext={nextStep}
         onBack={previousStep}
         isLocked={isLocked}
@@ -273,7 +291,7 @@ export default function SemesterForm({
     confirmationEmail: (
       <ConfirmationEmailStep
         state={state}
-        dispatch={dispatch}
+        dispatch={dispatchAndSync}
         onNext={nextStep}
         onBack={previousStep}
         isLocked={isLocked}
@@ -282,7 +300,7 @@ export default function SemesterForm({
     waitlist: (
       <WaitlistStep
         state={state}
-        dispatch={dispatch}
+        dispatch={dispatchAndSync}
         onNext={nextStep}
         onBack={previousStep}
         isLocked={isLocked}
@@ -294,30 +312,33 @@ export default function SemesterForm({
         state={state}
         onBack={previousStep}
         onPublishNow={async () => {
-          const { semesterId } = await persistSemesterDraft(state);
+          const current = stateRef.current;
+          const { semesterId } = await persistSemesterDraft(current);
           dispatch({ type: "SET_ID", payload: semesterId });
           persistedSnapshotRef.current = JSON.stringify({
-            ...state,
+            ...current,
             id: semesterId,
           });
           await publishSemesterNow(semesterId);
           router.push("/admin/semesters");
         }}
         onSaveDraft={async () => {
-          const { semesterId } = await persistSemesterDraft(state);
+          const current = stateRef.current;
+          const { semesterId } = await persistSemesterDraft(current);
           dispatch({ type: "SET_ID", payload: semesterId });
           persistedSnapshotRef.current = JSON.stringify({
-            ...state,
+            ...current,
             id: semesterId,
           });
           await saveSemesterDraft(semesterId);
           router.push("/admin/semesters");
         }}
         onSchedule={async (date) => {
-          const { semesterId } = await persistSemesterDraft(state);
+          const current = stateRef.current;
+          const { semesterId } = await persistSemesterDraft(current);
           dispatch({ type: "SET_ID", payload: semesterId });
           persistedSnapshotRef.current = JSON.stringify({
-            ...state,
+            ...current,
             id: semesterId,
           });
           await scheduleSemester(semesterId, date);

@@ -5,6 +5,7 @@ import type {
   DraftClass,
   DraftClassRequirement,
   DraftClassSchedule,
+  DraftSchedulePriceTier,
   DraftSessionExcludedDate,
   DraftSessionOption,
   DraftSessionPriceRow,
@@ -113,7 +114,8 @@ export async function syncSemesterSessions(
         })
         .select("id")
         .single();
-      if (insertErr || !inserted) throw new Error(insertErr?.message ?? "Class insert failed");
+      if (insertErr || !inserted)
+        throw new Error(insertErr?.message ?? "Class insert failed");
       classId = inserted.id;
     }
 
@@ -121,13 +123,23 @@ export async function syncSemesterSessions(
     /* 3. Sync class_schedules for this class                                */
     /* -------------------------------------------------------------------- */
 
-    await syncClassSchedules(supabase, classId, semesterId, draftClass.schedules ?? [], classSessionIdMap);
+    await syncClassSchedules(
+      supabase,
+      classId,
+      semesterId,
+      draftClass.schedules ?? [],
+      classSessionIdMap,
+    );
 
     /* -------------------------------------------------------------------- */
     /* 4. Sync class_requirements                                            */
     /* -------------------------------------------------------------------- */
 
-    await syncClassRequirements(supabase, classId, draftClass.requirements ?? []);
+    await syncClassRequirements(
+      supabase,
+      classId,
+      draftClass.requirements ?? [],
+    );
   }
 
   return classSessionIdMap;
@@ -137,7 +149,9 @@ export async function syncSemesterSessions(
 /* Schedule sync + per-day session generation                                  */
 /* -------------------------------------------------------------------------- */
 
-type SupabaseClient = Awaited<ReturnType<typeof import("@/utils/supabase/server").createClient>>;
+type SupabaseClient = Awaited<
+  ReturnType<typeof import("@/utils/supabase/server").createClient>
+>;
 
 async function syncClassSchedules(
   supabase: SupabaseClient,
@@ -162,12 +176,45 @@ async function syncClassSchedules(
   const scheduleIdsToDelete = [...existingScheduleIds].filter(
     (id) => !incomingScheduleIds.has(id),
   );
+  // for (const scheduleId of scheduleIdsToDelete) {
+  //   // Attempt delete; DB trigger blocks if enrolled sessions exist
+  //   const { error: delErr } = await supabase
+  //     .from("class_schedules")
+  //     .delete()
+  //     .eq("id", scheduleId);
+  //   if (delErr) throw new Error(delErr.message);
+  // }
   for (const scheduleId of scheduleIdsToDelete) {
-    // Attempt delete; DB trigger blocks if enrolled sessions exist
+    // Fetch session IDs so we can clear FK references before deleting
+    const { data: sessionsToRemove } = await supabase
+      .from("class_sessions")
+      .select("id")
+      .eq("schedule_id", scheduleId);
+
+    const removedIds = (sessionsToRemove ?? []).map((s) => s.id);
+
+    if (removedIds.length > 0) {
+      // Clear session_group_sessions references first (FK would block class_sessions delete)
+      await supabase
+        .from("session_group_sessions")
+        .delete()
+        .in("session_id", removedIds);
+    }
+
+    // Delete generated sessions (DB trigger blocks if registrations exist)
+    const { error: sessionDelErr } = await supabase
+      .from("class_sessions")
+      .delete()
+      .eq("schedule_id", scheduleId);
+
+    if (sessionDelErr) throw new Error(sessionDelErr.message);
+
+    // now delete the schedule
     const { error: delErr } = await supabase
       .from("class_schedules")
       .delete()
       .eq("id", scheduleId);
+
     if (delErr) throw new Error(delErr.message);
   }
 
@@ -190,12 +237,17 @@ async function syncClassSchedules(
         .insert(buildScheduleRow(draftSchedule, classId, semesterId))
         .select("id")
         .single();
-      if (insErr || !newSch) throw new Error(insErr?.message ?? "Schedule insert failed");
+      if (insErr || !newSch)
+        throw new Error(insErr?.message ?? "Schedule insert failed");
       scheduleId = newSch.id;
     }
 
     // Sync excluded dates for this schedule
-    await syncScheduleExcludedDates(supabase, scheduleId, draftSchedule.excludedDates ?? []);
+    await syncScheduleExcludedDates(
+      supabase,
+      scheduleId,
+      draftSchedule.excludedDates ?? [],
+    );
 
     // Generate per-day class_sessions
     const generatedIds = await generateSessionsForSchedule(
@@ -210,14 +262,21 @@ async function syncClassSchedules(
       sessionIdMap.set(id, id);
     }
 
-    // Sync price rows and options (per-schedule, applied to all generated sessions)
-    // Price rows and options are stored on class_schedule_price_rows /
-    // class_schedule_options if those tables exist, or we can sync them by
-    // applying to every generated session. For now, sync to the schedule's
-    // associated class_session_price_rows by iterating generated sessions.
-    if (draftSchedule.priceRows && draftSchedule.priceRows.length > 0) {
-      await syncPriceRowsForSchedule(supabase, scheduleId, draftSchedule.priceRows);
+    // Pricing sync — route by pricing model
+    const pricingModel = draftSchedule.pricingModel ?? "full_schedule";
+
+    if (pricingModel === "full_schedule") {
+      // Mode A: sync named tiers to schedule_price_tiers
+      await syncSchedulePriceTiers(
+        supabase,
+        scheduleId,
+        draftSchedule.priceTiers ?? [],
+      );
     }
+    // Mode B: drop_in_price is propagated directly onto each class_session row
+    // during generateSessionsForSchedule — no extra sync needed here.
+
+    // Add-ons apply to both modes
     if (draftSchedule.options && draftSchedule.options.length > 0) {
       await syncOptionsForSchedule(supabase, scheduleId, draftSchedule.options);
     }
@@ -244,6 +303,7 @@ function buildScheduleRow(
     registration_close_at: s.registrationCloseAt ?? null,
     gender_restriction: s.genderRestriction ?? null,
     urgency_threshold: s.urgencyThreshold ?? null,
+    pricing_model: s.pricingModel ?? "full_schedule",
     updated_at: new Date().toISOString(),
   };
 }
@@ -268,7 +328,11 @@ async function generateSessionsForSchedule(
   classId: string,
   schedule: DraftClassSchedule,
 ): Promise<string[]> {
-  if (!schedule.startDate || !schedule.endDate || schedule.daysOfWeek.length === 0) {
+  if (
+    !schedule.startDate ||
+    !schedule.endDate ||
+    schedule.daysOfWeek.length === 0
+  ) {
     return []; // Incomplete schedule — nothing to generate yet
   }
 
@@ -277,12 +341,18 @@ async function generateSessionsForSchedule(
     .from("class_schedule_excluded_dates")
     .select("excluded_date")
     .eq("schedule_id", scheduleId);
-  const excludedSet = new Set((excludedRows ?? []).map((r) => r.excluded_date as string));
+  const excludedSet = new Set(
+    (excludedRows ?? []).map((r) => r.excluded_date as string),
+  );
 
   // Compute expected calendar dates
   const expectedDates = new Set<string>();
   for (const day of schedule.daysOfWeek) {
-    const dates = computeOccurrenceDates(day, schedule.startDate, schedule.endDate);
+    const dates = computeOccurrenceDates(
+      day,
+      schedule.startDate,
+      schedule.endDate,
+    );
     for (const d of dates) {
       if (!excludedSet.has(d)) expectedDates.add(d);
     }
@@ -302,8 +372,21 @@ async function generateSessionsForSchedule(
     }
   }
 
+  const pricingModel = schedule.pricingModel ?? "full_schedule";
+  // Per-session mode: propagate drop_in_price to each generated session.
+  // Full-schedule mode: session-level price is meaningless — keep null.
+  const sessionDropInPrice =
+    pricingModel === "per_session" ? (schedule.dropInPrice ?? null) : null;
+  // Full-schedule sessions should not block the per-session capacity trigger —
+  // capacity is enforced at the schedule level via schedule_enrollments.
+  // Per-session capacity is enforced per-session via registrations.
+  const sessionCapacity =
+    pricingModel === "per_session" ? (schedule.capacity ?? null) : null;
+
   // INSERT new sessions (dates in expected but not in DB)
-  const datesToInsert = [...expectedDates].filter((d) => !existingByDate.has(d));
+  const datesToInsert = [...expectedDates].filter(
+    (d) => !existingByDate.has(d),
+  );
   if (datesToInsert.length > 0) {
     const rows = datesToInsert.map((date) => ({
       schedule_id: scheduleId,
@@ -315,7 +398,8 @@ async function generateSessionsForSchedule(
       end_time: schedule.endTime ?? null,
       location: schedule.location ?? null,
       instructor_name: schedule.instructorName ?? null,
-      capacity: schedule.capacity ?? null,
+      capacity: sessionCapacity,
+      drop_in_price: sessionDropInPrice,
       registration_open_at: schedule.registrationOpenAt ?? null,
       registration_close_at: schedule.registrationCloseAt ?? null,
       gender_restriction: schedule.genderRestriction ?? null,
@@ -347,6 +431,7 @@ async function generateSessionsForSchedule(
         end_time: schedule.endTime ?? null,
         location: schedule.location ?? null,
         instructor_name: schedule.instructorName ?? null,
+        drop_in_price: sessionDropInPrice,
         registration_open_at: schedule.registrationOpenAt ?? null,
         registration_close_at: schedule.registrationCloseAt ?? null,
         gender_restriction: schedule.genderRestriction ?? null,
@@ -356,8 +441,9 @@ async function generateSessionsForSchedule(
     if (updErr) throw new Error(updErr.message);
   }
 
-  // UPDATE capacity separately — check against enrollment first
-  if (schedule.capacity !== undefined && schedule.capacity !== null) {
+  // UPDATE per-session capacity separately — check against enrollment first.
+  // For full_schedule mode, sessionCapacity is null so this block is skipped.
+  if (sessionCapacity !== null && sessionCapacity !== undefined) {
     for (const [date, sessionId] of existingByDate) {
       if (!expectedDates.has(date)) continue; // Will be deleted below — skip
       const { count: enrolledCount } = await supabase
@@ -366,26 +452,26 @@ async function generateSessionsForSchedule(
         .eq("session_id", sessionId)
         .neq("status", "cancelled");
 
-      if ((enrolledCount ?? 0) > schedule.capacity) {
+      if ((enrolledCount ?? 0) > sessionCapacity) {
         const { data: sessionInfo } = await supabase
           .from("class_sessions")
           .select("schedule_date")
           .eq("id", sessionId)
           .single();
         throw new Error(
-          `Cannot reduce capacity to ${schedule.capacity} for session on ${sessionInfo?.schedule_date ?? sessionId} — ` +
-          `${enrolledCount} registrations exist.`,
+          `Cannot reduce capacity to ${sessionCapacity} for session on ${sessionInfo?.schedule_date ?? sessionId} — ` +
+            `${enrolledCount} registrations exist.`,
         );
       }
     }
 
-    const allSessionIds = [...existingByDate.values()].filter(
-      (_, i) => expectedDates.has([...existingByDate.keys()][i]),
-    );
+    const allSessionIds = [...existingByDate.entries()]
+      .filter(([date]) => expectedDates.has(date))
+      .map(([, id]) => id);
     if (allSessionIds.length > 0) {
       const { error: capErr } = await supabase
         .from("class_sessions")
-        .update({ capacity: schedule.capacity })
+        .update({ capacity: sessionCapacity })
         .in("id", allSessionIds)
         .eq("schedule_id", scheduleId);
       if (capErr) throw new Error(capErr.message);
@@ -399,6 +485,13 @@ async function generateSessionsForSchedule(
   );
   if (datesToDelete.length > 0) {
     const sessionIdsToDelete = datesToDelete.map((d) => existingByDate.get(d)!);
+    const { error: groupErr } = await supabase
+      .from("session_group_sessions")
+      .delete()
+      .in("session_id", sessionIdsToDelete);
+
+    if (groupErr) throw new Error(groupErr.message);
+
     const { error: delErr } = await supabase
       .from("class_sessions")
       .delete()
@@ -460,7 +553,43 @@ async function syncScheduleExcludedDates(
 }
 
 /* -------------------------------------------------------------------------- */
-/* Price rows per schedule (applied to all generated sessions)                 */
+/* Mode A: schedule-level price tiers                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Syncs named price tiers for a schedule into schedule_price_tiers.
+ * Replaces the legacy class_session_price_rows approach for full_schedule mode.
+ * Uses delete+re-insert to handle label/amount/order changes cleanly.
+ */
+async function syncSchedulePriceTiers(
+  supabase: SupabaseClient,
+  scheduleId: string,
+  tiers: DraftSchedulePriceTier[],
+) {
+  const { error: delErr } = await supabase
+    .from("schedule_price_tiers")
+    .delete()
+    .eq("schedule_id", scheduleId);
+  if (delErr) throw new Error(delErr.message);
+
+  if (tiers.length === 0) return;
+
+  const rows = tiers.map((t, i) => ({
+    schedule_id: scheduleId,
+    label: t.label,
+    amount: t.amount,
+    sort_order: t.sortOrder ?? i,
+    is_default: t.isDefault,
+  }));
+
+  const { error: insErr } = await supabase
+    .from("schedule_price_tiers")
+    .insert(rows);
+  if (insErr) throw new Error(insErr.message);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Price rows per schedule (legacy — applied to all generated sessions)        */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -591,11 +720,24 @@ async function syncClassRequirements(
 /* -------------------------------------------------------------------------- */
 
 const DAY_OF_WEEK_INDEX: Record<string, number> = {
-  sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
-  thursday: 4, friday: 5, saturday: 6,
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
 };
 
-const DAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const DAY_NAMES = [
+  "sunday",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+];
 
 /**
  * Returns all 'YYYY-MM-DD' strings in [startDate, endDate] that fall on dayOfWeek.

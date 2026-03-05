@@ -36,7 +36,7 @@ Deno.serve(async (_req) => {
     const { data: expiredHolds } = await supabase
       .from("registrations")
       .select("id, session_id, dancer_id")
-      .eq("status", "pending")
+      .eq("status", "pending_payment")
       .lt("hold_expires_at", now)
       .not("hold_expires_at", "is", null);
 

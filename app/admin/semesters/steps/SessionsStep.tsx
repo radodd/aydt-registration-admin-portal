@@ -4,9 +4,9 @@ import {
   DraftClass,
   DraftClassRequirement,
   DraftClassSchedule,
+  DraftSchedulePriceTier,
   DraftSessionExcludedDate,
   DraftSessionOption,
-  DraftSessionPriceRow,
   SessionsStepProps,
 } from "@/types";
 import { useState } from "react";
@@ -64,7 +64,9 @@ function emptySchedule(): DraftClassSchedule {
     registrationOpenAt: null,
     genderRestriction: null,
     urgencyThreshold: null,
-    priceRows: [],
+    pricingModel: "full_schedule",
+    priceTiers: [],
+    dropInPrice: null,
     options: [],
     excludedDates: [],
   };
@@ -362,7 +364,8 @@ function ClassCard({
   const schedules = cls.schedules ?? [];
   const scheduleCount = schedules.length;
   const disciplineLabel =
-    DISCIPLINES.find((d) => d.value === cls.discipline)?.label ?? cls.discipline;
+    DISCIPLINES.find((d) => d.value === cls.discipline)?.label ??
+    cls.discipline;
   const divisionLabel =
     DIVISIONS.find((d) => d.value === cls.division)?.label ?? cls.division;
 
@@ -381,7 +384,11 @@ function ClassCard({
             strokeWidth={2}
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 5l7 7-7 7"
+            />
           </svg>
           <div className="min-w-0">
             <p className="font-semibold text-gray-900 truncate">
@@ -697,15 +704,15 @@ function ScheduleEditor({
 }) {
   const [newExcludedDate, setNewExcludedDate] = useState("");
   const [newExcludedReason, setNewExcludedReason] = useState("");
-  const [showPriceForm, setShowPriceForm] = useState(false);
-  const [draftPriceRow, setDraftPriceRow] = useState<{
+  const [showTierForm, setShowTierForm] = useState(false);
+  const [draftTier, setDraftTier] = useState<{
     label: string;
     amount: string;
     isDefault: boolean;
   }>({
     label: "",
     amount: "",
-    isDefault: (schedule.priceRows ?? []).length === 0,
+    isDefault: (schedule.priceTiers ?? []).length === 0,
   });
   const [showOptionForm, setShowOptionForm] = useState(false);
   const [draftOption, setDraftOption] = useState<{
@@ -720,7 +727,8 @@ function ScheduleEditor({
     isRequired: false,
   });
 
-  const priceRows = schedule.priceRows ?? [];
+  const pricingModel = schedule.pricingModel ?? "full_schedule";
+  const priceTiers = schedule.priceTiers ?? [];
   const options = schedule.options ?? [];
   const excludedDates = schedule.excludedDates ?? [];
   const generatedCount = computeGeneratedCount(schedule);
@@ -759,43 +767,43 @@ function ScheduleEditor({
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Price rows                                                              */
+  /* Price tiers (Mode A — full_schedule)                                   */
   /* ---------------------------------------------------------------------- */
 
-  function handleAddPriceRow() {
-    if (!draftPriceRow.label.trim() || draftPriceRow.amount === "") return;
-    const amount = parseFloat(draftPriceRow.amount);
+  function handleAddTier() {
+    if (!draftTier.label.trim() || draftTier.amount === "") return;
+    const amount = parseFloat(draftTier.amount);
     if (isNaN(amount) || amount < 0) return;
-    const newRow: DraftSessionPriceRow = {
+    const newTier: DraftSchedulePriceTier = {
       _clientKey: Date.now().toString(),
-      label: draftPriceRow.label.trim(),
+      label: draftTier.label.trim(),
       amount,
-      sortOrder: priceRows.length,
-      isDefault: draftPriceRow.isDefault || priceRows.length === 0,
+      sortOrder: priceTiers.length,
+      isDefault: draftTier.isDefault || priceTiers.length === 0,
     };
-    const updated = draftPriceRow.isDefault
-      ? priceRows.map((r) => ({ ...r, isDefault: false }))
-      : [...priceRows];
-    onChange({ priceRows: [...updated, newRow] });
-    setDraftPriceRow({ label: "", amount: "", isDefault: false });
-    setShowPriceForm(false);
+    const updated = draftTier.isDefault
+      ? priceTiers.map((t) => ({ ...t, isDefault: false }))
+      : [...priceTiers];
+    onChange({ priceTiers: [...updated, newTier] });
+    setDraftTier({ label: "", amount: "", isDefault: false });
+    setShowTierForm(false);
   }
 
-  function handleSetDefaultPriceRow(clientKey: string) {
+  function handleSetDefaultTier(clientKey: string) {
     onChange({
-      priceRows: priceRows.map((r) => ({
-        ...r,
-        isDefault: r._clientKey === clientKey,
+      priceTiers: priceTiers.map((t) => ({
+        ...t,
+        isDefault: t._clientKey === clientKey,
       })),
     });
   }
 
-  function handleRemovePriceRow(clientKey: string) {
-    const updated = priceRows.filter((r) => r._clientKey !== clientKey);
-    if (updated.length > 0 && !updated.some((r) => r.isDefault)) {
+  function handleRemoveTier(clientKey: string) {
+    const updated = priceTiers.filter((t) => t._clientKey !== clientKey);
+    if (updated.length > 0 && !updated.some((t) => t.isDefault)) {
       updated[0] = { ...updated[0], isDefault: true };
     }
-    onChange({ priceRows: updated });
+    onChange({ priceTiers: updated });
   }
 
   /* ---------------------------------------------------------------------- */
@@ -815,13 +823,28 @@ function ScheduleEditor({
       sortOrder: options.length,
     };
     onChange({ options: [...options, newOpt] });
-    setDraftOption({ name: "", description: "", price: "0", isRequired: false });
+    setDraftOption({
+      name: "",
+      description: "",
+      price: "0",
+      isRequired: false,
+    });
     setShowOptionForm(false);
   }
 
   function handleRemoveOption(clientKey: string) {
     onChange({ options: options.filter((o) => o._clientKey !== clientKey) });
   }
+
+  const TIME_OPTIONS = [
+    "09:00",
+    "09:30",
+    "10:00",
+    "10:30",
+    "11:00",
+    "11:30",
+    "12:00",
+  ];
 
   /* ---------------------------------------------------------------------- */
   /* Render                                                                  */
@@ -842,9 +865,10 @@ function ScheduleEditor({
                 disabled={isLocked}
                 onClick={() => handleToggleDay(d.value)}
                 className={`px-3 py-1 rounded-lg text-xs font-medium border transition
-                  ${active
-                    ? "bg-indigo-600 text-white border-indigo-600"
-                    : "bg-white text-gray-600 border-gray-300 hover:border-indigo-400"
+                  ${
+                    active
+                      ? "bg-indigo-600 text-white border-indigo-600"
+                      : "bg-white text-gray-600 border-gray-300 hover:border-indigo-400"
                   }
                   disabled:opacity-50 disabled:cursor-default`}
               >
@@ -859,25 +883,39 @@ function ScheduleEditor({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1">Start time</label>
-          <input
-            type="time"
+          <select
+            // type="time"
             disabled={isLocked}
             value={schedule.startTime ?? ""}
             onChange={(e) =>
               onChange({ startTime: e.target.value || undefined })
             }
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
-          />
+          >
+            <option value="">Select Time</option>
+            {TIME_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">End time</label>
-          <input
-            type="time"
+          <select
+            // type="time"
             disabled={isLocked}
             value={schedule.endTime ?? ""}
             onChange={(e) => onChange({ endTime: e.target.value || undefined })}
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
-          />
+          >
+            <option value="">Select End Time</option>
+            {TIME_OPTIONS.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -901,9 +939,7 @@ function ScheduleEditor({
             type="date"
             disabled={isLocked}
             value={schedule.endDate ?? ""}
-            onChange={(e) =>
-              onChange({ endDate: e.target.value || undefined })
-            }
+            onChange={(e) => onChange({ endDate: e.target.value || undefined })}
             className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
           />
         </div>
@@ -1066,9 +1102,7 @@ function ScheduleEditor({
               className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-700"
             >
               {d.date}
-              {d.reason && (
-                <span className="text-gray-400">({d.reason})</span>
-              )}
+              {d.reason && <span className="text-gray-400">({d.reason})</span>}
               {!isLocked && (
                 <button
                   type="button"
@@ -1140,151 +1174,248 @@ function ScheduleEditor({
         </p>
       </div>
 
-      {/* Price rows (session-level pricing tiers) */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
-            Price tiers
-          </p>
-          {!isLocked && !showPriceForm && (
+      {/* Pricing model toggle + pricing config */}
+      <div className="space-y-3">
+        <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+          Pricing model
+        </p>
+
+        {/* Mode toggle */}
+        <div className="flex gap-2">
+          {(
+            [
+              {
+                value: "full_schedule",
+                label: "Full Schedule",
+                desc: "One price, entire enrollment",
+              },
+              {
+                value: "per_session",
+                label: "Per Session (Drop-in)",
+                desc: "Priced per class date",
+              },
+            ] as const
+          ).map((mode) => (
             <button
+              key={mode.value}
               type="button"
-              onClick={() => setShowPriceForm(true)}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+              disabled={isLocked}
+              onClick={() =>
+                onChange({
+                  pricingModel: mode.value,
+                  // Clear the other mode's data to avoid stale values
+                  ...(mode.value === "full_schedule"
+                    ? { dropInPrice: null }
+                    : { priceTiers: [] }),
+                })
+              }
+              className={`flex-1 rounded-xl border px-3 py-2 text-left transition
+                ${
+                  pricingModel === mode.value
+                    ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
+                    : "border-gray-200 hover:border-gray-300"
+                }
+                disabled:opacity-50 disabled:cursor-default`}
             >
-              + Add tier
+              <p
+                className={`text-xs font-medium ${pricingModel === mode.value ? "text-indigo-700" : "text-gray-700"}`}
+              >
+                {mode.label}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">{mode.desc}</p>
             </button>
-          )}
+          ))}
         </div>
-        {priceRows.length === 0 && !showPriceForm && (
-          <p className="text-xs text-gray-400 italic">
-            No price tiers — uses semester tuition rate bands.
-          </p>
-        )}
-        {priceRows.length > 0 && (
-          <div className="rounded-lg border border-gray-200 overflow-hidden">
-            <table className="w-full text-xs">
-              <thead className="bg-gray-50 text-gray-500">
-                <tr>
-                  <th className="px-3 py-1.5 text-left font-medium">Label</th>
-                  <th className="px-3 py-1.5 text-right font-medium">
-                    Amount
-                  </th>
-                  <th className="px-3 py-1.5 text-center font-medium">
-                    Default
-                  </th>
-                  {!isLocked && <th className="px-3 py-1.5" />}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {priceRows.map((row) => (
-                  <tr key={row._clientKey} className="bg-white">
-                    <td className="px-3 py-1.5 text-gray-700">{row.label}</td>
-                    <td className="px-3 py-1.5 text-right text-gray-700">
-                      ${row.amount.toFixed(2)}
-                    </td>
-                    <td className="px-3 py-1.5 text-center">
-                      {row.isDefault ? (
-                        <span className="text-indigo-600 font-medium">✓</span>
-                      ) : !isLocked ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleSetDefaultPriceRow(row._clientKey)
-                          }
-                          className="text-gray-400 hover:text-indigo-600 transition"
-                        >
-                          Set
-                        </button>
-                      ) : null}
-                    </td>
-                    {!isLocked && (
-                      <td className="px-3 py-1.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePriceRow(row._clientKey)}
-                          className="text-red-400 hover:text-red-600 transition"
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+        {/* Mode A: schedule-level price tiers */}
+        {pricingModel === "full_schedule" && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Price tiers — user selects one at checkout
+              </p>
+              {!isLocked && !showTierForm && (
+                <button
+                  type="button"
+                  onClick={() => setShowTierForm(true)}
+                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+                >
+                  + Add tier
+                </button>
+              )}
+            </div>
+            {priceTiers.length === 0 && !showTierForm && (
+              <p className="text-xs text-gray-400 italic">
+                No tiers — falls back to semester tuition rate bands.
+              </p>
+            )}
+            {priceTiers.length > 0 && (
+              <div className="rounded-lg border border-gray-200 overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 text-gray-500">
+                    <tr>
+                      <th className="px-3 py-1.5 text-left font-medium">
+                        Label
+                      </th>
+                      <th className="px-3 py-1.5 text-right font-medium">
+                        Amount
+                      </th>
+                      <th className="px-3 py-1.5 text-center font-medium">
+                        Default
+                      </th>
+                      {!isLocked && <th className="px-3 py-1.5" />}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {priceTiers.map((tier) => (
+                      <tr key={tier._clientKey} className="bg-white">
+                        <td className="px-3 py-1.5 text-gray-700">
+                          {tier.label}
+                        </td>
+                        <td className="px-3 py-1.5 text-right text-gray-700">
+                          ${tier.amount.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-1.5 text-center">
+                          {tier.isDefault ? (
+                            <span className="text-indigo-600 font-medium">
+                              ✓
+                            </span>
+                          ) : !isLocked ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSetDefaultTier(tier._clientKey)
+                              }
+                              className="text-gray-400 hover:text-indigo-600 transition"
+                            >
+                              Set
+                            </button>
+                          ) : null}
+                        </td>
+                        {!isLocked && (
+                          <td className="px-3 py-1.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTier(tier._clientKey)}
+                              className="text-red-400 hover:text-red-600 transition"
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {showTierForm && (
+              <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-3 space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Label *
+                    </label>
+                    <input
+                      type="text"
+                      value={draftTier.label}
+                      onChange={(e) =>
+                        setDraftTier((d) => ({ ...d, label: e.target.value }))
+                      }
+                      placeholder="e.g. Regular"
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Amount ($) *
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={draftTier.amount}
+                      onChange={(e) =>
+                        setDraftTier((d) => ({ ...d, amount: e.target.value }))
+                      }
+                      placeholder="0.00"
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={draftTier.isDefault}
+                    onChange={(e) =>
+                      setDraftTier((d) => ({
+                        ...d,
+                        isDefault: e.target.checked,
+                      }))
+                    }
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-xs text-gray-700">
+                    Set as default tier
+                  </span>
+                </label>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowTierForm(false);
+                      setDraftTier({ label: "", amount: "", isDefault: false });
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-700 transition px-2 py-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddTier}
+                    disabled={
+                      !draftTier.label.trim() || draftTier.amount === ""
+                    }
+                    className="text-xs font-medium bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+                  >
+                    Add tier
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
-        {showPriceForm && (
-          <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-3 space-y-2">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">
-                  Label *
-                </label>
-                <input
-                  type="text"
-                  value={draftPriceRow.label}
-                  onChange={(e) =>
-                    setDraftPriceRow((d) => ({ ...d, label: e.target.value }))
-                  }
-                  placeholder="e.g. Regular"
-                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">
-                  Amount ($) *
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={draftPriceRow.amount}
-                  onChange={(e) =>
-                    setDraftPriceRow((d) => ({ ...d, amount: e.target.value }))
-                  }
-                  placeholder="0.00"
-                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={draftPriceRow.isDefault}
-                onChange={(e) =>
-                  setDraftPriceRow((d) => ({
-                    ...d,
-                    isDefault: e.target.checked,
-                  }))
-                }
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="text-xs text-gray-700">Set as default price</span>
+
+        {/* Mode B: single drop-in price per session */}
+        {pricingModel === "per_session" && (
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">
+              Drop-in price per session ($)
             </label>
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPriceForm(false);
-                  setDraftPriceRow({ label: "", amount: "", isDefault: false });
-                }}
-                className="text-xs text-gray-500 hover:text-gray-700 transition px-2 py-1"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleAddPriceRow}
-                disabled={
-                  !draftPriceRow.label.trim() || draftPriceRow.amount === ""
+            <div className="flex items-center gap-2 max-w-xs">
+              <span className="text-sm text-gray-500">$</span>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                disabled={isLocked}
+                value={schedule.dropInPrice ?? ""}
+                onChange={(e) =>
+                  onChange({
+                    dropInPrice: e.target.value
+                      ? parseFloat(e.target.value)
+                      : null,
+                  })
                 }
-                className="text-xs font-medium bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
-              >
-                Add tier
-              </button>
+                placeholder="0.00"
+                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+              />
+              <span className="text-xs text-gray-400 shrink-0">per date</span>
             </div>
+            <p className="text-xs text-gray-400 mt-1">
+              This price is applied to each generated session. Users may enroll
+              in any subset of individual dates.
+            </p>
           </div>
         )}
       </div>
@@ -1559,9 +1690,7 @@ function RequirementsSection({
         <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">
-                Type *
-              </label>
+              <label className="block text-xs text-gray-500 mb-1">Type *</label>
               <select
                 value={draft.requirement_type}
                 onChange={(e) =>
@@ -1597,9 +1726,7 @@ function RequirementsSection({
                 <option value="hard_block">
                   Hard block (prevents enrollment)
                 </option>
-                <option value="soft_warn">
-                  Soft warning (shows message)
-                </option>
+                <option value="soft_warn">Soft warning (shows message)</option>
               </select>
             </div>
           </div>

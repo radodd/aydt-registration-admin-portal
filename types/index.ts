@@ -201,6 +201,10 @@ export interface SemesterFeeConfig {
   family_discount_amount: number;
   auto_pay_admin_fee_monthly: number;
   auto_pay_installment_count: number;
+  /** Flat video fee charged once per senior registrant ($15 default). */
+  senior_video_fee_per_registrant: number;
+  /** Per-class costume fee for senior division ($65/class default). */
+  senior_costume_fee_per_class: number;
   created_at: string;
   updated_at: string;
 }
@@ -224,10 +228,12 @@ export type DraftTuitionRateBand = {
 
 /** Per-semester fee constants as held in the SemesterDraft editor state. */
 export type DraftFeeConfig = {
-  registration_fee_per_child: number;  // default 40.00
-  family_discount_amount: number;      // default 50.00
-  auto_pay_admin_fee_monthly: number;  // default 5.00
-  auto_pay_installment_count: number;  // default 5
+  registration_fee_per_child: number;          // default 40.00
+  family_discount_amount: number;              // default 50.00
+  auto_pay_admin_fee_monthly: number;          // default 5.00
+  auto_pay_installment_count: number;          // default 5
+  senior_video_fee_per_registrant: number;     // default 15.00
+  senior_costume_fee_per_class: number;        // default 65.00
 };
 
 export interface PricingInput {
@@ -252,7 +258,10 @@ export interface LineItem {
     | "recital_fee"
     | "registration_fee"
     | "family_discount"
-    | "auto_pay_admin_fee";
+    | "auto_pay_admin_fee"
+    | "video_fee"       // senior division: flat fee per registrant
+    | "costume_fee"     // senior division: per-class costume fee
+    | "session_discount"; // custom/multi-session discount rules
   label: string;
   amount: number; // positive = charge, negative = credit
   description?: string;
@@ -269,8 +278,11 @@ export interface DancerPricingBreakdown {
   dancerName: string;
   division: string;
   weeklyClassCount: number;
-  tuition: number;
-  recitalFee: number;
+  tuition: number;        // includes recital fee, senior video/costume fees, minus session discounts
+  recitalFee: number;     // display only — already included in tuition
+  videoFee: number;       // senior division only; display only — already included in tuition
+  costumeFee: number;     // senior division only; display only — already included in tuition
+  sessionDiscountTotal: number; // total of all applied session-level discounts (negative or 0)
   registrationFee: number;
   lineItems: LineItem[];
 }
@@ -365,6 +377,8 @@ export interface ClassRequirement {
  * A named price tier for a class_session.
  * If any rows exist for a session, the default row drives checkout.
  * Sessions with no rows fall back to tuition_rate_bands.
+ * @deprecated For new schedules use DraftSchedulePriceTier (full_schedule mode)
+ * or dropInPrice (per_session mode) on DraftClassSchedule instead.
  */
 export type DraftSessionPriceRow = {
   /** Stable React list key — use crypto.randomUUID() or Date.now().toString() */
@@ -375,6 +389,23 @@ export type DraftSessionPriceRow = {
   amount: number;       // non-negative dollar amount
   sortOrder: number;
   isDefault: boolean;   // exactly one row per session should be true
+};
+
+/**
+ * A named price tier for a schedule block (Mode A — full_schedule pricing).
+ * Maps 1:1 to schedule_price_tiers rows in the DB.
+ * One tier is selected by the user at checkout; the amount covers the
+ * entire schedule (all generated sessions).
+ */
+export type DraftSchedulePriceTier = {
+  /** Stable React list key */
+  _clientKey: string;
+  /** DB id once persisted */
+  id?: string;
+  label: string;        // e.g. "Regular", "Early Bird", "Scholarship"
+  amount: number;       // non-negative dollar amount; covers the full schedule
+  sortOrder: number;
+  isDefault: boolean;   // exactly one tier per schedule should be true
 };
 
 /**
@@ -403,6 +434,10 @@ export type DraftSessionExcludedDate = {
  * Admin-level schedule configuration block for a class.
  * Maps 1:1 to class_schedules rows in the DB.
  * The system auto-generates one class_session per valid calendar date from this config.
+ *
+ * Pricing modes:
+ *   full_schedule — user buys access to the entire schedule; price from priceTiers.
+ *   per_session   — user picks individual sessions; each session priced at dropInPrice.
  */
 export type DraftClassSchedule = {
   /** Stable React list key */
@@ -424,7 +459,23 @@ export type DraftClassSchedule = {
   urgencyThreshold?: number | null;
   /** Dates on which sessions should NOT be generated (holidays, closures) */
   excludedDates?: DraftSessionExcludedDate[];
-  /** Named price tiers — if set, overrides tuition_rate_bands for all sessions in this schedule */
+
+  // ── Pricing model ──────────────────────────────────────────────────────────
+  /** Determines enrollment and pricing semantics. Defaults to 'full_schedule'. */
+  pricingModel?: 'full_schedule' | 'per_session';
+  /**
+   * Mode A (full_schedule): named price tiers stored in schedule_price_tiers.
+   * User selects one tier at checkout; amount covers all generated sessions.
+   */
+  priceTiers?: DraftSchedulePriceTier[];
+  /**
+   * Mode B (per_session): flat drop-in price propagated to each generated
+   * class_session. Stored in class_sessions.drop_in_price.
+   */
+  dropInPrice?: number | null;
+
+  // ── Legacy — do not use for new schedules ──────────────────────────────────
+  /** @deprecated Use priceTiers (full_schedule) or dropInPrice (per_session) */
   priceRows?: DraftSessionPriceRow[];
   /** Purchasable add-ons displayed at checkout for every day in this schedule */
   options?: DraftSessionOption[];
@@ -797,10 +848,6 @@ export type HydratedDiscount = {
 
   discount_rule_sessions: {
     session_id: string;
-    class_sessions: {
-      id: string;
-      classes: { name: string } | null;
-    } | null;
   }[];
 };
 

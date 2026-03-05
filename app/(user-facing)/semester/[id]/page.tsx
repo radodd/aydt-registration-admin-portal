@@ -33,9 +33,6 @@ export default async function SemesterDetailPage({ params }: Props) {
     console.log("not found");
   }
 
-  console.log("SEMESTER IN USER SIDE", semester.daysOfWeek);
-  console.log("FIRST SESSION", JSON.stringify(semester.sessions[0], null, 2));
-
   const paymentType = semester.paymentPlan?.type;
 
   return (

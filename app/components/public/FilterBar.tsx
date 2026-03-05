@@ -32,12 +32,12 @@ export function applyFilters(
 ): PublicSession[] {
   return sessions.filter((s) => {
     if (filters.groupId && s.groupId !== filters.groupId) return false;
-    if (
-      filters.dayOfWeek &&
-      !s.daysOfWeek.includes(filters.dayOfWeek) &&
-      !s.availableDays.some((d) => d.dayOfWeek === filters.dayOfWeek)
-    )
-      return false;
+    if (filters.dayOfWeek && s.scheduleDate) {
+      const dayIndex = new Date(s.scheduleDate + "T00:00:00").getDay();
+      const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+      const sessionDay = dayNames[dayIndex] ?? "";
+      if (sessionDay !== filters.dayOfWeek.toLowerCase()) return false;
+    }
     if (filters.spotsOnly && s.spotsRemaining === 0) return false;
     return true;
   });

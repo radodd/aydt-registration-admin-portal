@@ -24,9 +24,10 @@ export interface PublicAvailableDay {
 export interface PublicSession {
   /** class_session id (Phase 1+) */
   id: string;
-  classId?:
-    | string
-    | null; /** Phase 1+: classes.id this session slot belongs to */
+  /** Phase 1+: classes.id this session slot belongs to */
+  classId?: string | null;
+  /** class_schedules.id this session was generated from */
+  scheduleId?: string | null;
   name: string;
   description?: string | null;
   category?: string | null;
@@ -37,30 +38,46 @@ export interface PublicSession {
   location?: string | null;
 
   scheduleDate: string;
-  startTime?:
-    | string
-    | null; /** Time the class ends, e.g. "11:00" — sourced directly from class_sessions.end_time */
+  startTime?: string | null;
   endTime?: string | null;
-  // startDate?: string | null;
-  // endDate?: string | null;
-  /** Phase 1+: single-element array (one day per class_session) */
-  // daysOfWeek: string[];
-  /** Time the class starts, e.g. "10:00" — sourced directly from class_sessions.start_time */
 
   instructorName?: string | null;
+
+  /**
+   * Pricing model inherited from the parent schedule.
+   *   full_schedule — this session belongs to a full-season enrollment;
+   *                   priced via priceTiers on the schedule, not individually.
+   *   per_session   — this session can be purchased standalone at dropInPrice.
+   */
+  pricingModel: "full_schedule" | "per_session";
+  /**
+   * Mode A only: available price tiers for the parent schedule.
+   * User selects one tier; amount covers the entire schedule.
+   */
+  priceTiers?: Array<{
+    id: string;
+    label: string;
+    amount: number;
+    isDefault: boolean;
+  }>;
+  /**
+   * Mode B only: flat price for this individual session date.
+   * Null if the session belongs to a full_schedule schedule.
+   */
+  dropInPrice?: number | null;
+
+  /** Capacity semantics differ by pricingModel:
+   *  full_schedule → schedule-level enrollment count (schedule_enrollments)
+   *  per_session   → per-session registration count (registrations)
+   */
   capacity: number;
   enrolledCount: number;
   spotsRemaining: number;
-  // /** @deprecated Pricing computed by the pricing engine (Phase 2) */
-  // pricePerDay?: number | null;
-  // /** @deprecated Pricing computed by the pricing engine (Phase 2) */
-  // priceFull?: number | null;
+
   minAge?: number | null;
   maxAge?: number | null;
 
   registrationCloseAt?: string | null;
-  /** Individual occurrence dates sourced from session_occurrence_dates */
-  // availableDays: PublicAvailableDay[];
   /** Assigned group id for bundle/grouping UI */
   groupId?: string | null;
   waitlistEnabled: boolean;

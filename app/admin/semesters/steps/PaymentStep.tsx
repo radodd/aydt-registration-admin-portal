@@ -32,6 +32,8 @@ const DEFAULT_FEE_CONFIG: DraftFeeConfig = {
   family_discount_amount: 50,
   auto_pay_admin_fee_monthly: 5,
   auto_pay_installment_count: 5,
+  senior_video_fee_per_registrant: 15,
+  senior_costume_fee_per_class: 65,
 };
 
 /* -------------------------------------------------------------------------- */
@@ -242,7 +244,7 @@ export default function PaymentStep({
                     {
                       value: "pay_in_full",
                       label: "Pay in Full",
-                      desc: "Full payment due on one date",
+                      desc: "Full payment at time of checkout",
                     },
                     {
                       value: "deposit_flat",
@@ -277,7 +279,9 @@ export default function PaymentStep({
                     >
                       {option.label}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">{option.desc}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {option.desc}
+                    </p>
                   </button>
                 ))}
               </div>
@@ -307,27 +311,30 @@ export default function PaymentStep({
                 />
               </div>
             )}
-
-            <div className="space-y-2">
-              <label
-                htmlFor="due-date"
-                className="text-sm font-medium text-gray-700"
-              >
-                First payment due date
-              </label>
-              <input
-                id="due-date"
-                type="date"
-                value={form.dueDate}
-                onChange={(e) =>
-                  updateField(
-                    "dueDate",
-                    e.target.value as PaymentFormState["dueDate"],
-                  )
-                }
-                className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
-              />
-            </div>
+            {form.type === "pay_in_full" ? (
+              ""
+            ) : (
+              <div className="space-y-2">
+                <label
+                  htmlFor="due-date"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  First payment due date
+                </label>
+                <input
+                  id="due-date"
+                  type="date"
+                  value={form.dueDate}
+                  onChange={(e) =>
+                    updateField(
+                      "dueDate",
+                      e.target.value as PaymentFormState["dueDate"],
+                    )
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                />
+              </div>
+            )}
           </fieldset>
         )}
 
@@ -354,9 +361,7 @@ export default function PaymentStep({
                       <th className="px-4 py-3 text-left">Base Tuition</th>
                       <th className="px-4 py-3 text-left">Recital Fee</th>
                       <th className="px-4 py-3 text-left">Notes</th>
-                      {!isLocked && (
-                        <th className="px-4 py-3 text-left"></th>
-                      )}
+                      {!isLocked && <th className="px-4 py-3 text-left"></th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -458,7 +463,7 @@ export default function PaymentStep({
                         </td>
                         <td className="px-4 py-3">
                           {isLocked ? (
-                            band.notes ?? "—"
+                            (band.notes ?? "—")
                           ) : (
                             <input
                               type="text"
@@ -722,6 +727,71 @@ export default function PaymentStep({
                 <p className="text-xs text-gray-400">
                   Number of monthly payments for auto-pay plan (default 5).
                 </p>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-6">
+              <p className="text-sm font-medium text-gray-700 mb-4">
+                Senior Division Fees
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Video fee (per senior registrant)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={feeConfig.senior_video_fee_per_registrant}
+                      onChange={(e) =>
+                        updateFeeConfig(
+                          "senior_video_fee_per_registrant",
+                          Number(e.target.value),
+                        )
+                      }
+                      disabled={isLocked}
+                      className="w-full pl-7 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Flat fee charged once per senior dancer per semester
+                    (default $15).
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Costume fee (per class, senior)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={feeConfig.senior_costume_fee_per_class}
+                      onChange={(e) =>
+                        updateFeeConfig(
+                          "senior_costume_fee_per_class",
+                          Number(e.target.value),
+                        )
+                      }
+                      disabled={isLocked}
+                      className="w-full pl-7 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Per-class costume fee for senior dancers; multiplied by
+                    weekly class count (default $65).
+                  </p>
+                </div>
               </div>
             </div>
           </fieldset>

@@ -155,13 +155,15 @@ export default function CreateDiscountForm({
   return (
     <>
       <div
-        className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm"
+        className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm "
         // onClick={onCancel}
       >
-        <div className="space-y-8 inset-0 z-40 bg-white border border-gray-200 rounded-2xl shadow-lg p-6 w-full max-w-lg mx-auto my-16 overflow-auto">
+        <div className="space-y-8 inset-0 z-40 bg-white border border-gray-200 rounded-2xl shadow-lg p-6 w-full max-w-lg mx-auto my-16 overflow-auto max-h-140">
           {/* Header */}
           <div>
-            <h2 className="text-xl font-semibold text-slate-900">Create a Discount</h2>
+            <h2 className="text-xl font-semibold text-slate-900">
+              Create a Discount
+            </h2>
           </div>
 
           {/* Discount Name */}

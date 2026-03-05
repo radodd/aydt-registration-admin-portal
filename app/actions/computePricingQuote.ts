@@ -20,8 +20,20 @@ import { buildPaymentSchedule } from "@/utils/buildPaymentSchedule";
  * server-side. The client receives a PricingQuote for display only.
  * At batch creation the server recomputes and validates the totals match.
  *
- * @throws Error if required configuration is missing (no fee config,
- *   no rate band for a given division/class count)
+ * Calculation order (confirmed with client):
+ *  Per dancer:
+ *    1. Base tuition (rate bands or per-session price rows)
+ *    2. Recital fee (from rate band; $0 for competition)
+ *    3. Senior extra fees: video ($15/registrant) + costume ($65 × weeklyClassCount)
+ *    4. Session/class discount rules (% first, flat second)
+ *    5. Registration fee ($40, not discountable)
+ *  Family level:
+ *    6. Sum dancer tuition → tuitionSubtotal
+ *    7. Family discount ($50 flat, once per family per semester)
+ *    8. Auto-pay admin fee (if applicable)
+ *    9. Grand total
+ *
+ * @throws Error if required configuration is missing
  */
 export async function computePricingQuote(
   input: PricingInput,
@@ -51,10 +63,16 @@ export async function computePricingQuote(
     auto_pay_installment_count: Number(
       feeConfigRow?.auto_pay_installment_count ?? 5,
     ),
+    senior_video_fee_per_registrant: Number(
+      feeConfigRow?.senior_video_fee_per_registrant ?? 15,
+    ),
+    senior_costume_fee_per_class: Number(
+      feeConfigRow?.senior_costume_fee_per_class ?? 65,
+    ),
   };
 
   /* ---------------------------------------------------------------------- */
-  /* 2. Resolve family ID and check if discount already applied              */
+  /* 2. Resolve family ID and check if family discount already applied       */
   /* ---------------------------------------------------------------------- */
   let familyId = input.familyId;
   if (!familyId) {
@@ -84,14 +102,37 @@ export async function computePricingQuote(
   }
 
   /* ---------------------------------------------------------------------- */
-  /* 3. Per-dancer computation                                                */
+  /* 3. Fetch semester discount rules (evaluated per dancer below)           */
+  /* ---------------------------------------------------------------------- */
+  const { data: discountLinks } = await supabase
+    .from("semester_discounts")
+    .select(
+      `discount_id,
+       discounts (
+         id, name, category, eligible_sessions_mode, give_session_scope, is_active,
+         discount_rules ( id, threshold, threshold_unit, value, value_type ),
+         discount_rule_sessions ( session_id )
+       )`,
+    )
+    .eq("semester_id", input.semesterId);
+
+  const activeDiscounts: ActiveDiscount[] = (discountLinks ?? [])
+    .map((link: any) => link.discounts as ActiveDiscount | null)
+    .filter((d): d is ActiveDiscount => d !== null && d.is_active === true);
+
+  const familyDancerCount = input.enrollments.filter(
+    (e) => e.sessionIds.length > 0,
+  ).length;
+
+  /* ---------------------------------------------------------------------- */
+  /* 4. Per-dancer computation                                                */
   /* ---------------------------------------------------------------------- */
   const perDancer: DancerPricingBreakdown[] = [];
 
   for (const { dancerId, dancerName: dancerNameOverride, sessionIds } of input.enrollments) {
     if (sessionIds.length === 0) continue;
 
-    // Fetch the class + schedule_date for each session (schedule_date drives per-day pricing)
+    // Fetch the class + schedule_date for each session
     const { data: sessionRows, error: sessionError } = await supabase
       .from("class_sessions")
       .select("id, schedule_date, day_of_week, classes(id, name, division, is_competition_track)")
@@ -222,6 +263,85 @@ export async function computePricingQuote(
       );
     }
 
+    /* -------------------------------------------------------------------- */
+    /* Senior division extra fees                                             */
+    /* -------------------------------------------------------------------- */
+    let videoFee = 0;
+    let costumeFee = 0;
+
+    if (division === "senior") {
+      videoFee = feeConfig.senior_video_fee_per_registrant;
+      costumeFee = round2(feeConfig.senior_costume_fee_per_class * weeklyClassCount);
+
+      tuition += videoFee;
+      tuition += costumeFee;
+
+      lineItems.push(
+        {
+          type: "video_fee",
+          label: "Video Fee (Senior)",
+          amount: videoFee,
+          description: "One-time video fee per senior registrant",
+        },
+        {
+          type: "costume_fee",
+          label: `Costume Fee (${weeklyClassCount} class${weeklyClassCount !== 1 ? "es" : ""})`,
+          amount: costumeFee,
+          description: `$${feeConfig.senior_costume_fee_per_class} per class`,
+        },
+      );
+    }
+
+    /* -------------------------------------------------------------------- */
+    /* Session/class discount rule evaluation                                 */
+    /* Percentage discounts applied first, flat discounts second.            */
+    /* Registration fee is NOT discountable.                                 */
+    /* Note: give_session_scope is not yet granularly enforced — discounts   */
+    /* currently reduce the dancer's full tuition. Granular per-session      */
+    /* application can be added in a future pass.                            */
+    /* -------------------------------------------------------------------- */
+    let sessionDiscountTotal = 0;
+
+    const percentRules = getApplicableRules(
+      activeDiscounts,
+      sessionIds,
+      familyDancerCount,
+      weeklyClassCount,
+      "percent",
+    );
+    for (const rule of percentRules) {
+      const reduction = round2(tuition * (rule.value / 100));
+      tuition = round2(tuition - reduction);
+      sessionDiscountTotal = round2(sessionDiscountTotal - reduction);
+      lineItems.push({
+        type: "session_discount",
+        label: `Discount: ${rule.discountName}`,
+        amount: -reduction,
+        description: `${rule.value}% off tuition`,
+      });
+    }
+
+    const flatRules = getApplicableRules(
+      activeDiscounts,
+      sessionIds,
+      familyDancerCount,
+      weeklyClassCount,
+      "flat",
+    );
+    for (const rule of flatRules) {
+      const reduction = Math.min(rule.value, tuition); // never go below $0
+      tuition = round2(tuition - reduction);
+      sessionDiscountTotal = round2(sessionDiscountTotal - reduction);
+      lineItems.push({
+        type: "session_discount",
+        label: `Discount: ${rule.discountName}`,
+        amount: -reduction,
+      });
+    }
+
+    /* -------------------------------------------------------------------- */
+    /* Registration fee (not discountable)                                   */
+    /* -------------------------------------------------------------------- */
     const registrationFee = feeConfig.registration_fee_per_child;
     lineItems.push({
       type: "registration_fee",
@@ -236,13 +356,16 @@ export async function computePricingQuote(
       weeklyClassCount,
       tuition: round2(tuition),
       recitalFee: round2(recitalFee),
+      videoFee: round2(videoFee),
+      costumeFee: round2(costumeFee),
+      sessionDiscountTotal: round2(sessionDiscountTotal),
       registrationFee,
       lineItems,
     });
   }
 
   /* ---------------------------------------------------------------------- */
-  /* 4. Family-level aggregation                                              */
+  /* 5. Family-level aggregation                                              */
   /* ---------------------------------------------------------------------- */
   const tuitionSubtotal = round2(
     perDancer.reduce((s, d) => s + d.tuition, 0),
@@ -255,14 +378,15 @@ export async function computePricingQuote(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* 5. Family discount: $X flat, once per family per semester                */
+  /* 6. Family discount: $X flat, once per family per semester               */
+  /* Applied after all per-session discounts.                                */
   /* ---------------------------------------------------------------------- */
   const familyDiscountAmount = isDiscountEligible
     ? feeConfig.family_discount_amount
     : 0;
 
   /* ---------------------------------------------------------------------- */
-  /* 6. Auto-pay admin fee: $X/month × installment count                     */
+  /* 7. Auto-pay admin fee: $X/month × installment count                    */
   /* ---------------------------------------------------------------------- */
   const autoPayAdminFeeTotal =
     input.paymentPlanType === "auto_pay_monthly"
@@ -273,7 +397,7 @@ export async function computePricingQuote(
       : 0;
 
   /* ---------------------------------------------------------------------- */
-  /* 7. Grand total                                                           */
+  /* 8. Grand total                                                          */
   /* ---------------------------------------------------------------------- */
   const grandTotal = round2(
     tuitionSubtotal +
@@ -283,7 +407,7 @@ export async function computePricingQuote(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* 8. Family-level line items                                               */
+  /* 9. Family-level line items                                              */
   /* ---------------------------------------------------------------------- */
   const familyLineItems: LineItem[] = [
     ...perDancer.flatMap((d) => d.lineItems),
@@ -307,7 +431,7 @@ export async function computePricingQuote(
   }
 
   /* ---------------------------------------------------------------------- */
-  /* 9. Payment schedule                                                      */
+  /* 10. Payment schedule                                                    */
   /* ---------------------------------------------------------------------- */
   const today = new Date().toISOString().slice(0, 10);
   const { amountDueNow, schedule } = buildPaymentSchedule(
@@ -329,6 +453,89 @@ export async function computePricingQuote(
     lineItems: familyLineItems,
     paymentSchedule: schedule,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Discount Rule Evaluation                                                    */
+/* -------------------------------------------------------------------------- */
+
+interface ActiveDiscount {
+  id: string;
+  name: string;
+  category: string;
+  eligible_sessions_mode: "all" | "selected";
+  give_session_scope: string | null;
+  is_active: boolean;
+  discount_rules: Array<{
+    id: string;
+    threshold: number;
+    threshold_unit: "person" | "session";
+    value: number;
+    value_type: "flat" | "percent";
+  }>;
+  discount_rule_sessions: Array<{ session_id: string | null }>;
+}
+
+/**
+ * Returns applicable discount rules for a dancer, filtered by value_type.
+ * Eligibility checks:
+ *   - eligible_sessions_mode === 'all' → always eligible
+ *   - eligible_sessions_mode === 'selected' → dancer must have at least one
+ *     session that is in discount_rule_sessions
+ * Threshold checks:
+ *   - threshold_unit === 'person' → familyDancerCount must meet threshold
+ *   - threshold_unit === 'session' → weeklyClassCount must meet threshold
+ *   - threshold === 0 → unconditional
+ */
+function getApplicableRules(
+  discounts: ActiveDiscount[],
+  dancerSessionIds: string[],
+  familyDancerCount: number,
+  weeklyClassCount: number,
+  valueType: "percent" | "flat",
+): Array<{ discountName: string; value: number }> {
+  const results: Array<{ discountName: string; value: number }> = [];
+  const sessionSet = new Set(dancerSessionIds);
+
+  for (const discount of discounts) {
+    // Session eligibility
+    if (discount.eligible_sessions_mode === "selected") {
+      const eligibleSessionIds = new Set(
+        discount.discount_rule_sessions
+          .map((s) => s.session_id)
+          .filter(Boolean),
+      );
+      const hasEligibleSession = dancerSessionIds.some((id) =>
+        eligibleSessionIds.has(id),
+      );
+      if (!hasEligibleSession) continue;
+    }
+
+    // Evaluate each rule
+    for (const rule of discount.discount_rules ?? []) {
+      if (rule.value_type !== valueType) continue;
+
+      // Threshold check
+      if (rule.threshold > 0) {
+        if (
+          rule.threshold_unit === "person" &&
+          familyDancerCount < rule.threshold
+        )
+          continue;
+        if (
+          rule.threshold_unit === "session" &&
+          weeklyClassCount < rule.threshold
+        )
+          continue;
+      }
+
+      results.push({ discountName: discount.name, value: rule.value });
+    }
+  }
+
+  // Suppress TS warning for sessionSet being unused when eligible_sessions_mode = 'all'
+  void sessionSet;
+  return results;
 }
 
 /* -------------------------------------------------------------------------- */

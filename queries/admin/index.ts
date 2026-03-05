@@ -156,13 +156,7 @@ export async function getDiscounts(): Promise<HydratedDiscount[]> {
       `
       *,
       discount_rules (*),
-      discount_rule_sessions (
-        session_id,
-        class_sessions!session_id (
-          id,
-          classes ( name )
-        )
-        )
+      discount_rule_sessions ( session_id )
         `,
     )
 

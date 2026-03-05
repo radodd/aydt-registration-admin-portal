@@ -196,6 +196,8 @@ async function upsertFeeConfig(
       family_discount_amount: feeConfig.family_discount_amount,
       auto_pay_admin_fee_monthly: feeConfig.auto_pay_admin_fee_monthly,
       auto_pay_installment_count: feeConfig.auto_pay_installment_count,
+      senior_video_fee_per_registrant: feeConfig.senior_video_fee_per_registrant,
+      senior_costume_fee_per_class: feeConfig.senior_costume_fee_per_class,
     },
     { onConflict: "semester_id" },
   );

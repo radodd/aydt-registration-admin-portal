@@ -58,16 +58,21 @@ export async function getSemesterForDisplay(
         is_competition_track,
         class_sessions (
           id,
-       
+          schedule_id,
           start_time,
           end_time,
-     
           schedule_date,
           instructor_name,
           location,
           capacity,
+          drop_in_price,
           registration_close_at,
           is_active,
+          class_schedules (
+            pricing_model,
+            capacity,
+            schedule_price_tiers ( id, label, amount, sort_order, is_default )
+          ),
           session_occurrence_dates (
             id,
             date,
@@ -108,7 +113,10 @@ export async function getSemesterForDisplay(
   /* 2. Registration counts per class_session                                */
   /* ---------------------------------------------------------------------- */
 
-  const classSessionIds: string[] = (semester.classes ?? []).flatMap(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const semesterClasses = (semester.classes ?? []) as any as ClassRow[];
+
+  const classSessionIds: string[] = semesterClasses.flatMap(
     (c: ClassRow) =>
       (c.class_sessions ?? [])
         .filter((cs: ClassSessionRow) => cs.is_active)
@@ -133,6 +141,34 @@ export async function getSemesterForDisplay(
   }
 
   /* ---------------------------------------------------------------------- */
+  /* 2b. Schedule enrollment counts for full_schedule sessions (Mode A)      */
+  /* ---------------------------------------------------------------------- */
+
+  const scheduleIds: string[] = [
+    ...new Set(
+      semesterClasses.flatMap((c: ClassRow) =>
+        (c.class_sessions ?? [])
+          .filter((cs: ClassSessionRow) => cs.is_active && cs.schedule_id)
+          .map((cs: ClassSessionRow) => cs.schedule_id as string),
+      ),
+    ),
+  ];
+
+  const { data: scheduleEnrollmentRows } = scheduleIds.length
+    ? await supabase
+        .from("schedule_enrollments")
+        .select("schedule_id")
+        .in("schedule_id", scheduleIds)
+        .neq("status", "cancelled")
+    : { data: [] };
+
+  const enrolledBySchedule: Record<string, number> = {};
+  for (const row of scheduleEnrollmentRows ?? []) {
+    const schId = row.schedule_id as string;
+    enrolledBySchedule[schId] = (enrolledBySchedule[schId] ?? 0) + 1;
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* 3. Waitlist settings                                                    */
   /* ---------------------------------------------------------------------- */
 
@@ -146,30 +182,40 @@ export async function getSemesterForDisplay(
   /*    Each active class_session = one enrollable public session.            */
   /* ---------------------------------------------------------------------- */
 
-  const publicSessions: PublicSession[] = (semester.classes ?? []).flatMap(
+  const publicSessions: PublicSession[] = semesterClasses.flatMap(
     (c: ClassRow) =>
       (c.class_sessions ?? [])
         .filter((cs: ClassSessionRow) => cs.is_active)
         .map((cs: ClassSessionRow) => {
-          const enrolled = enrolledBySession[cs.id] ?? 0;
-          const capacity = cs.capacity ?? 0;
+          const pricingModel = (cs.class_schedules?.pricing_model ?? "full_schedule") as
+            | "full_schedule"
+            | "per_session";
 
-          // const availableDays: PublicAvailableDay[] = (
-          //   cs.session_occurrence_dates ?? []
-          // )
-          // .filter((od: OccurrenceDateRow) => !od.is_cancelled)
-          // .map((od: OccurrenceDateRow) => ({
-          //   id: od.id,
-          //   date: od.date,
-          //   // scheduleData:
-          //   dayOfWeek: dayOfWeekFromDate(od.date),
-          //   startTime: cs.start_time ?? "",
-          //   endTime: cs.end_time ?? "",
-          // }));
+          // Capacity and enrollment semantics differ by pricing model:
+          //   full_schedule → capacity from class_schedules, enrolled from schedule_enrollments
+          //   per_session   → capacity from class_sessions, enrolled from registrations
+          const capacity =
+            pricingModel === "full_schedule"
+              ? (cs.class_schedules?.capacity ?? 0)
+              : (cs.capacity ?? 0);
+          const enrolled =
+            pricingModel === "full_schedule"
+              ? (enrolledBySchedule[cs.schedule_id ?? ""] ?? 0)
+              : (enrolledBySession[cs.id] ?? 0);
 
           const sessionWaitlistEnabled =
             (waitlistSettings.enabled ?? false) &&
             (waitlistSettings.sessionSettings?.[cs.id]?.enabled ?? false);
+
+          const priceTiers = (cs.class_schedules?.schedule_price_tiers ?? [])
+            .slice()
+            .sort((a: PriceTierRow, b: PriceTierRow) => a.sort_order - b.sort_order)
+            .map((t: PriceTierRow) => ({
+              id: t.id,
+              label: t.label,
+              amount: Number(t.amount),
+              isDefault: t.is_default,
+            }));
 
           return {
             id: cs.id,
@@ -180,23 +226,21 @@ export async function getSemesterForDisplay(
             capacity,
             enrolledCount: enrolled,
             spotsRemaining: Math.max(0, capacity - enrolled),
-            // pricePerDay: null,
-            // priceFull: null,
             minAge: c.min_age,
             maxAge: c.max_age,
-            // startDate: cs.start_date,
-            // endDate: cs.end_date,
             scheduleDate: cs.schedule_date,
             instructorName: cs.instructor_name,
-            // daysOfWeek: [cs.day_of_week],
             startTime: cs.start_time,
             endTime: cs.end_time,
             registrationCloseAt: cs.registration_close_at,
-            // availableDays,
             waitlistEnabled: sessionWaitlistEnabled,
             discipline: c.discipline,
             division: c.division,
             classId: c.id,
+            scheduleId: cs.schedule_id ?? null,
+            pricingModel,
+            priceTiers,
+            dropInPrice: cs.drop_in_price ?? null,
             isCompetitionTrack: c.is_competition_track ?? false,
           } satisfies PublicSession;
         }),
@@ -308,20 +352,33 @@ interface OccurrenceDateRow {
   is_cancelled: boolean;
 }
 
+interface PriceTierRow {
+  id: string;
+  label: string;
+  amount: number;
+  sort_order: number;
+  is_default: boolean;
+}
+
+interface ClassScheduleRow {
+  pricing_model: string;
+  capacity: number | null;
+  schedule_price_tiers: PriceTierRow[];
+}
+
 interface ClassSessionRow {
   id: string;
+  schedule_id: string | null;
   schedule_date: string;
   instructor_name: string | null;
-  // day_of_week: string;
   start_time: string | null;
   end_time: string | null;
-  // start_date: string | null;
-  // end_date: string | null;
   location: string | null;
   capacity: number | null;
+  drop_in_price: number | null;
   registration_close_at: string | null;
   is_active: boolean;
-  // session_occurrence_dates: OccurrenceDateRow[];
+  class_schedules: ClassScheduleRow | null;
 }
 
 interface ClassRow {

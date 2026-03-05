@@ -94,7 +94,8 @@ export async function createDiscount({
       }
     }
     console.log("✅ Session restrictions inserted (if any)");
-    console.groupEnd();
-    return discountId;
   }
+
+  console.groupEnd();
+  return discountId;
 }
