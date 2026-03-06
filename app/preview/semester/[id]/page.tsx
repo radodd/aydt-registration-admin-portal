@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
 import { SemesterDataProvider } from "@/app/providers/SemesterDataProvider";
-import { CartProvider } from "@/app/providers/CartProvider";
 import { SessionGrid } from "@/app/components/public/SessionGrid";
 import { CartDrawer } from "@/app/components/public/CartDrawer";
 
@@ -32,9 +31,8 @@ export default async function PreviewSemesterPage({ params }: Props) {
   }
 
   return (
-    /* CartProvider in preview mode keeps cart in-memory only */
+    /* CartProvider is provided by the preview layout (shared across all preview pages) */
     <SemesterDataProvider semester={semester} mode="preview">
-      <CartProvider semesterId={semester.id} preview>
         <div className="max-w-6xl mx-auto px-6 py-10">
           {/* Hero */}
           <div className="mb-10">
@@ -85,7 +83,6 @@ export default async function PreviewSemesterPage({ params }: Props) {
 
         {/* Cart drawer (in-memory preview cart) */}
         <CartDrawer />
-      </CartProvider>
     </SemesterDataProvider>
   );
 }

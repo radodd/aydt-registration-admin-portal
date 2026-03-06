@@ -7,6 +7,7 @@ import {
   useReducer,
   useCallback,
   useState,
+  useRef,
 } from "react";
 
 const CART_TTL_MS = 2 * 60 * 60 * 1000;
@@ -61,25 +62,33 @@ function bumpExpiry(cart: CartState): CartState {
 function reducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case "LOAD":
+      console.log(`[Cart] action: LOAD ${action.payload.sessionIds.length} items`);
       return action.payload;
 
     case "ADD": {
       if (state.sessionIds.includes(action.sessionId)) return state;
 
-      return bumpExpiry({
+      const next = bumpExpiry({
         ...state,
         sessionIds: [...state.sessionIds, action.sessionId],
       });
+
+      console.log(`[Cart] action: ADD ${action.sessionId} → ${next.sessionIds.length} items`);
+      return next;
     }
 
     case "REMOVE": {
-      return bumpExpiry({
+      const next = bumpExpiry({
         ...state,
         sessionIds: state.sessionIds.filter((id) => id !== action.sessionId),
       });
+
+      console.log(`[Cart] action: REMOVE ${action.sessionId} → ${next.sessionIds.length} items`);
+      return next;
     }
 
     case "CLEAR":
+      console.log("[Cart] action: CLEAR");
       return freshCart(state.semesterId);
 
     default:
@@ -99,6 +108,8 @@ interface CartContextValue extends CartState {
   secondsRemaining: number;
   isExpired: boolean;
   itemCount: number;
+  hydrated: boolean;
+  preview: boolean;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -118,53 +129,77 @@ export function CartProvider({
 }) {
   const storageKey = `${STORAGE_KEY_PREFIX}${semesterId}`;
 
+  console.log(`[Cart] mounted semesterId=${semesterId} key=${storageKey}`);
+
   const [state, dispatch] = useReducer(reducer, semesterId, freshCart);
 
-  const [secondsRemaining, setSecondsRemaining] = useState(0);
+  // stateRef is kept in sync after every render so that add/remove callbacks can
+  // compute the next state synchronously and write it to localStorage immediately.
+  // This prevents the common pattern of dispatch + navigate causing the persist
+  // useEffect to be skipped when the component unmounts before it can fire.
+  const stateRef = useRef<CartState>(freshCart(semesterId));
+  stateRef.current = state;
+
+  // null = timer hasn't fired yet (distinct from "truly zero / expired")
+  const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
+  // Preview carts skip localStorage entirely and are immediately ready.
+  const [hydrated, setHydrated] = useState(preview);
 
   /* ---------------------------------------------------------------------- */
-  /* Hydrate                                                                  */
+  /* Hydrate                                                                */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
     if (preview) return;
+
+    console.log(`[Cart] hydrate start key=${storageKey}`);
 
     try {
       const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
 
-      const parsed: CartState = JSON.parse(raw);
+      if (raw) {
+        const parsed: CartState = JSON.parse(raw);
+        const expired = isExpired(parsed);
+        const versionOk = parsed.version === CART_VERSION && parsed.semesterId === semesterId;
 
-      if (
-        parsed.version === CART_VERSION &&
-        parsed.semesterId === semesterId &&
-        !isExpired(parsed)
-      ) {
-        dispatch({ type: "LOAD", payload: parsed });
+        console.log(`[Cart] localStorage raw found: ${parsed.sessionIds?.length ?? 0} items, expired=${expired}, versionOk=${versionOk}`);
+
+        if (versionOk && !expired) {
+          dispatch({ type: "LOAD", payload: parsed });
+        } else {
+          console.warn(`[Cart] cart invalid (versionOk=${versionOk} expired=${expired}) → removing`);
+          localStorage.removeItem(storageKey);
+        }
       } else {
-        localStorage.removeItem(storageKey);
+        console.log("[Cart] no cart found in localStorage");
       }
-    } catch {
+    } catch (err) {
+      console.warn("[Cart] hydration error — corrupt entry removed", err);
       localStorage.removeItem(storageKey);
     }
+
+    console.log("[Cart] hydration complete");
+    setHydrated(true);
   }, [semesterId, storageKey, preview]);
 
   /* ---------------------------------------------------------------------- */
-  /* Persist                                                                  */
+  /* Persist                                                                */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
     if (preview) return;
+    if (!hydrated) return;
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(state));
-    } catch {
-      // ignore quota errors
+      console.log(`[Cart] persisted ${state.sessionIds.length} items to ${storageKey}`);
+    } catch (err) {
+      console.warn("[Cart] persist error", err);
     }
-  }, [state, storageKey, preview]);
+  }, [state, storageKey, preview, hydrated]);
 
   /* ---------------------------------------------------------------------- */
-  /* Cross-tab sync                                                           */
+  /* Cross-tab sync                                                         */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -172,10 +207,13 @@ export function CartProvider({
 
     const handler = (e: StorageEvent) => {
       if (e.key !== storageKey || !e.newValue) return;
+
       try {
         const parsed = JSON.parse(e.newValue);
         dispatch({ type: "LOAD", payload: parsed });
-      } catch {}
+      } catch (err) {
+        console.warn("[Cart] cross-tab parse error", err);
+      }
     };
 
     window.addEventListener("storage", handler);
@@ -183,39 +221,66 @@ export function CartProvider({
   }, [storageKey, preview]);
 
   /* ---------------------------------------------------------------------- */
-  /* Expiry timer                                                             */
+  /* Expiry timer                                                           */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
     if (state.sessionIds.length === 0) {
-      setSecondsRemaining(0);
+      setSecondsRemaining(null); // reset — timer hasn't computed a real value
       return;
     }
 
     const tick = () => {
       const ms = new Date(state.expiresAt).getTime() - Date.now();
-      setSecondsRemaining(Math.max(0, Math.floor(ms / 1000)));
+      const secs = Math.max(0, Math.floor(ms / 1000));
+      if (secs === 0) console.warn(`[Cart] EXPIRED — ${state.sessionIds.length} items lost`);
+      setSecondsRemaining(secs);
     };
 
     tick();
+    const initialMs = new Date(state.expiresAt).getTime() - Date.now();
+    console.log(`[Cart] timer started, secondsRemaining=${Math.max(0, Math.floor(initialMs / 1000))}`);
+
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, [state.expiresAt, state.sessionIds.length]);
 
   /* ---------------------------------------------------------------------- */
-  /* Actions                                                                  */
+  /* Actions                                                                */
   /* ---------------------------------------------------------------------- */
 
-  const add = useCallback((sessionId: string) => {
-    dispatch({ type: "ADD", sessionId });
-  }, []);
+  const add = useCallback(
+    (sessionId: string) => {
+      const next = reducer(stateRef.current, { type: "ADD", sessionId });
+      stateRef.current = next;
+      dispatch({ type: "ADD", sessionId });
+      if (!preview) {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(next));
+        } catch {}
+      }
+    },
+    [storageKey, preview],
+  );
 
-  const remove = useCallback((sessionId: string) => {
-    dispatch({ type: "REMOVE", sessionId });
-  }, []);
+  const remove = useCallback(
+    (sessionId: string) => {
+      const next = reducer(stateRef.current, { type: "REMOVE", sessionId });
+      stateRef.current = next;
+      dispatch({ type: "REMOVE", sessionId });
+      if (!preview) {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(next));
+        } catch {}
+      }
+    },
+    [storageKey, preview],
+  );
 
   const clear = useCallback(() => {
+    console.log("[Cart] clear called");
     dispatch({ type: "CLEAR" });
+
     if (!preview) {
       localStorage.removeItem(storageKey);
     }
@@ -226,7 +291,8 @@ export function CartProvider({
     [state.sessionIds],
   );
 
-  const expired = secondsRemaining === 0 && state.sessionIds.length > 0;
+  // null means the timer hasn't ticked yet — never treat that as expired
+  const expired = secondsRemaining !== null && secondsRemaining === 0 && state.sessionIds.length > 0;
 
   return (
     <CartContext.Provider
@@ -236,9 +302,11 @@ export function CartProvider({
         remove,
         clear,
         has,
-        secondsRemaining,
+        hydrated,
+        secondsRemaining: secondsRemaining ?? 0,
         isExpired: expired,
         itemCount: state.sessionIds.length,
+        preview,
       }}
     >
       {children}
@@ -252,8 +320,10 @@ export function CartProvider({
 
 export function useCart() {
   const ctx = useContext(CartContext);
+
   if (!ctx) {
     throw new Error("useCart must be used inside CartProvider");
   }
+
   return ctx;
 }

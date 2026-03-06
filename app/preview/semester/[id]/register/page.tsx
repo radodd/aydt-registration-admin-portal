@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import { RegistrationProvider, useRegistration } from "@/app/providers/RegistrationProvider";
-import { CartProvider } from "@/app/providers/CartProvider";
+import { useRegistration } from "@/app/providers/RegistrationProvider";
 import { emailStepSchema, type EmailStepData } from "@/lib/schemas/registration";
 
 function PreviewEmailForm({ semesterId }: { semesterId: string }) {
@@ -71,11 +70,7 @@ export default function PreviewRegisterPage({
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
-      <CartProvider semesterId={id} preview>
-        <RegistrationProvider semesterId={id} preview>
-          <PreviewEmailForm semesterId={id} />
-        </RegistrationProvider>
-      </CartProvider>
+      <PreviewEmailForm semesterId={id} />
     </div>
   );
 }

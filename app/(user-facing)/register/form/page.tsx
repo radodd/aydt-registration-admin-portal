@@ -157,7 +157,13 @@ function renderField(
 /* Form content                                                                */
 /* -------------------------------------------------------------------------- */
 
-function FormContent({ semesterId }: { semesterId: string }) {
+export function FormContent({
+  semesterId,
+  continueUrl,
+}: {
+  semesterId: string;
+  continueUrl: string;
+}) {
   const router = useRouter();
   const { state, setFormData } = useRegistration();
 
@@ -185,7 +191,7 @@ function FormContent({ semesterId }: { semesterId: string }) {
 
   function onSubmit(data: Record<string, unknown>) {
     setFormData(data);
-    router.push(`/register/payment?semester=${semesterId}`);
+    router.push(continueUrl);
   }
 
   if (loading) {
@@ -207,9 +213,7 @@ function FormContent({ semesterId }: { semesterId: string }) {
         </p>
         <button
           type="button"
-          onClick={() =>
-            router.push(`/register/payment?semester=${semesterId}`)
-          }
+          onClick={() => router.push(continueUrl)}
           className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm"
         >
           Continue to Payment
@@ -261,7 +265,10 @@ function FormPageInner() {
   return (
     <CartRestoreGuard semesterId={semesterId}>
       {/* <RegistrationProvider semesterId={semesterId}> */}
-      <FormContent semesterId={semesterId} />
+      <FormContent
+        semesterId={semesterId}
+        continueUrl={`/register/payment?semester=${semesterId}`}
+      />
       {/* </RegistrationProvider> */}
     </CartRestoreGuard>
   );

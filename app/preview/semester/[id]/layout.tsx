@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { PreviewBanner } from "@/app/components/public/PreviewBanner";
+import { PreviewProviders } from "./PreviewProviders";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -64,7 +65,11 @@ export default async function PreviewLayout({ params, children }: Props) {
           </nav>
         </header>
 
-        <main>{children}</main>
+        <main>
+          <PreviewProviders semesterId={id}>
+            {children}
+          </PreviewProviders>
+        </main>
       </div>
     </div>
   );

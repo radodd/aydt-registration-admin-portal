@@ -8,9 +8,9 @@ interface Props {
 }
 
 export function SessionAddButton({ session }: Props) {
-  const { add, remove, has } = useCart();
+  const { add, remove, sessionIds } = useCart();
 
-  const inCart = has(session.id);
+  const inCart = sessionIds.includes(session.id);
   const isFull = session.spotsRemaining <= 0;
 
   const handleAdd = () => {

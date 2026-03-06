@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   RegistrationProvider,
@@ -11,7 +11,10 @@ import { useCart } from "@/app/providers/CartProvider";
 import { createRegistrations } from "../actions/createRegistrations";
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
 import { createEPGPaymentSession } from "@/app/actions/createEPGPaymentSession";
+import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
+import { createClient } from "@/utils/supabase/client";
 import type { PricingQuote } from "@/types";
+import type { PublicSession } from "@/types/public";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -24,16 +27,18 @@ function formatCurrency(amount: number): string {
 /* Payment content                                                             */
 /* -------------------------------------------------------------------------- */
 
-function PaymentContent({ semesterId }: { semesterId: string }) {
+export function PaymentContent({ semesterId }: { semesterId: string }) {
   const router = useRouter();
   const { state, setPaymentIntent, reset } = useRegistration();
-  const { items, clearCart } = useCart();
+  const { sessionIds, clear, secondsRemaining, isExpired } = useCart();
 
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState<PricingQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [semesterSessions, setSemesterSessions] = useState<PublicSession[]>([]);
+  const [dancerNames, setDancerNames] = useState<Map<string, string>>(new Map());
 
   // Stable batchId: same cart + retry = same ID, so createRegistrations()
   // idempotency guard returns existing registrations without duplicate DB inserts.
@@ -59,7 +64,38 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
     return id;
   });
 
-  const { secondsRemaining, isExpired } = useCart();
+  const semesterMode = state.isPreview ? "preview" : "live";
+
+  // Fetch session details for display
+  useEffect(() => {
+    getSemesterForDisplay(semesterId, semesterMode).then((s) =>
+      setSemesterSessions(s.sessions),
+    );
+  }, [semesterId, semesterMode]);
+
+  // Fetch names for existing dancers (new-dancer names come from state.participants directly)
+  useEffect(() => {
+    const existingIds = state.participants
+      .filter((p) => p.dancerId && !p.newDancer)
+      .map((p) => p.dancerId!);
+    if (existingIds.length === 0) return;
+    const supabase = createClient();
+    supabase
+      .from("dancers")
+      .select("id, first_name, last_name")
+      .in("id", existingIds)
+      .then(({ data }) => {
+        if (!data) return;
+        setDancerNames(
+          new Map(data.map((d) => [d.id, `${d.first_name} ${d.last_name}`])),
+        );
+      });
+  }, [state.participants]);
+
+  const sessionMap = useMemo(
+    () => new Map(semesterSessions.map((s) => [s.id, s])),
+    [semesterSessions],
+  );
 
   // Guard: if registration was already completed, redirect to confirmation.
   useEffect(() => {
@@ -72,7 +108,7 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
   // Guard: if cart hold expires, redirect back to the semester page.
   useEffect(() => {
     if (isExpired && !processing && !state.batchId) {
-      clearCart();
+      clear();
       router.replace(`/?semester=${semesterId}&expired=1`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -137,7 +173,7 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
 
     const fullyAssigned = state.participants.filter((p) => p.dancerId);
 
-    if (items.length === 0) {
+    if (sessionIds.length === 0) {
       setError("Your cart is empty. Please go back and add sessions.");
       setProcessing(false);
       return;
@@ -150,7 +186,7 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
 
     if (state.isPreview) {
       await new Promise((r) => setTimeout(r, 800));
-      clearCart();
+      clear();
       reset();
       router.push(`/register/confirmation?preview=1`);
       return;
@@ -356,19 +392,45 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
         </div>
       )}
 
-      {/* Cart items (simple summary for reference) */}
-      {(state.isPreview || !quote) && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-5">
-          <h2 className="font-semibold text-gray-900 mb-4">Sessions</h2>
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div key={item.id} className="flex justify-between text-sm">
-                <p className="font-medium text-gray-800">{item.sessionName}</p>
+      {/* Sessions summary — always shown; shows full detail once sessionMap is loaded */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <h2 className="font-semibold text-gray-900 mb-4">Sessions</h2>
+        <div className="space-y-3">
+          {sessionIds.map((id) => {
+            const session = sessionMap.get(id);
+            const dateLabel = session?.scheduleDate
+              ? new Date(session.scheduleDate + "T00:00:00").toLocaleDateString(
+                  "en-US",
+                  { weekday: "long", month: "short", day: "numeric" },
+                )
+              : null;
+            return (
+              <div
+                key={id}
+                className="border border-gray-100 rounded-xl px-4 py-3 space-y-0.5"
+              >
+                <p className="text-sm font-medium text-gray-900">
+                  {session?.name ?? id}
+                </p>
+                {dateLabel && (
+                  <p className="text-xs text-gray-500">
+                    {dateLabel}
+                    {session?.startTime
+                      ? ` · ${session.startTime}–${session.endTime}`
+                      : ""}
+                    {session?.location ? ` · ${session.location}` : ""}
+                  </p>
+                )}
+                {session?.instructorName && (
+                  <p className="text-xs text-gray-400">
+                    Instructor: {session.instructorName}
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Participant summary */}
       {state.participants.length > 0 && (
@@ -376,20 +438,17 @@ function PaymentContent({ semesterId }: { semesterId: string }) {
           <h2 className="font-semibold text-gray-900 mb-3">Participants</h2>
           <div className="space-y-2">
             {state.participants.map((p) => {
-              const item = items.find((i) => i.sessionId === p.sessionId);
+              const session = sessionMap.get(p.sessionId);
+              const dancerLabel = p.newDancer
+                ? `${p.newDancer.firstName} ${p.newDancer.lastName}`
+                : dancerNames.get(p.dancerId ?? "") ?? "—";
               return (
                 <div
                   key={p.sessionId}
                   className="flex justify-between text-sm text-gray-700"
                 >
-                  <span>{item?.sessionName ?? p.sessionId}</span>
-                  <span className="text-gray-400">
-                    {p.newDancer
-                      ? `${p.newDancer.firstName} ${p.newDancer.lastName}`
-                      : p.dancerId
-                        ? "Existing dancer"
-                        : "—"}
-                  </span>
+                  <span>{session?.name ?? p.sessionId}</span>
+                  <span className="text-gray-500 font-medium">{dancerLabel}</span>
                 </div>
               );
             })}

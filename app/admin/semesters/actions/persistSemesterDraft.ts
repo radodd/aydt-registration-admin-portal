@@ -168,7 +168,6 @@ async function syncTuitionRateBands(
   if (bands.length === 0) return;
 
   const rows = bands.map((b) => ({
-    ...(b.id ? { id: b.id } : {}),
     semester_id: semesterId,
     division: b.division,
     weekly_class_count: b.weekly_class_count,

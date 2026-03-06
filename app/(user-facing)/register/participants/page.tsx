@@ -266,9 +266,15 @@ function DancerSelector({
 /* Page content                                                                */
 /* -------------------------------------------------------------------------- */
 
-function ParticipantsContent({ semesterId }: { semesterId: string }) {
+export function ParticipantsContent({
+  semesterId,
+  continueUrl,
+}: {
+  semesterId: string;
+  continueUrl: string;
+}) {
   const router = useRouter();
-  const { items } = useCart();
+  const { sessionIds } = useCart();
   const { state, setParticipants } = useRegistration();
 
   const [dancers, setDancers] = useState<Dancer[]>([]);
@@ -337,12 +343,11 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
 
   // Fetch session schedule info for conflict detection (runs when cart items are ready)
   useEffect(() => {
-    if (items.length === 0) return;
-    const sessionIds = items.map((i) => i.sessionId);
+    if (sessionIds.length === 0) return;
     const supabase = createClient();
     supabase
       .from("class_sessions")
-      .select("id, day_of_week, start_time, end_time, classes(name)")
+      .select("id, day_of_week, start_time, end_time, classes(name, min_age, max_age)")
       .in("id", sessionIds)
       .then(({ data }) => {
         if (!data) return;
@@ -355,12 +360,14 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
             dayOfWeek: row.day_of_week,
             startTime: row.start_time,
             endTime: row.end_time,
+            minAge: (cls as any)?.min_age ?? null,
+            maxAge: (cls as any)?.max_age ?? null,
           });
         }
         setScheduleMap(map);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items.length]);
+  }, [sessionIds.length]);
 
   function handleAssignmentChange(assignment: ParticipantAssignment) {
     setAssignments((prev) => {
@@ -397,27 +404,18 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
 
   const hasConflicts = conflictsByDancer.size > 0;
 
-  const allAssigned = items.every((item) =>
-    assignments.some((a) => a.sessionId === item.sessionId && a.dancerId),
+  const allAssigned = sessionIds.every((id) =>
+    assignments.some((a) => a.sessionId === id && a.dancerId),
   );
 
   function handleContinue() {
-    console.log("[Participants] handleContinue — assignments:", assignments);
-    console.log(
-      "[Participants] allAssigned:",
-      allAssigned,
-      "hasConflicts:",
-      hasConflicts,
-      "cartItems:",
-      items.length,
-    );
-    // Enrich each assignment with the selectedDayIds from the corresponding cart item
-    const enriched = assignments.map((a) => {
-      const cartItem = items.find((i) => i.sessionId === a.sessionId);
-      return { ...a, selectedDayIds: cartItem?.selectedDayIds ?? [] };
-    });
+    console.log(`[Participants] handleContinue allAssigned=${allAssigned} hasConflicts=${hasConflicts} cartItems=${sessionIds.length}`);
+    const enriched = assignments.map((a) => ({
+      ...a,
+      selectedDayIds: [],
+    }));
     setParticipants(enriched);
-    router.push(`/register/form?semester=${semesterId}`);
+    router.push(continueUrl);
   }
 
   if (loading) {
@@ -459,19 +457,22 @@ function ParticipantsContent({ semesterId }: { semesterId: string }) {
       )}
 
       <div className="space-y-4">
-        {items.map((item) => (
-          <DancerSelector
-            key={item.sessionId}
-            sessionId={item.sessionId}
-            sessionName={item.sessionName}
-            existingDancers={dancers}
-            assignment={assignments.find((a) => a.sessionId === item.sessionId)}
-            onChange={handleAssignmentChange}
-            familyId={familyId}
-            minAge={item.minAge}
-            maxAge={item.maxAge}
-          />
-        ))}
+        {sessionIds.map((sid) => {
+          const info = scheduleMap.get(sid);
+          return (
+            <DancerSelector
+              key={sid}
+              sessionId={sid}
+              sessionName={info?.className ?? sid}
+              existingDancers={dancers}
+              assignment={assignments.find((a) => a.sessionId === sid)}
+              onChange={handleAssignmentChange}
+              familyId={familyId}
+              minAge={info?.minAge}
+              maxAge={info?.maxAge}
+            />
+          );
+        })}
       </div>
 
       <div className="flex gap-3">
@@ -506,7 +507,10 @@ function ParticipantsPageInner() {
   return (
     <CartRestoreGuard semesterId={semesterId}>
       {/* <RegistrationProvider semesterId={semesterId}> */}
-      <ParticipantsContent semesterId={semesterId} />
+      <ParticipantsContent
+        semesterId={semesterId}
+        continueUrl={`/register/form?semester=${semesterId}`}
+      />
       {/* </RegistrationProvider> */}
     </CartRestoreGuard>
   );

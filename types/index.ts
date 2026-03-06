@@ -318,6 +318,8 @@ export interface SessionScheduleInfo {
   startTime: string | null;    // 'HH:MM:SS'
   endTime: string | null;      // 'HH:MM:SS'
   scheduleDate?: string | null; // 'YYYY-MM-DD'; null/undefined on legacy sessions
+  minAge?: number | null;
+  maxAge?: number | null;
 }
 
 export interface ConflictDetail {

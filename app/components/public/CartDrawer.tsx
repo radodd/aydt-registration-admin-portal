@@ -7,7 +7,7 @@ import { useSemesterData } from "@/app/providers/SemesterDataProvider";
 import { CartExpiryTimer } from "./CartExpiryTimer";
 
 export function CartDrawer() {
-  const { sessionIds, remove, itemCount, isExpired } = useCart();
+  const { sessionIds, remove, itemCount, isExpired, preview } = useCart();
 
   const { semester } = useSemesterData();
   const [open, setOpen] = useState(false);
@@ -110,7 +110,7 @@ export function CartDrawer() {
             {/* Footer */}
             <div className="p-5 border-t border-gray-200 space-y-3">
               <Link
-                href="/cart"
+                href={preview ? `/preview/semester/${semester.id}/cart` : "/cart"}
                 onClick={() => setOpen(false)}
                 className="block w-full text-center bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm"
               >
