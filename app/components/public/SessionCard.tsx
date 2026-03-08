@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import { useCart } from "@/app/providers/CartProvider";
-import { DayPicker } from "./DayPicker";
 import type { PublicSession } from "@/types/public";
 
 interface SessionCardProps {
@@ -18,53 +16,19 @@ function formatCurrency(cents: number): string {
 }
 
 export function SessionCard({ session, groupName }: SessionCardProps) {
-  const { addItem, removeItem, hasSession, updateDays, items } = useCart();
+  const { add, remove, sessionIds } = useCart();
 
-  const inCart = hasSession(session.id);
-  const cartItem = items.find((i) => i.sessionId === session.id);
-
-  const [selectedDayIds, setSelectedDayIds] = useState<string[]>(
-    cartItem?.selectedDayIds ?? [],
-  );
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  const pricePerDay = session.pricePerDay ?? 0;
-  const hasDays = session.daysOfWeek.length > 0;
-  const subtotal = pricePerDay * selectedDayIds.length;
-
-  console.log("HAS DAYS STATE", hasDays);
-
+  const inCart = sessionIds.includes(session.id);
+  const price = session.dropInPrice ?? 0;
   const isFull = session.spotsRemaining === 0 && !session.waitlistEnabled;
 
   function handleAddToCart() {
-    if (hasDays && selectedDayIds.length === 0) return;
-    const fullDays = session.availableDays.filter((d) =>
-      selectedDayIds.includes(d.id),
-    );
-    addItem(
-      session.id,
-      session.name,
-      hasDays ? selectedDayIds : [],
-      hasDays ? fullDays : [],
-      pricePerDay,
-      session.minAge ?? null,
-      session.maxAge ?? null,
-    );
+    add(session.id);
   }
 
   function handleRemove() {
-    removeItem(session.id);
-    setSelectedDayIds([]);
+    remove(session.id);
   }
-
-  function handleDayChange(ids: string[]) {
-    setSelectedDayIds(ids);
-    if (inCart) {
-      updateDays(session.id, ids, pricePerDay);
-    }
-  }
-
-  console.log("SESSION IN SESSION CARD", session);
 
   return (
     <div
@@ -106,17 +70,14 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
           </div>
         </div>
 
-        {/* Day + time row */}
-        {(session.daysOfWeek.length > 0 || session.startTime) && (
+        {/* Date + time row */}
+        {(session.scheduleDate || session.startTime) && (
           <div className="flex flex-wrap items-center gap-2 mb-3">
-            {session.daysOfWeek.map((d) => (
-              <span
-                key={d}
-                className="bg-indigo-50 text-indigo-700 text-xs font-medium px-2.5 py-1 rounded-full capitalize"
-              >
-                {d}
+            {session.scheduleDate && (
+              <span className="bg-indigo-50 text-indigo-700 text-xs font-medium px-2.5 py-1 rounded-full capitalize">
+                {fmtDate(session.scheduleDate)}
               </span>
-            ))}
+            )}
             {session.startTime && (
               <span className="text-xs text-gray-500">
                 {fmtTime(session.startTime)}
@@ -152,11 +113,6 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
             </span>
           )}
 
-          {session.startDate && session.endDate && (
-            <span>
-              {fmtDate(session.startDate)} – {fmtDate(session.endDate)}
-            </span>
-          )}
 
           {/* Age range */}
           {(session.minAge != null || session.maxAge != null) && (
@@ -167,6 +123,18 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
                 : session.minAge != null
                   ? `${session.minAge}+`
                   : `up to ${session.maxAge}`}
+            </span>
+          )}
+
+          {/* Grade range */}
+          {(session.minGrade != null || session.maxGrade != null) && (
+            <span>
+              Grade{" "}
+              {session.minGrade != null && session.maxGrade != null
+                ? `${session.minGrade}–${session.maxGrade}`
+                : session.minGrade != null
+                  ? `${session.minGrade}+`
+                  : `up to ${session.maxGrade}`}
             </span>
           )}
         </div>
@@ -196,10 +164,9 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
                 : `${session.spotsRemaining} spot${session.spotsRemaining !== 1 ? "s" : ""} remaining`}
           </span>
 
-          {pricePerDay > 0 && (
+          {price > 0 && (
             <span className="font-semibold text-gray-900">
-              {formatCurrency(pricePerDay)}
-              {hasDays ? " / day" : ""}
+              {formatCurrency(price)}
             </span>
           )}
         </div>
@@ -229,51 +196,6 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
           </div>
         )}
 
-        {/* Day picker (toggle) */}
-        {hasDays && (
-          <div>
-            <button
-              type="button"
-              onClick={() => setIsExpanded((v) => !v)}
-              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium mb-3 flex items-center gap-1"
-            >
-              {isExpanded ? "Hide" : "Choose"} days
-              <svg
-                className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-
-            {isExpanded && (
-              <div className="mb-4">
-                <DayPicker
-                  days={session.daysOfWeek.map((d) => ({
-                    id: d,
-                    label: d.charAt(0).toUpperCase() + d.slice(1),
-                  }))}
-                  selectedIds={selectedDayIds}
-                  onChange={handleDayChange}
-                  disabled={isFull && !inCart}
-                />
-                {selectedDayIds.length > 0 && (
-                  <p className="mt-3 text-sm font-semibold text-gray-900">
-                    Subtotal: {formatCurrency(subtotal)}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* CTA */}
         {inCart ? (
           <div className="flex gap-2">
@@ -295,18 +217,14 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
           <button
             type="button"
             onClick={handleAddToCart}
-            disabled={
-              isFull || (hasDays && selectedDayIds.length === 0 && isExpanded)
-            }
+            disabled={isFull}
             className="w-full text-sm py-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isFull
               ? session.waitlistEnabled
                 ? "Join Waitlist"
                 : "Full"
-              : hasDays && !isExpanded
-                ? "Select Days & Add to Cart"
-                : "Add to Cart"}
+              : "Add to Cart"}
           </button>
         )}
       </div>

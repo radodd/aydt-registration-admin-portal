@@ -25,6 +25,7 @@ type UserSearchResult = {
   email: string;
   first_name: string;
   last_name: string;
+  source: "portal" | "subscriber";
 };
 
 export default function RecipientsStep({
@@ -106,14 +107,43 @@ export default function RecipientsStep({
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(async () => {
       setIsSearching(true);
-      const { data } = await createClient()
-        .from("users")
-        .select("id, email, first_name, last_name")
-        .or(
-          `email.ilike.%${userSearch}%,first_name.ilike.%${userSearch}%,last_name.ilike.%${userSearch}%`,
-        )
-        .limit(8);
-      setUserResults((data as UserSearchResult[]) ?? []);
+      const supabase = createClient();
+      const [{ data: users }, { data: subs }] = await Promise.all([
+        supabase
+          .from("users")
+          .select("id, email, first_name, last_name")
+          .or(
+            `email.ilike.%${userSearch}%,first_name.ilike.%${userSearch}%,last_name.ilike.%${userSearch}%`,
+          )
+          .limit(6),
+        supabase
+          .from("email_subscribers")
+          .select("id, email, name")
+          .or(`email.ilike.%${userSearch}%,name.ilike.%${userSearch}%`)
+          .eq("is_subscribed", true)
+          .limit(4),
+      ]);
+
+      const portalResults: UserSearchResult[] = (users ?? []).map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        first_name: u.first_name,
+        last_name: u.last_name,
+        source: "portal",
+      }));
+
+      const subscriberResults: UserSearchResult[] = (subs ?? []).map((s: any) => {
+        const parts = (s.name ?? "").trim().split(/\s+/);
+        return {
+          id: s.id,
+          email: s.email,
+          first_name: parts[0] ?? "",
+          last_name: parts.slice(1).join(" "),
+          source: "subscriber",
+        };
+      });
+
+      setUserResults([...portalResults, ...subscriberResults]);
       setIsSearching(false);
     }, 400);
     return () => {
@@ -122,6 +152,8 @@ export default function RecipientsStep({
   }, [userSearch]);
 
   const activeSemester = semesters.find((s) => s.id === selectedSemesterId);
+
+  const hasSubscribedList = selections.some((s) => s.type === "subscribed_list");
 
   function addSemesterOrSession() {
     if (!selectedSemesterId) return;
@@ -150,15 +182,31 @@ export default function RecipientsStep({
     setSelectedSessionId("");
   }
 
+  function addSubscribedList() {
+    if (hasSubscribedList) return;
+    dispatch({
+      type: "ADD_SELECTION",
+      payload: { localId: uuidv4(), type: "subscribed_list" },
+    });
+  }
+
   function addManualUser(user: UserSearchResult) {
     dispatch({
       type: "ADD_MANUAL_USER",
-      payload: {
-        userId: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-      },
+      payload:
+        user.source === "subscriber"
+          ? {
+              subscriberId: user.id,
+              email: user.email,
+              firstName: user.first_name,
+              lastName: user.last_name,
+            }
+          : {
+              userId: user.id,
+              email: user.email,
+              firstName: user.first_name,
+              lastName: user.last_name,
+            },
     });
     setUserSearch("");
     setUserResults([]);
@@ -172,6 +220,21 @@ export default function RecipientsStep({
           Select who receives this email. Unsubscribed users are automatically
           excluded.
         </p>
+      </div>
+
+      {/* Subscribed list group */}
+      <div className="space-y-3">
+        <p className="text-sm font-medium text-gray-700">Subscribed list</p>
+        <p className="text-xs text-gray-400">
+          Targets all portal users who are subscribed plus any external subscribers added by admins.
+        </p>
+        <button
+          onClick={addSubscribedList}
+          disabled={hasSubscribedList}
+          className="px-4 py-2 rounded-xl border border-indigo-300 bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {hasSubscribedList ? "Subscribed list added" : "+ Add subscribed list"}
+        </button>
       </div>
 
       {/* Semester / Session picker */}
@@ -232,9 +295,11 @@ export default function RecipientsStep({
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-full text-sm text-indigo-800"
               >
                 <span>
-                  {sel.sessionName
-                    ? `${sel.semesterName} › ${sel.sessionName}`
-                    : sel.semesterName}
+                  {sel.type === "subscribed_list"
+                    ? "Subscribed list"
+                    : sel.sessionName
+                      ? `${sel.semesterName} › ${sel.sessionName}`
+                      : sel.semesterName}
                 </span>
                 <button
                   onClick={() =>
@@ -269,12 +334,13 @@ export default function RecipientsStep({
                 </div>
               ) : (
                 userResults.map((u) => {
-                  const isAlreadyAdded = manualAdditions.some(
-                    (m) => m.userId === u.id,
-                  );
+                  const isAlreadyAdded =
+                    u.source === "subscriber"
+                      ? manualAdditions.some((m) => m.subscriberId === u.id)
+                      : manualAdditions.some((m) => m.userId === u.id);
                   return (
                     <button
-                      key={u.id}
+                      key={`${u.source}-${u.id}`}
                       onClick={() => !isAlreadyAdded && addManualUser(u)}
                       disabled={isAlreadyAdded}
                       className="w-full text-left px-4 py-2.5 text-slate-600 text-sm hover:bg-gray-50 flex justify-between items-center disabled:opacity-50"
@@ -282,6 +348,11 @@ export default function RecipientsStep({
                       <span>
                         {u.first_name} {u.last_name}
                         <span className="text-gray-400 ml-2">{u.email}</span>
+                        {u.source === "subscriber" && (
+                          <span className="ml-2 text-xs text-indigo-500 font-medium">
+                            Subscriber
+                          </span>
+                        )}
                       </span>
                       {isAlreadyAdded && (
                         <span className="text-xs text-gray-400">Added</span>
@@ -297,27 +368,35 @@ export default function RecipientsStep({
         {/* Manual additions list */}
         {manualAdditions.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-2">
-            {manualAdditions.map((u) => (
-              <div
-                key={u.userId}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-full text-sm text-gray-700"
-              >
-                <span>
-                  {u.firstName} {u.lastName}
-                </span>
-                <button
-                  onClick={() =>
-                    dispatch({
-                      type: "REMOVE_MANUAL_USER",
-                      payload: u.userId,
-                    })
-                  }
-                  className="text-gray-400 hover:text-gray-700 leading-none"
+            {manualAdditions.map((u) => {
+              const key = u.subscriberId ?? u.userId ?? u.email;
+              return (
+                <div
+                  key={key}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-full text-sm text-gray-700"
                 >
-                  ×
-                </button>
-              </div>
-            ))}
+                  <span>
+                    {u.firstName} {u.lastName}
+                    {u.subscriberId && (
+                      <span className="ml-1 text-xs text-indigo-500 font-medium">
+                        Subscriber
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() =>
+                      dispatch({
+                        type: "REMOVE_MANUAL_USER",
+                        payload: u.subscriberId ?? u.userId ?? "",
+                      })
+                    }
+                    className="text-gray-400 hover:text-gray-700 leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

@@ -130,8 +130,8 @@ function semesterReducer(
 
 const STEPS = [
   { key: "details", label: "Details" },
-  { key: "sessions", label: "Sessions" },
-  { key: "sessionGroups", label: "Session Groups" },
+  { key: "sessions", label: "Classes & Offerings" },
+  { key: "sessionGroups", label: "Class Groups" },
   { key: "payment", label: "Payment" },
   { key: "discounts", label: "Discounts" },
   { key: "registrationForm", label: "Registration Form" },

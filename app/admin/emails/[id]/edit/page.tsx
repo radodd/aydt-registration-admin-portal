@@ -18,7 +18,7 @@ export default async function EditEmailPage({ params }: Props) {
 
   const { data: admin } = await supabase
     .from("users")
-    .select("id, role")
+    .select("id, role, signature_html")
     .eq("id", authUser.id)
     .single();
 
@@ -132,6 +132,7 @@ export default async function EditEmailPage({ params }: Props) {
         initialState={initialState}
         isSuperAdmin={admin.role === "super_admin"}
         emailStatus={email.status as import("@/types").EmailStatus}
+        adminSignatureHtml={admin.signature_html ?? null}
       />
     </div>
   );

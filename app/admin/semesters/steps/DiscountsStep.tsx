@@ -1,6 +1,8 @@
 "use client";
 
 import CreateDiscountForm from "@/app/components/semester-flow/CreateDiscountForm";
+import EditDiscountForm from "@/app/components/semester-flow/EditDiscountForm";
+import { deleteDiscount } from "@/app/admin/semesters/new/discounts/DeleteDiscount";
 import { getDiscounts } from "@/queries/admin";
 import {
   AppliedSemesterDiscount,
@@ -22,6 +24,7 @@ export default function DiscountsStep({
     state.discounts?.appliedDiscounts ?? [],
   );
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingDiscount, setEditingDiscount] = useState<HydratedDiscount | null>(null);
 
   /* ------------------------------------------------------------------------ */
   /* Data loading                                                             */
@@ -135,6 +138,23 @@ export default function DiscountsStep({
           </div>
         )}
 
+        {editingDiscount && (
+          <EditDiscountForm
+            discount={editingDiscount}
+            sessions={(state.sessions?.classes ?? []).flatMap((cls) =>
+              (cls.schedules ?? []).map((cs) => ({
+                id: cs.id ?? "",
+                name: `${cls.name} — ${cs.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}`,
+              })),
+            )}
+            onSaved={async () => {
+              await refreshDiscounts();
+              setEditingDiscount(null);
+            }}
+            onCancel={() => setEditingDiscount(null)}
+          />
+        )}
+
         {/* Discount List */}
         <div className="space-y-4">
           {allDiscounts.length === 0 && (
@@ -190,6 +210,27 @@ export default function DiscountsStep({
                     )}
                   </div>
                 </div>
+
+                {!isLocked && (
+                  <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => setEditingDiscount(discount)}
+                      className="text-xs font-medium text-gray-400 hover:text-indigo-600 transition px-2 py-1 rounded-lg hover:bg-indigo-50"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Delete "${discount.name}"? This cannot be undone.`)) return;
+                        await deleteDiscount(discount.id);
+                        await refreshDiscounts();
+                      }}
+                      className="text-xs font-medium text-gray-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

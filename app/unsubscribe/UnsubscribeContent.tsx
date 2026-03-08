@@ -2,25 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { publicUnsubscribe } from "./actions";
+import { publicUnsubscribe, publicUnsubscribeExternal } from "./actions";
 
 type Status = "loading" | "success" | "error" | "invalid";
 
 export default function UnsubscribeContent() {
   const searchParams = useSearchParams();
   const uid = searchParams.get("uid");
-  const [status, setStatus] = useState<Status>(uid ? "loading" : "invalid");
+  const sub = searchParams.get("sub");
+  const hasParam = !!(uid || sub);
+  const [status, setStatus] = useState<Status>(hasParam ? "loading" : "invalid");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!uid) return;
-    publicUnsubscribe(uid)
+    if (!hasParam) return;
+    const action = sub
+      ? publicUnsubscribeExternal(sub)
+      : publicUnsubscribe(uid!);
+    action
       .then(() => setStatus("success"))
       .catch((err) => {
         setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
         setStatus("error");
       });
-  }, [uid]);
+  }, [hasParam, uid, sub]);
 
   if (status === "invalid") {
     return (

@@ -14,9 +14,24 @@ export function ClassCard({ group }: { group: GroupedClass }) {
 
         <div className="mt-2 text-xs text-gray-500">
           {group.location && <span>{group.location}</span>}
-          {group.minAge != null && group.maxAge != null && (
+          {(group.minAge != null || group.maxAge != null) && (
             <span className="ml-3">
-              Ages {group.minAge}–{group.maxAge}
+              Ages{" "}
+              {group.minAge != null && group.maxAge != null
+                ? `${group.minAge}–${group.maxAge}`
+                : group.minAge != null
+                  ? `${group.minAge}+`
+                  : `up to ${group.maxAge}`}
+            </span>
+          )}
+          {(group.minGrade != null || group.maxGrade != null) && (
+            <span className="ml-3">
+              Grade{" "}
+              {group.minGrade != null && group.maxGrade != null
+                ? `${group.minGrade}–${group.maxGrade}`
+                : group.minGrade != null
+                  ? `${group.minGrade}+`
+                  : `up to ${group.maxGrade}`}
             </span>
           )}
         </div>

@@ -240,7 +240,7 @@ export default function RegistrationFormRenderer({
                       checked={checked ?? false}
                       onChange={() => {
                         if (el.inputType === "checkbox") {
-                          const prev = responses[el.id] ?? [];
+                          const prev = (responses[el.id] as string[]) ?? [];
                           const next = checked
                             ? prev.filter((v: string) => v !== opt)
                             : [...prev, opt];

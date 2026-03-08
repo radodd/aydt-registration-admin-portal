@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   EmailTab,
@@ -8,12 +8,16 @@ import {
   EmailAnalyticsRow,
   TemplateListRow,
   SubscriptionListRow,
+  EmailSubscriber,
   PaginatedResult,
 } from "@/types";
 import { EmailStatusBadge } from "./EmailStatusBadge";
 import { listEmails, listSentEmails } from "./actions/listEmails";
 import { listTemplates, deleteTemplate, cloneTemplateToEmail } from "./actions/listTemplates";
 import { listUnsubscribed, listSubscribed } from "./actions/listSubscriptions";
+import { listEmailSubscribers } from "./actions/listEmailSubscribers";
+import { addEmailSubscriber } from "./actions/addEmailSubscriber";
+import { removeEmailSubscriber } from "./actions/removeEmailSubscriber";
 import { updateSubscription } from "./actions/updateSubscription";
 import { cancelEmail } from "./actions/cancelEmail";
 import { revertToDraft } from "./actions/revertToDraft";
@@ -33,6 +37,7 @@ const TABS: { key: EmailTab; label: string }[] = [
   { key: "templates", label: "Templates" },
   { key: "unsubscribed", label: "Unsubscribed" },
   { key: "subscribed", label: "Subscribed" },
+  { key: "external_subscribers", label: "External Subscribers" },
 ];
 
 function formatDate(iso: string | null) {
@@ -62,6 +67,18 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
   const [templatesData, setTemplatesData] = useState<PaginatedResult<TemplateListRow> | null>(null);
   const [unsubData, setUnsubData] = useState<PaginatedResult<SubscriptionListRow> | null>(null);
   const [subData, setSubData] = useState<PaginatedResult<SubscriptionListRow> | null>(null);
+  const [extSubsData, setExtSubsData] = useState<PaginatedResult<EmailSubscriber> | null>(null);
+
+  // External subscriber search
+  const [extSubSearch, setExtSubSearch] = useState("");
+  const extSubSearchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Add subscriber form state
+  const [newSubEmail, setNewSubEmail] = useState("");
+  const [newSubName, setNewSubName] = useState("");
+  const [newSubPhone, setNewSubPhone] = useState("");
+  const [addSubStatus, setAddSubStatus] = useState<"idle" | "loading" | "conflict" | "already_exists" | "error">("idle");
+  const [addSubConflictMsg, setAddSubConflictMsg] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -107,6 +124,11 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
             setSubData(result);
             break;
           }
+          case "external_subscribers": {
+            const result = await listEmailSubscribers(p, extSubSearch);
+            setExtSubsData(result);
+            break;
+          }
         }
       } catch (err) {
         setActionError(err instanceof Error ? err.message : "Failed to load data");
@@ -114,12 +136,26 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
         setIsLoading(false);
       }
     },
-    [],
+    [extSubSearch],
   );
 
   useEffect(() => {
     fetchTab(activeTab, page);
   }, [activeTab, page, fetchTab]);
+
+  // Debounced search for external subscribers
+  useEffect(() => {
+    if (activeTab !== "external_subscribers") return;
+    if (extSubSearchDebounce.current) clearTimeout(extSubSearchDebounce.current);
+    extSubSearchDebounce.current = setTimeout(() => {
+      setPage(0);
+      fetchTab("external_subscribers", 0);
+    }, 400);
+    return () => {
+      if (extSubSearchDebounce.current) clearTimeout(extSubSearchDebounce.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extSubSearch]);
 
   function handleTabChange(tab: EmailTab) {
     setActiveTab(tab);
@@ -202,6 +238,41 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
     }
   }
 
+  async function handleAddSubscriber(force = false) {
+    if (!newSubEmail.trim()) return;
+    setAddSubStatus("loading");
+    try {
+      const result = await addEmailSubscriber(newSubEmail, newSubName, newSubPhone, force);
+      if (result.status === "conflict") {
+        setAddSubStatus("conflict");
+        setAddSubConflictMsg(result.message);
+        return;
+      }
+      if (result.status === "already_exists") {
+        setAddSubStatus("already_exists");
+        return;
+      }
+      setNewSubEmail("");
+      setNewSubName("");
+      setNewSubPhone("");
+      setAddSubStatus("idle");
+      fetchTab("external_subscribers", page);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Failed to add subscriber");
+      setAddSubStatus("error");
+    }
+  }
+
+  async function handleRemoveSubscriber(id: string) {
+    if (!confirm("Remove this subscriber? They will no longer receive emails.")) return;
+    try {
+      await removeEmailSubscriber(id);
+      fetchTab("external_subscribers", page);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Remove failed");
+    }
+  }
+
   const totalPages =
     activeTab === "drafts"
       ? draftData?.totalPages
@@ -215,7 +286,9 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
               ? templatesData?.totalPages
               : activeTab === "unsubscribed"
                 ? unsubData?.totalPages
-                : subData?.totalPages;
+                : activeTab === "subscribed"
+                  ? subData?.totalPages
+                  : extSubsData?.totalPages;
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -541,6 +614,114 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                   </tr>
                 )}
               />
+            )}
+
+            {/* External Subscribers tab */}
+            {activeTab === "external_subscribers" && (
+              <div className="space-y-6">
+                {/* Add subscriber form */}
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 space-y-4">
+                  <p className="text-sm font-medium text-gray-700">Add external subscriber</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input
+                      type="text"
+                      value={newSubName}
+                      onChange={(e) => setNewSubName(e.target.value)}
+                      placeholder="Name"
+                      className="border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                    <input
+                      type="email"
+                      value={newSubEmail}
+                      onChange={(e) => {
+                        setNewSubEmail(e.target.value);
+                        if (addSubStatus !== "idle") setAddSubStatus("idle");
+                      }}
+                      placeholder="Email address *"
+                      className="border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                    <input
+                      type="tel"
+                      value={newSubPhone}
+                      onChange={(e) => setNewSubPhone(e.target.value)}
+                      placeholder="Phone (optional)"
+                      className="border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  {addSubStatus === "conflict" && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                      <p className="text-sm text-amber-800">{addSubConflictMsg}</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleAddSubscriber(true)}
+                          className="px-4 py-2 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition"
+                        >
+                          Add anyway
+                        </button>
+                        <button
+                          onClick={() => setAddSubStatus("idle")}
+                          className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {addSubStatus === "already_exists" && (
+                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+                      This email is already on the external subscriber list.
+                    </p>
+                  )}
+
+                  {addSubStatus !== "conflict" && (
+                    <button
+                      onClick={() => handleAddSubscriber(false)}
+                      disabled={!newSubEmail.trim() || addSubStatus === "loading"}
+                      className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {addSubStatus === "loading" ? "Adding…" : "Add subscriber"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Search */}
+                <div>
+                  <input
+                    type="text"
+                    value={extSubSearch}
+                    onChange={(e) => setExtSubSearch(e.target.value)}
+                    placeholder="Search by name or email…"
+                    className="w-full max-w-sm border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* List */}
+                <EmailListTable
+                  rows={extSubsData?.data ?? []}
+                  emptyLabel="No external subscribers yet."
+                  columns={["Email", "Name", "Phone", "Added", "Actions"]}
+                  renderRow={(row) => (
+                    <tr key={row.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900">{row.email}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{row.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{row.phone ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {formatDate(row.created_at)}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <button
+                          onClick={() => handleRemoveSubscriber(row.id)}
+                          className="text-red-500 hover:text-red-700 font-medium"
+                        >
+                          Remove
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                />
+              </div>
             )}
 
             {/* Pagination */}

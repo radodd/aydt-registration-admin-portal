@@ -130,6 +130,29 @@ export default function SessionsGroupsStep({
     );
   }
 
+  function handleMoveGroup(idx: number, dir: "up" | "down") {
+    const next = idx + (dir === "up" ? -1 : 1);
+    if (next < 0 || next >= groups.length) return;
+    setGroups((prev) => {
+      const arr = [...prev];
+      [arr[idx], arr[next]] = [arr[next], arr[idx]];
+      return arr;
+    });
+  }
+
+  function handleMoveSession(groupId: string, sessionIdx: number, dir: "up" | "down") {
+    const next = sessionIdx + (dir === "up" ? -1 : 1);
+    setGroups((prev) =>
+      prev.map((group) => {
+        if (group.id !== groupId) return group;
+        if (next < 0 || next >= group.sessionIds.length) return group;
+        const ids = [...group.sessionIds];
+        [ids[sessionIdx], ids[next]] = [ids[next], ids[sessionIdx]];
+        return { ...group, sessionIds: ids };
+      }),
+    );
+  }
+
   function handleSubmit() {
     dispatch({
       type: "SET_SESSION_GROUPS",
@@ -221,15 +244,37 @@ export default function SessionsGroupsStep({
       </section>
 
       {/* Groups */}
-      {groups.map((group) => (
+      {groups.map((group, groupIdx) => (
         <section
           key={group.id}
           className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4"
         >
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-900">
-              {group.name}
-            </h3>
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => handleMoveGroup(groupIdx, "up")}
+                  disabled={groupIdx === 0}
+                  className="text-gray-400 hover:text-gray-700 disabled:opacity-25 leading-none"
+                  aria-label="Move group up"
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMoveGroup(groupIdx, "down")}
+                  disabled={groupIdx === groups.length - 1}
+                  className="text-gray-400 hover:text-gray-700 disabled:opacity-25 leading-none"
+                  aria-label="Move group down"
+                >
+                  ▼
+                </button>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {group.name}
+              </h3>
+            </div>
 
             <button
               onClick={() => handleDeleteGroup(group.id)}
@@ -249,7 +294,7 @@ export default function SessionsGroupsStep({
           )}
 
           <ul className="space-y-3">
-            {group.sessionIds.map((sessionId) => {
+            {group.sessionIds.map((sessionId, sessionIdx) => {
               const session = appliedSessions.find(
                 (s) => s.sessionId === sessionId,
               );
@@ -260,9 +305,31 @@ export default function SessionsGroupsStep({
                   key={session.sessionId}
                   className="flex justify-between items-center border border-gray-200 rounded-xl p-3"
                 >
-                  <span className="text-sm font-medium text-gray-900">
-                    {session.title}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSession(group.id, sessionIdx, "up")}
+                        disabled={sessionIdx === 0}
+                        className="text-gray-400 hover:text-gray-700 disabled:opacity-25 text-[10px] leading-none"
+                        aria-label="Move up"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSession(group.id, sessionIdx, "down")}
+                        disabled={sessionIdx === group.sessionIds.length - 1}
+                        className="text-gray-400 hover:text-gray-700 disabled:opacity-25 text-[10px] leading-none"
+                        aria-label="Move down"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">
+                      {session.title}
+                    </span>
+                  </div>
 
                   <button
                     onClick={() =>

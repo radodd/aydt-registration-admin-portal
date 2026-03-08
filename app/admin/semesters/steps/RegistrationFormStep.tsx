@@ -11,6 +11,134 @@ import SubheaderModal from "@/app/components/semester-flow/SubheaderModal";
 import TextBlockModal from "@/app/components/semester-flow/TextBlockModal";
 import { autosaveSemesterField } from "../actions/autosaveSemesterField";
 
+function buildDefaultRegistrationElements(): RegistrationFormElement[] {
+  return [
+    {
+      id: crypto.randomUUID(),
+      type: "subheader",
+      label: "Participant Questions",
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "First Name",
+      inputType: "short_answer",
+      required: true,
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "Last Name",
+      inputType: "short_answer",
+      required: true,
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "Date of Birth",
+      inputType: "date",
+      required: true,
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "text_block",
+      label: "Attendance Policy",
+      htmlContent: "<p><strong>Attendance Policy</strong></p><p>Please update this section with your attendance policy details.</p>",
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "School Name",
+      inputType: "short_answer",
+      required: false,
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "subheader",
+      label: "Grade",
+      subtitle: "If child is not attending school, select \"Pre-School\" for the grade.",
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "Grade",
+      inputType: "select",
+      required: false,
+      options: [
+        "Pre-School",
+        "Kindergarten",
+        "1st Grade",
+        "2nd Grade",
+        "3rd Grade",
+        "4th Grade",
+        "5th Grade",
+        "6th Grade",
+        "7th Grade",
+        "8th Grade",
+        "9th Grade",
+        "10th Grade",
+        "11th Grade",
+        "12th Grade",
+      ],
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "Email Address",
+      inputType: "short_answer",
+      required: true,
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "Phone Number",
+      inputType: "phone_number",
+      required: true,
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "Address",
+      inputType: "long_answer",
+      required: false,
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "Nanny / Caregiver Name (if applicable)",
+      inputType: "short_answer",
+      required: false,
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "How did you hear about us?",
+      inputType: "select",
+      required: false,
+      options: [
+        "Social Media",
+        "Google Search",
+        "Word of Mouth",
+        "Returning Family",
+        "Flyer / Brochure",
+        "Other",
+      ],
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "subheader",
+      label: "Emergency Contact Information",
+    },
+    {
+      id: crypto.randomUUID(),
+      type: "question",
+      label: "Emergency Contact Name",
+      inputType: "short_answer",
+      required: true,
+    },
+  ];
+}
+
 type Props = {
   state: SemesterDraft;
   dispatch: React.Dispatch<SemesterAction>;
@@ -38,6 +166,22 @@ export default function RegistrationFormStep({
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* -------------------------------------------------------------------------- */
+  /* Pre-populate defaults for new (empty) forms                               */
+  /* -------------------------------------------------------------------------- */
+
+  useEffect(() => {
+    if (!isLocked && elements.length === 0) {
+      const defaults = buildDefaultRegistrationElements();
+      dispatch({ type: "REORDER_FORM_ELEMENTS", payload: defaults });
+      // Immediately persist so the preview flow (which reads from DB) sees the defaults.
+      if (semesterId) {
+        autosaveSemesterField(semesterId, "registration_form", { elements: defaults }).catch(() => {});
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* -------------------------------------------------------------------------- */
   /* Debounced Autosave                                                        */

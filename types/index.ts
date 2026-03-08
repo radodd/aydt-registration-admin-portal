@@ -2,6 +2,13 @@
 /* User Domain                                                                */
 /* -------------------------------------------------------------------------- */
 
+export type SignatureConfig = {
+  name: string;
+  title: string;
+  phone: string;
+  website: string;
+};
+
 export interface User {
   id: string;
   family_id: string;
@@ -14,6 +21,10 @@ export interface User {
   role: string;
   status: string;
   created_at: string;
+  display_name?: string | null;
+  signature_html?: string | null;
+  signature_config?: SignatureConfig | null;
+  reply_to_email?: string | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -82,14 +93,16 @@ export interface Family {
     id: string;
     first_name: string;
     last_name: string;
+    is_self: boolean;
     registrations: {
       id: string;
-      programs: {
+      status: string;
+      class_sessions: {
         id: string;
-        title: string;
-        days_of_week: string | null;
+        day_of_week: string;
         start_time: string | null;
         end_time: string | null;
+        classes: { name: string } | null;
       } | null;
     }[];
   }[];
@@ -139,6 +152,8 @@ export interface DanceClass {
   description: string | null;
   min_age: number | null;
   max_age: number | null;
+  min_grade: number | null;
+  max_grade: number | null;
   is_active: boolean;
   is_competition_track: boolean;
   requires_teacher_rec: boolean;
@@ -320,6 +335,8 @@ export interface SessionScheduleInfo {
   scheduleDate?: string | null; // 'YYYY-MM-DD'; null/undefined on legacy sessions
   minAge?: number | null;
   maxAge?: number | null;
+  minGrade?: number | null;
+  maxGrade?: number | null;
 }
 
 export interface ConflictDetail {
@@ -1064,15 +1081,26 @@ export type EmailDraft = {
 
 export type EmailSelectionCriteria = {
   localId: string;
-  type: "semester" | "session";
-  semesterId: string;
-  semesterName: string;
+  type: "semester" | "session" | "subscribed_list";
+  semesterId?: string;
+  semesterName?: string;
   sessionId?: string;
   sessionName?: string;
 };
 
+export type EmailSubscriber = {
+  id: string;
+  email: string;
+  name: string | null;
+  phone: string | null;
+  is_subscribed: boolean;
+  unsubscribed_at: string | null;
+  created_at: string;
+};
+
 export type ManualUserEntry = {
-  userId: string;
+  userId?: string;
+  subscriberId?: string;
   email: string;
   firstName: string;
   lastName: string;
@@ -1105,7 +1133,8 @@ export type EmailTab =
   | "failed"
   | "templates"
   | "unsubscribed"
-  | "subscribed";
+  | "subscribed"
+  | "external_subscribers";
 
 export type PaginatedResult<T> = {
   data: T[];

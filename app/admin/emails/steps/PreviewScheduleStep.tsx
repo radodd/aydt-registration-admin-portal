@@ -14,6 +14,7 @@ type Props = {
   onBack: () => void;
   emailId: string;
   isSuperAdmin: boolean;
+  adminSignatureHtml?: string | null;
 };
 
 type SendMode = "now" | "scheduled";
@@ -24,6 +25,7 @@ export default function PreviewScheduleStep({
   onBack,
   emailId,
   isSuperAdmin,
+  adminSignatureHtml = null,
 }: Props) {
   const router = useRouter();
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
@@ -37,7 +39,20 @@ export default function PreviewScheduleStep({
   const htmlBody = state.design?.bodyHtml ?? "";
   const recipientCount = state.recipients?.resolvedCount ?? 0;
   const subject = state.setup?.subject ?? "(no subject)";
-  const previewHtml = applyMockTokens(htmlBody);
+  const includeSignature = state.setup?.includeSignature ?? false;
+
+  function injectSignature(html: string, signatureHtml: string): string {
+    const sig = `<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e5e7eb;">${signatureHtml}</div>`;
+    const closeBody = html.lastIndexOf("</body>");
+    if (closeBody !== -1) return html.slice(0, closeBody) + sig + html.slice(closeBody);
+    return html + sig;
+  }
+
+  const resolvedBody = applyMockTokens(htmlBody);
+  const previewHtml =
+    includeSignature && adminSignatureHtml
+      ? injectSignature(resolvedBody, adminSignatureHtml)
+      : resolvedBody;
 
   async function handleSend() {
     setActionStatus("loading");

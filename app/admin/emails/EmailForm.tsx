@@ -73,8 +73,10 @@ function emailReducer(
 
     case "ADD_MANUAL_USER": {
       const existing = state.recipients?.manualAdditions ?? [];
-      if (existing.some((u) => u.userId === action.payload.userId))
-        return state;
+      const isDupe = action.payload.subscriberId
+        ? existing.some((u) => u.subscriberId === action.payload.subscriberId)
+        : existing.some((u) => u.userId === action.payload.userId);
+      if (isDupe) return state;
       return {
         ...state,
         recipients: {
@@ -93,7 +95,7 @@ function emailReducer(
           ...state.recipients,
           selections: state.recipients?.selections ?? [],
           manualAdditions: (state.recipients?.manualAdditions ?? []).filter(
-            (u) => u.userId !== action.payload,
+            (u) => (u.subscriberId ?? u.userId) !== action.payload,
           ),
           exclusions: state.recipients?.exclusions ?? [],
         },
@@ -145,12 +147,14 @@ type Props = {
   isSuperAdmin: boolean;
   /** Current persisted status of this email (drives header action buttons). */
   emailStatus?: EmailStatus;
+  adminSignatureHtml?: string | null;
 };
 
 export default function EmailForm({
   initialState,
   isSuperAdmin,
   emailStatus = "draft",
+  adminSignatureHtml = null,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -333,6 +337,7 @@ export default function EmailForm({
         onBack={previousStep}
         emailId={state.id!}
         isSuperAdmin={isSuperAdmin}
+        adminSignatureHtml={adminSignatureHtml}
       />
     ),
   };

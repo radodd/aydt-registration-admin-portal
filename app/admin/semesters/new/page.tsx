@@ -15,10 +15,21 @@ type Semester = {
   created_at: string;
 };
 
+/** Extract a 4-digit year from a semester name, e.g. "Fall 2025" → 2025. */
+function detectYear(name: string): number | null {
+  const match = name.match(/\b(20\d{2})\b/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
 export default function NewSemesterPage() {
   const router = useRouter();
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [cloneModal, setCloneModal] = useState<{
+    semester: Semester;
+    sourceYear: number | null;
+    targetYear: number;
+  } | null>(null);
 
   useEffect(() => {
     async function fetchSemesters() {
@@ -42,12 +53,23 @@ export default function NewSemesterPage() {
     }
   }
 
-  async function handleTemplate(sourceId: string) {
-    setLoadingId(sourceId);
+  function openCloneModal(semester: Semester) {
+    const sourceYear = detectYear(semester.name);
+    const targetYear = sourceYear ? sourceYear + 1 : new Date().getFullYear();
+    setCloneModal({ semester, sourceYear, targetYear });
+  }
+
+  async function handleCloneConfirm() {
+    if (!cloneModal) return;
+    const { semester, sourceYear, targetYear } = cloneModal;
+    const yearShift = sourceYear != null ? targetYear - sourceYear : 0;
+    setLoadingId(semester.id);
+    setCloneModal(null);
     try {
-      const newId = await cloneSemester(sourceId);
+      const newId = await cloneSemester(semester.id, yearShift);
       router.push(`/admin/semesters/${newId}/edit?step=details`);
-    } catch {
+    } catch (err) {
+      console.error("[handleCloneConfirm] cloneSemester failed:", err);
       setLoadingId(null);
     }
   }
@@ -100,7 +122,7 @@ export default function NewSemesterPage() {
             {semesters.map((s) => (
               <button
                 key={s.id}
-                onClick={() => handleTemplate(s.id)}
+                onClick={() => openCloneModal(s)}
                 disabled={loadingId !== null}
                 className="text-left border border-gray-200 rounded-2xl p-5 hover:border-indigo-400 hover:shadow-md transition group bg-white disabled:opacity-60 disabled:cursor-not-allowed"
               >
@@ -125,6 +147,89 @@ export default function NewSemesterPage() {
           </div>
         </div>
       </div>
+
+      {/* Date Adjustment Modal */}
+      {cloneModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Adjust Offering Dates
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                All session dates, payment due dates, and registration windows
+                will be shifted to the target year.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 rounded-xl bg-gray-50 border border-gray-200 p-4">
+                <div className="text-sm text-gray-500 shrink-0">Source</div>
+                <div className="font-medium text-gray-900 truncate">
+                  {cloneModal.semester.name}
+                </div>
+                {cloneModal.sourceYear && (
+                  <div className="ml-auto shrink-0 text-xs font-medium text-gray-400 bg-gray-200 rounded-full px-2 py-0.5">
+                    {cloneModal.sourceYear}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-medium text-gray-700 shrink-0">
+                  Target Year
+                </label>
+                <input
+                  type="number"
+                  min={2020}
+                  max={2099}
+                  value={cloneModal.targetYear}
+                  onChange={(e) =>
+                    setCloneModal((m) =>
+                      m
+                        ? {
+                            ...m,
+                            targetYear:
+                              parseInt(e.target.value, 10) || m.targetYear,
+                          }
+                        : m,
+                    )
+                  }
+                  className="w-28 rounded-lg border text-slate-600 border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                {cloneModal.sourceYear != null && (
+                  <span className="text-sm text-gray-400">
+                    (shift +{cloneModal.targetYear - cloneModal.sourceYear} yr)
+                  </span>
+                )}
+              </div>
+
+              {cloneModal.sourceYear == null && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  No year detected in the semester name — dates will not be
+                  shifted unless you set a target year above and the source
+                  semester has a detected base year.
+                </p>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setCloneModal(null)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCloneConfirm}
+                className="px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+              >
+                Clone &amp; Adjust →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

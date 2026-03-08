@@ -148,6 +148,10 @@ export default function SessionsStep({
   const [expandedClassIdx, setExpandedClassIdx] = useState<number | null>(
     classes.length > 0 ? 0 : null,
   );
+  const [rangeErrors, setRangeErrors] = useState<Map<number, string[]>>(
+    new Map(),
+  );
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   /* ---------------------------------------------------------------------- */
   /* Class-level handlers                                                    */
@@ -223,7 +227,38 @@ export default function SessionsStep({
   /* Submit                                                                  */
   /* ---------------------------------------------------------------------- */
 
+  function validateClasses(cls: DraftClass[]): Map<number, string[]> {
+    const errors = new Map<number, string[]>();
+    cls.forEach((c, idx) => {
+      const msgs: string[] = [];
+      if (c.minAge != null && c.maxAge != null) {
+        if (c.minAge === 0 && c.maxAge === 0)
+          msgs.push(
+            "Age range 0–0 is meaningless — disable the age restriction toggle instead.",
+          );
+        else if (c.minAge >= c.maxAge)
+          msgs.push("Min age must be less than max age.");
+      }
+      if (c.minGrade != null && c.maxGrade != null) {
+        if (c.minGrade === 0 && c.maxGrade === 0)
+          msgs.push(
+            "Grade range 0–0 is meaningless — disable the grade restriction toggle instead.",
+          );
+        else if (c.minGrade >= c.maxGrade)
+          msgs.push("Min grade must be less than max grade.");
+      }
+      if (msgs.length > 0) errors.set(idx, msgs);
+    });
+    return errors;
+  }
+
   function handleSubmit() {
+    const errors = validateClasses(classes);
+    if (errors.size > 0) {
+      setRangeErrors(errors);
+      return;
+    }
+    setRangeErrors(new Map());
     dispatch({ type: "SET_SESSIONS", payload: { classes } });
     onNext();
   }
@@ -255,6 +290,21 @@ export default function SessionsStep({
 
       {/* Class list */}
       <div className="space-y-4">
+        {classes.length > 1 && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-indigo-600 transition"
+            >
+              <span>A–Z</span>
+              <span className="inline-flex flex-col leading-none text-[10px]">
+                <span className={sortDir === "asc" ? "text-indigo-600" : "text-gray-300"}>▲</span>
+                <span className={sortDir === "desc" ? "text-indigo-600" : "text-gray-300"}>▼</span>
+              </span>
+            </button>
+          </div>
+        )}
         {classes.length === 0 && (
           <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
             <p className="text-sm text-gray-500">
@@ -263,7 +313,13 @@ export default function SessionsStep({
           </div>
         )}
 
-        {classes.map((cls, classIdx) => (
+        {[...classes.entries()]
+          .sort(([, a], [, b]) =>
+            sortDir === "asc"
+              ? a.name.localeCompare(b.name)
+              : b.name.localeCompare(a.name),
+          )
+          .map(([classIdx, cls]) => (
           <ClassCard
             key={classIdx}
             cls={cls}
@@ -296,6 +352,7 @@ export default function SessionsStep({
                 ),
               })
             }
+            rangeErrors={rangeErrors.get(classIdx) ?? []}
           />
         ))}
       </div>
@@ -347,6 +404,7 @@ function ClassCard({
   onRemoveSchedule,
   onAddRequirement,
   onRemoveRequirement,
+  rangeErrors,
 }: {
   cls: DraftClass;
   classIdx: number;
@@ -360,6 +418,7 @@ function ClassCard({
   onRemoveSchedule: (idx: number) => void;
   onAddRequirement: (req: DraftClassRequirement) => void;
   onRemoveRequirement: (idx: number) => void;
+  rangeErrors: string[];
 }) {
   const schedules = cls.schedules ?? [];
   const scheduleCount = schedules.length;
@@ -508,89 +567,190 @@ function ClassCard({
               />
             </div>
 
-            <div className="flex items-end gap-6">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
-                  Min age
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  disabled={isLocked}
-                  value={cls.minAge ?? ""}
-                  onChange={(e) =>
-                    onUpdateClass({
-                      minAge: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
-                    })
-                  }
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
-                  Max age
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  disabled={isLocked}
-                  value={cls.maxAge ?? ""}
-                  onChange={(e) =>
-                    onUpdateClass({
-                      maxAge: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
-                    })
-                  }
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
-                />
-              </div>
-            </div>
+            {/* Age restriction toggle */}
+            {(() => {
+              const ageEnabled = cls.minAge != null || cls.maxAge != null;
+              const ageErrors = rangeErrors.filter(
+                (e) => e.toLowerCase().includes("age"),
+                console.log(ageEnabled),
+              );
+              return (
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+                    <input
+                      type="checkbox"
+                      disabled={isLocked}
+                      checked={ageEnabled}
+                      // onChange={(e) => {
+                      //   if (!e.target.checked)
+                      //     onUpdateClass({
+                      //       minAge: undefined,
+                      //       maxAge: undefined,
+                      //     });
+                      // }}
+                      onChange={() => {
+                        const nextEnabled = !ageEnabled;
 
-            <div className="flex items-end gap-6">
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
-                  Min grade
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  disabled={isLocked}
-                  value={cls.minGrade ?? ""}
-                  onChange={(e) =>
-                    onUpdateClass({
-                      minGrade: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
-                    })
-                  }
-                  placeholder="K=0"
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
-                  Max grade
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  disabled={isLocked}
-                  value={cls.maxGrade ?? ""}
-                  onChange={(e) =>
-                    onUpdateClass({
-                      maxGrade: e.target.value
-                        ? Number(e.target.value)
-                        : undefined,
-                    })
-                  }
-                  placeholder="12"
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
-                />
-              </div>
-            </div>
+                        onUpdateClass(
+                          nextEnabled
+                            ? {
+                                minAge: cls.minAge ?? 1,
+                                maxAge: cls.maxAge ?? undefined,
+                              }
+                            : {
+                                minAge: undefined,
+                                maxAge: undefined,
+                              },
+                        );
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                      Age restriction
+                    </span>
+                  </label>
+                  {ageEnabled && (
+                    <div className="flex items-end gap-6">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">
+                          Min age
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          disabled={isLocked}
+                          value={cls.minAge ?? ""}
+                          onChange={(e) =>
+                            onUpdateClass({
+                              minAge: e.target.value
+                                ? Number(e.target.value)
+                                : undefined,
+                            })
+                          }
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">
+                          Max age
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          disabled={isLocked}
+                          value={cls.maxAge ?? ""}
+                          onChange={(e) =>
+                            onUpdateClass({
+                              maxAge: e.target.value
+                                ? Number(e.target.value)
+                                : undefined,
+                            })
+                          }
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {ageErrors.map((msg, i) => (
+                    <p key={i} className="text-xs text-red-600">
+                      {msg}
+                    </p>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Grade restriction toggle */}
+            {(() => {
+              const gradeEnabled = cls.minGrade != null || cls.maxGrade != null;
+              const gradeErrors = rangeErrors.filter((e) =>
+                e.toLowerCase().includes("grade"),
+              );
+              return (
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none w-fit">
+                    <input
+                      type="checkbox"
+                      disabled={isLocked}
+                      checked={gradeEnabled}
+                      // onChange={(e) => {
+                      //   if (!e.target.checked)
+                      //     onUpdateClass({
+                      //       minGrade: undefined,
+                      //       maxGrade: undefined,
+                      //     });
+                      // }}
+                      onChange={() => {
+                        const nextEnabled = !gradeEnabled;
+
+                        onUpdateClass(
+                          nextEnabled
+                            ? {
+                                minGrade: cls.minGrade ?? 0,
+                                maxGrade: cls.maxAge ?? undefined,
+                              }
+                            : {
+                                minGrade: undefined,
+                                maxGrade: undefined,
+                              },
+                        );
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                      Grade restriction
+                    </span>
+                  </label>
+                  {gradeEnabled && (
+                    <div className="flex items-end gap-6">
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">
+                          Min grade (K=0)
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          disabled={isLocked}
+                          value={cls.minGrade ?? ""}
+                          onChange={(e) =>
+                            onUpdateClass({
+                              minGrade: e.target.value
+                                ? Number(e.target.value)
+                                : undefined,
+                            })
+                          }
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs text-gray-500 mb-1">
+                          Max grade
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          disabled={isLocked}
+                          value={cls.maxGrade ?? ""}
+                          onChange={(e) =>
+                            onUpdateClass({
+                              maxGrade: e.target.value
+                                ? Number(e.target.value)
+                                : undefined,
+                            })
+                          }
+                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {gradeErrors.map((msg, i) => (
+                    <p key={i} className="text-xs text-red-600">
+                      {msg}
+                    </p>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
 
           <div>
@@ -641,7 +801,7 @@ function ClassCard({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold text-gray-800">
-                Schedule Blocks
+                Schedule Offerings
               </h4>
               {!isLocked && (
                 <button

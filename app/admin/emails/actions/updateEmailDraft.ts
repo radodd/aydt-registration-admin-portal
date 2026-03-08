@@ -52,7 +52,7 @@ export async function updateEmailDraft(
     rows.push({
       email_id: emailId,
       selection_type: sel.type,
-      semester_id: sel.semesterId,
+      semester_id: sel.semesterId ?? null,
       session_id: sel.sessionId ?? null,
       user_id: null,
       is_excluded: false,
@@ -65,7 +65,8 @@ export async function updateEmailDraft(
       selection_type: "manual",
       semester_id: null,
       session_id: null,
-      user_id: user.userId,
+      user_id: user.userId ?? null,
+      subscriber_id: user.subscriberId ?? null,
       is_excluded: false,
     });
   }

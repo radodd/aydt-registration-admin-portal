@@ -16,6 +16,7 @@ export default function PreviewFormPage({
       <FormContent
         semesterId={id}
         continueUrl={`/preview/semester/${id}/register/payment`}
+        mode="preview"
       />
     </div>
   );

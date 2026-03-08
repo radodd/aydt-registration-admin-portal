@@ -53,8 +53,8 @@ export default function AdminLayout({
           <Link href="/admin/semesters" className="block hover:underline">
             Semesters
           </Link>
-          <Link href="/admin/sessions" className="block hover:underline">
-            Sessions
+          <Link href="/admin/classes" className="block hover:underline">
+            Classes
           </Link>
           <Link href="/admin/emails" className="block hover:underline">
             Emails
@@ -73,6 +73,9 @@ export default function AdminLayout({
           </Link>
           <Link href="/admin/users" className="block hover:underline">
             Users
+          </Link>
+          <Link href="/admin/profile" className="block hover:underline">
+            My Profile
           </Link>
         </nav>
       </aside>

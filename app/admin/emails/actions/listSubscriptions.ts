@@ -33,19 +33,32 @@ export async function listSubscribed(
 ): Promise<PaginatedResult<SubscriptionListRow>> {
   const supabase = await createClient();
 
-  // Subscribed = is_subscribed true OR no record (outer join via users)
-  const { data, error, count } = await supabase
+  // Fetch all explicitly unsubscribed user IDs so we can exclude them.
+  // Users with no record OR is_subscribed=true are considered subscribed.
+  const { data: unsubRows } = await supabase
+    .from("email_subscriptions")
+    .select("user_id")
+    .eq("is_subscribed", false);
+
+  const unsubIds = (unsubRows ?? []).map((r) => r.user_id as string);
+
+  let query = supabase
     .from("users")
     .select(
       `id, email, first_name, last_name,
        email_subscriptions!left(is_subscribed, updated_at)`,
       { count: "exact" },
     )
-    .or(
-      "email_subscriptions.is_subscribed.is.null,email_subscriptions.is_subscribed.eq.true",
-    )
-    .order("created_at", { ascending: false })
-    .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    .order("created_at", { ascending: false });
+
+  if (unsubIds.length > 0) {
+    query = query.not("id", "in", `(${unsubIds.join(",")})`);
+  }
+
+  const { data, error, count } = await query.range(
+    page * PAGE_SIZE,
+    (page + 1) * PAGE_SIZE - 1,
+  );
 
   if (error) throw new Error(error.message);
 

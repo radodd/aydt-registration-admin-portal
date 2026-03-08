@@ -42,7 +42,8 @@ export async function scheduleEmail(
   const { error: snapErr } = await supabase.from("email_recipients").insert(
     recipients.map((r) => ({
       email_id: emailId,
-      user_id: r.userId,
+      user_id: r.userId ?? null,
+      subscriber_id: r.subscriberId ?? null,
       email_address: r.emailAddress,
       first_name: r.firstName,
       last_name: r.lastName,

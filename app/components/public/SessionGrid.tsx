@@ -15,6 +15,8 @@ export type GroupedClass = {
   location?: string | null;
   minAge?: number | null;
   maxAge?: number | null;
+  minGrade?: number | null;
+  maxGrade?: number | null;
   sessions: PublicSession[]; // individual calendar-day sessions
 };
 
@@ -34,6 +36,8 @@ function groupByClass(sessions: PublicSession[]): GroupedClass[] {
         location: session.location,
         minAge: session.minAge,
         maxAge: session.maxAge,
+        minGrade: session.minGrade,
+        maxGrade: session.maxGrade,
         sessions: [],
       });
     }

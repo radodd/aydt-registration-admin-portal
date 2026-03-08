@@ -54,6 +54,8 @@ export async function getSemesterForDisplay(
         description,
         min_age,
         max_age,
+        min_grade,
+        max_grade,
         is_active,
         is_competition_track,
         class_sessions (
@@ -114,7 +116,9 @@ export async function getSemesterForDisplay(
   /* ---------------------------------------------------------------------- */
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const semesterClasses = (semester.classes ?? []) as any as ClassRow[];
+  const semesterClasses = ((semester.classes ?? []) as any as ClassRow[])
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const classSessionIds: string[] = semesterClasses.flatMap(
     (c: ClassRow) =>
@@ -228,6 +232,8 @@ export async function getSemesterForDisplay(
             spotsRemaining: Math.max(0, capacity - enrolled),
             minAge: c.min_age,
             maxAge: c.max_age,
+            minGrade: c.min_grade,
+            maxGrade: c.max_grade,
             scheduleDate: cs.schedule_date,
             instructorName: cs.instructor_name,
             startTime: cs.start_time,
@@ -390,6 +396,8 @@ interface ClassRow {
   description: string | null;
   min_age: number | null;
   max_age: number | null;
+  min_grade: number | null;
+  max_grade: number | null;
   is_active: boolean;
   is_competition_track: boolean;
   class_sessions: ClassSessionRow[];

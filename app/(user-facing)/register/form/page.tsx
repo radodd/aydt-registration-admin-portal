@@ -160,9 +160,11 @@ function renderField(
 export function FormContent({
   semesterId,
   continueUrl,
+  mode = "live",
 }: {
   semesterId: string;
   continueUrl: string;
+  mode?: "live" | "preview";
 }) {
   const router = useRouter();
   const { state, setFormData } = useRegistration();
@@ -171,10 +173,10 @@ export function FormContent({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getSemesterForDisplay(semesterId, "live")
+    getSemesterForDisplay(semesterId, mode)
       .then(setSemester)
       .finally(() => setLoading(false));
-  }, [semesterId]);
+  }, [semesterId, mode]);
 
   const elements = semester?.registrationForm ?? [];
   const schema = buildDynamicFormSchema(elements);

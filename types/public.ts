@@ -76,6 +76,8 @@ export interface PublicSession {
 
   minAge?: number | null;
   maxAge?: number | null;
+  minGrade?: number | null;
+  maxGrade?: number | null;
 
   registrationCloseAt?: string | null;
   /** Assigned group id for bundle/grouping UI */

@@ -3,6 +3,7 @@ export function StatusBadge({ status }: { status: string }) {
     draft: "bg-gray-100 text-gray-700 border-gray-200",
     published: "bg-green-100 text-green-700 border-green-200",
     archived: "bg-red-100 text-red-700 border-red-200",
+    scheduled: "bg-slate-400 text-slate-100 border-slate-500",
   };
 
   return (

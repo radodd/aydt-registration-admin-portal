@@ -25,6 +25,14 @@ import type { ConflictDetail, Dancer, SessionScheduleInfo } from "@/types";
 /* Dancer row — select existing or create new                                  */
 /* -------------------------------------------------------------------------- */
 
+function parseGrade(g: string | null): number | null {
+  if (!g) return null;
+  const s = g.trim().toLowerCase();
+  if (s === "k" || s === "kindergarten") return 0;
+  const n = parseInt(s, 10);
+  return !isNaN(n) && n >= 1 && n <= 12 ? n : null;
+}
+
 interface DancerSelectorProps {
   sessionId: string;
   sessionName: string;
@@ -33,6 +41,8 @@ interface DancerSelectorProps {
   onChange: (a: ParticipantAssignment) => void;
   minAge?: number | null;
   maxAge?: number | null;
+  minGrade?: number | null;
+  maxGrade?: number | null;
   familyId: string | null;
 }
 
@@ -44,6 +54,8 @@ function DancerSelector({
   onChange,
   minAge,
   maxAge,
+  minGrade,
+  maxGrade,
   familyId,
 }: DancerSelectorProps) {
   const [mode, setMode] = useState<"select" | "create">(
@@ -67,22 +79,84 @@ function DancerSelector({
 
   const dobValue = watch("dateOfBirth");
 
-  function validateAge(
+  function validateEligibility(
     dob: string,
+    gradeStr: string | null,
   ): "valid" | "warning" | "error" | "unchecked" {
-    if (!dob) return "unchecked";
-    const age = computeAge(dob);
-    if (minAge != null && age < minAge) return "error";
-    if (maxAge != null && age > maxAge) return "error";
-    if (minAge != null && age < minAge + 1) return "warning";
-    return "valid";
+    console.log("[validateEligibility] input:", { dob, gradeStr, minAge, maxAge, minGrade, maxGrade });
+
+    const hasCriteria =
+      minAge != null || maxAge != null || minGrade != null || maxGrade != null;
+    if (!hasCriteria) {
+      console.log("[validateEligibility] no criteria set → valid");
+      return "valid";
+    }
+
+    // Age check — only evaluate if the class actually has age criteria set
+    let ageOk: boolean | null = null;
+    const hasAgeCriteria = minAge != null || maxAge != null;
+    if (dob && hasAgeCriteria) {
+      const age = computeAge(dob);
+      ageOk = true;
+      if (minAge != null && age < minAge) ageOk = false;
+      if (maxAge != null && age > maxAge) ageOk = false;
+      console.log("[validateEligibility] age:", age, "ageOk:", ageOk);
+    } else {
+      console.log("[validateEligibility] age check skipped. hasAgeCriteria:", hasAgeCriteria, "dob:", dob);
+    }
+
+    // Grade check — only evaluate if the class actually has grade criteria set
+    let gradeOk: boolean | null = null;
+    const hasGradeCriteria = minGrade != null || maxGrade != null;
+    const gradeNum = parseGrade(gradeStr);
+    console.log("[validateEligibility] gradeStr:", gradeStr, "gradeNum:", gradeNum, "hasGradeCriteria:", hasGradeCriteria);
+    if (gradeNum !== null && hasGradeCriteria) {
+      gradeOk = true;
+      if (minGrade != null && gradeNum < minGrade) gradeOk = false;
+      if (maxGrade != null && gradeNum > maxGrade) gradeOk = false;
+      console.log("[validateEligibility] gradeOk:", gradeOk);
+    } else {
+      console.log("[validateEligibility] grade check skipped (gradeNum null or no grade criteria)");
+    }
+
+    // OR logic: pass if either criterion is met
+    if (ageOk === true || gradeOk === true) {
+      // Near-age warning when age just barely passes and grade check wasn't decisive
+      if (
+        dob &&
+        minAge != null &&
+        computeAge(dob) < minAge + 1 &&
+        gradeOk !== true
+      ) {
+        console.log("[validateEligibility] result: warning (near age limit)");
+        return "warning";
+      }
+      console.log("[validateEligibility] result: valid");
+      return "valid";
+    }
+    // Error if any evaluated criterion explicitly failed (the other is null/not applicable)
+    if (ageOk === false || gradeOk === false) {
+      console.log("[validateEligibility] result: error (ageOk:", ageOk, "gradeOk:", gradeOk, ")");
+      return "error";
+    }
+
+    // Age near lower limit and grade can't be evaluated
+    if (dob && minAge != null && computeAge(dob) < minAge + 1) {
+      console.log("[validateEligibility] result: warning (age near lower limit, grade unchecked)");
+      return "warning";
+    }
+    console.log("[validateEligibility] result: unchecked (insufficient data)");
+    return "unchecked";
   }
 
   function handleSelectExisting(dancerId: string) {
     const dancer = existingDancers.find((d) => d.id === dancerId);
+    console.log("[handleSelectExisting] dancer:", { id: dancer?.id, birth_date: dancer?.birth_date, grade: dancer?.grade });
+    console.log("[handleSelectExisting] session criteria:", { minAge, maxAge, minGrade, maxGrade });
     const ageStatus = dancer?.birth_date
-      ? validateAge(dancer.birth_date)
+      ? validateEligibility(dancer.birth_date, dancer.grade ?? null)
       : "unchecked";
+    console.log("[handleSelectExisting] final ageStatus:", ageStatus);
     onChange({ sessionId, dancerId, ageStatus });
   }
 
@@ -96,7 +170,7 @@ function DancerSelector({
       setCreateError(result.error ?? "Failed to create dancer");
       return;
     }
-    const ageStatus = validateAge(data.dateOfBirth);
+    const ageStatus = validateEligibility(data.dateOfBirth, null);
     onChange({
       sessionId,
       dancerId: result.dancerId,
@@ -108,20 +182,39 @@ function DancerSelector({
 
   const ageStatus =
     assignment?.dancerId && dobValue
-      ? validateAge(dobValue)
+      ? validateEligibility(dobValue, null)
       : (assignment?.ageStatus ?? "unchecked");
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl p-5">
       <h3 className="font-semibold text-gray-900 mb-1">{sessionName}</h3>
-      {(minAge != null || maxAge != null) && (
+      {(minAge != null ||
+        maxAge != null ||
+        minGrade != null ||
+        maxGrade != null) && (
         <p className="text-xs text-gray-400 mb-3">
-          Ages{" "}
-          {minAge != null && maxAge != null
-            ? `${minAge}–${maxAge}`
-            : minAge != null
-              ? `${minAge}+`
-              : `up to ${maxAge}`}
+          {(minAge != null || maxAge != null) && (
+            <span>
+              Ages{" "}
+              {minAge != null && maxAge != null
+                ? `${minAge}–${maxAge}`
+                : minAge != null
+                  ? `${minAge}+`
+                  : `up to ${maxAge}`}
+            </span>
+          )}
+          {(minAge != null || maxAge != null) &&
+            (minGrade != null || maxGrade != null) && <span> or </span>}
+          {(minGrade != null || maxGrade != null) && (
+            <span>
+              Grade{" "}
+              {minGrade != null && maxGrade != null
+                ? `${minGrade}–${maxGrade}`
+                : minGrade != null
+                  ? `${minGrade}+`
+                  : `up to ${maxGrade}`}
+            </span>
+          )}
         </p>
       )}
 
@@ -240,7 +333,7 @@ function DancerSelector({
         </form>
       )}
 
-      {/* Age warning */}
+      {/* Eligibility warning */}
       {assignment?.dancerId && ageStatus === "warning" && (
         <p className="mt-3 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
           This dancer is near the age limit. Please confirm eligibility.
@@ -248,7 +341,9 @@ function DancerSelector({
       )}
       {assignment?.dancerId && ageStatus === "error" && (
         <p className="mt-3 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
-          This dancer does not meet the age requirement for this session.
+          This dancer does not meet the{" "}
+          {minGrade != null || maxGrade != null ? "age or grade" : "age"}{" "}
+          requirement for this session.
         </p>
       )}
 
@@ -274,7 +369,7 @@ export function ParticipantsContent({
   continueUrl: string;
 }) {
   const router = useRouter();
-  const { sessionIds } = useCart();
+  const { sessionIds, remove: removeFromCart } = useCart();
   const { state, setParticipants } = useRegistration();
 
   const [dancers, setDancers] = useState<Dancer[]>([]);
@@ -322,7 +417,7 @@ export function ParticipantsContent({
         setFamilyId(userRecord.family_id);
         const { data: dancerRows, error: dancerError } = await supabase
           .from("dancers")
-          .select("id, first_name, last_name, birth_date, gender")
+          .select("id, first_name, last_name, birth_date, gender, grade")
           .eq("family_id", userRecord.family_id)
           .order("first_name");
         console.log(
@@ -347,7 +442,9 @@ export function ParticipantsContent({
     const supabase = createClient();
     supabase
       .from("class_sessions")
-      .select("id, day_of_week, start_time, end_time, classes(name, min_age, max_age)")
+      .select(
+        "id, day_of_week, start_time, end_time, classes(name, min_age, max_age, min_grade, max_grade)",
+      )
       .in("id", sessionIds)
       .then(({ data }) => {
         if (!data) return;
@@ -362,8 +459,11 @@ export function ParticipantsContent({
             endTime: row.end_time,
             minAge: (cls as any)?.min_age ?? null,
             maxAge: (cls as any)?.max_age ?? null,
+            minGrade: (cls as any)?.min_grade ?? null,
+            maxGrade: (cls as any)?.max_grade ?? null,
           });
         }
+        console.log("[scheduleMap] populated:", Object.fromEntries(map));
         setScheduleMap(map);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -374,6 +474,11 @@ export function ParticipantsContent({
       const filtered = prev.filter((a) => a.sessionId !== assignment.sessionId);
       return [...filtered, assignment];
     });
+  }
+
+  function handleRemoveSession(sessionId: string) {
+    removeFromCart(sessionId);
+    setAssignments((prev) => prev.filter((a) => a.sessionId !== sessionId));
   }
 
   // Client-side conflict detection — re-runs on every assignment change
@@ -409,7 +514,9 @@ export function ParticipantsContent({
   );
 
   function handleContinue() {
-    console.log(`[Participants] handleContinue allAssigned=${allAssigned} hasConflicts=${hasConflicts} cartItems=${sessionIds.length}`);
+    console.log(
+      `[Participants] handleContinue allAssigned=${allAssigned} hasConflicts=${hasConflicts} cartItems=${sessionIds.length}`,
+    );
     const enriched = assignments.map((a) => ({
       ...a,
       selectedDayIds: [],
@@ -449,8 +556,8 @@ export function ParticipantsContent({
           {[...conflictsByDancer.values()].flat().map((conflict, i) => (
             <p key={i} className="text-xs mt-1">
               "{conflict.sessionA.className}" and "{conflict.sessionB.className}
-              " overlap on {conflict.sessionA.dayOfWeek}. Please go back and
-              remove one session to continue.
+              " overlap on {conflict.sessionA.dayOfWeek}. Remove one of these
+              sessions to continue.
             </p>
           ))}
         </div>
@@ -460,17 +567,33 @@ export function ParticipantsContent({
         {sessionIds.map((sid) => {
           const info = scheduleMap.get(sid);
           return (
-            <DancerSelector
-              key={sid}
-              sessionId={sid}
-              sessionName={info?.className ?? sid}
-              existingDancers={dancers}
-              assignment={assignments.find((a) => a.sessionId === sid)}
-              onChange={handleAssignmentChange}
-              familyId={familyId}
-              minAge={info?.minAge}
-              maxAge={info?.maxAge}
-            />
+            <div key={sid} className="relative">
+              <DancerSelector
+                sessionId={sid}
+                sessionName={info?.className ?? sid}
+                existingDancers={dancers}
+                assignment={assignments.find((a) => a.sessionId === sid)}
+                onChange={handleAssignmentChange}
+                familyId={familyId}
+                minAge={info?.minAge}
+                maxAge={info?.maxAge}
+                minGrade={info?.minGrade}
+                maxGrade={info?.maxGrade}
+              />
+              <button
+                type="button"
+                onClick={() => handleRemoveSession(sid)}
+                className="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-50"
+                aria-label="Remove session"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                  <path d="M10 11v6M14 11v6" />
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                </svg>
+              </button>
+            </div>
           );
         })}
       </div>
@@ -486,7 +609,7 @@ export function ParticipantsContent({
         <button
           type="button"
           onClick={handleContinue}
-          disabled={!allAssigned || hasConflicts}
+          disabled={!allAssigned}
           className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Continue
