@@ -46,14 +46,18 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
         maxAge: c.max_age ?? undefined,
         minGrade: c.min_grade ?? undefined,
         maxGrade: c.max_grade ?? undefined,
+        // offeringType is TypeScript-only — derived from is_competition_track, never persisted.
+        offeringType: c.is_competition_track ? "competition_track" : "standard",
         isCompetitionTrack: c.is_competition_track ?? false,
         requiresTeacherRec: c.requires_teacher_rec ?? false,
+        visibility: c.visibility ?? "public",
+        enrollmentType: c.enrollment_type ?? "standard",
         schedules: (c.class_schedules ?? []).map((cs: any): DraftClassSchedule => ({
           _clientKey: cs.id,
           id: cs.id,
           daysOfWeek: cs.days_of_week ?? [],
-          startTime: cs.start_time ?? undefined,
-          endTime: cs.end_time ?? undefined,
+          startTime: cs.start_time ? cs.start_time.slice(0, 5) : undefined,
+          endTime: cs.end_time ? cs.end_time.slice(0, 5) : undefined,
           startDate: cs.start_date ?? undefined,
           endDate: cs.end_date ?? undefined,
           location: cs.location ?? undefined,
@@ -84,6 +88,10 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
           required_level: r.required_level ?? null,
           required_class_id: r.required_class_id ?? null,
         })),
+        // Competition track transactional email configs (null for standard classes)
+        inviteEmail: c.invite_email ?? undefined,
+        auditionBookingEmail: c.audition_booking_email ?? undefined,
+        competitionAcceptanceEmail: c.competition_acceptance_email ?? undefined,
       })),
     },
 

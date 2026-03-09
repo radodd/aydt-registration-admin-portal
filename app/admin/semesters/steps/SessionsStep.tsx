@@ -72,8 +72,10 @@ function emptySchedule(): DraftClassSchedule {
   };
 }
 
-function emptyClass(): DraftClass {
+/** Standard class scaffold — public visibility, no schedule invariants. */
+function emptyStandardClass(): DraftClass {
   return {
+    offeringType: "standard",
     name: "",
     displayName: "",
     discipline: "ballet",
@@ -86,7 +88,37 @@ function emptyClass(): DraftClass {
     maxGrade: undefined,
     isCompetitionTrack: false,
     requiresTeacherRec: false,
+    visibility: "public",
+    enrollmentType: "standard",
     schedules: [emptySchedule()],
+  };
+}
+
+/**
+ * Competition track scaffold — identity fields are fixed by archetype:
+ *   isCompetitionTrack=true, visibility=invite_only, enrollmentType=audition, schedules=[]
+ *
+ * INVARIANT: competition tracks never have class_sessions. Audition slots are
+ * managed exclusively in the Competition Invites page (InviteManagerClient).
+ */
+function emptyCompetitionTrackClass(): DraftClass {
+  return {
+    offeringType: "competition_track",
+    name: "",
+    displayName: "",
+    discipline: "ballet",
+    division: "competition",
+    level: "",
+    description: "",
+    minAge: undefined,
+    maxAge: undefined,
+    minGrade: undefined,
+    maxGrade: undefined,
+    isCompetitionTrack: true,
+    requiresTeacherRec: false,
+    visibility: "invite_only",
+    enrollmentType: "audition",
+    schedules: [], // competition tracks have no class_sessions
   };
 }
 
@@ -157,8 +189,14 @@ export default function SessionsStep({
   /* Class-level handlers                                                    */
   /* ---------------------------------------------------------------------- */
 
-  function handleAddClass() {
-    const updated = [...classes, emptyClass()];
+  function handleAddStandardClass() {
+    const updated = [...classes, emptyStandardClass()];
+    setClasses(updated);
+    setExpandedClassIdx(updated.length - 1);
+  }
+
+  function handleAddCompetitionTrack() {
+    const updated = [...classes, emptyCompetitionTrackClass()];
     setClasses(updated);
     setExpandedClassIdx(updated.length - 1);
   }
@@ -171,7 +209,19 @@ export default function SessionsStep({
 
   function handleUpdateClass(idx: number, patch: Partial<DraftClass>) {
     setClasses((prev) =>
-      prev.map((c, i) => (i === idx ? { ...c, ...patch } : c)),
+      prev.map((c, i) => {
+        if (i !== idx) return c;
+        const merged = { ...c, ...patch };
+        // Enforce competition track invariants: identity fields are derived from offeringType.
+        // This prevents illegal combinations regardless of what the UI sends.
+        if (merged.offeringType === "competition_track") {
+          merged.isCompetitionTrack = true;
+          merged.visibility = "invite_only";
+          merged.enrollmentType = "audition";
+          merged.schedules = []; // competition tracks have no class_sessions
+        }
+        return merged;
+      }),
     );
   }
 
@@ -288,85 +338,166 @@ export default function SessionsStep({
         </div>
       )}
 
-      {/* Class list */}
-      <div className="space-y-4">
-        {classes.length > 1 && (
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-indigo-600 transition"
-            >
-              <span>A–Z</span>
-              <span className="inline-flex flex-col leading-none text-[10px]">
-                <span className={sortDir === "asc" ? "text-indigo-600" : "text-gray-300"}>▲</span>
-                <span className={sortDir === "desc" ? "text-indigo-600" : "text-gray-300"}>▼</span>
-              </span>
-            </button>
-          </div>
-        )}
-        {classes.length === 0 && (
-          <div className="rounded-xl border border-dashed border-gray-300 p-8 text-center">
-            <p className="text-sm text-gray-500">
-              No classes yet. Click &ldquo;Add Class&rdquo; to get started.
-            </p>
-          </div>
-        )}
+      {/* Sort control — shown when either section has more than 1 item */}
+      {classes.length > 1 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-indigo-600 transition"
+          >
+            <span>A–Z</span>
+            <span className="inline-flex flex-col leading-none text-[10px]">
+              <span className={sortDir === "asc" ? "text-indigo-600" : "text-gray-300"}>▲</span>
+              <span className={sortDir === "desc" ? "text-indigo-600" : "text-gray-300"}>▼</span>
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Standard Classes section                                            */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-800">Standard Classes</h3>
+        </div>
 
         {[...classes.entries()]
+          .filter(([, c]) => c.offeringType !== "competition_track")
           .sort(([, a], [, b]) =>
             sortDir === "asc"
               ? a.name.localeCompare(b.name)
               : b.name.localeCompare(a.name),
           )
           .map(([classIdx, cls]) => (
-          <ClassCard
-            key={classIdx}
-            cls={cls}
-            classIdx={classIdx}
-            isExpanded={expandedClassIdx === classIdx}
-            isLocked={isLocked}
-            onToggle={() =>
-              setExpandedClassIdx(
-                expandedClassIdx === classIdx ? null : classIdx,
-              )
-            }
-            onUpdateClass={(patch) => handleUpdateClass(classIdx, patch)}
-            onRemoveClass={() => handleRemoveClass(classIdx)}
-            onAddSchedule={() => handleAddSchedule(classIdx)}
-            onUpdateSchedule={(scheduleIdx, patch) =>
-              handleUpdateSchedule(classIdx, scheduleIdx, patch)
-            }
-            onRemoveSchedule={(scheduleIdx) =>
-              handleRemoveSchedule(classIdx, scheduleIdx)
-            }
-            onAddRequirement={(req) =>
-              handleUpdateClass(classIdx, {
-                requirements: [...(cls.requirements ?? []), req],
-              })
-            }
-            onRemoveRequirement={(reqIdx) =>
-              handleUpdateClass(classIdx, {
-                requirements: (cls.requirements ?? []).filter(
-                  (_, i) => i !== reqIdx,
-                ),
-              })
-            }
-            rangeErrors={rangeErrors.get(classIdx) ?? []}
-          />
-        ))}
+            <ClassCard
+              key={classIdx}
+              cls={cls}
+              classIdx={classIdx}
+              semesterId={state.id}
+              isExpanded={expandedClassIdx === classIdx}
+              isLocked={isLocked}
+              onToggle={() =>
+                setExpandedClassIdx(
+                  expandedClassIdx === classIdx ? null : classIdx,
+                )
+              }
+              onUpdateClass={(patch) => handleUpdateClass(classIdx, patch)}
+              onRemoveClass={() => handleRemoveClass(classIdx)}
+              onAddSchedule={() => handleAddSchedule(classIdx)}
+              onUpdateSchedule={(scheduleIdx, patch) =>
+                handleUpdateSchedule(classIdx, scheduleIdx, patch)
+              }
+              onRemoveSchedule={(scheduleIdx) =>
+                handleRemoveSchedule(classIdx, scheduleIdx)
+              }
+              onAddRequirement={(req) =>
+                handleUpdateClass(classIdx, {
+                  requirements: [...(cls.requirements ?? []), req],
+                })
+              }
+              onRemoveRequirement={(reqIdx) =>
+                handleUpdateClass(classIdx, {
+                  requirements: (cls.requirements ?? []).filter(
+                    (_, i) => i !== reqIdx,
+                  ),
+                })
+              }
+              rangeErrors={rangeErrors.get(classIdx) ?? []}
+            />
+          ))}
+
+        {classes.filter((c) => c.offeringType !== "competition_track").length === 0 && (
+          <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
+            <p className="text-sm text-gray-500">
+              No standard classes yet. Click &ldquo;+ Add Standard Class&rdquo; to get started.
+            </p>
+          </div>
+        )}
+
+        {!isLocked && (
+          <button
+            type="button"
+            onClick={handleAddStandardClass}
+            className="w-full py-3 rounded-xl border-2 border-dashed border-indigo-300 text-sm font-medium text-indigo-600 hover:border-indigo-500 hover:bg-indigo-50 transition"
+          >
+            + Add Standard Class
+          </button>
+        )}
       </div>
 
-      {/* Add class button */}
-      {!isLocked && (
-        <button
-          type="button"
-          onClick={handleAddClass}
-          className="w-full py-3 rounded-xl border-2 border-dashed border-indigo-300 text-sm font-medium text-indigo-600 hover:border-indigo-500 hover:bg-indigo-50 transition"
-        >
-          + Add Class
-        </button>
-      )}
+      {/* ------------------------------------------------------------------ */}
+      {/* Competition Tracks section                                          */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-800">Competition Tracks</h3>
+        </div>
+
+        {[...classes.entries()]
+          .filter(([, c]) => c.offeringType === "competition_track")
+          .sort(([, a], [, b]) =>
+            sortDir === "asc"
+              ? a.name.localeCompare(b.name)
+              : b.name.localeCompare(a.name),
+          )
+          .map(([classIdx, cls]) => (
+            <ClassCard
+              key={classIdx}
+              cls={cls}
+              classIdx={classIdx}
+              semesterId={state.id}
+              isExpanded={expandedClassIdx === classIdx}
+              isLocked={isLocked}
+              onToggle={() =>
+                setExpandedClassIdx(
+                  expandedClassIdx === classIdx ? null : classIdx,
+                )
+              }
+              onUpdateClass={(patch) => handleUpdateClass(classIdx, patch)}
+              onRemoveClass={() => handleRemoveClass(classIdx)}
+              onAddSchedule={() => handleAddSchedule(classIdx)}
+              onUpdateSchedule={(scheduleIdx, patch) =>
+                handleUpdateSchedule(classIdx, scheduleIdx, patch)
+              }
+              onRemoveSchedule={(scheduleIdx) =>
+                handleRemoveSchedule(classIdx, scheduleIdx)
+              }
+              onAddRequirement={(req) =>
+                handleUpdateClass(classIdx, {
+                  requirements: [...(cls.requirements ?? []), req],
+                })
+              }
+              onRemoveRequirement={(reqIdx) =>
+                handleUpdateClass(classIdx, {
+                  requirements: (cls.requirements ?? []).filter(
+                    (_, i) => i !== reqIdx,
+                  ),
+                })
+              }
+              rangeErrors={rangeErrors.get(classIdx) ?? []}
+            />
+          ))}
+
+        {classes.filter((c) => c.offeringType === "competition_track").length === 0 && (
+          <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
+            <p className="text-sm text-gray-500">
+              No competition tracks yet. Click &ldquo;+ Add Competition Track&rdquo; to add one.
+            </p>
+          </div>
+        )}
+
+        {!isLocked && (
+          <button
+            type="button"
+            onClick={handleAddCompetitionTrack}
+            className="w-full py-3 rounded-xl border-2 border-dashed border-violet-300 text-sm font-medium text-violet-600 hover:border-violet-500 hover:bg-violet-50 transition"
+          >
+            + Add Competition Track
+          </button>
+        )}
+      </div>
 
       {/* Navigation */}
       <div className="flex justify-between pt-4">
@@ -394,6 +525,7 @@ export default function SessionsStep({
 function ClassCard({
   cls,
   classIdx,
+  semesterId,
   isExpanded,
   isLocked,
   onToggle,
@@ -408,6 +540,7 @@ function ClassCard({
 }: {
   cls: DraftClass;
   classIdx: number;
+  semesterId?: string;
   isExpanded: boolean;
   isLocked: boolean;
   onToggle: () => void;
@@ -420,6 +553,7 @@ function ClassCard({
   onRemoveRequirement: (idx: number) => void;
   rangeErrors: string[];
 }) {
+  const isCompetitionTrack = cls.offeringType === "competition_track";
   const schedules = cls.schedules ?? [];
   const scheduleCount = schedules.length;
   const disciplineLabel =
@@ -450,18 +584,26 @@ function ClassCard({
             />
           </svg>
           <div className="min-w-0">
-            <p className="font-semibold text-gray-900 truncate">
-              {cls.name || (
-                <span className="text-gray-400 font-normal italic">
-                  Untitled class
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-gray-900 truncate">
+                {cls.name || (
+                  <span className="text-gray-400 font-normal italic">
+                    Untitled {isCompetitionTrack ? "competition track" : "class"}
+                  </span>
+                )}
+              </p>
+              {isCompetitionTrack && (
+                <span className="shrink-0 inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-700">
+                  Competition Track
                 </span>
               )}
-            </p>
+            </div>
             <p className="text-xs text-gray-500 mt-0.5">
               {disciplineLabel} · {divisionLabel}
               {cls.level ? ` · Level ${cls.level}` : ""}
-              {" · "}
-              {scheduleCount} schedule block{scheduleCount !== 1 ? "s" : ""}
+              {isCompetitionTrack
+                ? " · Invite Only · Audition"
+                : ` · ${scheduleCount} schedule block${scheduleCount !== 1 ? "s" : ""}`}
             </p>
           </div>
         </div>
@@ -768,69 +910,104 @@ function ClassCard({
             />
           </div>
 
-          <div className="flex gap-6">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                disabled={isLocked}
-                checked={cls.isCompetitionTrack ?? false}
-                onChange={(e) =>
-                  onUpdateClass({ isCompetitionTrack: e.target.checked })
-                }
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="text-sm text-gray-700">Competition track</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                disabled={isLocked}
-                checked={cls.requiresTeacherRec ?? false}
-                onChange={(e) =>
-                  onUpdateClass({ requiresTeacherRec: e.target.checked })
-                }
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="text-sm text-gray-700">
-                Requires teacher recommendation
-              </span>
-            </label>
-          </div>
-
-          {/* Schedule blocks */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-gray-800">
-                Schedule Offerings
-              </h4>
-              {!isLocked && (
-                <button
-                  type="button"
-                  onClick={onAddSchedule}
-                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
-                >
-                  + Add schedule block
-                </button>
-              )}
-            </div>
-
-            {schedules.length === 0 && (
-              <p className="text-xs text-gray-400 italic">
-                No schedule blocks yet.
+          {isCompetitionTrack ? (
+            /* Competition track: identity fields are fixed — show info banner */
+            <div className="rounded-xl bg-violet-50 border border-violet-200 px-4 py-3 space-y-1">
+              <p className="text-sm font-medium text-violet-800">Competition Track</p>
+              <p className="text-xs text-violet-700">
+                Visibility: <strong>Invite Only</strong> · Enrollment: <strong>Audition</strong>
               </p>
-            )}
+              <p className="text-xs text-violet-600">
+                These settings are fixed for competition tracks. Manage audition slots and invitations in the{" "}
+                {semesterId ? (
+                  <a
+                    href={`/admin/semesters/${semesterId}/invites`}
+                    className="underline hover:text-violet-800"
+                  >
+                    Competition Invites
+                  </a>
+                ) : (
+                  "Competition Invites"
+                )}{" "}
+                page.
+              </p>
+            </div>
+          ) : (
+            /* Standard class: show visibility select (public/hidden only) */
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Catalog Visibility
+                </label>
+                <select
+                  disabled={isLocked}
+                  value={cls.visibility ?? "public"}
+                  onChange={(e) =>
+                    onUpdateClass({
+                      visibility: e.target.value as "public" | "hidden",
+                    })
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                >
+                  <option value="public">Public — appears in catalog</option>
+                  <option value="hidden">Hidden — not in catalog, direct link only</option>
+                </select>
+              </div>
+            </div>
+          )}
 
-            {schedules.map((schedule, scheduleIdx) => (
-              <ScheduleEditor
-                key={schedule._clientKey ?? scheduleIdx}
-                schedule={schedule}
-                isLocked={isLocked}
-                canRemove={schedules.length > 0}
-                onChange={(patch) => onUpdateSchedule(scheduleIdx, patch)}
-                onRemove={() => onRemoveSchedule(scheduleIdx)}
-              />
-            ))}
-          </div>
+          {/* Requires teacher rec — available for all class types */}
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              disabled={isLocked}
+              checked={cls.requiresTeacherRec ?? false}
+              onChange={(e) =>
+                onUpdateClass({ requiresTeacherRec: e.target.checked })
+              }
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-gray-700">
+              Requires teacher recommendation
+            </span>
+          </label>
+
+          {/* Schedule blocks — standard classes only */}
+          {!isCompetitionTrack && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-800">
+                  Schedule Offerings
+                </h4>
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={onAddSchedule}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+                  >
+                    + Add schedule block
+                  </button>
+                )}
+              </div>
+
+              {schedules.length === 0 && (
+                <p className="text-xs text-gray-400 italic">
+                  No schedule blocks yet.
+                </p>
+              )}
+
+              {schedules.map((schedule, scheduleIdx) => (
+                <ScheduleEditor
+                  key={schedule._clientKey ?? scheduleIdx}
+                  schedule={schedule}
+                  isLocked={isLocked}
+                  canRemove={schedules.length > 0}
+                  onChange={(patch) => onUpdateSchedule(scheduleIdx, patch)}
+                  onRemove={() => onRemoveSchedule(scheduleIdx)}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Enrollment Requirements */}
           <RequirementsSection

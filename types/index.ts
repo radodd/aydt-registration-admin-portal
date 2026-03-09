@@ -138,6 +138,33 @@ export type DayOfWeek =
   | "saturday"
   | "sunday";
 
+/** Controls whether a class appears in the public catalog. */
+export type ClassVisibility = "public" | "hidden" | "invite_only";
+
+/** Controls the booking flow for a class. */
+export type ClassEnrollmentType = "standard" | "audition";
+
+/**
+ * Top-level offering archetype. TypeScript-only discriminator — never persisted.
+ * Derived from `is_competition_track` during hydration in mapSemesterToDraft.
+ *
+ * - "standard"           → isCompetitionTrack=false, visibility configurable (public/hidden)
+ * - "competition_track"  → isCompetitionTrack=true, visibility=invite_only, enrollmentType=audition (all fixed)
+ */
+export type ClassOfferingType = "standard" | "competition_track";
+
+/**
+ * Inline email config for per-class competition transactional emails.
+ * Structurally identical to the SemesterDraft confirmationEmail shape.
+ * Stored as JSONB in classes.invite_email / audition_booking_email / competition_acceptance_email.
+ */
+export type ClassEmailConfig = {
+  subject: string;
+  fromName: string;
+  fromEmail: string;
+  htmlBody: string;
+};
+
 /**
  * DB row type for a class (curriculum entity).
  * Replaces the old `Session` interface.
@@ -157,6 +184,10 @@ export interface DanceClass {
   is_active: boolean;
   is_competition_track: boolean;
   requires_teacher_rec: boolean;
+  /** "public" | "hidden" | "invite_only" — defaults to "public" */
+  visibility: ClassVisibility;
+  /** "standard" | "audition" — defaults to "standard" */
+  enrollment_type: ClassEnrollmentType;
   created_at: string;
   updated_at: string;
   /** Nested class_sessions — included when queried with select */
@@ -564,6 +595,16 @@ export type DraftClassRequirement = {
 export type DraftClass = {
   /** DB id if the row already exists; undefined for new (unsaved) classes */
   id?: string;
+  /**
+   * Top-level offering archetype — TypeScript-only discriminator, never persisted.
+   * Derived from is_competition_track on hydration. Use this in UI logic instead of
+   * reading isCompetitionTrack directly; keeps identity centralized.
+   *
+   * Invariants enforced by handleUpdateClass (UI) and syncSemesterSessions (server):
+   *   competition_track → isCompetitionTrack=true, visibility=invite_only, enrollmentType=audition, schedules=[]
+   *   standard         → isCompetitionTrack=false, visibility configurable (public/hidden only)
+   */
+  offeringType?: ClassOfferingType;
   name: string;
   /** Optional public-facing display name; falls back to `name` if not set */
   displayName?: string;
@@ -578,10 +619,22 @@ export type DraftClass = {
   maxGrade?: number | null;
   isCompetitionTrack?: boolean;
   requiresTeacherRec?: boolean;
-  /** Schedule blocks — each generates per-day class_sessions automatically */
+  /** "public" | "hidden" | "invite_only" — controls catalog visibility */
+  visibility?: ClassVisibility;
+  /** "standard" | "audition" — controls booking flow */
+  enrollmentType?: ClassEnrollmentType;
+  /** Schedule blocks — each generates per-day class_sessions automatically.
+   *  INVARIANT: always [] for competition_track classes. */
   schedules: DraftClassSchedule[];
   /** Phase 6: enrollment rules (prerequisite, concurrent, audition, etc.) */
   requirements?: DraftClassRequirement[];
+  // ---- Competition track transactional emails (nullable for standard classes) ----
+  /** Sent when admin sends an invite to a dancer. */
+  inviteEmail?: ClassEmailConfig;
+  /** Sent when a dancer books an audition slot. */
+  auditionBookingEmail?: ClassEmailConfig;
+  /** Sent when admin accepts a dancer into the competition track. */
+  competitionAcceptanceEmail?: ClassEmailConfig;
 };
 
 /** @deprecated Use DraftClass / DraftClassSession instead. */
@@ -1228,3 +1281,133 @@ export interface Payment {
   created_at: string;
   updated_at: string;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Competition Track Domain                                                    */
+/* -------------------------------------------------------------------------- */
+
+/** A single audition time slot for a competition/invite-only class. */
+export interface AuditionSession {
+  id: string;
+  class_id: string;
+  semester_id: string;
+  label: string | null;
+  start_at: string;      // TIMESTAMPTZ ISO
+  end_at: string;        // TIMESTAMPTZ ISO
+  location: string | null;
+  capacity: number | null;
+  price: number | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Access types for a class invite. */
+export type InviteAccessType = "invite_only" | "token_link" | "hybrid";
+
+/** Lifecycle status for a class invite. */
+export type InviteStatus =
+  | "pending"
+  | "sent"
+  | "opened"
+  | "registered"
+  | "expired"
+  | "revoked";
+
+/** A DB row from `class_invites`. */
+export interface ClassInvite {
+  id: string;
+  class_id: string;
+  access_type: InviteAccessType;
+  email: string | null;
+  dancer_id: string | null;
+  invite_token: string;   // UUID stored as text
+  expires_at: string | null;
+  max_uses: number | null;
+  use_count: number;
+  status: InviteStatus;
+  sent_at: string | null;
+  /** ISO timestamp of first invite open. Set once by recordInviteOpen (idempotent).
+   *  null = invite has never been opened. */
+  opened_at: string | null;
+  created_by: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Immutable event log entry for an invite (open, click, register …). */
+export interface InviteEvent {
+  id: string;
+  invite_id: string;
+  event_type: "sent" | "opened" | "clicked" | "registered" | "expired" | "revoked";
+  audition_booking_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+/** A confirmed booking for an audition session. */
+export interface AuditionBooking {
+  id: string;
+  audition_session_id: string;
+  class_id: string;
+  invite_id: string | null;
+  dancer_id: string | null;
+  parent_id: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  status: "confirmed" | "cancelled" | "no_show";
+  amount_paid: number;
+  payment_status: "unpaid" | "paid" | "waived";
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Admin-facing invite row with counts for the invite management table. */
+export type ClassInviteRow = ClassInvite & {
+  dancer?: { first_name: string; last_name: string } | null;
+  event_counts?: {
+    opened: number;
+    registered: number;
+  };
+  /** Derived: true when expires_at is in the past */
+  isExpired: boolean;
+  /** Derived: true when max_uses is not null and use_count >= max_uses */
+  isExhausted: boolean;
+};
+
+/** Payload for creating a new invite (admin action). */
+export type CreateInviteInput = {
+  classId: string;
+  accessType: InviteAccessType;
+  /** Required for invite_only / hybrid */
+  email?: string;
+  /** Optionally link to an existing dancer */
+  dancerId?: string;
+  expiresAt?: string;   // ISO datetime
+  maxUses?: number;
+  notes?: string;
+};
+
+/** Result returned from validateInviteToken server action. */
+export type InviteTokenValidation =
+  | {
+      valid: true;
+      invite: ClassInvite;
+      danceClass: {
+        id: string;
+        name: string;
+        discipline: string;
+        division: string;
+        description: string | null;
+      };
+      auditionSessions: AuditionSession[];
+    }
+  | {
+      valid: false;
+      reason: "not_found" | "expired" | "exhausted" | "revoked";
+    };

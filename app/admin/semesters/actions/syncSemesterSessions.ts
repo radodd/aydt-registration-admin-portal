@@ -72,6 +72,7 @@ export async function syncSemesterSessions(
 
     if (draftClass.id && existingClassIds.has(draftClass.id)) {
       // UPDATE existing class
+      const isCompTrack = draftClass.isCompetitionTrack ?? false;
       const { error: updateErr } = await supabase
         .from("classes")
         .update({
@@ -85,8 +86,15 @@ export async function syncSemesterSessions(
           max_age: draftClass.maxAge ?? null,
           min_grade: draftClass.minGrade ?? null,
           max_grade: draftClass.maxGrade ?? null,
-          is_competition_track: draftClass.isCompetitionTrack ?? false,
+          is_competition_track: isCompTrack,
           requires_teacher_rec: draftClass.requiresTeacherRec ?? false,
+          // Enforce derived invariants: competition tracks are always invite_only + audition.
+          visibility: isCompTrack ? "invite_only" : (draftClass.visibility ?? "public"),
+          enrollment_type: isCompTrack ? "audition" : (draftClass.enrollmentType ?? "standard"),
+          // Competition track transactional email configs (null for standard classes)
+          invite_email: draftClass.inviteEmail ?? null,
+          audition_booking_email: draftClass.auditionBookingEmail ?? null,
+          competition_acceptance_email: draftClass.competitionAcceptanceEmail ?? null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", draftClass.id);
@@ -94,6 +102,7 @@ export async function syncSemesterSessions(
       classId = draftClass.id;
     } else {
       // INSERT new class
+      const isCompTrackNew = draftClass.isCompetitionTrack ?? false;
       const { data: inserted, error: insertErr } = await supabase
         .from("classes")
         .insert({
@@ -108,8 +117,15 @@ export async function syncSemesterSessions(
           max_age: draftClass.maxAge ?? null,
           min_grade: draftClass.minGrade ?? null,
           max_grade: draftClass.maxGrade ?? null,
-          is_competition_track: draftClass.isCompetitionTrack ?? false,
+          is_competition_track: isCompTrackNew,
           requires_teacher_rec: draftClass.requiresTeacherRec ?? false,
+          // Enforce derived invariants: competition tracks are always invite_only + audition.
+          visibility: isCompTrackNew ? "invite_only" : (draftClass.visibility ?? "public"),
+          enrollment_type: isCompTrackNew ? "audition" : (draftClass.enrollmentType ?? "standard"),
+          // Competition track transactional email configs (null for standard classes)
+          invite_email: draftClass.inviteEmail ?? null,
+          audition_booking_email: draftClass.auditionBookingEmail ?? null,
+          competition_acceptance_email: draftClass.competitionAcceptanceEmail ?? null,
           is_active: true,
         })
         .select("id")
@@ -123,13 +139,20 @@ export async function syncSemesterSessions(
     /* 3. Sync class_schedules for this class                                */
     /* -------------------------------------------------------------------- */
 
-    await syncClassSchedules(
-      supabase,
-      classId,
-      semesterId,
-      draftClass.schedules ?? [],
-      classSessionIdMap,
-    );
+    // Competition tracks have no class_sessions — they use audition_sessions instead.
+    // The hard boundary is enforced here: even if a DraftClass with isCompetitionTrack=true
+    // arrives with non-empty schedules, we skip session generation entirely.
+    // Audition slot creation only happens in manageInvites.createAuditionSession,
+    // called from InviteManagerClient — never from this sync path.
+    if (!draftClass.isCompetitionTrack) {
+      await syncClassSchedules(
+        supabase,
+        classId,
+        semesterId,
+        draftClass.schedules ?? [],
+        classSessionIdMap,
+      );
+    }
 
     /* -------------------------------------------------------------------- */
     /* 4. Sync class_requirements                                            */

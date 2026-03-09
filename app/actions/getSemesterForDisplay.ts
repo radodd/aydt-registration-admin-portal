@@ -58,6 +58,8 @@ export async function getSemesterForDisplay(
         max_grade,
         is_active,
         is_competition_track,
+        visibility,
+        enrollment_type,
         class_sessions (
           id,
           schedule_id,
@@ -117,6 +119,12 @@ export async function getSemesterForDisplay(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const semesterClasses = ((semester.classes ?? []) as any as ClassRow[])
+    // Exclude competition/invite-only and explicitly hidden classes from the
+    // public catalog. These are only accessible via token or admin invite.
+    .filter(
+      (c: ClassRow) =>
+        c.visibility === "public" || c.visibility === undefined,
+    )
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -400,6 +408,8 @@ interface ClassRow {
   max_grade: number | null;
   is_active: boolean;
   is_competition_track: boolean;
+  visibility?: string;
+  enrollment_type?: string;
   class_sessions: ClassSessionRow[];
 }
 

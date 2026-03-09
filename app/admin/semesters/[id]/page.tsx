@@ -57,6 +57,12 @@ export default async function SemesterDetailPage({ params }: PageProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href={`/admin/semesters/${id}/invites`}
+            className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition"
+          >
+            Competition Invites
+          </Link>
           {semester.status !== "published" && (
             <Link
               href={`/admin/semesters/${id}/edit`}
