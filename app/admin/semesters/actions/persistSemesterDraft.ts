@@ -141,6 +141,11 @@ export async function persistSemesterDraft(
     await upsertFeeConfig(supabase, semesterId, state.feeConfig);
   }
 
+  // Tuition engine: sync special program tuition overrides
+  if (state.specialProgramTuition !== undefined) {
+    await syncSpecialProgramTuition(supabase, semesterId, state.specialProgramTuition);
+  }
+
   return { semesterId };
 }
 
@@ -173,11 +178,46 @@ async function syncTuitionRateBands(
     weekly_class_count: b.weekly_class_count,
     base_tuition: b.base_tuition,
     recital_fee_included: b.recital_fee_included,
+    progressive_discount_percent: b.progressive_discount_percent ?? 0,
+    semester_total: b.semester_total ?? null,
+    autopay_installment_amount: b.autopay_installment_amount ?? null,
     notes: b.notes ?? null,
   }));
 
   const { error: insertError } = await supabase
     .from("tuition_rate_bands")
+    .insert(rows);
+
+  if (insertError) throw new Error(insertError.message);
+}
+
+async function syncSpecialProgramTuition(
+  supabase: SupabaseClient,
+  semesterId: string,
+  programs: import("@/types").DraftSpecialProgramTuition[],
+) {
+  const { error: deleteError } = await supabase
+    .from("special_program_tuition")
+    .delete()
+    .eq("semester_id", semesterId);
+
+  if (deleteError) throw new Error(deleteError.message);
+
+  if (programs.length === 0) return;
+
+  const rows = programs.map((p) => ({
+    semester_id: semesterId,
+    program_key: p.programKey,
+    program_label: p.programLabel,
+    semester_total: p.semesterTotal,
+    autopay_installment_amount: p.autoPayInstallmentAmount ?? null,
+    autopay_installment_count: p.autoPayInstallmentCount ?? null,
+    registration_fee_override: p.registrationFeeOverride ?? null,
+    notes: p.notes ?? null,
+  }));
+
+  const { error: insertError } = await supabase
+    .from("special_program_tuition")
     .insert(rows);
 
   if (insertError) throw new Error(insertError.message);
@@ -197,6 +237,7 @@ async function upsertFeeConfig(
       auto_pay_installment_count: feeConfig.auto_pay_installment_count,
       senior_video_fee_per_registrant: feeConfig.senior_video_fee_per_registrant,
       senior_costume_fee_per_class: feeConfig.senior_costume_fee_per_class,
+      junior_costume_fee_per_class: feeConfig.junior_costume_fee_per_class,
     },
     { onConflict: "semester_id" },
   );

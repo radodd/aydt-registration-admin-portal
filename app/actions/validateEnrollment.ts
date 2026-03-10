@@ -6,6 +6,7 @@ import type {
   EnrollmentValidationResult,
   SessionScheduleInfo,
 } from "@/types";
+import { validateWeeklyLimit } from "@/utils/tuitionEngine";
 
 export interface ValidateEnrollmentInput {
   semesterId: string;
@@ -42,7 +43,7 @@ export async function validateEnrollment(
   /* ---------------------------------------------------------------------- */
   const { data: sessionRows, error: sessionError } = await supabase
     .from("class_sessions")
-    .select("id, day_of_week, schedule_date, start_time, end_time, class_id, classes(name)")
+    .select("id, day_of_week, schedule_date, start_time, end_time, class_id, classes(name, division)")
     .in("id", sessionIds);
 
   if (sessionError || !sessionRows) {
@@ -61,7 +62,7 @@ export async function validateEnrollment(
     };
   }
 
-  type SessionInfo = SessionScheduleInfo & { classId: string };
+  type SessionInfo = SessionScheduleInfo & { classId: string; division: string };
   const sessionMap = new Map<string, SessionInfo>();
   for (const row of sessionRows) {
     const cls = Array.isArray(row.classes) ? row.classes[0] : row.classes;
@@ -73,6 +74,7 @@ export async function validateEnrollment(
       startTime: row.start_time,
       endTime: row.end_time,
       classId: row.class_id,
+      division: (cls as any)?.division ?? "junior",
     });
   }
 
@@ -90,7 +92,35 @@ export async function validateEnrollment(
   console.log("Dancer sessions map:", dancerSessions);
 
   /* ---------------------------------------------------------------------- */
-  /* 3. Time conflict check per dancer                                        */
+  /* 3. Weekly class limit check per dancer per division                      */
+  /* ---------------------------------------------------------------------- */
+  for (const [dancerId, sids] of dancerSessions) {
+    // Count unique class_ids per division (each class_id = one weekly time slot).
+    const divisionClassCount = new Map<string, Set<string>>();
+    for (const sid of sids) {
+      const info = sessionMap.get(sid);
+      if (!info) continue;
+      if (!divisionClassCount.has(info.division)) {
+        divisionClassCount.set(info.division, new Set());
+      }
+      divisionClassCount.get(info.division)!.add(info.classId);
+    }
+    for (const [division, classIdSet] of divisionClassCount) {
+      const limitError = validateWeeklyLimit(division, classIdSet.size);
+      if (limitError) {
+        issues.push({
+          type: "time_conflict",
+          enforcement: "hard_block",
+          message: limitError,
+          dancerId,
+          isWaivable: false,
+        });
+      }
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 4. Time conflict check per dancer                                        */
   /* ---------------------------------------------------------------------- */
   for (const [dancerId, sids] of dancerSessions) {
     for (let i = 0; i < sids.length; i++) {

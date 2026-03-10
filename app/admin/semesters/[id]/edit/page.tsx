@@ -32,7 +32,8 @@ export default async function EditPage({ params }: { params: { id: string } }) {
           )
         ),
         tuition_rate_bands(*),
-        semester_fee_config(*)
+        semester_fee_config(*),
+        special_program_tuition(*)
         `,
       )
       .eq("id", id)

@@ -18,7 +18,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 config({ path: resolve(__dirname, "../.env.local") });
 
 // ── Supabase client (service role — bypasses RLS) ─────────────────────────────
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (
+  !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  !process.env.SUPABASE_SERVICE_ROLE_KEY
+) {
   throw new Error(
     "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local",
   );
@@ -30,9 +33,9 @@ const sb = createClient(
 );
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const ETHAN_ID   = "64ebf65c-e32f-4e22-9440-e7bb5a0fee8d";
+const ETHAN_ID = "64ebf65c-e32f-4e22-9440-e7bb5a0fee8d";
 const NEVER_UUID = "00000000-0000-0000-0000-000000000001"; // guaranteed absent
-const TODAY      = new Date("2026-03-06");
+const TODAY = new Date("2026-03-06");
 
 faker.seed(42); // deterministic output
 
@@ -58,8 +61,13 @@ async function del(table: string, col = "id", neqVal = NEVER_UUID) {
 /** All dates of a given weekday within [start, end], up to max occurrences. */
 function weeklyDates(day: string, start: Date, end: Date, max = 14): Date[] {
   const idx: Record<string, number> = {
-    sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
-    thursday: 4, friday: 5, saturday: 6,
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
   };
   const dates: Date[] = [];
   const cur = new Date(start);
@@ -74,94 +82,135 @@ function weeklyDates(day: string, start: Date, end: Date, max = 14): Date[] {
 const isoDate = (d: Date) => d.toISOString().split("T")[0];
 
 // ── Class templates (same 8 classes replicated across every semester) ─────────
+// ── Class templates (must match AYDT catalog class names) ─────────
 const TEMPLATES = [
   {
-    name: "Creative Movement",
-    discipline: "creative_movement",
-    division: "early_childhood",
-    level: null,
-    description:
-      "An exploratory class that introduces toddlers to movement, rhythm, and imagination through storytelling and play.",
-    min_age: 2, max_age: 5,
-    day: "saturday", start_time: "10:00:00", end_time: "11:00:00",
-    location: "Studio A", capacity: 10, tuition: 480.00,
-  },
-  {
-    name: "Pre-Ballet",
+    name: "Pre-Ballet 1",
     discipline: "ballet",
     division: "early_childhood",
-    level: "Pre-1",
+    level: "1",
     description:
-      "A gentle introduction to ballet fundamentals — positions, pliés, and simple combinations — for young beginners.",
-    min_age: 4, max_age: 7,
-    day: "saturday", start_time: "11:00:00", end_time: "12:00:00",
-    location: "Studio A", capacity: 10, tuition: 480.00,
+      "Introductory ballet class for young dancers focusing on coordination, rhythm, and basic ballet vocabulary.",
+    min_age: 3,
+    max_age: 5,
+    day: "saturday",
+    start_time: "10:00:00",
+    end_time: "11:00:00",
+    location: "Studio A",
+    capacity: 10,
+    tuition: 394.11,
   },
   {
-    name: "Ballet Foundations",
+    name: "Pre-Ballet 2",
+    discipline: "ballet",
+    division: "early_childhood",
+    level: "2",
+    description:
+      "Continuation of Pre-Ballet training introducing longer combinations and musical phrasing.",
+    min_age: 4,
+    max_age: 6,
+    day: "saturday",
+    start_time: "11:00:00",
+    end_time: "12:00:00",
+    location: "Studio A",
+    capacity: 10,
+    tuition: 394.11,
+  },
+  {
+    name: "Ballet 1A",
     discipline: "ballet",
     division: "junior",
-    level: "Level 1",
+    level: "1A",
     description:
-      "Classical ballet technique for young dancers building a strong foundation in barre work, center combinations, and basic vocabulary.",
-    min_age: 7, max_age: 12,
-    day: "wednesday", start_time: "16:00:00", end_time: "17:30:00",
-    location: "Studio B", capacity: 14, tuition: 560.00,
+      "Fundamental ballet training focusing on posture, barre technique, and center exercises.",
+    min_age: 7,
+    max_age: 12,
+    day: "wednesday",
+    start_time: "16:00:00",
+    end_time: "17:30:00",
+    location: "Studio B",
+    capacity: 14,
+    tuition: 775.93,
   },
   {
-    name: "Tap Technique",
+    name: "Tap 1A",
     discipline: "tap",
     division: "junior",
-    level: "Intermediate",
+    level: "1A",
     description:
-      "Rhythmic tap training focusing on sound quality, timing, and musicality through structured combinations and improvisation.",
-    min_age: 7, max_age: 14,
-    day: "tuesday", start_time: "17:00:00", end_time: "18:00:00",
-    location: "Studio C", capacity: 14, tuition: 560.00,
+      "Beginning tap class focusing on rhythm, coordination, and foundational tap vocabulary.",
+    min_age: 7,
+    max_age: 14,
+    day: "tuesday",
+    start_time: "17:00:00",
+    end_time: "18:00:00",
+    location: "Studio C",
+    capacity: 14,
+    tuition: 775.93,
   },
   {
-    name: "Jazz Performance",
-    discipline: "jazz",
+    name: "Broadway 1",
+    discipline: "broadway",
     division: "junior",
-    level: "Intermediate",
+    level: "1",
     description:
-      "High-energy jazz class covering kicks, turns, jumps, and performance choreography in popular jazz styles.",
-    min_age: 8, max_age: 14,
-    day: "thursday", start_time: "17:00:00", end_time: "18:00:00",
-    location: "Studio B", capacity: 14, tuition: 560.00,
+      "Musical theatre dance class focusing on performance quality, storytelling, and stage presence.",
+    min_age: 8,
+    max_age: 14,
+    day: "thursday",
+    start_time: "17:00:00",
+    end_time: "18:00:00",
+    location: "Studio B",
+    capacity: 14,
+    tuition: 775.93,
   },
   {
-    name: "Hip Hop Crew",
+    name: "Hip Hop 2",
     discipline: "hip_hop",
     division: "junior",
-    level: "All Levels",
+    level: "2",
     description:
-      "Street-style hip hop covering popping, locking, breaking, and freestyle expression. Drop-in friendly.",
-    min_age: 8, max_age: 16,
-    day: "wednesday", start_time: "18:00:00", end_time: "19:00:00",
-    location: "Studio C", capacity: 16, tuition: 560.00,
+      "High-energy hip hop class exploring groove, rhythm, and foundational street dance styles.",
+    min_age: 8,
+    max_age: 16,
+    day: "wednesday",
+    start_time: "18:00:00",
+    end_time: "19:00:00",
+    location: "Studio C",
+    capacity: 16,
+    tuition: 775.93,
   },
   {
-    name: "Contemporary & Lyrical",
+    name: "Contemporary 1",
     discipline: "contemporary",
     division: "senior",
-    level: "Advanced",
+    level: "1",
     description:
-      "A fusion of modern, ballet, and lyrical styles exploring dynamic movement, floor work, and emotional expression.",
-    min_age: 13, max_age: 18,
-    day: "monday", start_time: "18:00:00", end_time: "19:30:00",
-    location: "Studio B", capacity: 12, tuition: 640.00,
+      "Contemporary dance class blending ballet technique with expressive movement and floor work.",
+    min_age: 13,
+    max_age: 18,
+    day: "monday",
+    start_time: "18:00:00",
+    end_time: "19:30:00",
+    location: "Studio B",
+    capacity: 12,
+    tuition: 796.43,
   },
   {
-    name: "Musical Theatre Intensive",
-    discipline: "musical_theatre",
+    name: "Broadway 3",
+    discipline: "broadway",
     division: "senior",
-    level: "Advanced",
+    level: "3",
     description:
-      "An intensive course blending dance, vocal performance, and stage presence — preparing students for theatrical auditions and productions.",
-    min_age: 10, max_age: 18,
-    day: "friday", start_time: "17:00:00", end_time: "18:30:00",
-    location: "Studio A", capacity: 12, tuition: 640.00,
+      "Advanced musical theatre dance class emphasizing performance quality and technical precision.",
+    min_age: 10,
+    max_age: 18,
+    day: "friday",
+    start_time: "17:00:00",
+    end_time: "18:30:00",
+    location: "Studio A",
+    capacity: 12,
+    tuition: 796.43,
   },
 ] as const;
 
@@ -180,69 +229,92 @@ interface SemCfg {
 const SEMS: SemCfg[] = [
   // DRAFT ──────────────────────────────────────────────────────────────────────
   {
-    id: uid(), name: "Summer 2026 Draft",
-    description: "Upcoming summer intensive — classes and pricing under review.",
-    status: "draft", publish_at: null, published_at: null,
-    startDate: new Date("2026-06-15"), endDate: new Date("2026-08-08"),
+    id: uid(),
+    name: "Summer 2026 Draft",
+    description:
+      "Upcoming summer intensive — classes and pricing under review.",
+    status: "draft",
+    publish_at: null,
+    published_at: null,
+    startDate: new Date("2026-06-15"),
+    endDate: new Date("2026-08-08"),
   },
   {
-    id: uid(), name: "Fall 2026 Draft",
+    id: uid(),
+    name: "Fall 2026 Draft",
     description: "New season planning. Schedule not yet finalized.",
-    status: "draft", publish_at: null, published_at: null,
-    startDate: new Date("2026-09-08"), endDate: new Date("2026-12-12"),
+    status: "draft",
+    publish_at: null,
+    published_at: null,
+    startDate: new Date("2026-09-08"),
+    endDate: new Date("2026-12-12"),
   },
   // SCHEDULED ──────────────────────────────────────────────────────────────────
   {
-    id: uid(), name: "Summer 2026",
+    id: uid(),
+    name: "Summer 2026",
     description:
       "AYDT Summer Intensive — 8 weeks of focused technique, choreography, and performance workshops.",
     status: "scheduled",
-    publish_at: new Date("2026-04-15").toISOString(), published_at: null,
-    startDate: new Date("2026-06-15"), endDate: new Date("2026-08-08"),
+    publish_at: new Date("2026-04-15").toISOString(),
+    published_at: null,
+    startDate: new Date("2026-06-15"),
+    endDate: new Date("2026-08-08"),
   },
   {
-    id: uid(), name: "Fall 2026",
+    id: uid(),
+    name: "Fall 2026",
     description:
       "The Fall 2026 season features expanded senior programming and new competition tracks.",
     status: "scheduled",
-    publish_at: new Date("2026-07-15").toISOString(), published_at: null,
-    startDate: new Date("2026-09-08"), endDate: new Date("2026-12-12"),
+    publish_at: new Date("2026-07-15").toISOString(),
+    published_at: null,
+    startDate: new Date("2026-09-08"),
+    endDate: new Date("2026-12-12"),
   },
   // PUBLISHED ──────────────────────────────────────────────────────────────────
   {
-    id: uid(), name: "Spring 2026",
+    id: uid(),
+    name: "Spring 2026",
     description:
       "AYDT Spring 2026 — registration is open. Enroll your dancer today and join us for an amazing season of growth, artistry, and community.",
     status: "published",
     publish_at: new Date("2026-01-05").toISOString(),
     published_at: new Date("2026-01-05").toISOString(),
-    startDate: new Date("2026-01-12"), endDate: new Date("2026-05-08"),
+    startDate: new Date("2026-01-12"),
+    endDate: new Date("2026-05-08"),
   },
   {
-    id: uid(), name: "Fall 2025",
+    id: uid(),
+    name: "Fall 2025",
     description:
       "AYDT Fall 2025 season — currently ongoing. New enrollment is closed.",
     status: "published",
     publish_at: new Date("2025-08-01").toISOString(),
     published_at: new Date("2025-08-01").toISOString(),
-    startDate: new Date("2025-09-08"), endDate: new Date("2025-12-13"),
+    startDate: new Date("2025-09-08"),
+    endDate: new Date("2025-12-13"),
   },
   // ARCHIVED ───────────────────────────────────────────────────────────────────
   {
-    id: uid(), name: "Spring 2025",
+    id: uid(),
+    name: "Spring 2025",
     description: "Archived — AYDT Spring 2025 season.",
     status: "archived",
     publish_at: new Date("2025-01-03").toISOString(),
     published_at: new Date("2025-01-03").toISOString(),
-    startDate: new Date("2025-01-13"), endDate: new Date("2025-05-09"),
+    startDate: new Date("2025-01-13"),
+    endDate: new Date("2025-05-09"),
   },
   {
-    id: uid(), name: "Fall 2024",
+    id: uid(),
+    name: "Fall 2024",
     description: "Archived — AYDT Fall 2024 season.",
     status: "archived",
     publish_at: new Date("2024-07-30").toISOString(),
     published_at: new Date("2024-07-30").toISOString(),
-    startDate: new Date("2024-09-09"), endDate: new Date("2024-12-14"),
+    startDate: new Date("2024-09-09"),
+    endDate: new Date("2024-12-14"),
   },
 ];
 
@@ -267,6 +339,8 @@ async function clearDatabase() {
     ["registration_batches"],
     ["registration_days"],
     ["requirement_waivers"],
+    ["concurrent_enrollment_options"],
+    ["concurrent_enrollment_groups"],
     ["class_requirements"],
     ["discount_rule_schedules"],
     ["discount_rule_sessions"],
@@ -288,6 +362,7 @@ async function clearDatabase() {
     ["semester_fee_config", "semester_id"],
     ["semester_payment_installments"],
     ["semester_payment_plans", "semester_id"],
+    ["special_program_tuition"],
     ["tuition_rate_bands"],
     ["semesters"],
     ["authorized_pickups"],
@@ -304,9 +379,15 @@ async function clearDatabase() {
 
   // Families — preserve Ethan's family if he has one
   const { data: ethan } = await sb
-    .from("users").select("family_id").eq("id", ETHAN_ID).single();
+    .from("users")
+    .select("family_id")
+    .eq("id", ETHAN_ID)
+    .single();
   if (ethan?.family_id) {
-    await sb.from("families").delete().neq("id", ethan.family_id as string);
+    await sb
+      .from("families")
+      .delete()
+      .neq("id", ethan.family_id as string);
   } else {
     await del("families");
   }
@@ -351,11 +432,34 @@ async function seedAdmin(): Promise<string> {
 // ─────────────────────────────────────────────────────────────────────────────
 // 3.  FAMILIES, PARENT USERS, DANCERS
 // ─────────────────────────────────────────────────────────────────────────────
-interface FamilyRow  { id: string; family_name: string }
-interface UserRow    { id: string; family_id: string; email: string; first_name: string; last_name: string }
-interface DancerRow  { id: string; family_id: string; user_id: string; first_name: string; last_name: string; birth_date: string }
+interface FamilyRow {
+  id: string;
+  family_name: string;
+}
+interface UserRow {
+  id: string;
+  family_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+interface DancerRow {
+  id: string;
+  family_id: string;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string;
+}
 
-const LAST_NAMES = ["Anderson", "Thompson", "Martinez", "Nguyen", "Williams", "Patel"];
+const LAST_NAMES = [
+  "Anderson",
+  "Thompson",
+  "Martinez",
+  "Nguyen",
+  "Williams",
+  "Patel",
+];
 
 async function seedFamilies() {
   console.log("👨‍👩‍👧  Seeding 6 families (1 parent + 2 dancers each)…");
@@ -388,13 +492,24 @@ async function seedFamilies() {
 
     // Two dancers per family: spread across age ranges for division variety
     const agePairs: [number, number][] = [
-      [5, 11], [7, 13], [8, 14], [6, 12], [9, 15], [7, 10],
+      [5, 11],
+      [7, 13],
+      [8, 14],
+      [6, 12],
+      [9, 15],
+      [7, 10],
     ];
     const [age1, age2] = agePairs[families.indexOf(fam)]!;
     for (const age of [age1, age2]) {
-      const birthYear  = 2026 - age;
-      const birthMonth = String(faker.number.int({ min: 1, max: 12 })).padStart(2, "0");
-      const birthDay   = String(faker.number.int({ min: 1, max: 28 })).padStart(2, "0");
+      const birthYear = 2026 - age;
+      const birthMonth = String(faker.number.int({ min: 1, max: 12 })).padStart(
+        2,
+        "0",
+      );
+      const birthDay = String(faker.number.int({ min: 1, max: 28 })).padStart(
+        2,
+        "0",
+      );
       dancers.push({
         id: uid(),
         family_id: fam.id,
@@ -427,11 +542,18 @@ async function seedFamilies() {
       first_name: faker.person.firstName(),
       last_name: fam.family_name.replace(" Family", ""),
       phone_number: faker.phone.number("(555) ###-####"),
-      relation: faker.helpers.arrayElement(["Grandparent", "Aunt", "Uncle", "Sibling"]),
+      relation: faker.helpers.arrayElement([
+        "Grandparent",
+        "Aunt",
+        "Uncle",
+        "Sibling",
+      ]),
     })),
   );
 
-  console.log(`  ✓ ${families.length} families, ${users.length} parents, ${dancers.length} dancers\n`);
+  console.log(
+    `  ✓ ${families.length} families, ${users.length} parents, ${dancers.length} dancers\n`,
+  );
   return { families, users, dancers };
 }
 
@@ -439,7 +561,9 @@ async function seedFamilies() {
 // 4.  SEMESTERS + FEE CONFIG + TUITION BANDS + PAYMENT PLANS
 // ─────────────────────────────────────────────────────────────────────────────
 async function seedSemesters() {
-  console.log("📅  Seeding 8 semesters (2× draft, scheduled, published, archived)…");
+  console.log(
+    "📅  Seeding 8 semesters (2× draft, scheduled, published, archived)…",
+  );
 
   await ins(
     "semesters",
@@ -461,7 +585,11 @@ async function seedSemesters() {
         senderEmail: "no-reply@aydt.com",
         bodyHtml: `<h1>Welcome to ${s.name}!</h1><p>Thank you for enrolling. We're so excited to dance with you this season. Please review your schedule and feel free to reach out with any questions.</p><p>Warm regards,<br>The AYDT Team</p>`,
       },
-      waitlist_settings: { enabled: true, inviteExpiryHours: 48, stopDaysBeforeClose: 3 },
+      waitlist_settings: {
+        enabled: true,
+        inviteExpiryHours: 48,
+        stopDaysBeforeClose: 3,
+      },
     })),
   );
 
@@ -470,12 +598,12 @@ async function seedSemesters() {
     "semester_fee_config",
     SEMS.map((s) => ({
       semester_id: s.id,
-      registration_fee_per_child: 40.00,
-      family_discount_amount: 50.00,
-      auto_pay_admin_fee_monthly: 5.00,
+      registration_fee_per_child: 40.0,
+      family_discount_amount: 50.0,
+      auto_pay_admin_fee_monthly: 5.0,
       auto_pay_installment_count: 5,
-      senior_video_fee_per_registrant: 15.00,
-      senior_costume_fee_per_class: 65.00,
+      senior_video_fee_per_registrant: 15.0,
+      senior_costume_fee_per_class: 65.0,
     })),
   );
 
@@ -483,17 +611,145 @@ async function seedSemesters() {
   const bands: Record<string, unknown>[] = [];
   for (const s of SEMS) {
     bands.push(
-      { id: uid(), semester_id: s.id, division: "early_childhood", weekly_class_count: 1, base_tuition: 480.00,  recital_fee_included: 0     },
-      { id: uid(), semester_id: s.id, division: "early_childhood", weekly_class_count: 2, base_tuition: 880.00,  recital_fee_included: 0     },
-      { id: uid(), semester_id: s.id, division: "junior",          weekly_class_count: 1, base_tuition: 560.00,  recital_fee_included: 25.00 },
-      { id: uid(), semester_id: s.id, division: "junior",          weekly_class_count: 2, base_tuition: 1040.00, recital_fee_included: 25.00 },
-      { id: uid(), semester_id: s.id, division: "junior",          weekly_class_count: 3, base_tuition: 1440.00, recital_fee_included: 25.00 },
-      { id: uid(), semester_id: s.id, division: "junior",          weekly_class_count: 4, base_tuition: 1760.00, recital_fee_included: 25.00 },
-      { id: uid(), semester_id: s.id, division: "senior",          weekly_class_count: 1, base_tuition: 640.00,  recital_fee_included: 35.00 },
-      { id: uid(), semester_id: s.id, division: "senior",          weekly_class_count: 2, base_tuition: 1200.00, recital_fee_included: 35.00 },
-      { id: uid(), semester_id: s.id, division: "senior",          weekly_class_count: 3, base_tuition: 1680.00, recital_fee_included: 35.00 },
-      { id: uid(), semester_id: s.id, division: "competition",     weekly_class_count: 1, base_tuition: 800.00,  recital_fee_included: 50.00 },
-      { id: uid(), semester_id: s.id, division: "competition",     weekly_class_count: 2, base_tuition: 1500.00, recital_fee_included: 50.00 },
+      // ── EARLY CHILDHOOD ─────────────────────────
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "early_childhood",
+        weekly_class_count: 1,
+        base_tuition: 394.11,
+        recital_fee_included: 0,
+        progressive_discount_percent: 0,
+        semester_total: 434.11,
+        autopay_installment_amount: null,
+      },
+
+      // ── JUNIOR ──────────────────────────────────
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "junior",
+        weekly_class_count: 1,
+        base_tuition: 775.93,
+        recital_fee_included: 55,
+        progressive_discount_percent: 0,
+        semester_total: 870.93,
+        autopay_installment_amount: 179.19,
+      },
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "junior",
+        weekly_class_count: 2,
+        base_tuition: 1513.06,
+        recital_fee_included: 110,
+        progressive_discount_percent: 0,
+        semester_total: 1663.06,
+        autopay_installment_amount: 337.61,
+      },
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "junior",
+        weekly_class_count: 3,
+        base_tuition: 2211.39,
+        recital_fee_included: 165,
+        progressive_discount_percent: 0,
+        semester_total: 2416.39,
+        autopay_installment_amount: 488.28,
+      },
+
+      // ── SENIOR ──────────────────────────────────
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "senior",
+        weekly_class_count: 1,
+        base_tuition: 796.43,
+        recital_fee_included: 80,
+        progressive_discount_percent: 0,
+        semester_total: 916.43,
+        autopay_installment_amount: 188.29,
+      },
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "senior",
+        weekly_class_count: 2,
+        base_tuition: 1553.04,
+        recital_fee_included: 145,
+        progressive_discount_percent: 0,
+        semester_total: 1738.04,
+        autopay_installment_amount: 352.61,
+      },
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "senior",
+        weekly_class_count: 3,
+        base_tuition: 2269.83,
+        recital_fee_included: 210,
+        progressive_discount_percent: 0,
+        semester_total: 2519.83,
+        autopay_installment_amount: 508.97,
+      },
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "senior",
+        weekly_class_count: 4,
+        base_tuition: 2946.8,
+        recital_fee_included: 275,
+        progressive_discount_percent: 0,
+        semester_total: 3261.8,
+        autopay_installment_amount: 657.36,
+      },
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "senior",
+        weekly_class_count: 5,
+        base_tuition: 3583.94,
+        recital_fee_included: 340,
+        progressive_discount_percent: 0,
+        semester_total: 3963.94,
+        autopay_installment_amount: 797.79,
+      },
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "senior",
+        weekly_class_count: 6,
+        base_tuition: 4181.26,
+        recital_fee_included: 405,
+        progressive_discount_percent: 0,
+        semester_total: 4626.26,
+        autopay_installment_amount: 930.25,
+      },
+
+      // ── COMP TEAM ───────────────────────────────
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "competition",
+        weekly_class_count: 1,
+        base_tuition: 842.61,
+        recital_fee_included: 0,
+        progressive_discount_percent: 0,
+        semester_total: 842.61,
+        autopay_installment_amount: 168.52,
+      },
+      {
+        id: uid(),
+        semester_id: s.id,
+        division: "competition",
+        weekly_class_count: 2,
+        base_tuition: 802.94,
+        recital_fee_included: 0,
+        progressive_discount_percent: 0,
+        semester_total: 802.94,
+        autopay_installment_amount: 160.59,
+      },
     );
   }
   await ins("tuition_rate_bands", bands);
@@ -504,20 +760,99 @@ async function seedSemesters() {
     const useInstallments = s.status === "published" || s.status === "archived";
     return useInstallments
       ? {
-          semester_id: s.id, type: "installments",
+          semester_id: s.id,
+          type: "installments",
           installment_count: 5,
           due_date: isoDate(s.startDate),
-          deposit_amount: null, deposit_percent: null,
+          deposit_amount: null,
+          deposit_percent: null,
         }
       : {
-          semester_id: s.id, type: "pay_in_full",
+          semester_id: s.id,
+          type: "pay_in_full",
           due_date: isoDate(s.startDate),
-          deposit_amount: null, deposit_percent: null, installment_count: null,
+          deposit_amount: null,
+          deposit_percent: null,
+          installment_count: null,
         };
   });
   await ins("semester_payment_plans", plans);
 
   console.log("  ✓ Semesters, fee configs, tuition bands, payment plans\n");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4b. SPECIAL PROGRAM TUITION
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedSpecialProgramTuition() {
+  console.log(
+    "🎭  Seeding special program tuition (6 programs × 8 semesters)…",
+  );
+
+  const SPECIAL_PROGRAMS = [
+    {
+      program_key: "early_childhood",
+      program_label: "Early Childhood (9 classes)",
+      semester_total: 434.11,
+      autopay_installment_amount: null,
+      autopay_installment_count: null,
+      notes: "Fixed fee for early childhood program; no auto-pay plan.",
+    },
+    {
+      program_key: "technique",
+      program_label: "Technique",
+      semester_total: 716.78,
+      autopay_installment_amount: 143.36,
+      autopay_installment_count: 5,
+      notes: "Technique 1/2/3 — fixed semester fee.",
+    },
+    {
+      program_key: "pre_pointe",
+      program_label: "Pre-Pointe (2×/week)",
+      semester_total: 457.63,
+      autopay_installment_amount: 91.53,
+      autopay_installment_count: 5,
+      notes: "Pre-pointe program, twice weekly.",
+    },
+    {
+      program_key: "pointe",
+      program_label: "Pointe (2×/week)",
+      semester_total: 517.49,
+      autopay_installment_amount: 103.5,
+      autopay_installment_count: 5,
+      notes: "Pointe program, twice weekly.",
+    },
+    {
+      program_key: "competition_junior",
+      program_label: "Competition Team — Junior",
+      semester_total: 842.61,
+      autopay_installment_amount: 168.52,
+      autopay_installment_count: 5,
+      notes: "Junior competition team fixed tuition.",
+    },
+    {
+      program_key: "competition_senior",
+      program_label: "Competition Team — Senior",
+      semester_total: 802.94,
+      autopay_installment_amount: 160.59,
+      autopay_installment_count: 5,
+      notes: "Senior competition team fixed tuition.",
+    },
+  ];
+
+  const rows: Record<string, unknown>[] = [];
+  for (const s of SEMS) {
+    for (const prog of SPECIAL_PROGRAMS) {
+      rows.push({
+        id: uid(),
+        semester_id: s.id,
+        ...prog,
+      });
+    }
+  }
+
+  await ins("special_program_tuition", rows);
+  console.log("  ✓ Special program tuition rows\n");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -527,8 +862,8 @@ async function seedDiscounts() {
   console.log("🏷️   Seeding discounts (2 per semester)…");
 
   const discounts: Record<string, unknown>[] = [];
-  const rules:     Record<string, unknown>[] = [];
-  const semDiscs:  Record<string, unknown>[] = [];
+  const rules: Record<string, unknown>[] = [];
+  const semDiscs: Record<string, unknown>[] = [];
 
   for (const s of SEMS) {
     const multiChildId = uid();
@@ -536,29 +871,43 @@ async function seedDiscounts() {
 
     discounts.push(
       {
-        id: multiChildId, name: "Multi-Child Family Discount",
-        category: "multi_person", eligible_sessions_mode: "all",
+        id: multiChildId,
+        name: "Multi-Child Family Discount",
+        category: "multi_person",
+        eligible_sessions_mode: "all",
         give_session_scope: "all_sessions",
-        recipient_scope: "threshold_and_additional", is_active: true,
+        recipient_scope: "threshold_and_additional",
+        is_active: true,
       },
       {
-        id: multiClassId, name: "3+ Classes Enrollment Discount",
-        category: "multi_session", eligible_sessions_mode: "all",
+        id: multiClassId,
+        name: "3+ Classes Enrollment Discount",
+        category: "multi_session",
+        eligible_sessions_mode: "all",
         give_session_scope: "threshold_and_additional_sessions",
-        recipient_scope: "threshold_and_additional", is_active: true,
+        recipient_scope: "threshold_and_additional",
+        is_active: true,
       },
     );
 
     rules.push(
       {
-        id: uid(), discount_id: multiChildId,
-        rule_type: "multi_person", threshold: 2, threshold_unit: "person",
-        value: 50.00, value_type: "flat",
+        id: uid(),
+        discount_id: multiChildId,
+        rule_type: "multi_person",
+        threshold: 2,
+        threshold_unit: "person",
+        value: 50.0,
+        value_type: "flat",
       },
       {
-        id: uid(), discount_id: multiClassId,
-        rule_type: "multi_session", threshold: 3, threshold_unit: "session",
-        value: 10.00, value_type: "percent",
+        id: uid(),
+        discount_id: multiClassId,
+        rule_type: "multi_session",
+        threshold: 3,
+        threshold_unit: "session",
+        value: 10.0,
+        value_type: "percent",
       },
     );
 
@@ -578,68 +927,119 @@ async function seedDiscounts() {
 // ─────────────────────────────────────────────────────────────────────────────
 // 6.  CLASSES, SCHEDULES, SESSIONS, PRICE TIERS
 // ─────────────────────────────────────────────────────────────────────────────
-interface ClassRow    { id: string; semester_id: string; name: string; division: string }
-interface ScheduleRow { id: string; class_id: string; semester_id: string }
-interface SessionRow  { id: string; class_id: string; semester_id: string; schedule_id: string; schedule_date: string; day_of_week: string }
-interface TierRow     { id: string; schedule_id: string; amount: number; is_default: boolean }
+interface ClassRow {
+  id: string;
+  semester_id: string;
+  name: string;
+  division: string;
+}
+interface ScheduleRow {
+  id: string;
+  class_id: string;
+  semester_id: string;
+}
+interface SessionRow {
+  id: string;
+  class_id: string;
+  semester_id: string;
+  schedule_id: string;
+  schedule_date: string;
+  day_of_week: string;
+}
+interface TierRow {
+  id: string;
+  schedule_id: string;
+  amount: number;
+  is_default: boolean;
+}
 
 async function seedClasses() {
-  console.log("🩰  Seeding 8 classes × 8 semesters with schedules, sessions, price tiers…");
+  console.log(
+    "🩰  Seeding 8 classes × 8 semesters with schedules, sessions, price tiers…",
+  );
 
-  const classes:   ClassRow[]    = [];
+  const classes: ClassRow[] = [];
   const schedules: ScheduleRow[] = [];
-  const tiers:     TierRow[]     = [];
-  const sessions:  SessionRow[]  = [];
+  const tiers: TierRow[] = [];
+  const sessions: SessionRow[] = [];
 
   for (const sem of SEMS) {
     // Published & archived → full 14 occurrences; others → 4 (skeleton data)
-    const sessionCount = sem.status === "published" || sem.status === "archived" ? 14 : 4;
+    const sessionCount =
+      sem.status === "published" || sem.status === "archived" ? 14 : 4;
 
     for (const tmpl of TEMPLATES) {
-      const classId       = uid();
-      const schedId       = uid();
+      const classId = uid();
+      const schedId = uid();
       const instructorName = faker.person.fullName();
 
       classes.push({
-        id: classId, semester_id: sem.id,
-        name: tmpl.name, discipline: tmpl.discipline,
-        division: tmpl.division, level: tmpl.level,
+        id: classId,
+        semester_id: sem.id,
+        name: tmpl.name,
+        discipline: tmpl.discipline,
+        division: tmpl.division,
+        level: tmpl.level,
         description: tmpl.description,
-        min_age: tmpl.min_age, max_age: tmpl.max_age,
+        min_age: tmpl.min_age,
+        max_age: tmpl.max_age,
         is_competition_track: false,
-        requires_teacher_rec: false, is_active: true,
+        requires_teacher_rec: false,
+        is_active: true,
       } as ClassRow);
 
       schedules.push({
-        id: schedId, class_id: classId, semester_id: sem.id,
+        id: schedId,
+        class_id: classId,
+        semester_id: sem.id,
         days_of_week: [tmpl.day],
-        start_time: tmpl.start_time, end_time: tmpl.end_time,
-        start_date: isoDate(sem.startDate), end_date: isoDate(sem.endDate),
-        location: tmpl.location, instructor_name: instructorName,
+        start_time: tmpl.start_time,
+        end_time: tmpl.end_time,
+        start_date: isoDate(sem.startDate),
+        end_date: isoDate(sem.endDate),
+        location: tmpl.location,
+        instructor_name: instructorName,
         capacity: tmpl.capacity,
-        registration_open_at: null, registration_close_at: null,
+        registration_open_at: null,
+        registration_close_at: null,
         gender_restriction: "no_restriction",
         urgency_threshold: Math.max(1, Math.floor(tmpl.capacity * 0.2)),
         pricing_model: "full_schedule",
       } as ScheduleRow);
 
       tiers.push({
-        id: uid(), schedule_id: schedId,
-        label: "Regular", amount: tmpl.tuition,
-        sort_order: 0, is_default: true,
+        id: uid(),
+        schedule_id: schedId,
+        label: "Regular",
+        amount: tmpl.tuition,
+        sort_order: 0,
+        is_default: true,
       } as TierRow);
 
-      const dates = weeklyDates(tmpl.day, sem.startDate, sem.endDate, sessionCount);
+      const dates = weeklyDates(
+        tmpl.day,
+        sem.startDate,
+        sem.endDate,
+        sessionCount,
+      );
       for (const date of dates) {
         sessions.push({
-          id: uid(), class_id: classId, semester_id: sem.id,
-          schedule_id: schedId, schedule_date: isoDate(date),
+          id: uid(),
+          class_id: classId,
+          semester_id: sem.id,
+          schedule_id: schedId,
+          schedule_date: isoDate(date),
           day_of_week: tmpl.day,
-          start_time: tmpl.start_time, end_time: tmpl.end_time,
-          start_date: isoDate(sem.startDate), end_date: isoDate(sem.endDate),
-          location: tmpl.location, instructor_name: instructorName,
-          capacity: tmpl.capacity, is_active: true,
-          drop_in_price: null, cloned_from_session_id: null,
+          start_time: tmpl.start_time,
+          end_time: tmpl.end_time,
+          start_date: isoDate(sem.startDate),
+          end_date: isoDate(sem.endDate),
+          location: tmpl.location,
+          instructor_name: instructorName,
+          capacity: tmpl.capacity,
+          is_active: true,
+          drop_in_price: null,
+          cloned_from_session_id: null,
           registration_close_at: null,
         } as SessionRow);
       }
@@ -648,14 +1048,18 @@ async function seedClasses() {
 
   // Chunked inserts (avoids payload size limits)
   const CHUNK = 50;
-  for (let i = 0; i < classes.length;   i += CHUNK) await ins("classes",            classes.slice(i, i + CHUNK));
-  for (let i = 0; i < schedules.length; i += CHUNK) await ins("class_schedules",    schedules.slice(i, i + CHUNK));
-  for (let i = 0; i < tiers.length;     i += CHUNK) await ins("schedule_price_tiers", tiers.slice(i, i + CHUNK));
-  for (let i = 0; i < sessions.length;  i += CHUNK) await ins("class_sessions",     sessions.slice(i, i + CHUNK));
+  for (let i = 0; i < classes.length; i += CHUNK)
+    await ins("classes", classes.slice(i, i + CHUNK));
+  for (let i = 0; i < schedules.length; i += CHUNK)
+    await ins("class_schedules", schedules.slice(i, i + CHUNK));
+  for (let i = 0; i < tiers.length; i += CHUNK)
+    await ins("schedule_price_tiers", tiers.slice(i, i + CHUNK));
+  for (let i = 0; i < sessions.length; i += CHUNK)
+    await ins("class_sessions", sessions.slice(i, i + CHUNK));
 
   console.log(
     `  ✓ ${classes.length} classes, ${schedules.length} schedules, ` +
-    `${tiers.length} price tiers, ${sessions.length} sessions\n`,
+      `${tiers.length} price tiers, ${sessions.length} sessions\n`,
   );
   return { classes, schedules, tiers, sessions };
 }
@@ -664,17 +1068,17 @@ async function seedClasses() {
 // 7.  REGISTRATIONS, BATCHES, LINE ITEMS, INSTALLMENTS, PAYMENTS
 // ─────────────────────────────────────────────────────────────────────────────
 async function seedRegistrations(
-  families:  FamilyRow[],
-  users:     UserRow[],
-  dancers:   DancerRow[],
+  families: FamilyRow[],
+  users: UserRow[],
+  dancers: DancerRow[],
   schedules: ScheduleRow[],
-  sessions:  SessionRow[],
-  tiers:     TierRow[],
+  sessions: SessionRow[],
+  tiers: TierRow[],
 ) {
   console.log("💳  Seeding registrations, batches, installments, payments…");
 
-  const REG_FEE     = 40.00;
-  const FAMILY_DISC = 50.00; // applied when family has 2+ dancers enrolled
+  const REG_FEE = 40.0;
+  const FAMILY_DISC = 50.0; // applied when family has 2+ dancers enrolled
 
   const activeSems = SEMS.filter(
     (s) => s.status === "published" || s.status === "archived",
@@ -682,8 +1086,8 @@ async function seedRegistrations(
 
   for (const sem of activeSems) {
     const semSchedules = schedules.filter((s) => s.semester_id === sem.id);
-    const semSessions  = sessions.filter((s) => s.semester_id === sem.id);
-    const semTiers     = tiers.filter((t) =>
+    const semSessions = sessions.filter((s) => s.semester_id === sem.id);
+    const semTiers = tiers.filter((t) =>
       semSchedules.some((s) => s.id === t.schedule_id),
     );
 
@@ -698,61 +1102,75 @@ async function seedRegistrations(
       arr.sort((a, b) => a.schedule_date.localeCompare(b.schedule_date));
     }
 
-    const batches:      Record<string, unknown>[] = [];
-    const regs:         Record<string, unknown>[] = [];
-    const lineItems:    Record<string, unknown>[] = [];
+    const batches: Record<string, unknown>[] = [];
+    const regs: Record<string, unknown>[] = [];
+    const lineItems: Record<string, unknown>[] = [];
     const installments: Record<string, unknown>[] = [];
-    const payments:     Record<string, unknown>[] = [];
+    const payments: Record<string, unknown>[] = [];
 
     for (let fi = 0; fi < families.length; fi++) {
-      const fam        = families[fi]!;
-      const parent     = users.find((u) => u.family_id === fam.id)!;
+      const fam = families[fi]!;
+      const parent = users.find((u) => u.family_id === fam.id)!;
       const famDancers = dancers.filter((d) => d.family_id === fam.id);
 
-      const batchId     = uid();
+      const batchId = uid();
       // Archived → all confirmed; Published → first 4 confirmed, last 2 pending
       const isConfirmed = sem.status === "archived" || fi < 4;
-      const planType    = fi % 2 === 0 ? "pay_in_full" : "installments";
+      const planType = fi % 2 === 0 ? "pay_in_full" : "installments";
 
       let tuitionTotal = 0;
       const regFeeTotal = famDancers.length * REG_FEE;
 
       type Enrollment = {
-        dancerId: string; userId: string;
-        schedId: string; sessionId: string;
-        tuition: number; tmplIdx: number;
+        dancerId: string;
+        userId: string;
+        schedId: string;
+        sessionId: string;
+        tuition: number;
+        tmplIdx: number;
       };
       const enrollments: Enrollment[] = [];
 
       for (let di = 0; di < famDancers.length; di++) {
-        const dancer   = famDancers[di]!;
+        const dancer = famDancers[di]!;
         // Round-robin over the 8 schedule slots for variety
         const schedIdx = (fi * 2 + di) % 8;
-        const sched    = semSchedules[schedIdx];
+        const sched = semSchedules[schedIdx];
         if (!sched) continue;
 
-        const tier       = semTiers.find((t) => t.schedule_id === sched.id && t.is_default);
-        const tuition    = tier?.amount ?? 560.00;
-        const firstSess  = sessionsBySchedule.get(sched.id)?.[0];
+        const tier = semTiers.find(
+          (t) => t.schedule_id === sched.id && t.is_default,
+        );
+        const tuition = tier?.amount ?? 560.0;
+        const firstSess = sessionsBySchedule.get(sched.id)?.[0];
         if (!firstSess) continue;
 
         tuitionTotal += tuition;
         enrollments.push({
-          dancerId: dancer.id, userId: parent.id,
-          schedId: sched.id, sessionId: firstSess.id,
-          tuition, tmplIdx: schedIdx,
+          dancerId: dancer.id,
+          userId: parent.id,
+          schedId: sched.id,
+          sessionId: firstSess.id,
+          tuition,
+          tmplIdx: schedIdx,
         });
       }
 
-      const grandTotal    = tuitionTotal + regFeeTotal - FAMILY_DISC;
-      const amountDueNow  = planType === "pay_in_full"
-        ? grandTotal
-        : Number((grandTotal * 0.25).toFixed(2));
+      const grandTotal = tuitionTotal + regFeeTotal - FAMILY_DISC;
+      const amountDueNow =
+        planType === "pay_in_full"
+          ? grandTotal
+          : Number((grandTotal * 0.25).toFixed(2));
 
       batches.push({
-        id: batchId, parent_id: parent.id, family_id: fam.id, semester_id: sem.id,
+        id: batchId,
+        parent_id: parent.id,
+        family_id: fam.id,
+        semester_id: sem.id,
         status: isConfirmed ? "confirmed" : "pending",
-        confirmed_at: isConfirmed ? new Date(sem.published_at ?? TODAY).toISOString() : null,
+        confirmed_at: isConfirmed
+          ? new Date(sem.published_at ?? TODAY).toISOString()
+          : null,
         cart_snapshot: [],
         tuition_total: tuitionTotal,
         registration_fee_total: regFeeTotal,
@@ -762,8 +1180,7 @@ async function seedRegistrations(
         grand_total: grandTotal,
         payment_plan_type: planType,
         amount_due_now: amountDueNow,
-        payment_reference_id:
-          `AYDT-${sem.name.replace(/\s+/g, "")}-${fam.family_name.replace(/\s+/g, "").toUpperCase()}`,
+        payment_reference_id: `AYDT-${sem.name.replace(/\s+/g, "")}-${fam.family_name.replace(/\s+/g, "").toUpperCase()}`,
       });
 
       for (const e of enrollments) {
@@ -790,36 +1207,54 @@ async function seedRegistrations(
 
         lineItems.push(
           {
-            id: uid(), batch_id: batchId, dancer_id: e.dancerId,
-            session_id: e.sessionId, schedule_enrollment_id: null,
+            id: uid(),
+            batch_id: batchId,
+            dancer_id: e.dancerId,
+            session_id: e.sessionId,
+            schedule_enrollment_id: null,
             item_type: "full_schedule",
             label: `${TEMPLATES[e.tmplIdx]!.name} — ${sem.name}`,
-            unit_amount: e.tuition, quantity: 1, amount: e.tuition,
+            unit_amount: e.tuition,
+            quantity: 1,
+            amount: e.tuition,
           },
           {
-            id: uid(), batch_id: batchId, dancer_id: e.dancerId,
-            session_id: null, schedule_enrollment_id: null,
+            id: uid(),
+            batch_id: batchId,
+            dancer_id: e.dancerId,
+            session_id: null,
+            schedule_enrollment_id: null,
             item_type: "registration_fee",
             label: "Registration Fee",
-            unit_amount: REG_FEE, quantity: 1, amount: REG_FEE,
+            unit_amount: REG_FEE,
+            quantity: 1,
+            amount: REG_FEE,
           },
         );
       }
 
       // Family discount line item (always — 2 dancers per family)
       lineItems.push({
-        id: uid(), batch_id: batchId, dancer_id: null,
-        session_id: null, schedule_enrollment_id: null,
+        id: uid(),
+        batch_id: batchId,
+        dancer_id: null,
+        session_id: null,
+        schedule_enrollment_id: null,
         item_type: "family_discount",
         label: "Multi-Child Family Discount",
-        unit_amount: -FAMILY_DISC, quantity: 1, amount: -FAMILY_DISC,
+        unit_amount: -FAMILY_DISC,
+        quantity: 1,
+        amount: -FAMILY_DISC,
       });
 
       // Payment installments
       if (planType === "pay_in_full") {
         installments.push({
-          id: uid(), batch_id: batchId, installment_number: 1,
-          amount_due: grandTotal, due_date: isoDate(sem.startDate),
+          id: uid(),
+          batch_id: batchId,
+          installment_number: 1,
+          amount_due: grandTotal,
+          due_date: isoDate(sem.startDate),
           status: isConfirmed ? "paid" : "scheduled",
           paid_at: isConfirmed ? new Date(sem.startDate).toISOString() : null,
           paid_amount: isConfirmed ? grandTotal : null,
@@ -829,17 +1264,26 @@ async function seedRegistrations(
         for (let inst = 1; inst <= 5; inst++) {
           const dueDate = new Date(sem.startDate);
           dueDate.setMonth(dueDate.getMonth() + inst - 1);
-          const isPast       = dueDate <= TODAY;
-          const instAmount   = inst === 5 ? Number((grandTotal - monthly * 4).toFixed(2)) : monthly;
-          const instStatus   = isConfirmed && isPast ? "paid"
-                             : !isConfirmed && isPast ? "overdue"
-                             : "scheduled";
+          const isPast = dueDate <= TODAY;
+          const instAmount =
+            inst === 5
+              ? Number((grandTotal - monthly * 4).toFixed(2))
+              : monthly;
+          const instStatus =
+            isConfirmed && isPast
+              ? "paid"
+              : !isConfirmed && isPast
+                ? "overdue"
+                : "scheduled";
           installments.push({
-            id: uid(), batch_id: batchId, installment_number: inst,
-            amount_due: instAmount, due_date: isoDate(dueDate),
+            id: uid(),
+            batch_id: batchId,
+            installment_number: inst,
+            amount_due: instAmount,
+            due_date: isoDate(dueDate),
             status: instStatus,
-            paid_at:     instStatus === "paid"    ? dueDate.toISOString() : null,
-            paid_amount: instStatus === "paid"    ? instAmount            : null,
+            paid_at: instStatus === "paid" ? dueDate.toISOString() : null,
+            paid_amount: instStatus === "paid" ? instAmount : null,
           });
         }
       }
@@ -847,10 +1291,13 @@ async function seedRegistrations(
       // Payment record (confirmed batches only)
       if (isConfirmed) {
         payments.push({
-          id: uid(), registration_batch_id: batchId,
+          id: uid(),
+          registration_batch_id: batchId,
           custom_reference: `AYDT-${sem.name.replace(/\s+/g, "")}-${fam.family_name.replace(/\s+/g, "").toUpperCase()}-001`,
-          amount: grandTotal, currency: "USD",
-          state: "settled", event_type: "payment.settled",
+          amount: grandTotal,
+          currency: "USD",
+          state: "settled",
+          event_type: "payment.settled",
         });
       }
     }
@@ -863,7 +1310,7 @@ async function seedRegistrations(
 
     console.log(
       `  ✓ ${sem.name}: ${batches.length} batches, ${regs.length} registrations, ` +
-      `${installments.length} installments, ${payments.length} payments`,
+        `${installments.length} installments, ${payments.length} payments`,
     );
   }
 
@@ -905,22 +1352,36 @@ async function seedWaitlist(sessions: SessionRow[], dancers: DancerRow[]) {
 
   // Waitlist statuses to distribute across entries
   const statuses1: string[] = ["waiting", "waiting", "invited", "expired"];
-  const statuses2: string[] = ["waiting", "invited", "accepted", "declined", "waiting"];
+  const statuses2: string[] = [
+    "waiting",
+    "invited",
+    "accepted",
+    "declined",
+    "waiting",
+  ];
 
   const waitlistRows: Record<string, unknown>[] = [];
 
   for (let i = 0; i < statuses1.length; i++) {
     const dancer = dancers[i]!;
     const status = statuses1[i]!;
-    const sentAt = status !== "waiting"
-      ? new Date(TODAY.getTime() - 2 * 86400_000).toISOString() : null;
+    const sentAt =
+      status !== "waiting"
+        ? new Date(TODAY.getTime() - 2 * 86400_000).toISOString()
+        : null;
     const expiresAt = sentAt
-      ? new Date(new Date(sentAt).getTime() + 48 * 3600_000).toISOString() : null;
+      ? new Date(new Date(sentAt).getTime() + 48 * 3600_000).toISOString()
+      : null;
 
     waitlistRows.push({
-      id: uid(), dancer_id: dancer.id, session_id: targetSess1.id,
-      position: i + 1, status, invite_token: uid(),
-      invitation_sent_at: sentAt, invitation_expires_at: expiresAt,
+      id: uid(),
+      dancer_id: dancer.id,
+      session_id: targetSess1.id,
+      position: i + 1,
+      status,
+      invite_token: uid(),
+      invitation_sent_at: sentAt,
+      invitation_expires_at: expiresAt,
     });
   }
 
@@ -928,15 +1389,23 @@ async function seedWaitlist(sessions: SessionRow[], dancers: DancerRow[]) {
     const dancer = dancers[i + 4]!;
     if (!dancer) break;
     const status = statuses2[i]!;
-    const sentAt = status !== "waiting"
-      ? new Date(TODAY.getTime() - 1 * 86400_000).toISOString() : null;
+    const sentAt =
+      status !== "waiting"
+        ? new Date(TODAY.getTime() - 1 * 86400_000).toISOString()
+        : null;
     const expiresAt = sentAt
-      ? new Date(new Date(sentAt).getTime() + 48 * 3600_000).toISOString() : null;
+      ? new Date(new Date(sentAt).getTime() + 48 * 3600_000).toISOString()
+      : null;
 
     waitlistRows.push({
-      id: uid(), dancer_id: dancer.id, session_id: targetSess2.id,
-      position: i + 1, status, invite_token: uid(),
-      invitation_sent_at: sentAt, invitation_expires_at: expiresAt,
+      id: uid(),
+      dancer_id: dancer.id,
+      session_id: targetSess2.id,
+      position: i + 1,
+      status,
+      invite_token: uid(),
+      invitation_sent_at: sentAt,
+      invitation_expires_at: expiresAt,
     });
   }
 
@@ -950,7 +1419,9 @@ async function seedWaitlist(sessions: SessionRow[], dancers: DancerRow[]) {
 // 9.  BROADCAST EMAILS (5 lifecycle states)
 // ─────────────────────────────────────────────────────────────────────────────
 async function seedEmails(users: UserRow[]) {
-  console.log("📧  Seeding 5 broadcast emails (draft → scheduled → sending → sent → cancelled)…");
+  console.log(
+    "📧  Seeding 5 broadcast emails (draft → scheduled → sending → sent → cancelled)…",
+  );
 
   const spring2026Sem = SEMS.find((s) => s.name === "Spring 2026")!;
 
@@ -966,78 +1437,106 @@ async function seedEmails(users: UserRow[]) {
 
   const emailDefs = [
     {
-      id: uid(), status: "draft",
+      id: uid(),
+      status: "draft",
       subject: "Spring 2026 Registration is Now Open!",
       body_html:
         "<h1>Registration is Open!</h1><p>We're thrilled to announce that Spring 2026 registration is now open. Spots fill up fast — enroll your dancer today!</p>",
     },
     {
-      id: uid(), status: "scheduled",
+      id: uid(),
+      status: "scheduled",
       subject: "Upcoming Spring Recital — Save the Date!",
       scheduled_at: new Date("2026-04-20T10:00:00Z").toISOString(),
       body_html:
         "<h1>Save the Date!</h1><p>Our Spring 2026 Recital will be held on <strong>May 15, 2026</strong> at the Downtown Performing Arts Center. More details to follow!</p>",
     },
     {
-      id: uid(), status: "sending",
+      id: uid(),
+      status: "sending",
       subject: "Studio Schedule Changes — March 9–15",
       body_html:
         "<h1>Schedule Update</h1><p>Please note: Ballet Foundations will meet in <strong>Studio A</strong> the week of March 9–15 due to floor maintenance in Studio B.</p>",
     },
     {
-      id: uid(), status: "sent",
+      id: uid(),
+      status: "sent",
       subject: "Welcome to the Fall 2025 Season at AYDT!",
       sent_at: new Date("2025-08-20T09:00:00Z").toISOString(),
       body_html:
         "<h1>Welcome Back!</h1><p>We are so excited to kick off the Fall 2025 season. Classes begin <strong>September 8th</strong> — we can't wait to see your dancers on the floor!</p>",
     },
     {
-      id: uid(), status: "cancelled",
+      id: uid(),
+      status: "cancelled",
       subject: "Holiday Closure — December 23–27",
       body_html:
         "<h1>Holiday Closure</h1><p>AYDT will be closed December 23–27 for the holiday break. Happy holidays from our whole team!</p>",
     },
   ];
 
-  await ins("emails", emailDefs.map((e) => ({ ...BASE, ...e })));
+  await ins(
+    "emails",
+    emailDefs.map((e) => ({ ...BASE, ...e })),
+  );
 
   // Activity logs
   const logs: Record<string, unknown>[] = [];
 
   // Every email gets a "created" log
   for (const e of emailDefs) {
-    logs.push({ id: uid(), email_id: e.id, action: "created", admin_id: ETHAN_ID, metadata: {} });
+    logs.push({
+      id: uid(),
+      email_id: e.id,
+      action: "created",
+      admin_id: ETHAN_ID,
+      metadata: {},
+    });
   }
 
-  const [draftEmail, scheduledEmail, sendingEmail, sentEmail, cancelledEmail] = emailDefs as (typeof emailDefs[number])[];
+  const [draftEmail, scheduledEmail, sendingEmail, sentEmail, cancelledEmail] =
+    emailDefs as (typeof emailDefs)[number][];
 
   // Scheduled
   logs.push({
-    id: uid(), email_id: scheduledEmail!.id, action: "scheduled",
+    id: uid(),
+    email_id: scheduledEmail!.id,
+    action: "scheduled",
     admin_id: ETHAN_ID,
     metadata: { scheduled_at: scheduledEmail!.scheduled_at },
   });
 
   // Sending
   logs.push({
-    id: uid(), email_id: sendingEmail!.id, action: "sent",
-    admin_id: ETHAN_ID, metadata: { note: "send job initiated" },
+    id: uid(),
+    email_id: sendingEmail!.id,
+    action: "sent",
+    admin_id: ETHAN_ID,
+    metadata: { note: "send job initiated" },
   });
 
   // Sent
   logs.push({
-    id: uid(), email_id: sentEmail!.id, action: "sent",
-    admin_id: ETHAN_ID, metadata: { recipient_count: users.length },
+    id: uid(),
+    email_id: sentEmail!.id,
+    action: "sent",
+    admin_id: ETHAN_ID,
+    metadata: { recipient_count: users.length },
   });
 
   // Cancelled (scheduled → cancelled)
   logs.push(
     {
-      id: uid(), email_id: cancelledEmail!.id, action: "scheduled",
-      admin_id: ETHAN_ID, metadata: { scheduled_at: "2025-12-15T10:00:00Z" },
+      id: uid(),
+      email_id: cancelledEmail!.id,
+      action: "scheduled",
+      admin_id: ETHAN_ID,
+      metadata: { scheduled_at: "2025-12-15T10:00:00Z" },
     },
     {
-      id: uid(), email_id: cancelledEmail!.id, action: "cancelled",
+      id: uid(),
+      email_id: cancelledEmail!.id,
+      action: "cancelled",
       admin_id: ETHAN_ID,
       metadata: { reason: "Holiday closure communication no longer needed" },
     },
@@ -1047,28 +1546,38 @@ async function seedEmails(users: UserRow[]) {
 
   // Recipients + deliveries for the sent email
   const recipients = users.map((u) => ({
-    id: uid(), email_id: sentEmail!.id, user_id: u.id,
-    email_address: u.email, first_name: u.first_name, last_name: u.last_name,
+    id: uid(),
+    email_id: sentEmail!.id,
+    user_id: u.id,
+    email_address: u.email,
+    first_name: u.first_name,
+    last_name: u.last_name,
   }));
   await ins("email_recipients", recipients);
 
   const deliveries = users.map((u, i) => ({
-    id: uid(), email_id: sentEmail!.id, user_id: u.id,
+    id: uid(),
+    email_id: sentEmail!.id,
+    user_id: u.id,
     email_address: u.email,
     resend_message_id: `re_${faker.string.alphanumeric(20)}`,
     status: i === 0 ? "bounced" : "delivered",
-    delivered_at: i === 0 ? null : new Date("2025-08-20T09:05:00Z").toISOString(),
-    bounced_at:   i === 0 ? new Date("2025-08-20T09:03:00Z").toISOString() : null,
-    opened_at:    i > 1   ? new Date("2025-08-20T11:00:00Z").toISOString() : null,
-    clicked_at:   i > 3   ? new Date("2025-08-20T11:15:00Z").toISOString() : null,
+    delivered_at:
+      i === 0 ? null : new Date("2025-08-20T09:05:00Z").toISOString(),
+    bounced_at: i === 0 ? new Date("2025-08-20T09:03:00Z").toISOString() : null,
+    opened_at: i > 1 ? new Date("2025-08-20T11:00:00Z").toISOString() : null,
+    clicked_at: i > 3 ? new Date("2025-08-20T11:15:00Z").toISOString() : null,
   }));
   await ins("email_deliveries", deliveries);
 
   // Recipient selection for the scheduled email (target: Spring 2026 semester)
   await ins("email_recipient_selections", [
     {
-      id: uid(), email_id: scheduledEmail!.id,
-      selection_type: "semester", semester_id: spring2026Sem.id, is_excluded: false,
+      id: uid(),
+      email_id: scheduledEmail!.id,
+      selection_type: "semester",
+      semester_id: spring2026Sem.id,
+      is_excluded: false,
     },
   ]);
 
@@ -1081,7 +1590,9 @@ async function seedEmails(users: UserRow[]) {
 // 10. SESSION GROUPS (Spring 2026 — two curated groups for the UI)
 // ─────────────────────────────────────────────────────────────────────────────
 async function seedSessionGroups(sessions: SessionRow[]) {
-  console.log("🗂️   Seeding session groups for Fall 2026 (scheduled — no registrations)…");
+  console.log(
+    "🗂️   Seeding session groups for Fall 2026 (scheduled — no registrations)…",
+  );
 
   // Use a scheduled semester to avoid the published-with-registrations trigger
   const fall2026 = SEMS.find((s) => s.name === "Fall 2026")!;
@@ -1095,32 +1606,60 @@ async function seedSessionGroups(sessions: SessionRow[]) {
     }
   }
   // Schedules are inserted in TEMPLATES order — get unique schedule IDs in order
-  const orderedScheduleIds = [...new Set(semSessions.map((s) => s.schedule_id))];
-  const firstSessions = orderedScheduleIds.map((sid) => firstBySchedule.get(sid) ?? null);
+  const orderedScheduleIds = [
+    ...new Set(semSessions.map((s) => s.schedule_id)),
+  ];
+  const firstSessions = orderedScheduleIds.map(
+    (sid) => firstBySchedule.get(sid) ?? null,
+  );
 
   const group1Id = uid();
   const group2Id = uid();
 
   await ins("session_groups", [
     {
-      id: group1Id, semester_id: fall2026.id,
+      id: group1Id,
+      semester_id: fall2026.id,
       name: "Early Childhood Bundle",
-      description: "Creative Movement + Pre-Ballet combined package for ages 4–7.",
+      description:
+        "Creative Movement + Pre-Ballet combined package for ages 4–7.",
     },
     {
-      id: group2Id, semester_id: fall2026.id,
+      id: group2Id,
+      semester_id: fall2026.id,
       name: "Junior Performance Track",
-      description: "Ballet Foundations, Jazz Performance, and Tap Technique for aspiring junior performers.",
+      description:
+        "Ballet Foundations, Jazz Performance, and Tap Technique for aspiring junior performers.",
     },
   ]);
 
   // session_group_sessions.session_id → class_sessions(id)
   await ins("session_group_sessions", [
-    { id: uid(), session_group_id: group1Id, session_id: firstSessions[0] ?? null }, // Creative Movement
-    { id: uid(), session_group_id: group1Id, session_id: firstSessions[1] ?? null }, // Pre-Ballet
-    { id: uid(), session_group_id: group2Id, session_id: firstSessions[2] ?? null }, // Ballet Foundations
-    { id: uid(), session_group_id: group2Id, session_id: firstSessions[4] ?? null }, // Jazz Performance
-    { id: uid(), session_group_id: group2Id, session_id: firstSessions[3] ?? null }, // Tap Technique
+    {
+      id: uid(),
+      session_group_id: group1Id,
+      session_id: firstSessions[0] ?? null,
+    }, // Creative Movement
+    {
+      id: uid(),
+      session_group_id: group1Id,
+      session_id: firstSessions[1] ?? null,
+    }, // Pre-Ballet
+    {
+      id: uid(),
+      session_group_id: group2Id,
+      session_id: firstSessions[2] ?? null,
+    }, // Ballet Foundations
+    {
+      id: uid(),
+      session_group_id: group2Id,
+      session_id: firstSessions[4] ?? null,
+    }, // Jazz Performance
+    {
+      id: uid(),
+      session_group_id: group2Id,
+      session_id: firstSessions[3] ?? null,
+    }, // Tap Technique
   ]);
 
   await ins("session_group_tags", [
@@ -1143,7 +1682,8 @@ async function seedSessionTags(sessions: SessionRow[]) {
   // Tag the first 5 unique schedule groups
   const bySchedule = new Map<string, SessionRow>();
   for (const sess of semSessions) {
-    if (!bySchedule.has(sess.schedule_id)) bySchedule.set(sess.schedule_id, sess);
+    if (!bySchedule.has(sess.schedule_id))
+      bySchedule.set(sess.schedule_id, sess);
   }
   const sampleSessions = [...bySchedule.values()].slice(0, 5);
   const tagSets = [
@@ -1175,19 +1715,25 @@ async function seedClassRequirements(classes: ClassRow[]) {
   const fall2026 = SEMS.find((s) => s.name === "Fall 2026")!;
   const semClasses = classes.filter((c) => c.semester_id === fall2026.id);
 
-  const contemporaryClass = semClasses.find((c) => c.name === "Contemporary & Lyrical");
-  const musicalClass      = semClasses.find((c) => c.name === "Musical Theatre Intensive");
+  const contemporaryClass = semClasses.find(
+    (c) => c.name === "Contemporary & Lyrical",
+  );
+  const musicalClass = semClasses.find(
+    (c) => c.name === "Musical Theatre Intensive",
+  );
 
   const reqs: Record<string, unknown>[] = [];
 
   if (contemporaryClass) {
     reqs.push({
-      id: uid(), class_id: contemporaryClass.id,
+      id: uid(),
+      class_id: contemporaryClass.id,
       requirement_type: "skill_qualification",
       required_discipline: "ballet",
       required_level: "Level 1",
       required_class_id: null,
-      description: "Dancers should have at least one year of formal ballet or jazz training.",
+      description:
+        "Dancers should have at least one year of formal ballet or jazz training.",
       enforcement: "soft_warn",
       is_waivable: true,
     });
@@ -1195,12 +1741,14 @@ async function seedClassRequirements(classes: ClassRow[]) {
 
   if (musicalClass) {
     reqs.push({
-      id: uid(), class_id: musicalClass.id,
+      id: uid(),
+      class_id: musicalClass.id,
       requirement_type: "audition_required",
       required_discipline: null,
       required_level: null,
       required_class_id: null,
-      description: "An audition or teacher recommendation is required for placement in the Musical Theatre Intensive.",
+      description:
+        "An audition or teacher recommendation is required for placement in the Musical Theatre Intensive.",
       enforcement: "hard_block",
       is_waivable: true,
     });
@@ -1208,6 +1756,985 @@ async function seedClassRequirements(classes: ClassRow[]) {
 
   if (reqs.length) await ins("class_requirements", reqs);
   console.log(`  ✓ ${reqs.length} class requirements\n`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 13. AYDT CLASS CATALOG (real class names, requirements — Fall 2026 scheduled)
+// ─────────────────────────────────────────────────────────────────────────────
+// Seeds the full AYDT class catalog into the Fall 2026 (scheduled) semester as
+// bare class entities (no schedules or sessions). Admins configure sessions via
+// the SessionsStep UI. This function is idempotent relative to the catalog.
+//
+// Class names match docs/CLASS_CATALOG.md exactly (no asterisks).
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedAYDTClassCatalog() {
+  console.log("📚  Seeding AYDT class catalog (all disciplines)…");
+
+  const fall2026 = SEMS.find((s) => s.name === "Fall 2026");
+  if (!fall2026) {
+    console.warn("  ⚠ Fall 2026 semester not found — skipping catalog seed");
+    return;
+  }
+
+  const semId = fall2026.id;
+
+  // Helper to build a class row. Schedules/sessions are NOT created here —
+  // they are added by admins in the SessionsStep UI per semester.
+  type CatalogClass = {
+    name: string;
+    discipline: string;
+    division: string;
+    level?: string | null;
+    min_age?: number | null;
+    max_age?: number | null;
+    min_age_months?: number | null;
+    max_age_months?: number | null;
+    min_grade?: number | null;
+    max_grade?: number | null;
+    requires_teacher_rec?: boolean;
+    requires_parent_accompaniment?: boolean;
+    registration_note?: string | null;
+    requirements?: {
+      requirement_type: string;
+      enforcement: string;
+      is_waivable: boolean;
+      description: string;
+      required_discipline?: string | null;
+      required_level?: string | null;
+    }[];
+  };
+
+  const REHEARSAL_NOTE =
+    "See calendar for dates of mandatory Saturday holiday recital rehearsals.";
+  const PLACEMENT_NOTE =
+    "Placement in higher level classes is by teacher recommendation or audition.";
+  const REHEARSAL_AND_PLACEMENT = `${PLACEMENT_NOTE} ${REHEARSAL_NOTE}`;
+
+  const catalog: CatalogClass[] = [
+    // ── BALLET — Early Childhood ────────────────────────────────────────────
+    {
+      name: "First Steps",
+      discipline: "ballet",
+      division: "early_childhood",
+      min_age_months: 18,
+      max_age_months: 26,
+      requires_parent_accompaniment: true,
+      registration_note:
+        "Class is divided into two 9-week sessions. Twins must be accompanied by two separate adults.",
+      requirements: [
+        {
+          requirement_type: "parent_accompaniment",
+          enforcement: "hard_block",
+          is_waivable: false,
+          description:
+            "A parent or caregiver must accompany your dancer in class for the full duration of every session.",
+        },
+      ],
+    },
+    {
+      name: "Dance with Me",
+      discipline: "ballet",
+      division: "early_childhood",
+      min_age_months: 27,
+      max_age_months: 36,
+      requires_parent_accompaniment: true,
+      registration_note:
+        "Class is divided into two 9-week sessions. Twins must be accompanied by two separate adults.",
+      requirements: [
+        {
+          requirement_type: "parent_accompaniment",
+          enforcement: "hard_block",
+          is_waivable: false,
+          description:
+            "A parent or caregiver must accompany your dancer in class for the full duration of every session.",
+        },
+      ],
+    },
+
+    // ── BALLET — Pre-Ballet ─────────────────────────────────────────────────
+    {
+      name: "Pre-Ballet 1",
+      discipline: "ballet",
+      division: "junior",
+      level: "1",
+      min_age: 3,
+      min_grade: -2,
+      max_grade: -2,
+      registration_note:
+        "Dancer must be at least 3 years old by September 1st.",
+    },
+    {
+      name: "Pre-Ballet 2",
+      discipline: "ballet",
+      division: "junior",
+      level: "2",
+      min_age: 4,
+      max_age: 4,
+      min_grade: -1,
+      max_grade: -1,
+    },
+    {
+      name: "Pre-Ballet 3",
+      discipline: "ballet",
+      division: "junior",
+      level: "3",
+      min_grade: 0,
+      max_grade: 0,
+    },
+
+    // ── BALLET — Junior ─────────────────────────────────────────────────────
+    {
+      name: "Ballet 1A",
+      discipline: "ballet",
+      division: "junior",
+      level: "1A",
+      min_grade: 1,
+      max_grade: 2,
+      registration_note: REHEARSAL_NOTE,
+    },
+    {
+      name: "Ballet 1B",
+      discipline: "ballet",
+      division: "junior",
+      level: "1B",
+      min_grade: 2,
+      max_grade: 3,
+      registration_note: REHEARSAL_NOTE,
+    },
+    {
+      name: "Ballet 2",
+      discipline: "ballet",
+      division: "junior",
+      level: "2",
+      min_grade: 3,
+      max_grade: 4,
+      registration_note: REHEARSAL_NOTE,
+    },
+
+    // ── BALLET — Open Level ─────────────────────────────────────────────────
+    {
+      name: "Open Ballet 3",
+      discipline: "ballet",
+      division: "senior",
+      level: "Open 3",
+      min_grade: 4,
+      registration_note: `${REHEARSAL_NOTE} This is a 2–3 year program.`,
+      requirements: [
+        {
+          requirement_type: "skill_qualification",
+          enforcement: "soft_warn",
+          is_waivable: true,
+          description:
+            "Open Ballet 3 is a recreational or supplemental class. No prior ballet experience is required.",
+        },
+      ],
+    },
+    {
+      name: "Open Ballet 4",
+      discipline: "ballet",
+      division: "senior",
+      level: "Open 4",
+      min_grade: 6,
+      registration_note: `${REHEARSAL_NOTE} This is a 2–3 year program. Older beginners welcome.`,
+      requirements: [
+        {
+          requirement_type: "prerequisite_completed",
+          enforcement: "soft_warn",
+          is_waivable: true,
+          required_discipline: "ballet",
+          required_level: "Open 3",
+          description:
+            "Dancer should have completed 2–3 years of Open Ballet 3 or equivalent. Older beginners are welcome but may require supplemental private lessons.",
+        },
+      ],
+    },
+    {
+      name: "Open Ballet 5",
+      discipline: "ballet",
+      division: "senior",
+      level: "Open 5",
+      min_grade: 8,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: `${REHEARSAL_NOTE} Older beginners welcome.`,
+      requirements: [
+        {
+          requirement_type: "prerequisite_completed",
+          enforcement: "soft_warn",
+          is_waivable: true,
+          required_discipline: "ballet",
+          required_level: "Open 4",
+          description:
+            "Dancer should have completed 2–3 years of Open Ballet 4 or equivalent.",
+        },
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Open Ballet 5 is by teacher recommendation or audition only. Contact the studio to confirm your placement.",
+        },
+      ],
+    },
+    {
+      name: "Open Intermediate Ballet",
+      discipline: "ballet",
+      division: "senior",
+      level: "Open Intermediate",
+      min_grade: 8,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: REHEARSAL_NOTE,
+      requirements: [
+        {
+          requirement_type: "prerequisite_completed",
+          enforcement: "soft_warn",
+          is_waivable: true,
+          required_discipline: "ballet",
+          required_level: "Open 5",
+          description:
+            "Dancer should have completed 2–3 years of Open Ballet 5 or equivalent.",
+        },
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Open Intermediate Ballet is by teacher recommendation or audition only. A second weekly class (Open Ballet 5 or Technique 1) is required as recommended by your teacher.",
+        },
+      ],
+    },
+
+    // ── BALLET — Graded ─────────────────────────────────────────────────────
+    {
+      name: "Graded Ballet 3",
+      discipline: "ballet",
+      division: "senior",
+      level: "Graded 3",
+      min_grade: 4,
+      max_grade: 7,
+      requires_teacher_rec: true,
+      registration_note: `${REHEARSAL_NOTE} Graded Ballet meets twice per week.`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Enrollment in Graded Ballet 3 is by faculty recommendation or audition only. Contact the studio to confirm your placement.",
+        },
+      ],
+    },
+    {
+      name: "Graded Ballet 4",
+      discipline: "ballet",
+      division: "senior",
+      level: "Graded 4",
+      min_grade: 5,
+      max_grade: 8,
+      requires_teacher_rec: true,
+      registration_note: `${REHEARSAL_NOTE} Graded Ballet meets twice per week.`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Enrollment in Graded Ballet 4 is by faculty recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Graded Ballet 5",
+      discipline: "ballet",
+      division: "senior",
+      level: "Graded 5",
+      min_grade: 6,
+      requires_teacher_rec: true,
+      registration_note: `${REHEARSAL_NOTE} Graded Ballet 5 meets three times per week. The third class must be Ballet 4, Open Ballet 4–5, or Technique 1 (teacher recommends).`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Enrollment in Graded Ballet 5 is by faculty recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Intermediate Ballet A",
+      discipline: "ballet",
+      division: "senior",
+      level: "Intermediate A",
+      min_grade: 7,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: `${REHEARSAL_NOTE} Intermediate Ballet meets three times per week. The third class must be Technique 1, 2, or 3.`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Enrollment in Intermediate Ballet A is by faculty recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Intermediate Ballet B",
+      discipline: "ballet",
+      division: "senior",
+      level: "Intermediate B",
+      min_grade: 7,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: `${REHEARSAL_NOTE} Intermediate Ballet meets three times per week. The third class must be Technique 1, 2, or 3.`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Enrollment in Intermediate Ballet B is by faculty recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Advanced Intermediate Ballet",
+      discipline: "ballet",
+      division: "senior",
+      level: "Advanced Intermediate",
+      min_grade: 10,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: `${REHEARSAL_NOTE} Requires three ballet classes plus one Broadway or Contemporary class.`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Enrollment in Advanced Intermediate Ballet is by faculty recommendation or audition only.",
+        },
+      ],
+    },
+
+    // ── BALLET — Technique ──────────────────────────────────────────────────
+    {
+      name: "Technique 1",
+      discipline: "technique",
+      division: "senior",
+      level: "1",
+      requires_teacher_rec: true,
+      registration_note:
+        "Technique classes do not include a recital dance. Placement by teacher recommendation or audition.",
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Technique 1 is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Technique 2",
+      discipline: "technique",
+      division: "senior",
+      level: "2",
+      requires_teacher_rec: true,
+      registration_note:
+        "Technique classes do not include a recital dance. Placement by teacher recommendation or audition.",
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Technique 2 is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Technique 3",
+      discipline: "technique",
+      division: "senior",
+      level: "3",
+      requires_teacher_rec: true,
+      registration_note:
+        "Technique classes do not include a recital dance. Placement by teacher recommendation or audition.",
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Technique 3 is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+
+    // ── BALLET — Pointe ─────────────────────────────────────────────────────
+    {
+      name: "Pre-Pointe — Beginner",
+      discipline: "pointe",
+      division: "senior",
+      level: "Pre-Pointe Beginner",
+      requires_teacher_rec: true,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Pre-Pointe Beginner is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Pre-Pointe — Beginner Intermediate",
+      discipline: "pointe",
+      division: "senior",
+      level: "Pre-Pointe Beginner-Intermediate",
+      requires_teacher_rec: true,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Pre-Pointe Beginner Intermediate is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Pre-Pointe — Intermediate Advanced",
+      discipline: "pointe",
+      division: "senior",
+      level: "Pre-Pointe Intermediate-Advanced",
+      requires_teacher_rec: true,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Pre-Pointe Intermediate Advanced is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Intermediate Advanced Pointe",
+      discipline: "pointe",
+      division: "senior",
+      level: "Intermediate Advanced",
+      requires_teacher_rec: true,
+      registration_note:
+        "This class meets immediately following your associated ballet class session.",
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Intermediate Advanced Pointe is by teacher recommendation or audition only. Dancer must be technically strong enough as assessed by faculty.",
+        },
+      ],
+    },
+
+    // ── CONTEMPORARY ────────────────────────────────────────────────────────
+    {
+      name: "Contemporary 1",
+      discipline: "contemporary",
+      division: "senior",
+      level: "1",
+      requires_teacher_rec: true,
+      registration_note: PLACEMENT_NOTE,
+      requirements: [
+        {
+          requirement_type: "prerequisite_completed",
+          enforcement: "soft_warn",
+          is_waivable: true,
+          required_discipline: "ballet",
+          required_level: "Open 5",
+          description:
+            "Contemporary is available to students in Ballet 5 / Open Ballet 5 or above.",
+        },
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Contemporary 1 is by teacher recommendation or audition only.",
+        },
+        {
+          requirement_type: "concurrent_enrollment",
+          enforcement: "soft_warn",
+          is_waivable: true,
+          required_discipline: "ballet",
+          description:
+            "Contemporary is designed as an additional weekly class to complement your primary ballet training.",
+        },
+      ],
+    },
+    {
+      name: "Contemporary 2",
+      discipline: "contemporary",
+      division: "senior",
+      level: "2",
+      requires_teacher_rec: true,
+      registration_note: PLACEMENT_NOTE,
+      requirements: [
+        {
+          requirement_type: "prerequisite_completed",
+          enforcement: "soft_warn",
+          is_waivable: true,
+          required_discipline: "ballet",
+          required_level: "Open 5",
+          description:
+            "Contemporary is available to students in Ballet 5 / Open Ballet 5 or above.",
+        },
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Contemporary 2 is by teacher recommendation or audition only.",
+        },
+        {
+          requirement_type: "concurrent_enrollment",
+          enforcement: "soft_warn",
+          is_waivable: true,
+          required_discipline: "ballet",
+          description:
+            "Contemporary is designed as an additional weekly class to complement your primary ballet training.",
+        },
+      ],
+    },
+
+    // ── TAP ─────────────────────────────────────────────────────────────────
+    {
+      name: "Tap Intro",
+      discipline: "tap",
+      division: "junior",
+      min_grade: -1,
+      max_grade: 0,
+      min_age: 4,
+      registration_note:
+        "Dancer must be at least 4 years old by September 1st.",
+    },
+    {
+      name: "Tap 1A",
+      discipline: "tap",
+      division: "junior",
+      min_grade: 1,
+      max_grade: 3,
+    },
+    {
+      name: "Tap 1B",
+      discipline: "tap",
+      division: "junior",
+      min_grade: 3,
+      max_grade: 6,
+    },
+    {
+      name: "Open Level Tap",
+      discipline: "tap",
+      division: "senior",
+      min_grade: 5,
+    },
+    {
+      name: "Tap 2",
+      discipline: "tap",
+      division: "senior",
+      min_grade: 4,
+      max_grade: 7,
+      requires_teacher_rec: true,
+      registration_note: PLACEMENT_NOTE,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Tap 2 is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Tap 3",
+      discipline: "tap",
+      division: "senior",
+      min_grade: 4,
+      max_grade: 8,
+      requires_teacher_rec: true,
+      registration_note: PLACEMENT_NOTE,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Tap 3 is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Intermediate Tap",
+      discipline: "tap",
+      division: "senior",
+      min_grade: 6,
+      requires_teacher_rec: true,
+      registration_note: PLACEMENT_NOTE,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Intermediate Tap is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Advanced Intermediate Tap",
+      discipline: "tap",
+      division: "senior",
+      min_grade: 7,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: REHEARSAL_AND_PLACEMENT,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Advanced Intermediate Tap is by teacher recommendation or audition only. A second weekly class in Ballet, Broadway, or Hip Hop is required.",
+        },
+      ],
+    },
+    {
+      name: "Advanced Tap",
+      discipline: "tap",
+      division: "senior",
+      min_grade: 9,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: REHEARSAL_AND_PLACEMENT,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Advanced Tap is by teacher recommendation or audition only. A second weekly class in Ballet, Broadway, or Hip Hop is required.",
+        },
+      ],
+    },
+
+    // ── BROADWAY ────────────────────────────────────────────────────────────
+    {
+      name: "Broadway 1",
+      discipline: "broadway",
+      division: "junior",
+      min_grade: 3,
+      max_grade: 5,
+      registration_note: "This is a 2–3 year program.",
+    },
+    {
+      name: "Open Broadway 1",
+      discipline: "broadway",
+      division: "senior",
+      min_grade: 5,
+      registration_note: "This is a 2–3 year program. Open to beginners.",
+    },
+    {
+      name: "Open Broadway 2",
+      discipline: "broadway",
+      division: "senior",
+      min_grade: 6,
+      registration_note:
+        "Designed for students who prefer not to add a required ballet or tap class.",
+    },
+    {
+      name: "Open Broadway 3",
+      discipline: "broadway",
+      division: "senior",
+      min_grade: 8,
+      max_grade: 12,
+      registration_note:
+        "Older beginners welcome; private lessons may be recommended by your teacher.",
+      requirements: [
+        {
+          requirement_type: "prerequisite_completed",
+          enforcement: "soft_warn",
+          is_waivable: true,
+          required_discipline: "broadway",
+          required_level: "Open 2",
+          description:
+            "Dancer should have completed two years of Open Broadway 2 or equivalent.",
+        },
+      ],
+    },
+    {
+      name: "Broadway 2",
+      discipline: "broadway",
+      division: "senior",
+      min_grade: 4,
+      max_grade: 7,
+      requires_teacher_rec: true,
+      registration_note: `This is a 2–3 year program. ${PLACEMENT_NOTE}`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Broadway 2 is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Broadway 3",
+      discipline: "broadway",
+      division: "senior",
+      min_grade: 5,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: `${PLACEMENT_NOTE} Two classes per week required; second class must be ballet or tap.`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Broadway 3 is by teacher recommendation or audition only. A second weekly class in Ballet or Tap is required.",
+        },
+      ],
+    },
+    {
+      name: "Broadway 4",
+      discipline: "broadway",
+      division: "senior",
+      min_grade: 7,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: `${PLACEMENT_NOTE} Additional class must be ballet.`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Broadway 4 is by teacher recommendation or audition only.",
+        },
+        {
+          requirement_type: "concurrent_enrollment",
+          enforcement: "hard_block",
+          is_waivable: true,
+          required_discipline: "ballet",
+          description: "Dancer must also be enrolled in a ballet class.",
+        },
+      ],
+    },
+    {
+      name: "Broadway 5",
+      discipline: "broadway",
+      division: "senior",
+      min_grade: 8,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: `${PLACEMENT_NOTE} Three classes per week required; additional classes must be two ballet classes OR one ballet and one tap.`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Broadway 5 is by teacher recommendation or audition only. Three weekly classes are required.",
+        },
+      ],
+    },
+
+    // ── HIP HOP ─────────────────────────────────────────────────────────────
+    {
+      name: "Hip Hop Intro",
+      discipline: "hip_hop",
+      division: "junior",
+      min_grade: -1,
+      max_grade: 0,
+      min_age: 4,
+      registration_note:
+        "Dancer must be at least 4 years old by September 1st.",
+    },
+    {
+      name: "Hip Hop 1",
+      discipline: "hip_hop",
+      division: "junior",
+      min_grade: 1,
+      max_grade: 2,
+    },
+    {
+      name: "Hip Hop 2",
+      discipline: "hip_hop",
+      division: "junior",
+      min_grade: 3,
+      max_grade: 4,
+    },
+    {
+      name: "Hip Hop 3",
+      discipline: "hip_hop",
+      division: "junior",
+      min_grade: 5,
+      max_grade: 7,
+    },
+    {
+      name: "Hip Hop 4",
+      discipline: "hip_hop",
+      division: "senior",
+      min_grade: 7,
+      max_grade: 9,
+      requires_teacher_rec: true,
+      registration_note: PLACEMENT_NOTE,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Hip Hop 4 is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Open Hip Hop 5",
+      discipline: "hip_hop",
+      division: "senior",
+      min_grade: 10,
+      max_grade: 12,
+      requirements: [
+        {
+          requirement_type: "skill_qualification",
+          enforcement: "soft_warn",
+          is_waivable: true,
+          description:
+            "Open Hip Hop 5 is open to all students — no prior training required.",
+        },
+      ],
+    },
+    {
+      name: "Hip Hop 5",
+      discipline: "hip_hop",
+      division: "senior",
+      min_grade: 10,
+      max_grade: 12,
+      requires_teacher_rec: true,
+      registration_note: PLACEMENT_NOTE,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Hip Hop 5 is by teacher recommendation or audition only.",
+        },
+      ],
+    },
+    {
+      name: "Intermediate Hip Hop",
+      discipline: "hip_hop",
+      division: "senior",
+      requires_teacher_rec: true,
+      registration_note: `${PLACEMENT_NOTE} Two classes per week required; second class may be in any discipline.`,
+      requirements: [
+        {
+          requirement_type: "teacher_recommendation",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Placement in Intermediate Hip Hop is by teacher recommendation or audition only.",
+        },
+        {
+          requirement_type: "concurrent_enrollment",
+          enforcement: "hard_block",
+          is_waivable: true,
+          description:
+            "Dancer must also be enrolled in a second weekly class in any discipline.",
+        },
+      ],
+    },
+    {
+      name: "Boys Hip Hop Breakdance 1/2",
+      discipline: "hip_hop",
+      division: "junior",
+      min_age: 6,
+      max_age: 10,
+      registration_note:
+        "This class is designed for boys ages 6–10 and is taught by a male instructor. Two levels are offered in this combined class.",
+    },
+    {
+      name: "Boys Hip Hop Breakdance 3/4",
+      discipline: "hip_hop",
+      division: "senior",
+      min_age: 11,
+      registration_note:
+        "This class is designed for boys ages 11 through teens and is taught by a male instructor. Two levels are offered in this combined class.",
+    },
+  ];
+
+  const classRows: Record<string, unknown>[] = [];
+  const reqRows: Record<string, unknown>[] = [];
+
+  for (const c of catalog) {
+    const classId = uid();
+    classRows.push({
+      id: classId,
+      semester_id: semId,
+      name: c.name,
+      discipline: c.discipline,
+      division: c.division,
+      level: c.level ?? null,
+      description: null,
+      min_age: c.min_age ?? null,
+      max_age: c.max_age ?? null,
+      min_age_months: c.min_age_months ?? null,
+      max_age_months: c.max_age_months ?? null,
+      min_grade: c.min_grade ?? null,
+      max_grade: c.max_grade ?? null,
+      is_competition_track: false,
+      requires_teacher_rec: c.requires_teacher_rec ?? false,
+      requires_parent_accompaniment: c.requires_parent_accompaniment ?? false,
+      registration_note: c.registration_note ?? null,
+      is_active: true,
+    });
+
+    for (const r of c.requirements ?? []) {
+      reqRows.push({
+        id: uid(),
+        class_id: classId,
+        requirement_type: r.requirement_type,
+        enforcement: r.enforcement,
+        is_waivable: r.is_waivable,
+        description: r.description,
+        required_discipline: r.required_discipline ?? null,
+        required_level: r.required_level ?? null,
+        required_class_id: null,
+      });
+    }
+  }
+
+  const CHUNK = 50;
+  for (let i = 0; i < classRows.length; i += CHUNK)
+    await ins("classes", classRows.slice(i, i + CHUNK));
+  for (let i = 0; i < reqRows.length; i += CHUNK)
+    await ins("class_requirements", reqRows.slice(i, i + CHUNK));
+
+  console.log(
+    `  ✓ ${classRows.length} catalog classes, ${reqRows.length} requirements\n`,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1223,6 +2750,7 @@ async function main() {
 
   const { families, users, dancers } = await seedFamilies();
   await seedSemesters();
+  await seedSpecialProgramTuition();
   await seedDiscounts();
 
   const { classes, schedules, tiers, sessions } = await seedClasses();
@@ -1233,16 +2761,21 @@ async function main() {
   await seedSessionGroups(sessions);
   await seedSessionTags(sessions);
   await seedClassRequirements(classes);
+  await seedAYDTClassCatalog();
 
   console.log("╔══════════════════════════════════════════╗");
   console.log("║        ✅  Seed complete!                 ║");
   console.log("╚══════════════════════════════════════════╝");
   console.log("\nSummary:");
-  console.log("  Semesters   : 8 (2 draft, 2 scheduled, 2 published, 2 archived)");
+  console.log(
+    "  Semesters   : 8 (2 draft, 2 scheduled, 2 published, 2 archived)",
+  );
   console.log("  Classes     : 64 (8 per semester × 8 semesters)");
   console.log("  Sessions    : 224+ class_sessions across all semesters");
   console.log("  Families    : 6 (6 parents + 12 dancers)");
-  console.log("  Batches     : 24 registration batches (6/semester × 4 active semesters)");
+  console.log(
+    "  Batches     : 24 registration batches (6/semester × 4 active semesters)",
+  );
   console.log("  Emails      : 5 (draft, scheduled, sending, sent, cancelled)");
   console.log("  Waitlist    : 9 entries across 2 Spring 2026 sessions");
 }

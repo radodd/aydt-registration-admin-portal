@@ -35,6 +35,13 @@ export async function getSemesterForDisplay(
   /* 1. Semester + classes (with class_sessions) + groups + payment + discounts */
   /* ---------------------------------------------------------------------- */
 
+  console.log(
+    "[getSemesterForDisplay]",
+    "semesterId:",
+    semesterId,
+    "mode:",
+    mode,
+  );
   const { data: semester, error: semesterError } = await supabase
     .from("semesters")
     .select(
@@ -101,12 +108,10 @@ export async function getSemesterForDisplay(
     `,
     )
     .eq("id", semesterId)
-    .single();
+    .maybeSingle();
 
   if (semesterError || !semester) {
-    throw new Error(
-      `Semester not found: ${semesterError?.message ?? "unknown"}`,
-    );
+    throw new Error(`Semester not found: ${semesterId} ?? "unknown"}`);
   }
 
   if (mode === "live" && semester.status !== "published") {
@@ -122,17 +127,15 @@ export async function getSemesterForDisplay(
     // Exclude competition/invite-only and explicitly hidden classes from the
     // public catalog. These are only accessible via token or admin invite.
     .filter(
-      (c: ClassRow) =>
-        c.visibility === "public" || c.visibility === undefined,
+      (c: ClassRow) => c.visibility === "public" || c.visibility === undefined,
     )
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const classSessionIds: string[] = semesterClasses.flatMap(
-    (c: ClassRow) =>
-      (c.class_sessions ?? [])
-        .filter((cs: ClassSessionRow) => cs.is_active)
-        .map((cs: ClassSessionRow) => cs.id),
+  const classSessionIds: string[] = semesterClasses.flatMap((c: ClassRow) =>
+    (c.class_sessions ?? [])
+      .filter((cs: ClassSessionRow) => cs.is_active)
+      .map((cs: ClassSessionRow) => cs.id),
   );
 
   // Count confirmed registrations + pending registrations whose hold has not expired.
@@ -199,9 +202,8 @@ export async function getSemesterForDisplay(
       (c.class_sessions ?? [])
         .filter((cs: ClassSessionRow) => cs.is_active)
         .map((cs: ClassSessionRow) => {
-          const pricingModel = (cs.class_schedules?.pricing_model ?? "full_schedule") as
-            | "full_schedule"
-            | "per_session";
+          const pricingModel = (cs.class_schedules?.pricing_model ??
+            "full_schedule") as "full_schedule" | "per_session";
 
           // Capacity and enrollment semantics differ by pricing model:
           //   full_schedule → capacity from class_schedules, enrolled from schedule_enrollments
@@ -221,7 +223,9 @@ export async function getSemesterForDisplay(
 
           const priceTiers = (cs.class_schedules?.schedule_price_tiers ?? [])
             .slice()
-            .sort((a: PriceTierRow, b: PriceTierRow) => a.sort_order - b.sort_order)
+            .sort(
+              (a: PriceTierRow, b: PriceTierRow) => a.sort_order - b.sort_order,
+            )
             .map((t: PriceTierRow) => ({
               id: t.id,
               label: t.label,

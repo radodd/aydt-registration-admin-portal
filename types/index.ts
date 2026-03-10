@@ -269,6 +269,47 @@ export type DraftTuitionRateBand = {
   weekly_class_count: number;
   base_tuition: number;
   recital_fee_included: number;
+  /** Discount % applied to the base tuition for this nth class (0 = no discount). */
+  progressive_discount_percent: number;
+  /** Pre-calculated semester total (base + discounts + fees). Admin-editable reference. */
+  semester_total?: number;
+  /** Per-installment amount for auto-pay (semester_total / installment_count). */
+  autopay_installment_amount?: number;
+  notes?: string;
+};
+
+/**
+ * A fixed-tuition special program entry held in SemesterDraft.
+ * These programs bypass the division-based progressive discount calculation.
+ * Includes: Technique, Pre-Pointe, Pointe, Competition Team, Early Childhood.
+ */
+export type DraftSpecialProgramTuition = {
+  /** Temporary client-only key for React lists (before DB save). */
+  _clientKey: string;
+  /** DB id if the row already exists; undefined for new rows. */
+  id?: string;
+  /**
+   * Stable engine key used to match classes to overrides:
+   * 'technique' | 'pre_pointe' | 'pointe' |
+   * 'competition_junior' | 'competition_senior' | 'early_childhood'
+   */
+  programKey: string;
+  /** Human-readable label shown in the admin UI. */
+  programLabel: string;
+  /** Fixed semester total — no progressive discounts applied. */
+  semesterTotal: number;
+  /** Per-installment amount for auto-pay (null when N/A, e.g. Early Childhood). */
+  autoPayInstallmentAmount: number | null;
+  /** Number of auto-pay installments (null when N/A). */
+  autoPayInstallmentCount: number | null;
+  /**
+   * Override for the semester-level registration fee.
+   * null  → use global registration_fee_per_child
+   * 0     → exempt (no registration fee)
+   * Other → use this exact amount
+   * Technique, Pre-Pointe, Pointe, and Competition programs default to 0.
+   */
+  registrationFeeOverride?: number | null;
   notes?: string;
 };
 
@@ -280,6 +321,7 @@ export type DraftFeeConfig = {
   auto_pay_installment_count: number;          // default 5
   senior_video_fee_per_registrant: number;     // default 15.00
   senior_costume_fee_per_class: number;        // default 65.00
+  junior_costume_fee_per_class: number;        // default 55.00
 };
 
 export interface PricingInput {
@@ -387,7 +429,9 @@ export type ValidationIssueType =
   | "teacher_recommendation"
   | "skill_qualification"
   | "audition_required"
-  | "age_range";
+  | "age_range"
+  | "parent_accompaniment"
+  | "concurrent_enrollment_group";
 
 export interface EnrollmentValidationIssue {
   type: ValidationIssueType;
@@ -575,7 +619,8 @@ export type DraftClassRequirement = {
     | "concurrent_enrollment"
     | "teacher_recommendation"
     | "skill_qualification"
-    | "audition_required";
+    | "audition_required"
+    | "parent_accompaniment";
   /** Human-readable explanation shown to the user when the rule fires */
   description: string;
   enforcement: "soft_warn" | "hard_block";
@@ -586,6 +631,43 @@ export type DraftClassRequirement = {
   required_level?: string | null;
   /** Optionally constrain to a specific class DB id */
   required_class_id?: string | null;
+};
+
+/**
+ * One acceptable class option within a DraftConcurrentEnrollmentGroup.
+ * Maps to concurrent_enrollment_options rows. Options within a group are OR'd.
+ */
+export type DraftConcurrentEnrollmentOption = {
+  /** Stable client-side key for React list rendering (not persisted) */
+  _clientKey: string;
+  /** DB id if the row already exists */
+  id?: string;
+  /** Exact class match (UUID). If set with discipline, both must match. */
+  classId?: string | null;
+  /** Discipline-level match (e.g. 'ballet'). Any class in this discipline satisfies the option. */
+  discipline?: string | null;
+  /** Optional level filter within the discipline (e.g. 'Open 5'). */
+  level?: string | null;
+};
+
+/**
+ * An OR-logic group of concurrent enrollment options on a class.
+ * Maps to concurrent_enrollment_groups rows.
+ * A dancer satisfies the group if they enroll in ANY one of its options.
+ * Multiple groups on the same class are AND'd (each must be independently satisfied).
+ */
+export type DraftConcurrentEnrollmentGroup = {
+  /** Stable client-side key for React list rendering (not persisted) */
+  _clientKey: string;
+  /** DB id if the row already exists */
+  id?: string;
+  /** Internal label for this group (e.g. "third_weekly_class", "non_ballet_class") */
+  groupLabel: string;
+  enforcement: "hard_block" | "soft_warn";
+  isWaivable: boolean;
+  /** Human-readable message shown to the user when no option is satisfied */
+  description: string;
+  options: DraftConcurrentEnrollmentOption[];
 };
 
 /**
@@ -614,11 +696,21 @@ export type DraftClass = {
   description?: string;
   minAge?: number | null;
   maxAge?: number | null;
-  /** Optional grade range for enrollment eligibility */
+  /** Age range in whole months — used for early childhood classes (e.g. 18–26 months).
+   *  When non-null, takes precedence over minAge/maxAge in validation. */
+  minAgeMonths?: number | null;
+  maxAgeMonths?: number | null;
+  /** Optional grade range for enrollment eligibility (K=0, Pre-K4=-1, Pre-K3=-2) */
   minGrade?: number | null;
   maxGrade?: number | null;
   isCompetitionTrack?: boolean;
   requiresTeacherRec?: boolean;
+  /** If true, a parent or caregiver must accompany the dancer in class.
+   *  Set alongside a parent_accompaniment class_requirement row. */
+  requiresParentAccompaniment?: boolean;
+  /** Informational text shown to families during enrollment. Not enforced.
+   *  Use for mandatory rehearsal notices, multi-year program notes, etc. */
+  registrationNote?: string | null;
   /** "public" | "hidden" | "invite_only" — controls catalog visibility */
   visibility?: ClassVisibility;
   /** "standard" | "audition" — controls booking flow */
@@ -628,6 +720,9 @@ export type DraftClass = {
   schedules: DraftClassSchedule[];
   /** Phase 6: enrollment rules (prerequisite, concurrent, audition, etc.) */
   requirements?: DraftClassRequirement[];
+  /** OR-logic concurrent enrollment groups (e.g. "must also enroll in Ballet OR Tap").
+   *  Each group must be independently satisfied (groups are AND'd; options within a group are OR'd). */
+  concurrentEnrollmentGroups?: DraftConcurrentEnrollmentGroup[];
   // ---- Competition track transactional emails (nullable for standard classes) ----
   /** Sent when admin sends an invite to a dancer. */
   inviteEmail?: ClassEmailConfig;
@@ -796,6 +891,9 @@ export type SemesterDraft = {
 
   /** Phase 2: per-semester fee constants (registration fee, family discount, auto-pay). */
   feeConfig?: DraftFeeConfig;
+
+  /** Tuition engine: fixed-fee programs that bypass progressive discount calculations. */
+  specialProgramTuition?: DraftSpecialProgramTuition[];
 };
 
 export type SemesterAction =
@@ -816,6 +914,7 @@ export type SemesterAction =
   | { type: "SET_WAITLIST"; payload: SemesterDraft["waitlist"] }
   | { type: "SET_TUITION_RATE_BANDS"; payload: DraftTuitionRateBand[] }
   | { type: "SET_FEE_CONFIG"; payload: DraftFeeConfig }
+  | { type: "SET_SPECIAL_PROGRAM_TUITION"; payload: DraftSpecialProgramTuition[] }
   | { type: "ADD_FORM_ELEMENT"; payload: RegistrationFormElement }
   | { type: "UPDATE_FORM_ELEMENT"; payload: RegistrationFormElement }
   | { type: "REMOVE_FORM_ELEMENT"; payload: string }

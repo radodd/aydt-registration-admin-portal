@@ -70,6 +70,10 @@ function semesterReducer(
       nextState = { ...state, feeConfig: action.payload };
       break;
 
+    case "SET_SPECIAL_PROGRAM_TUITION":
+      nextState = { ...state, specialProgramTuition: action.payload };
+      break;
+
     case "ADD_FORM_ELEMENT":
       nextState = {
         ...state,

@@ -7,9 +7,12 @@ import {
   DraftSchedulePriceTier,
   DraftSessionExcludedDate,
   DraftSessionOption,
+  DraftSpecialProgramTuition,
+  DraftTuitionRateBand,
   SessionsStepProps,
 } from "@/types";
 import { useState } from "react";
+import { calculateClassTuition } from "@/utils/tuitionEngine";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
@@ -44,6 +47,41 @@ const DAYS_OF_WEEK = [
   { value: "saturday", label: "Sat" },
   { value: "sunday", label: "Sun" },
 ];
+
+/* -------------------------------------------------------------------------- */
+/* Tuition auto-fill helper                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Looks up the configured semester total for this class via the tuition engine
+ * and returns a ready-to-insert default price tier, or null if no rate exists.
+ * Used to auto-populate pricing when division or days-of-week changes.
+ */
+function buildDefaultPriceTierFromState(
+  division: string,
+  weeklyCount: number,
+  discipline: string,
+  level: string | null | undefined,
+  rateBands: DraftTuitionRateBand[],
+  specialRates: DraftSpecialProgramTuition[],
+): DraftSchedulePriceTier | null {
+  const result = calculateClassTuition({
+    division,
+    weeklyClassCount: Math.max(1, weeklyCount),
+    discipline,
+    level,
+    rateBands,
+    specialRates,
+  });
+  if (result.source === "unresolved" || result.semesterTotal === 0) return null;
+  return {
+    _clientKey: Date.now().toString() + Math.random(),
+    label: "Regular",
+    amount: result.semesterTotal,
+    sortOrder: 0,
+    isDefault: true,
+  };
+}
 
 /* -------------------------------------------------------------------------- */
 /* Empty scaffolds                                                            */
@@ -180,10 +218,16 @@ export default function SessionsStep({
   const [expandedClassIdx, setExpandedClassIdx] = useState<number | null>(
     classes.length > 0 ? 0 : null,
   );
+
+  // Tuition engine config — pulled from state so SessionsStep auto-fills from
+  // whatever the admin configured in PaymentStep.
+  const rateBands: DraftTuitionRateBand[] = state.tuitionRateBands ?? [];
+  const specialRates: DraftSpecialProgramTuition[] = state.specialProgramTuition ?? [];
   const [rangeErrors, setRangeErrors] = useState<Map<number, string[]>>(
     new Map(),
   );
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [searchQuery, setSearchQuery] = useState("");
 
   /* ---------------------------------------------------------------------- */
   /* Class-level handlers                                                    */
@@ -355,6 +399,19 @@ export default function SessionsStep({
         </div>
       )}
 
+      {/* Search bar */}
+      {classes.length > 0 && (
+        <div>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search classes..."
+            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+      )}
+
       {/* ------------------------------------------------------------------ */}
       {/* Standard Classes section                                            */}
       {/* ------------------------------------------------------------------ */}
@@ -365,6 +422,10 @@ export default function SessionsStep({
 
         {[...classes.entries()]
           .filter(([, c]) => c.offeringType !== "competition_track")
+          .filter(([, c]) =>
+            searchQuery === "" ||
+            c.name.toLowerCase().includes(searchQuery.toLowerCase()),
+          )
           .sort(([, a], [, b]) =>
             sortDir === "asc"
               ? a.name.localeCompare(b.name)
@@ -378,17 +439,19 @@ export default function SessionsStep({
               semesterId={state.id}
               isExpanded={expandedClassIdx === classIdx}
               isLocked={isLocked}
+              rateBands={rateBands}
+              specialRates={specialRates}
               onToggle={() =>
                 setExpandedClassIdx(
                   expandedClassIdx === classIdx ? null : classIdx,
                 )
               }
               onUpdateClass={(patch) => handleUpdateClass(classIdx, patch)}
-              onRemoveClass={() => handleRemoveClass(classIdx)}
-              onAddSchedule={() => handleAddSchedule(classIdx)}
               onUpdateSchedule={(scheduleIdx, patch) =>
                 handleUpdateSchedule(classIdx, scheduleIdx, patch)
               }
+              onRemoveClass={() => handleRemoveClass(classIdx)}
+              onAddSchedule={() => handleAddSchedule(classIdx)}
               onRemoveSchedule={(scheduleIdx) =>
                 handleRemoveSchedule(classIdx, scheduleIdx)
               }
@@ -437,6 +500,10 @@ export default function SessionsStep({
 
         {[...classes.entries()]
           .filter(([, c]) => c.offeringType === "competition_track")
+          .filter(([, c]) =>
+            searchQuery === "" ||
+            c.name.toLowerCase().includes(searchQuery.toLowerCase()),
+          )
           .sort(([, a], [, b]) =>
             sortDir === "asc"
               ? a.name.localeCompare(b.name)
@@ -450,17 +517,19 @@ export default function SessionsStep({
               semesterId={state.id}
               isExpanded={expandedClassIdx === classIdx}
               isLocked={isLocked}
+              rateBands={rateBands}
+              specialRates={specialRates}
               onToggle={() =>
                 setExpandedClassIdx(
                   expandedClassIdx === classIdx ? null : classIdx,
                 )
               }
               onUpdateClass={(patch) => handleUpdateClass(classIdx, patch)}
-              onRemoveClass={() => handleRemoveClass(classIdx)}
-              onAddSchedule={() => handleAddSchedule(classIdx)}
               onUpdateSchedule={(scheduleIdx, patch) =>
                 handleUpdateSchedule(classIdx, scheduleIdx, patch)
               }
+              onRemoveClass={() => handleRemoveClass(classIdx)}
+              onAddSchedule={() => handleAddSchedule(classIdx)}
               onRemoveSchedule={(scheduleIdx) =>
                 handleRemoveSchedule(classIdx, scheduleIdx)
               }
@@ -528,11 +597,13 @@ function ClassCard({
   semesterId,
   isExpanded,
   isLocked,
+  rateBands,
+  specialRates,
   onToggle,
   onUpdateClass,
+  onUpdateSchedule,
   onRemoveClass,
   onAddSchedule,
-  onUpdateSchedule,
   onRemoveSchedule,
   onAddRequirement,
   onRemoveRequirement,
@@ -543,11 +614,13 @@ function ClassCard({
   semesterId?: string;
   isExpanded: boolean;
   isLocked: boolean;
+  rateBands: DraftTuitionRateBand[];
+  specialRates: DraftSpecialProgramTuition[];
   onToggle: () => void;
   onUpdateClass: (patch: Partial<DraftClass>) => void;
+  onUpdateSchedule: (idx: number, patch: Partial<DraftClassSchedule>) => void;
   onRemoveClass: () => void;
   onAddSchedule: () => void;
-  onUpdateSchedule: (idx: number, patch: Partial<DraftClassSchedule>) => void;
   onRemoveSchedule: (idx: number) => void;
   onAddRequirement: (req: DraftClassRequirement) => void;
   onRemoveRequirement: (idx: number) => void;
@@ -600,7 +673,6 @@ function ClassCard({
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
               {disciplineLabel} · {divisionLabel}
-              {cls.level ? ` · Level ${cls.level}` : ""}
               {isCompetitionTrack
                 ? " · Invite Only · Audition"
                 : ` · ${scheduleCount} schedule block${scheduleCount !== 1 ? "s" : ""}`}
@@ -641,22 +713,6 @@ function ClassCard({
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
-                Display name
-              </label>
-              <input
-                type="text"
-                disabled={isLocked}
-                value={cls.displayName ?? ""}
-                onChange={(e) =>
-                  onUpdateClass({ displayName: e.target.value || undefined })
-                }
-                placeholder="Public-facing name (defaults to class name if blank)"
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
-              />
-            </div>
-
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
                 Discipline *
@@ -682,7 +738,26 @@ function ClassCard({
               <select
                 disabled={isLocked}
                 value={cls.division}
-                onChange={(e) => onUpdateClass({ division: e.target.value })}
+                onChange={(e) => {
+                  const newDivision = e.target.value;
+                  onUpdateClass({ division: newDivision });
+                  // Auto-fill tuition on each schedule that has no price tiers yet.
+                  (cls.schedules ?? []).forEach((sched, idx) => {
+                    if ((sched.priceTiers ?? []).length === 0) {
+                      const weeklyCount = Math.max(1, sched.daysOfWeek.length);
+                      const tier = buildDefaultPriceTierFromState(
+                        newDivision, weeklyCount, cls.discipline, cls.level,
+                        rateBands, specialRates,
+                      );
+                      if (tier) {
+                        onUpdateSchedule(idx, {
+                          pricingModel: "full_schedule",
+                          priceTiers: [tier],
+                        });
+                      }
+                    }
+                  });
+                }}
                 className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
               >
                 {DIVISIONS.map((d) => (
@@ -691,22 +766,6 @@ function ClassCard({
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
-                Level
-              </label>
-              <input
-                type="text"
-                disabled={isLocked}
-                value={cls.level ?? ""}
-                onChange={(e) =>
-                  onUpdateClass({ level: e.target.value || undefined })
-                }
-                placeholder="e.g. 1A, 2, Advanced"
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
-              />
             </div>
 
             {/* Age restriction toggle */}
@@ -1004,6 +1063,11 @@ function ClassCard({
                   canRemove={schedules.length > 0}
                   onChange={(patch) => onUpdateSchedule(scheduleIdx, patch)}
                   onRemove={() => onRemoveSchedule(scheduleIdx)}
+                  division={cls.division}
+                  discipline={cls.discipline}
+                  level={cls.level}
+                  rateBands={rateBands}
+                  specialRates={specialRates}
                 />
               ))}
             </div>
@@ -1032,25 +1096,25 @@ function ScheduleEditor({
   canRemove,
   onChange,
   onRemove,
+  division,
+  discipline,
+  level,
+  rateBands,
+  specialRates,
 }: {
   schedule: DraftClassSchedule;
   isLocked: boolean;
   canRemove: boolean;
   onChange: (patch: Partial<DraftClassSchedule>) => void;
   onRemove: () => void;
+  division: string;
+  discipline: string;
+  level?: string | null;
+  rateBands: DraftTuitionRateBand[];
+  specialRates: DraftSpecialProgramTuition[];
 }) {
   const [newExcludedDate, setNewExcludedDate] = useState("");
   const [newExcludedReason, setNewExcludedReason] = useState("");
-  const [showTierForm, setShowTierForm] = useState(false);
-  const [draftTier, setDraftTier] = useState<{
-    label: string;
-    amount: string;
-    isDefault: boolean;
-  }>({
-    label: "",
-    amount: "",
-    isDefault: (schedule.priceTiers ?? []).length === 0,
-  });
   const [showOptionForm, setShowOptionForm] = useState(false);
   const [draftOption, setDraftOption] = useState<{
     name: string;
@@ -1079,7 +1143,18 @@ function ScheduleEditor({
     const updated = current.includes(day)
       ? current.filter((d) => d !== day)
       : [...current, day];
-    onChange({ daysOfWeek: updated });
+    const patch: Partial<DraftClassSchedule> = { daysOfWeek: updated };
+    // Auto-fill tuition if no tiers are set yet and at least one day is selected.
+    if ((schedule.priceTiers ?? []).length === 0 && updated.length > 0) {
+      const tier = buildDefaultPriceTierFromState(
+        division, updated.length, discipline, level, rateBands, specialRates,
+      );
+      if (tier) {
+        patch.pricingModel = "full_schedule";
+        patch.priceTiers = [tier];
+      }
+    }
+    onChange(patch);
   }
 
   /* ---------------------------------------------------------------------- */
@@ -1104,43 +1179,23 @@ function ScheduleEditor({
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Price tiers (Mode A — full_schedule)                                   */
+  /* Division base price (Mode A — full_schedule)                          */
   /* ---------------------------------------------------------------------- */
 
-  function handleAddTier() {
-    if (!draftTier.label.trim() || draftTier.amount === "") return;
-    const amount = parseFloat(draftTier.amount);
+  function handleAmountChange(raw: string) {
+    const amount = parseFloat(raw);
     if (isNaN(amount) || amount < 0) return;
-    const newTier: DraftSchedulePriceTier = {
-      _clientKey: Date.now().toString(),
-      label: draftTier.label.trim(),
-      amount,
-      sortOrder: priceTiers.length,
-      isDefault: draftTier.isDefault || priceTiers.length === 0,
-    };
-    const updated = draftTier.isDefault
-      ? priceTiers.map((t) => ({ ...t, isDefault: false }))
-      : [...priceTiers];
-    onChange({ priceTiers: [...updated, newTier] });
-    setDraftTier({ label: "", amount: "", isDefault: false });
-    setShowTierForm(false);
-  }
-
-  function handleSetDefaultTier(clientKey: string) {
-    onChange({
-      priceTiers: priceTiers.map((t) => ({
-        ...t,
-        isDefault: t._clientKey === clientKey,
-      })),
-    });
-  }
-
-  function handleRemoveTier(clientKey: string) {
-    const updated = priceTiers.filter((t) => t._clientKey !== clientKey);
-    if (updated.length > 0 && !updated.some((t) => t.isDefault)) {
-      updated[0] = { ...updated[0], isDefault: true };
-    }
-    onChange({ priceTiers: updated });
+    const existing = (schedule.priceTiers ?? [])[0];
+    const tier: DraftSchedulePriceTier = existing
+      ? { ...existing, amount }
+      : {
+          _clientKey: Date.now().toString() + Math.random(),
+          label: "Regular",
+          amount,
+          sortOrder: 0,
+          isDefault: true,
+        };
+    onChange({ priceTiers: [tier] });
   }
 
   /* ---------------------------------------------------------------------- */
@@ -1564,164 +1619,75 @@ function ScheduleEditor({
           ))}
         </div>
 
-        {/* Mode A: schedule-level price tiers */}
-        {pricingModel === "full_schedule" && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-500">
-                Price tiers — user selects one at checkout
-              </p>
-              {!isLocked && !showTierForm && (
-                <button
-                  type="button"
-                  onClick={() => setShowTierForm(true)}
-                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
-                >
-                  + Add tier
-                </button>
-              )}
-            </div>
-            {priceTiers.length === 0 && !showTierForm && (
-              <p className="text-xs text-gray-400 italic">
-                No tiers — falls back to semester tuition rate bands.
-              </p>
-            )}
-            {priceTiers.length > 0 && (
-              <div className="rounded-lg border border-gray-200 overflow-hidden">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-50 text-gray-500">
-                    <tr>
-                      <th className="px-3 py-1.5 text-left font-medium">
-                        Label
-                      </th>
-                      <th className="px-3 py-1.5 text-right font-medium">
-                        Amount
-                      </th>
-                      <th className="px-3 py-1.5 text-center font-medium">
-                        Default
-                      </th>
-                      {!isLocked && <th className="px-3 py-1.5" />}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {priceTiers.map((tier) => (
-                      <tr key={tier._clientKey} className="bg-white">
-                        <td className="px-3 py-1.5 text-gray-700">
-                          {tier.label}
-                        </td>
-                        <td className="px-3 py-1.5 text-right text-gray-700">
-                          ${tier.amount.toFixed(2)}
-                        </td>
-                        <td className="px-3 py-1.5 text-center">
-                          {tier.isDefault ? (
-                            <span className="text-indigo-600 font-medium">
-                              ✓
-                            </span>
-                          ) : !isLocked ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleSetDefaultTier(tier._clientKey)
-                              }
-                              className="text-gray-400 hover:text-indigo-600 transition"
-                            >
-                              Set
-                            </button>
-                          ) : null}
-                        </td>
-                        {!isLocked && (
-                          <td className="px-3 py-1.5 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveTier(tier._clientKey)}
-                              className="text-red-400 hover:text-red-600 transition"
-                            >
-                              Remove
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+        {/* Mode A: division-based price */}
+        {pricingModel === "full_schedule" && (() => {
+          const weeklyCount = Math.max(1, (schedule.daysOfWeek ?? []).length);
+          const engineResult = calculateClassTuition({
+            division, weeklyClassCount: weeklyCount, discipline, level,
+            rateBands, specialRates,
+          });
+          const existingTier = priceTiers[0] ?? null;
+          const defaultTierFromEngine = buildDefaultPriceTierFromState(
+            division, weeklyCount, discipline, level, rateBands, specialRates,
+          );
+          const isUnresolved = engineResult.source === "unresolved" && !engineResult.validationError;
+          return (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                  Division Base Price
+                </p>
+                {!isLocked && defaultTierFromEngine && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onChange({
+                        pricingModel: "full_schedule",
+                        priceTiers: [defaultTierFromEngine],
+                      })
+                    }
+                    className="text-xs text-gray-400 hover:text-indigo-600 transition"
+                  >
+                    Reset to division default
+                  </button>
+                )}
               </div>
-            )}
-            {showTierForm && (
-              <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-3 space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Label *
-                    </label>
-                    <input
-                      type="text"
-                      value={draftTier.label}
-                      onChange={(e) =>
-                        setDraftTier((d) => ({ ...d, label: e.target.value }))
-                      }
-                      placeholder="e.g. Regular"
-                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">
-                      Amount ($) *
-                    </label>
+              {isUnresolved ? (
+                <p className="text-xs text-amber-600 italic">
+                  No tuition rate configured for this division. Set up rates in Payment → Tuition Rates.
+                </p>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 max-w-xs">
+                    <span className="text-sm text-gray-500">$</span>
                     <input
                       type="number"
                       min={0}
                       step="0.01"
-                      value={draftTier.amount}
-                      onChange={(e) =>
-                        setDraftTier((d) => ({ ...d, amount: e.target.value }))
-                      }
-                      placeholder="0.00"
-                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      disabled={isLocked}
+                      value={existingTier ? existingTier.amount.toFixed(2) : ""}
+                      onChange={(e) => handleAmountChange(e.target.value)}
+                      placeholder={defaultTierFromEngine ? defaultTierFromEngine.amount.toFixed(2) : "0.00"}
+                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
                     />
                   </div>
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={draftTier.isDefault}
-                    onChange={(e) =>
-                      setDraftTier((d) => ({
-                        ...d,
-                        isDefault: e.target.checked,
-                      }))
-                    }
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="text-xs text-gray-700">
-                    Set as default tier
-                  </span>
-                </label>
-                <div className="flex gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowTierForm(false);
-                      setDraftTier({ label: "", amount: "", isDefault: false });
-                    }}
-                    className="text-xs text-gray-500 hover:text-gray-700 transition px-2 py-1"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddTier}
-                    disabled={
-                      !draftTier.label.trim() || draftTier.amount === ""
-                    }
-                    className="text-xs font-medium bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
-                  >
-                    Add tier
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+                  {defaultTierFromEngine && (
+                    <p className="text-xs text-gray-400">
+                      Base rate: ${defaultTierFromEngine.amount.toFixed(2)}
+                    </p>
+                  )}
+                  {existingTier &&
+                    engineResult.autoPayInstallmentAmount &&
+                    existingTier.amount === engineResult.semesterTotal && (
+                      <p className="text-xs text-gray-400">
+                        Auto-pay: 5× ${engineResult.autoPayInstallmentAmount.toFixed(2)}/mo
+                      </p>
+                    )}
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Mode B: single drop-in price per session */}
         {pricingModel === "per_session" && (

@@ -69,6 +69,9 @@ export async function computePricingQuote(
     senior_costume_fee_per_class: Number(
       feeConfigRow?.senior_costume_fee_per_class ?? 65,
     ),
+    junior_costume_fee_per_class: Number(
+      feeConfigRow?.junior_costume_fee_per_class ?? 55,
+    ),
   };
 
   /* ---------------------------------------------------------------------- */
@@ -135,7 +138,7 @@ export async function computePricingQuote(
     // Fetch the class + schedule_date for each session
     const { data: sessionRows, error: sessionError } = await supabase
       .from("class_sessions")
-      .select("id, schedule_date, day_of_week, classes(id, name, division, is_competition_track)")
+      .select("id, schedule_date, day_of_week, classes(id, name, division, discipline, is_competition_track)")
       .in("id", sessionIds);
 
     if (sessionError) throw new Error(sessionError.message);
@@ -163,6 +166,7 @@ export async function computePricingQuote(
         id: string;
         name: string;
         division: string;
+        discipline: string;
         is_competition_track: boolean;
       } | null;
     });
@@ -192,6 +196,41 @@ export async function computePricingQuote(
       weeklyClassCount = classDayPairs.size;
     } else {
       weeklyClassCount = sessionIds.length;
+    }
+
+    // Classify each class as "standard" or "fee-exempt".
+    // Fee-exempt programs (technique, pointe, competition) skip the
+    // registration fee and video/costume fees entirely.
+    // Early childhood has no video/costume fees but DOES pay registration.
+    const isFeeExemptClass = (cls: {
+      discipline: string;
+      division: string;
+    }): boolean =>
+      cls.discipline === "technique" ||
+      cls.discipline === "pointe" ||
+      cls.division === "competition";
+
+    const standardClasses = classesForDancer.filter(
+      (c) => c !== null && !isFeeExemptClass(c),
+    );
+
+    // Weekly class count used for costume fee: only standard (non-exempt) classes.
+    let standardWeeklyCount: number;
+    if (isPerDayModel) {
+      const stdClassDayPairs = new Set(
+        sessionRows
+          .filter((s) => {
+            const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+            return cls && !isFeeExemptClass(cls as { discipline: string; division: string });
+          })
+          .map((s) => {
+            const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+            return `${(cls as any)?.id ?? ""}:${(s as any).day_of_week ?? ""}`;
+          }),
+      );
+      standardWeeklyCount = stdClassDayPairs.size;
+    } else {
+      standardWeeklyCount = standardClasses.length;
     }
 
     // Dual-path pricing: check for per-session price rows first,
@@ -264,32 +303,47 @@ export async function computePricingQuote(
     }
 
     /* -------------------------------------------------------------------- */
-    /* Senior division extra fees                                             */
+    /* Division costume / video fees                                          */
+    /* Only applied to standard (non-exempt) classes.                        */
+    /* Senior → video fee (flat, per registrant) + costume (per std class)   */
+    /* Junior → costume fee only (per std class); no video fee               */
+    /* Technique / Pointe / Competition / Early Childhood → exempt           */
     /* -------------------------------------------------------------------- */
     let videoFee = 0;
     let costumeFee = 0;
 
-    if (division === "senior") {
-      videoFee = feeConfig.senior_video_fee_per_registrant;
-      costumeFee = round2(feeConfig.senior_costume_fee_per_class * weeklyClassCount);
+    if (standardWeeklyCount > 0) {
+      if (division === "senior") {
+        videoFee = feeConfig.senior_video_fee_per_registrant;
+        costumeFee = round2(feeConfig.senior_costume_fee_per_class * standardWeeklyCount);
 
-      tuition += videoFee;
-      tuition += costumeFee;
+        tuition += videoFee;
+        tuition += costumeFee;
 
-      lineItems.push(
-        {
-          type: "video_fee",
-          label: "Video Fee (Senior)",
-          amount: videoFee,
-          description: "One-time video fee per senior registrant",
-        },
-        {
+        lineItems.push(
+          {
+            type: "video_fee",
+            label: "Video Fee (Senior)",
+            amount: videoFee,
+            description: "One-time video fee per senior registrant",
+          },
+          {
+            type: "costume_fee",
+            label: `Costume Fee (${standardWeeklyCount} class${standardWeeklyCount !== 1 ? "es" : ""})`,
+            amount: costumeFee,
+            description: `$${feeConfig.senior_costume_fee_per_class} per class`,
+          },
+        );
+      } else if (division === "junior") {
+        costumeFee = round2(feeConfig.junior_costume_fee_per_class * standardWeeklyCount);
+        tuition += costumeFee;
+        lineItems.push({
           type: "costume_fee",
-          label: `Costume Fee (${weeklyClassCount} class${weeklyClassCount !== 1 ? "es" : ""})`,
+          label: `Costume Fee (${standardWeeklyCount} class${standardWeeklyCount !== 1 ? "es" : ""})`,
           amount: costumeFee,
-          description: `$${feeConfig.senior_costume_fee_per_class} per class`,
-        },
-      );
+          description: `$${feeConfig.junior_costume_fee_per_class} per class`,
+        });
+      }
     }
 
     /* -------------------------------------------------------------------- */
@@ -341,13 +395,22 @@ export async function computePricingQuote(
 
     /* -------------------------------------------------------------------- */
     /* Registration fee (not discountable)                                   */
+    /* Exempt when ALL of the dancer's classes are fee-exempt programs       */
+    /* (technique, pointe, competition). Early childhood is NOT exempt.      */
     /* -------------------------------------------------------------------- */
-    const registrationFee = feeConfig.registration_fee_per_child;
-    lineItems.push({
-      type: "registration_fee",
-      label: "Registration Fee",
-      amount: registrationFee,
-    });
+    const allClassesAreExempt =
+      classesForDancer.length > 0 &&
+      classesForDancer.every((c) => c !== null && isFeeExemptClass(c));
+    const registrationFee = allClassesAreExempt
+      ? 0
+      : feeConfig.registration_fee_per_child;
+    if (registrationFee > 0) {
+      lineItems.push({
+        type: "registration_fee",
+        label: "Registration Fee",
+        amount: registrationFee,
+      });
+    }
 
     perDancer.push({
       dancerId,
