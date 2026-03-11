@@ -1,7 +1,7 @@
 "use client";
 
 import { HydratedDiscount, SemesterDraft } from "@/types";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getDiscounts } from "@/queries/admin";
 import RegistrationFormRenderer from "@/app/components/semester-flow/RegistrationFormRender";
 
@@ -17,8 +17,8 @@ type TabKey =
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "details", label: "Details" },
-  { key: "sessions", label: "Sessions" },
-  { key: "sessionGroups", label: "Session Groups" },
+  { key: "sessions", label: "Classes & Offerings" },
+  { key: "sessionGroups", label: "Class Groups" },
   { key: "payment", label: "Payment" },
   { key: "discounts", label: "Discounts" },
   { key: "registrationForm", label: "Registration Form" },
@@ -35,6 +35,7 @@ type SemesterTabsProps = {
 export default function SemesterTabs({ data, publishActions }: SemesterTabsProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("details");
   const [allDiscounts, setAllDiscounts] = useState<HydratedDiscount[]>([]);
+  const [expandedClasses, setExpandedClasses] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let active = true;
@@ -54,6 +55,82 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
   const appliedDiscounts = allDiscounts.filter((d) =>
     appliedDiscountIds.includes(d.id),
   );
+
+  // Build a lookup: schedule id → "ClassName — Days" for use in Class Groups tab
+  const scheduleMap = useMemo(() => {
+    const map = new Map<string, string>();
+    safeClasses.forEach((cls) => {
+      (cls.schedules ?? []).forEach((cs) => {
+        if (cs.id) {
+          const days = cs.daysOfWeek
+            .map((d) => d.charAt(0).toUpperCase() + d.slice(1))
+            .join(", ");
+          map.set(cs.id, `${cls.name} — ${days}`);
+        }
+      });
+    });
+    return map;
+  }, [safeClasses]);
+
+  function toggleClass(key: string) {
+    setExpandedClasses((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function toTitleCase(str: string) {
+    return str
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  function countIndividualSessions(schedules: NonNullable<typeof safeClasses[0]["schedules"]>): number {
+    const DAY_INDEX: Record<string, number> = {
+      sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+      thursday: 4, friday: 5, saturday: 6,
+    };
+    let total = 0;
+    for (const cs of schedules) {
+      if (!cs.startDate || !cs.endDate || cs.daysOfWeek.length === 0) {
+        // Fall back to number of days-of-week as a rough proxy
+        total += cs.daysOfWeek.length || 1;
+        continue;
+      }
+      const targetDays = new Set(
+        cs.daysOfWeek.map((d) => DAY_INDEX[d.toLowerCase()]).filter((n) => n !== undefined),
+      );
+      const excluded = new Set((cs.excludedDates ?? []).map((e) => e.date));
+      const end = new Date(cs.endDate);
+      const cur = new Date(cs.startDate);
+      while (cur <= end) {
+        if (targetDays.has(cur.getDay())) {
+          const iso = cur.toISOString().slice(0, 10);
+          if (!excluded.has(iso)) total++;
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+    return total;
+  }
+
+  function fmtDate(iso: string) {
+    return new Date(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  function fmtTime(t: string) {
+    // "HH:mm" → "h:mm AM/PM"
+    const [h, m] = t.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour = h % 12 === 0 ? 12 : h % 12;
+    return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
+  }
 
   function renderTabContent() {
     switch (activeTab) {
@@ -90,70 +167,293 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
         );
 
       /* ---------------------------------------------------------------------- */
-      /* Sessions                                                                */
+      /* Classes & Offerings                                                     */
       /* ---------------------------------------------------------------------- */
       case "sessions":
         return safeClasses.length > 0 ? (
-          <div className="space-y-4">
-            {safeClasses.map((cls) => (
-              <div
-                key={cls.id ?? cls.name}
-                className="border border-gray-200 rounded-xl p-4 space-y-2"
-              >
-                <div className="font-medium text-gray-900">{cls.name}</div>
-                <div className="text-sm text-gray-500 capitalize">
-                  {cls.discipline.replace(/_/g, " ")} · {cls.division}
-                  {cls.level ? ` · ${cls.level}` : ""}
-                </div>
-                <div className="space-y-1 pt-1">
-                  {(cls.schedules ?? []).map((cs, i) => (
-                    <div key={cs.id ?? i} className="text-sm text-gray-500">
-                      {cs.daysOfWeek
-                        .map((d) => d.charAt(0).toUpperCase() + d.slice(1))
-                        .join(", ")}
-                      {cs.startTime ? ` · ${cs.startTime}` : ""}
-                      {cs.endTime ? ` – ${cs.endTime}` : ""}
-                      {cs.capacity != null ? ` · Cap: ${cs.capacity}` : ""}
-                      {cs.registrationCloseAt && (
-                        <span className="text-xs text-gray-400 ml-1">
-                          · closes{" "}
-                          {new Date(cs.registrationCloseAt).toLocaleDateString(
-                            "en-US",
-                            { month: "short", day: "numeric", year: "numeric" },
-                          )}
+          <div className="space-y-3">
+            {safeClasses.map((cls) => {
+              const cardKey = cls.id ?? cls.name;
+              const isOpen = expandedClasses.has(cardKey);
+              const sessionCount = countIndividualSessions(cls.schedules ?? []);
+
+              return (
+                <div
+                  key={cardKey}
+                  className="border border-gray-200 rounded-xl overflow-hidden"
+                >
+                  {/* Card header — always visible, clickable to toggle */}
+                  <button
+                    type="button"
+                    onClick={() => toggleClass(cardKey)}
+                    className="w-full text-left px-4 py-3.5 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      {/* Name + competition badge */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-gray-900">
+                          {cls.displayName || cls.name}
                         </span>
+                        {cls.isCompetitionTrack && (
+                          <Badge label="Competition Track" color="amber" />
+                        )}
+                      </div>
+
+                      {/* Discipline · Division */}
+                      <div className="text-sm text-gray-500">
+                        {cls.discipline ? toTitleCase(cls.discipline) : ""}
+                        {cls.division ? ` · ${toTitleCase(cls.division)}` : ""}
+                      </div>
+
+                      {/* Badge row */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {cls.visibility && cls.visibility !== "public" && (
+                          <Badge
+                            label={cls.visibility === "hidden" ? "Hidden" : "Invite Only"}
+                            color={cls.visibility === "hidden" ? "gray" : "indigo"}
+                          />
+                        )}
+                        {cls.enrollmentType === "audition" && (
+                          <Badge label="Audition Required" color="indigo" />
+                        )}
+                        <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full">
+                          {sessionCount} session{sessionCount !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </div>
+
+                    <ExpandIcon open={isOpen} />
+                  </button>
+
+                  {/* Expanded body */}
+                  {isOpen && (
+                    <div className="border-t border-gray-100 px-4 py-4 space-y-4 bg-gray-50/50">
+                      {/* Description */}
+                      {cls.description && (
+                        <p className="text-sm text-gray-500 italic">
+                          {cls.description}
+                        </p>
+                      )}
+
+                      {/* Age / grade range */}
+                      {(cls.minAge != null || cls.maxAge != null) && (
+                        <div className="text-sm text-gray-600">
+                          Ages{" "}
+                          {cls.minAge != null ? cls.minAge : "—"}
+                          {" – "}
+                          {cls.maxAge != null ? cls.maxAge : "—"}
+                        </div>
+                      )}
+                      {(cls.minGrade != null || cls.maxGrade != null) && (
+                        <div className="text-sm text-gray-600">
+                          Grades{" "}
+                          {cls.minGrade != null ? cls.minGrade : "—"}
+                          {" – "}
+                          {cls.maxGrade != null ? cls.maxGrade : "—"}
+                        </div>
+                      )}
+
+                      {/* Registration note */}
+                      {cls.registrationNote && (
+                        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                          {cls.registrationNote}
+                        </div>
+                      )}
+
+                      {/* Per-schedule blocks */}
+                      {(cls.schedules ?? []).length > 0 && (
+                        <div className="space-y-3">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                            Schedule Offerings
+                          </p>
+                          {(cls.schedules ?? []).map((cs, i) => {
+                            const days = cs.daysOfWeek
+                              .map((d) => d.charAt(0).toUpperCase() + d.slice(1))
+                              .join(", ");
+
+                            return (
+                              <div
+                                key={cs.id ?? i}
+                                className="bg-white border border-gray-200 rounded-xl p-4 space-y-2 text-sm"
+                              >
+                                {/* Days + time */}
+                                <div className="font-medium text-gray-900">
+                                  {days}
+                                  {cs.startTime
+                                    ? ` · ${fmtTime(cs.startTime)}`
+                                    : ""}
+                                  {cs.endTime ? ` – ${fmtTime(cs.endTime)}` : ""}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-gray-600">
+                                  {/* Dates */}
+                                  {cs.startDate && (
+                                    <div>
+                                      <span className="text-gray-400">
+                                        Start:{" "}
+                                      </span>
+                                      {fmtDate(cs.startDate)}
+                                    </div>
+                                  )}
+                                  {cs.endDate && (
+                                    <div>
+                                      <span className="text-gray-400">
+                                        End:{" "}
+                                      </span>
+                                      {fmtDate(cs.endDate)}
+                                    </div>
+                                  )}
+
+                                  {/* Location */}
+                                  {cs.location && (
+                                    <div className="col-span-2">
+                                      <span className="text-gray-400">
+                                        Studio:{" "}
+                                      </span>
+                                      {cs.location}
+                                    </div>
+                                  )}
+
+                                  {/* Instructor */}
+                                  {cs.instructorName && (
+                                    <div className="col-span-2">
+                                      <span className="text-gray-400">
+                                        Instructor:{" "}
+                                      </span>
+                                      {cs.instructorName}
+                                    </div>
+                                  )}
+
+                                  {/* Capacity */}
+                                  {cs.capacity != null && (
+                                    <div>
+                                      <span className="text-gray-400">
+                                        Capacity:{" "}
+                                      </span>
+                                      {cs.capacity}
+                                      {cs.urgencyThreshold != null && (
+                                        <span className="text-gray-400 ml-1">
+                                          (warn at {cs.urgencyThreshold})
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Registration open */}
+                                  {cs.registrationOpenAt && (
+                                    <div>
+                                      <span className="text-gray-400">
+                                        Opens:{" "}
+                                      </span>
+                                      {fmtDate(cs.registrationOpenAt)}
+                                    </div>
+                                  )}
+
+                                  {/* Registration close */}
+                                  {cs.registrationCloseAt && (
+                                    <div>
+                                      <span className="text-gray-400">
+                                        Closes:{" "}
+                                      </span>
+                                      {fmtDate(cs.registrationCloseAt)}
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Badges */}
+                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                  {cs.pricingModel && (
+                                    <Badge
+                                      label={
+                                        cs.pricingModel === "per_session"
+                                          ? "Per Session"
+                                          : "Full Schedule"
+                                      }
+                                      color="indigo"
+                                    />
+                                  )}
+                                  {cs.genderRestriction &&
+                                    cs.genderRestriction !== "no_restriction" && (
+                                      <Badge
+                                        label={
+                                          cs.genderRestriction === "male"
+                                            ? "Male Only"
+                                            : "Female Only"
+                                        }
+                                        color="gray"
+                                      />
+                                    )}
+                                  {(cs.excludedDates ?? []).length > 0 && (
+                                    <Badge
+                                      label={`${cs.excludedDates!.length} excluded date${cs.excludedDates!.length !== 1 ? "s" : ""}`}
+                                      color="gray"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <EmptyState message="No classes added." />
         );
 
       /* ---------------------------------------------------------------------- */
-      /* Session Groups                                                          */
+      /* Class Groups                                                            */
       /* ---------------------------------------------------------------------- */
       case "sessionGroups":
         return safeSessionGroups.length > 0 ? (
           <div className="space-y-4">
-            {safeSessionGroups.map((group) => (
-              <div
-                key={group.id}
-                className="border border-gray-200 rounded-xl p-4 space-y-1"
-              >
-                <div className="font-medium text-gray-900">{group.name}</div>
-                <div className="text-sm text-gray-500">
-                  {group.sessionIds.length} session
-                  {group.sessionIds.length !== 1 ? "s" : ""}
+            {safeSessionGroups.map((group) => {
+              const resolvedLabels = group.sessionIds
+                .map((sid) => scheduleMap.get(sid))
+                .filter(Boolean) as string[];
+              const unresolvedCount =
+                group.sessionIds.length - resolvedLabels.length;
+
+              return (
+                <div
+                  key={group.id}
+                  className="border border-gray-200 rounded-xl p-4 space-y-3"
+                >
+                  <div className="font-semibold text-gray-900">{group.name}</div>
+
+                  {group.sessionIds.length === 0 ? (
+                    <p className="text-sm text-gray-400 italic">
+                      No classes assigned to this group.
+                    </p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {resolvedLabels.map((label, i) => (
+                        <li
+                          key={i}
+                          className="flex items-center gap-2 text-sm text-gray-700"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+                          {label}
+                        </li>
+                      ))}
+                      {unresolvedCount > 0 && (
+                        <li className="text-xs text-gray-400 pl-3.5">
+                          + {unresolvedCount} unresolved offering
+                          {unresolvedCount !== 1 ? "s" : ""}
+                        </li>
+                      )}
+                    </ul>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
-          <EmptyState message="No session groups configured." />
+          <EmptyState message="No class groups configured." />
         );
 
       /* ---------------------------------------------------------------------- */
@@ -261,7 +561,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                             key={i}
                             className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700"
                           >
-                            {sid}
+                            {scheduleMap.get(sid) ?? sid}
                           </span>
                         ))}
                       </div>
@@ -477,6 +777,10 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                     */
+/* -------------------------------------------------------------------------- */
+
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between">
@@ -491,5 +795,38 @@ function EmptyState({ message }: { message: string }) {
     <div className="border border-gray-200 rounded-xl p-6 text-sm text-gray-400">
       {message}
     </div>
+  );
+}
+
+type BadgeColor = "indigo" | "green" | "gray" | "amber";
+
+function Badge({ label, color }: { label: string; color: BadgeColor }) {
+  const styles: Record<BadgeColor, string> = {
+    indigo: "bg-indigo-50 text-indigo-700",
+    green: "bg-green-100 text-green-700",
+    gray: "bg-gray-100 text-gray-600",
+    amber: "bg-amber-50 text-amber-700",
+  };
+  return (
+    <span
+      className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${styles[color]}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function ExpandIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className={`h-4 w-4 text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
   );
 }

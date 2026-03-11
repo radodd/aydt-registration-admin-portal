@@ -3,6 +3,19 @@ import { notFound, redirect } from "next/navigation";
 import EditEmailClient from "../../EditEmailClient";
 import { EmailDraft, EmailSelectionCriteria, ManualUserEntry } from "@/types";
 
+function formatTimeServer(time: string): string {
+  const [h, m] = time.split(":");
+  const hour = parseInt(h, 10);
+  const min = m ?? "00";
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${min} ${ampm}`;
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 type Props = {
   params: Promise<{ id: string }>;
 };
@@ -49,11 +62,11 @@ export default async function EditEmailPage({ params }: Props) {
 
   const wizardSelections: EmailSelectionCriteria[] = [];
   const manualAdditions: ManualUserEntry[] = [];
-  const exclusions: string[] = [];
+  const excludedFamilyIds: string[] = [];
 
   for (const sel of selections ?? []) {
-    if (sel.is_excluded && sel.user_id) {
-      exclusions.push(sel.user_id);
+    if (sel.is_excluded && sel.family_id) {
+      excludedFamilyIds.push(sel.family_id);
     } else if (sel.selection_type === "manual" && sel.user_id) {
       const { data: user } = await supabase
         .from("users")
@@ -68,36 +81,70 @@ export default async function EditEmailPage({ params }: Props) {
           lastName: user.last_name,
         });
       }
-    } else if (
-      (sel.selection_type === "semester" || sel.selection_type === "session") &&
-      sel.semester_id
-    ) {
+    } else if (sel.selection_type === "manual" && sel.subscriber_id) {
+      const { data: sub } = await supabase
+        .from("email_subscribers")
+        .select("id, email, name")
+        .eq("id", sel.subscriber_id)
+        .single();
+      if (sub) {
+        const parts = ((sub as any).name ?? "").trim().split(/\s+/);
+        manualAdditions.push({
+          subscriberId: (sub as any).id,
+          email: (sub as any).email,
+          firstName: parts[0] ?? "",
+          lastName: parts.slice(1).join(" "),
+        });
+      }
+    } else if (!sel.is_excluded && sel.semester_id) {
       const { data: semester } = await supabase
         .from("semesters")
         .select("id, name")
         .eq("id", sel.semester_id)
         .single();
 
+      let className: string | undefined;
       let sessionName: string | undefined;
+
+      if (sel.class_id) {
+        const { data: cls } = await supabase
+          .from("classes")
+          .select("id, name")
+          .eq("id", sel.class_id)
+          .single();
+        className = (cls as any)?.name;
+      }
+
       if (sel.session_id) {
         const { data: session } = await supabase
           .from("class_sessions")
-          .select("id, classes(name)")
+          .select("id, day_of_week, start_time")
           .eq("id", sel.session_id)
           .single();
-        const cls = Array.isArray((session as any)?.classes)
-          ? (session as any)?.classes[0]
-          : (session as any)?.classes;
-        sessionName = cls?.name;
+        if (session) {
+          const s = session as any;
+          const time = s.start_time
+            ? ` ${formatTimeServer(s.start_time)}`
+            : "";
+          sessionName = `${capitalize(s.day_of_week)}${time}`;
+        }
       }
 
       wizardSelections.push({
         localId: sel.id,
-        type: sel.selection_type as "semester" | "session",
+        type: sel.selection_type as "semester" | "class" | "session",
         semesterId: sel.semester_id,
-        semesterName: semester?.name ?? sel.semester_id,
+        semesterName: (semester as any)?.name ?? sel.semester_id,
+        classId: sel.class_id ?? undefined,
+        className,
         sessionId: sel.session_id ?? undefined,
         sessionName,
+        includeInstructors: sel.include_instructors ?? false,
+      });
+    } else if (!sel.is_excluded && sel.selection_type === "subscribed_list") {
+      wizardSelections.push({
+        localId: sel.id,
+        type: "subscribed_list",
       });
     }
   }
@@ -114,7 +161,7 @@ export default async function EditEmailPage({ params }: Props) {
     recipients: {
       selections: wizardSelections,
       manualAdditions,
-      exclusions,
+      excludedFamilyIds,
     },
     design: {
       bodyHtml: email.body_html ?? "",

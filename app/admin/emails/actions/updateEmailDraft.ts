@@ -53,8 +53,11 @@ export async function updateEmailDraft(
       email_id: emailId,
       selection_type: sel.type,
       semester_id: sel.semesterId ?? null,
+      class_id: sel.classId ?? null,
       session_id: sel.sessionId ?? null,
+      instructor_name: sel.instructorName ?? null,
       user_id: null,
+      include_instructors: sel.includeInstructors ?? false,
       is_excluded: false,
     });
   }
@@ -64,6 +67,7 @@ export async function updateEmailDraft(
       email_id: emailId,
       selection_type: "manual",
       semester_id: null,
+      class_id: null,
       session_id: null,
       user_id: user.userId ?? null,
       subscriber_id: user.subscriberId ?? null,
@@ -71,13 +75,15 @@ export async function updateEmailDraft(
     });
   }
 
-  for (const userId of draft.recipients?.exclusions ?? []) {
+  for (const familyId of draft.recipients?.excludedFamilyIds ?? []) {
     rows.push({
       email_id: emailId,
       selection_type: "manual",
       semester_id: null,
+      class_id: null,
       session_id: null,
-      user_id: userId,
+      user_id: null,
+      family_id: familyId,
       is_excluded: true,
     });
   }

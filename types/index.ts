@@ -1201,11 +1201,26 @@ export type EmailAnalytics = {
   opened_count: number;
   clicked_count: number;
   bounced_count: number;
+  failed_count: number;
   open_rate: number;
   click_rate: number;
 };
 
 /* Email wizard draft state */
+
+export type DancerClassContext = {
+  dancerName: string;
+  classes: { className: string; sessionLabel: string }[];
+};
+
+export type FamilyRecipient = {
+  familyId: string;
+  primaryEmail: string;
+  primaryParentFirstName: string;
+  primaryParentLastName: string;
+  dancers: DancerClassContext[];
+  isInstructor?: boolean;
+};
 
 export type EmailDraft = {
   id?: string;
@@ -1219,7 +1234,10 @@ export type EmailDraft = {
   recipients?: {
     selections: EmailSelectionCriteria[];
     manualAdditions: ManualUserEntry[];
-    exclusions: string[];
+    /** Family IDs to exclude from the send list */
+    excludedFamilyIds: string[];
+    /** Client-side preview cache — not persisted to DB */
+    resolvedFamilies?: FamilyRecipient[];
     resolvedCount?: number;
   };
   design?: {
@@ -1234,11 +1252,19 @@ export type EmailDraft = {
 
 export type EmailSelectionCriteria = {
   localId: string;
-  type: "semester" | "session" | "subscribed_list";
+  type: "semester" | "class" | "session" | "subscribed_list" | "instructor";
   semesterId?: string;
   semesterName?: string;
+  /** For type === "class" */
+  classId?: string;
+  className?: string;
+  /** For type === "session" */
   sessionId?: string;
   sessionName?: string;
+  /** Auto-include the instructor(s) of the selected class/session */
+  includeInstructors?: boolean;
+  /** For type === "instructor" — targets all families enrolled in any class taught by this person */
+  instructorName?: string;
 };
 
 export type EmailSubscriber = {
@@ -1265,9 +1291,11 @@ export type EmailWizardAction =
   | { type: "SET_RECIPIENTS"; payload: EmailDraft["recipients"] }
   | { type: "ADD_SELECTION"; payload: EmailSelectionCriteria }
   | { type: "REMOVE_SELECTION"; payload: string }
+  | { type: "TOGGLE_INSTRUCTOR_INCLUSION"; payload: string } // localId
   | { type: "ADD_MANUAL_USER"; payload: ManualUserEntry }
   | { type: "REMOVE_MANUAL_USER"; payload: string }
-  | { type: "TOGGLE_EXCLUSION"; payload: string }
+  | { type: "TOGGLE_FAMILY_EXCLUSION"; payload: string } // familyId
+  | { type: "SET_RESOLVED_FAMILIES"; payload: FamilyRecipient[] }
   | { type: "SET_RESOLVED_COUNT"; payload: number }
   | { type: "SET_DESIGN"; payload: EmailDraft["design"] }
   | { type: "SET_SCHEDULE"; payload: EmailDraft["schedule"] }

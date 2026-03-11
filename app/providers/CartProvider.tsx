@@ -10,7 +10,7 @@ import {
   useRef,
 } from "react";
 
-const CART_TTL_MS = 2 * 60 * 60 * 1000;
+const CART_TTL_MS = 20 * 60 * 1000;
 const STORAGE_KEY_PREFIX = "aydt_cart_";
 const CART_VERSION = 1;
 
@@ -62,7 +62,9 @@ function bumpExpiry(cart: CartState): CartState {
 function reducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case "LOAD":
-      console.log(`[Cart] action: LOAD ${action.payload.sessionIds.length} items`);
+      console.log(
+        `[Cart] action: LOAD ${action.payload.sessionIds.length} items`,
+      );
       return action.payload;
 
     case "ADD": {
@@ -73,7 +75,9 @@ function reducer(state: CartState, action: CartAction): CartState {
         sessionIds: [...state.sessionIds, action.sessionId],
       });
 
-      console.log(`[Cart] action: ADD ${action.sessionId} → ${next.sessionIds.length} items`);
+      console.log(
+        `[Cart] action: ADD ${action.sessionId} → ${next.sessionIds.length} items`,
+      );
       return next;
     }
 
@@ -83,7 +87,9 @@ function reducer(state: CartState, action: CartAction): CartState {
         sessionIds: state.sessionIds.filter((id) => id !== action.sessionId),
       });
 
-      console.log(`[Cart] action: REMOVE ${action.sessionId} → ${next.sessionIds.length} items`);
+      console.log(
+        `[Cart] action: REMOVE ${action.sessionId} → ${next.sessionIds.length} items`,
+      );
       return next;
     }
 
@@ -160,14 +166,19 @@ export function CartProvider({
       if (raw) {
         const parsed: CartState = JSON.parse(raw);
         const expired = isExpired(parsed);
-        const versionOk = parsed.version === CART_VERSION && parsed.semesterId === semesterId;
+        const versionOk =
+          parsed.version === CART_VERSION && parsed.semesterId === semesterId;
 
-        console.log(`[Cart] localStorage raw found: ${parsed.sessionIds?.length ?? 0} items, expired=${expired}, versionOk=${versionOk}`);
+        console.log(
+          `[Cart] localStorage raw found: ${parsed.sessionIds?.length ?? 0} items, expired=${expired}, versionOk=${versionOk}`,
+        );
 
         if (versionOk && !expired) {
           dispatch({ type: "LOAD", payload: parsed });
         } else {
-          console.warn(`[Cart] cart invalid (versionOk=${versionOk} expired=${expired}) → removing`);
+          console.warn(
+            `[Cart] cart invalid (versionOk=${versionOk} expired=${expired}) → removing`,
+          );
           localStorage.removeItem(storageKey);
         }
       } else {
@@ -192,7 +203,9 @@ export function CartProvider({
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(state));
-      console.log(`[Cart] persisted ${state.sessionIds.length} items to ${storageKey}`);
+      console.log(
+        `[Cart] persisted ${state.sessionIds.length} items to ${storageKey}`,
+      );
     } catch (err) {
       console.warn("[Cart] persist error", err);
     }
@@ -233,13 +246,16 @@ export function CartProvider({
     const tick = () => {
       const ms = new Date(state.expiresAt).getTime() - Date.now();
       const secs = Math.max(0, Math.floor(ms / 1000));
-      if (secs === 0) console.warn(`[Cart] EXPIRED — ${state.sessionIds.length} items lost`);
+      if (secs === 0)
+        console.warn(`[Cart] EXPIRED — ${state.sessionIds.length} items lost`);
       setSecondsRemaining(secs);
     };
 
     tick();
     const initialMs = new Date(state.expiresAt).getTime() - Date.now();
-    console.log(`[Cart] timer started, secondsRemaining=${Math.max(0, Math.floor(initialMs / 1000))}`);
+    console.log(
+      `[Cart] timer started, secondsRemaining=${Math.max(0, Math.floor(initialMs / 1000))}`,
+    );
 
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
@@ -292,7 +308,10 @@ export function CartProvider({
   );
 
   // null means the timer hasn't ticked yet — never treat that as expired
-  const expired = secondsRemaining !== null && secondsRemaining === 0 && state.sessionIds.length > 0;
+  const expired =
+    secondsRemaining !== null &&
+    secondsRemaining === 0 &&
+    state.sessionIds.length > 0;
 
   return (
     <CartContext.Provider

@@ -44,9 +44,11 @@ export async function scheduleEmail(
       email_id: emailId,
       user_id: r.userId ?? null,
       subscriber_id: r.subscriberId ?? null,
+      family_id: r.familyId ?? null,
       email_address: r.emailAddress,
       first_name: r.firstName,
       last_name: r.lastName,
+      dancer_context: r.dancerContext ?? [],
     })),
   );
   if (snapErr) throw new Error(snapErr.message);

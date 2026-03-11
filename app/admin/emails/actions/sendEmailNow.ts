@@ -89,9 +89,11 @@ export async function sendEmailNow(
       email_id: emailId,
       user_id: r.userId ?? null,
       subscriber_id: r.subscriberId ?? null,
+      family_id: r.familyId ?? null,
       email_address: r.emailAddress,
       first_name: r.firstName,
       last_name: r.lastName,
+      dancer_context: r.dancerContext ?? [],
     })),
   );
 
@@ -152,9 +154,10 @@ export async function sendEmailNow(
             firstName: recipient.firstName,
             lastName: recipient.lastName,
           },
-          participant: null, // student_name requires dancer join — resolved in edge function
+          participant: null,
           semester: semesterName ? { name: semesterName } : null,
           session: sessionName ? { name: sessionName } : null,
+          dancers: recipient.dancerContext ?? [],
         });
         if (signatureBlock) resolvedHtml = injectSignature(resolvedHtml, signatureBlock);
         if (unsubscribeFooter) resolvedHtml = injectSignature(resolvedHtml, unsubscribeFooter);
@@ -183,14 +186,16 @@ export async function sendEmailNow(
             { onConflict: "email_id,email_address" },
           );
           sent++;
-        } catch {
+        } catch (err) {
           await supabase.from("email_deliveries").upsert(
             {
               email_id: emailId,
               user_id: recipient.userId ?? null,
               subscriber_id: recipient.subscriberId ?? null,
               email_address: recipient.emailAddress,
-              status: "pending",
+              status: "failed",
+              failure_reason:
+                err instanceof Error ? err.message : String(err),
             },
             { onConflict: "email_id,email_address" },
           );

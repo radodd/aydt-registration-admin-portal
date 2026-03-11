@@ -6,69 +6,130 @@ import { EmailSelectionCriteria, ManualUserEntry } from "@/types";
 export async function previewRecipientCount(
   selections: EmailSelectionCriteria[],
   manualAdditions: ManualUserEntry[],
-  exclusionIds: string[],
+  excludedFamilyIds: string[],
 ): Promise<number> {
   const supabase = await createClient();
-  const userIdSet = new Set<string>();
-  const excludedSet = new Set(exclusionIds);
+  const familyIdSet = new Set<string>();
+  const excludedSet = new Set(excludedFamilyIds);
   let externalSubscriberCount = 0;
 
   for (const sel of selections) {
     if (sel.type === "semester" && sel.semesterId) {
+      const { data: sessions } = await supabase
+        .from("class_sessions")
+        .select("id")
+        .eq("semester_id", sel.semesterId);
+
+      const sessionIds = (sessions ?? []).map((s) => s.id);
+
+      if (sessionIds.length === 0) continue;
+
       const { data } = await supabase
         .from("registrations")
-        .select("user_id, class_sessions!inner(semester_id)")
-        .eq("class_sessions.semester_id", sel.semesterId);
+        .select("dancers!inner(family_id)")
+        .in("session_id", sessionIds)
+        .eq("status", "confirmed");
 
       for (const reg of data ?? []) {
-        if (!excludedSet.has(reg.user_id)) userIdSet.add(reg.user_id);
+        const dancer = Array.isArray(reg.dancers)
+          ? reg.dancers[0]
+          : reg.dancers;
+        const familyId = dancer?.family_id as string | undefined;
+        if (familyId && !excludedSet.has(familyId)) familyIdSet.add(familyId);
+      }
+    } else if (sel.type === "class" && sel.classId) {
+      const { data: sessions } = await supabase
+        .from("class_sessions")
+        .select("id")
+        .eq("class_id", sel.classId);
+
+      const sessionIds = (sessions ?? []).map((s) => s.id);
+
+      const { data } = await supabase
+        .from("registrations")
+        .select("dancers!inner(family_id)")
+        .in("session_id", sessionIds)
+        .eq("status", "confirmed");
+      for (const reg of data ?? []) {
+        const dancer = Array.isArray(reg.dancers)
+          ? reg.dancers[0]
+          : reg.dancers;
+        const familyId = dancer?.family_id as string | undefined;
+        if (familyId && !excludedSet.has(familyId)) familyIdSet.add(familyId);
       }
     } else if (sel.type === "session" && sel.sessionId) {
       const { data } = await supabase
         .from("registrations")
-        .select("user_id")
-        .eq("session_id", sel.sessionId);
+        .select("dancers!inner(family_id)")
+        .eq("session_id", sel.sessionId)
+        .eq("status", "confirmed");
 
       for (const reg of data ?? []) {
-        if (!excludedSet.has(reg.user_id)) userIdSet.add(reg.user_id);
+        const dancer = Array.isArray(reg.dancers)
+          ? reg.dancers[0]
+          : reg.dancers;
+
+        const familyId = dancer?.family_id as string | undefined;
+
+        if (familyId && !excludedSet.has(familyId)) {
+          familyIdSet.add(familyId);
+        }
       }
     } else if (sel.type === "subscribed_list") {
-      // All portal users minus unsubscribed
-      const { count: totalUsers } = await supabase
+      // Count distinct families with a primary parent that has an active subscription
+      const { count: totalFamilies } = await supabase
         .from("users")
-        .select("id", { count: "exact", head: true });
+        .select("family_id", { count: "exact", head: true })
+        .eq("is_primary_parent", true);
 
       const { count: unsubCount } = await supabase
         .from("email_subscriptions")
         .select("user_id", { count: "exact", head: true })
         .eq("is_subscribed", false);
 
-      const subscribedPortalCount = (totalUsers ?? 0) - (unsubCount ?? 0);
+      const subscribedFamilyCount = (totalFamilies ?? 0) - (unsubCount ?? 0);
 
-      // Add those user IDs into the set isn't practical for large datasets;
-      // we return the subscribed portal count + external count directly.
       const { count: extCount } = await supabase
         .from("email_subscribers")
         .select("id", { count: "exact", head: true })
         .eq("is_subscribed", true);
 
-      // Return early with combined count (subscribed_list is always the full list)
-      return subscribedPortalCount + (extCount ?? 0);
+      return subscribedFamilyCount + (extCount ?? 0);
     }
   }
 
+  // Manual portal user additions
   for (const user of manualAdditions) {
-    if (user.userId && !excludedSet.has(user.userId)) userIdSet.add(user.userId);
+    if (user.userId) {
+      const { data } = await supabase
+        .from("users")
+        .select("family_id")
+        .eq("id", user.userId)
+        .single();
+      const familyId = (data as { family_id: string } | null)?.family_id;
+      if (familyId && !excludedSet.has(familyId)) familyIdSet.add(familyId);
+    }
     if (user.subscriberId) externalSubscriberCount++;
   }
 
-  if (userIdSet.size === 0) return externalSubscriberCount;
+  if (familyIdSet.size === 0) return externalSubscriberCount;
 
-  const { data: unsub } = await supabase
-    .from("email_subscriptions")
-    .select("user_id")
-    .eq("is_subscribed", false)
-    .in("user_id", Array.from(userIdSet));
+  // Get primary parent user IDs for the family set to check unsubscribes
+  const { data: primaryUsers } = await supabase
+    .from("users")
+    .select("id, family_id")
+    .eq("is_primary_parent", true)
+    .in("family_id", Array.from(familyIdSet));
 
-  return userIdSet.size - (unsub?.length ?? 0) + externalSubscriberCount;
+  const primaryUserIds = (primaryUsers ?? []).map((u: { id: string }) => u.id);
+
+  const { data: unsub } = primaryUserIds.length
+    ? await supabase
+        .from("email_subscriptions")
+        .select("user_id")
+        .eq("is_subscribed", false)
+        .in("user_id", primaryUserIds)
+    : { data: [] };
+
+  return familyIdSet.size - (unsub?.length ?? 0) + externalSubscriberCount;
 }

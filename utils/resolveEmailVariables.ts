@@ -6,8 +6,10 @@
  * extensible for future variable additions.
  *
  * Usage:
- *   const html = resolveEmailVariables(templateHtml, { parent, participant, semester, session });
+ *   const html = resolveEmailVariables(templateHtml, { parent, participant, semester, session, dancers });
  */
+
+import { DancerClassContext } from "@/types";
 
 export interface EmailParticipant {
   firstName: string;
@@ -30,6 +32,8 @@ export interface EmailVariableContext {
   participant?: EmailParticipant | null;
   semester?: EmailSemester | null;
   session?: EmailSession | null;
+  /** All dancers and their classes for the recipient family. Used for {{dancer_class_list}}. */
+  dancers?: DancerClassContext[] | null;
 }
 
 /**
@@ -40,6 +44,17 @@ export function resolveEmailVariables(
   templateHtml: string,
   context: EmailVariableContext,
 ): string {
+  const dancerClassList = context.dancers?.length
+    ? context.dancers
+        .map((d) => {
+          const classStr = d.classes
+            .map((c) => `${c.className} (${c.sessionLabel})`)
+            .join(" · ");
+          return classStr ? `${d.dancerName} — ${classStr}` : d.dancerName;
+        })
+        .join("<br>")
+    : "";
+
   const vars: Record<string, string> = {
     parent_name: context.parent
       ? `${context.parent.firstName} ${context.parent.lastName}`.trim()
@@ -49,6 +64,7 @@ export function resolveEmailVariables(
       : "",
     semester_name: context.semester?.name ?? "",
     session_name: context.session?.name ?? "",
+    dancer_class_list: dancerClassList,
   };
 
   return templateHtml.replace(
@@ -59,13 +75,23 @@ export function resolveEmailVariables(
 
 /**
  * Mock context used in previews and test sends.
- * Represents a realistic sample recipient.
+ * Represents a realistic sample recipient with two dancers.
  */
 export const MOCK_EMAIL_CONTEXT: EmailVariableContext = {
   parent: { firstName: "Alex", lastName: "Johnson" },
   participant: { firstName: "Emma", lastName: "Johnson" },
   semester: { name: "Spring 2025" },
   session: { name: "Ballet Fundamentals" },
+  dancers: [
+    {
+      dancerName: "Emma Johnson",
+      classes: [{ className: "Ballet Fundamentals", sessionLabel: "Mon 4:30 PM" }],
+    },
+    {
+      dancerName: "Rose Johnson",
+      classes: [{ className: "Jazz Intermediate", sessionLabel: "Wed 5:00 PM" }],
+    },
+  ],
 };
 
 /**

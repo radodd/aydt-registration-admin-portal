@@ -6,6 +6,7 @@ import TipTapEditor from "@/app/components/semester-flow/TipTapEditor";
 import IPhoneFrame from "@/app/components/email/IPhoneFrame";
 import { updateEmailDraft } from "../actions/updateEmailDraft";
 import { sendTestBroadcastEmail } from "../actions/sendTestBroadcastEmail";
+import { sendTestAsFamily } from "../actions/sendTestAsFamily";
 import { applyMockTokens } from "@/utils/resolveEmailVariables";
 
 type Props = {
@@ -21,6 +22,7 @@ type SubTab = "design" | "preview" | "test";
 const VARIABLES = [
   { token: "{{parent_name}}", description: "Parent's full name" },
   { token: "{{student_name}}", description: "Student's full name" },
+  { token: "{{dancer_class_list}}", description: "All dancers and their classes" },
   { token: "{{semester_name}}", description: "Semester name" },
   { token: "{{session_name}}", description: "Session title" },
 ];
@@ -38,6 +40,8 @@ export default function DesignStep({
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
     "desktop",
   );
+  const [testMode, setTestMode] = useState<"mock" | "family">("mock");
+  const [selectedFamilyId, setSelectedFamilyId] = useState<string | null>(null);
   const [testEmail, setTestEmail] = useState("");
   const [testStatus, setTestStatus] = useState<
     "idle" | "sending" | "sent" | "error"
@@ -85,7 +89,10 @@ export default function DesignStep({
     if (!testEmail) return;
     setTestStatus("sending");
     setTestError(null);
-    const result = await sendTestBroadcastEmail(emailId, testEmail);
+    const result =
+      testMode === "family" && selectedFamilyId
+        ? await sendTestAsFamily(emailId, selectedFamilyId, testEmail)
+        : await sendTestBroadcastEmail(emailId, testEmail);
     if (result.success) {
       setTestStatus("sent");
     } else {
@@ -235,33 +242,106 @@ export default function DesignStep({
         {activeTab === "test" && (
           <div className="space-y-6 max-w-md">
             <p className="text-sm text-gray-500">
-              Send a test email with mock variable data to verify rendering.
-              Subject is prefixed with{" "}
+              Send a test email to verify rendering. Subject is prefixed with{" "}
               <span className="font-mono text-xs bg-gray-100 px-1 rounded">
                 [TEST]
               </span>
               .
             </p>
 
+            {/* Mode toggle */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
-                Test Email Address
+                Test data
               </label>
-              <input
-                type="email"
-                value={testEmail}
-                onChange={(e) => {
-                  setTestEmail(e.target.value);
-                  setTestStatus("idle");
-                }}
-                placeholder="you@example.com"
-                className="w-full border border-gray-300 text-slate-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
+              <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 w-fit">
+                <button
+                  onClick={() => setTestMode("mock")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                    testMode === "mock"
+                      ? "bg-white border border-gray-200 shadow-sm text-gray-900"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Mock data
+                </button>
+                <button
+                  onClick={() => setTestMode("family")}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                    testMode === "family"
+                      ? "bg-white border border-gray-200 shadow-sm text-gray-900"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Real family
+                </button>
+              </div>
             </div>
+
+            {/* Family picker */}
+            {testMode === "family" &&
+              (state.recipients?.resolvedFamilies?.length ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Family
+                  </label>
+                  <select
+                    value={selectedFamilyId ?? ""}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSelectedFamilyId(id || null);
+                      const fam = state.recipients?.resolvedFamilies?.find(
+                        (f) => f.familyId === id,
+                      );
+                      if (fam) setTestEmail(fam.primaryEmail);
+                      setTestStatus("idle");
+                    }}
+                    className="w-full border border-gray-300 text-slate-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    <option value="">Select a family…</option>
+                    {state.recipients.resolvedFamilies.map((f) => (
+                      <option key={f.familyId} value={f.familyId}>
+                        {f.primaryParentFirstName} {f.primaryParentLastName}
+                        {f.dancers.length > 0
+                          ? ` (${f.dancers.length} dancer${f.dancers.length !== 1 ? "s" : ""})`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                  Add recipients in step 2 first to test with a real family.
+                </p>
+              ))}
+
+            {/* Email address */}
+            {(testMode === "mock" ||
+              (testMode === "family" && selectedFamilyId)) && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Send to
+                </label>
+                <input
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => {
+                    setTestEmail(e.target.value);
+                    setTestStatus("idle");
+                  }}
+                  placeholder="you@example.com"
+                  className="w-full border border-gray-300 text-slate-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </div>
+            )}
 
             <button
               onClick={handleTestSend}
-              disabled={!testEmail || testStatus === "sending"}
+              disabled={
+                !testEmail ||
+                testStatus === "sending" ||
+                (testMode === "family" && !selectedFamilyId)
+              }
               className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {testStatus === "sending" ? "Sending…" : "Send Test Email"}

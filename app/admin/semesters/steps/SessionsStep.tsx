@@ -200,6 +200,29 @@ function computeGeneratedCount(schedule: DraftClassSchedule): number {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Utilities                                                                  */
+/* -------------------------------------------------------------------------- */
+
+function deepClone<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function scheduleBlockSummary(s: DraftClassSchedule, blockNum: number): string {
+  const days = (s.daysOfWeek ?? [])
+    .map((d) => DAYS_OF_WEEK.find((x) => x.value === d)?.label ?? d)
+    .join(", ");
+  const time = s.startTime && s.endTime ? `${s.startTime}–${s.endTime}` : null;
+  const parts = [
+    `Block ${blockNum}`,
+    days || "—",
+    time,
+    s.location || null,
+    s.capacity ? `Cap ${s.capacity}` : null,
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
+/* -------------------------------------------------------------------------- */
 /* Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -312,6 +335,45 @@ export default function SessionsStep({
             }
           : c,
       ),
+    );
+  }
+
+  function handleDuplicateSchedule(classIdx: number, scheduleIdx: number) {
+    setClasses((prev) =>
+      prev.map((c, i) => {
+        if (i !== classIdx) return c;
+        const clone = {
+          ...deepClone(c.schedules![scheduleIdx]),
+          _clientKey: crypto.randomUUID(),
+        };
+        const updated = [...(c.schedules ?? [])];
+        updated.splice(scheduleIdx + 1, 0, clone);
+        return { ...c, schedules: updated };
+      }),
+    );
+  }
+
+  function handleSplitSchedule(
+    classIdx: number,
+    scheduleIdx: number,
+    groups: { days: string[] }[],
+  ) {
+    setClasses((prev) =>
+      prev.map((c, i) => {
+        if (i !== classIdx) return c;
+        const source = (c.schedules ?? [])[scheduleIdx];
+        const splitBlocks = groups.map((g) => ({
+          ...deepClone(source),
+          _clientKey: crypto.randomUUID(),
+          daysOfWeek: g.days,
+        }));
+        const updated = [
+          ...(c.schedules ?? []).slice(0, scheduleIdx),
+          ...splitBlocks,
+          ...(c.schedules ?? []).slice(scheduleIdx + 1),
+        ];
+        return { ...c, schedules: updated };
+      }),
     );
   }
 
@@ -453,6 +515,12 @@ export default function SessionsStep({
               onRemoveSchedule={(scheduleIdx) =>
                 handleRemoveSchedule(classIdx, scheduleIdx)
               }
+              onDuplicateSchedule={(scheduleIdx) =>
+                handleDuplicateSchedule(classIdx, scheduleIdx)
+              }
+              onSplitSchedule={(scheduleIdx, groups) =>
+                handleSplitSchedule(classIdx, scheduleIdx, groups)
+              }
               onAddRequirement={(req) =>
                 handleUpdateClass(classIdx, {
                   requirements: [...(cls.requirements ?? []), req],
@@ -531,6 +599,12 @@ export default function SessionsStep({
               onRemoveSchedule={(scheduleIdx) =>
                 handleRemoveSchedule(classIdx, scheduleIdx)
               }
+              onDuplicateSchedule={(scheduleIdx) =>
+                handleDuplicateSchedule(classIdx, scheduleIdx)
+              }
+              onSplitSchedule={(scheduleIdx, groups) =>
+                handleSplitSchedule(classIdx, scheduleIdx, groups)
+              }
               onAddRequirement={(req) =>
                 handleUpdateClass(classIdx, {
                   requirements: [...(cls.requirements ?? []), req],
@@ -603,6 +677,8 @@ function ClassCard({
   onRemoveClass,
   onAddSchedule,
   onRemoveSchedule,
+  onDuplicateSchedule,
+  onSplitSchedule,
   onAddRequirement,
   onRemoveRequirement,
   rangeErrors,
@@ -620,6 +696,8 @@ function ClassCard({
   onRemoveClass: () => void;
   onAddSchedule: () => void;
   onRemoveSchedule: (idx: number) => void;
+  onDuplicateSchedule: (idx: number) => void;
+  onSplitSchedule: (idx: number, groups: { days: string[] }[]) => void;
   onAddRequirement: (req: DraftClassRequirement) => void;
   onRemoveRequirement: (idx: number) => void;
   rangeErrors: string[];
@@ -1059,8 +1137,11 @@ function ClassCard({
                   schedule={schedule}
                   isLocked={isLocked}
                   canRemove={schedules.length > 0}
+                  blockNumber={scheduleIdx + 1}
                   onChange={(patch) => onUpdateSchedule(scheduleIdx, patch)}
                   onRemove={() => onRemoveSchedule(scheduleIdx)}
+                  onDuplicate={() => onDuplicateSchedule(scheduleIdx)}
+                  onSplit={(groups) => onSplitSchedule(scheduleIdx, groups)}
                   division={cls.division}
                   discipline={cls.discipline}
                   rateBands={rateBands}
@@ -1091,8 +1172,11 @@ function ScheduleEditor({
   schedule,
   isLocked,
   canRemove,
+  blockNumber,
   onChange,
   onRemove,
+  onDuplicate,
+  onSplit,
   division,
   discipline,
   rateBands,
@@ -1101,8 +1185,11 @@ function ScheduleEditor({
   schedule: DraftClassSchedule;
   isLocked: boolean;
   canRemove: boolean;
+  blockNumber: number;
   onChange: (patch: Partial<DraftClassSchedule>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
+  onSplit: (groups: { days: string[] }[]) => void;
   division: string;
   discipline: string;
   rateBands: DraftTuitionRateBand[];
@@ -1111,6 +1198,7 @@ function ScheduleEditor({
   const [newExcludedDate, setNewExcludedDate] = useState("");
   const [newExcludedReason, setNewExcludedReason] = useState("");
   const [showOptionForm, setShowOptionForm] = useState(false);
+  const [showSplitConfig, setShowSplitConfig] = useState(false);
   const [draftOption, setDraftOption] = useState<{
     name: string;
     description: string;
@@ -1239,6 +1327,23 @@ function ScheduleEditor({
 
   return (
     <div className="rounded-xl border border-gray-200 p-4 space-y-4 bg-gray-50/50">
+      {/* Block header — summary + duplicate button */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-gray-500 truncate">
+          {scheduleBlockSummary(schedule, blockNumber)}
+        </p>
+        {!isLocked && (
+          <button
+            type="button"
+            onClick={onDuplicate}
+            title="Duplicate this schedule block"
+            className="shrink-0 ml-3 text-xs text-indigo-600 hover:text-indigo-800 transition font-medium"
+          >
+            Duplicate
+          </button>
+        )}
+      </div>
+
       {/* Days of week — multi-select checkboxes */}
       <div>
         <p className="text-xs text-gray-500 mb-1.5">Days *</p>
@@ -1264,6 +1369,30 @@ function ScheduleEditor({
             );
           })}
         </div>
+
+        {/* Split into separate blocks — shown when 2+ days selected */}
+        {!isLocked && (schedule.daysOfWeek ?? []).length > 1 && (
+          <div className="mt-2">
+            {showSplitConfig ? (
+              <SplitScheduleConfigurator
+                daysOfWeek={schedule.daysOfWeek ?? []}
+                onConfirm={(groups) => {
+                  onSplit(groups);
+                  setShowSplitConfig(false);
+                }}
+                onCancel={() => setShowSplitConfig(false)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowSplitConfig(true)}
+                className="text-xs text-indigo-500 hover:text-indigo-700 transition underline-offset-2 hover:underline"
+              >
+                Split into separate blocks
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Start/End time */}
@@ -1873,6 +2002,123 @@ function ScheduleEditor({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* SplitScheduleConfigurator                                                   */
+/* -------------------------------------------------------------------------- */
+
+function SplitScheduleConfigurator({
+  daysOfWeek,
+  onConfirm,
+  onCancel,
+}: {
+  daysOfWeek: string[];
+  onConfirm: (groups: { days: string[] }[]) => void;
+  onCancel: () => void;
+}) {
+  // assignments: day → 1-based group index
+  const [assignments, setAssignments] = useState<Record<string, number>>(
+    () => Object.fromEntries(daysOfWeek.map((d) => [d, 1])),
+  );
+  const [groupCount, setGroupCount] = useState(2);
+
+  const groupLabels = Array.from(
+    { length: groupCount },
+    (_, i) => `Block ${i + 1}`,
+  );
+
+  function handleAssign(day: string, value: number) {
+    if (value === groupCount + 1) {
+      // "New block" sentinel — create the group and assign the day to it
+      const newIdx = groupCount + 1;
+      setGroupCount((g) => g + 1);
+      setAssignments((prev) => ({ ...prev, [day]: newIdx }));
+    } else {
+      setAssignments((prev) => ({ ...prev, [day]: value }));
+    }
+  }
+
+  // Collect groups that actually have days assigned (ignore empty ones)
+  const usedGroupIndices = [...new Set(Object.values(assignments))].sort(
+    (a, b) => a - b,
+  );
+  const isValid = usedGroupIndices.length >= 2;
+
+  function handleConfirm() {
+    const groups = usedGroupIndices.map((gIdx) => ({
+      days: daysOfWeek.filter((d) => assignments[d] === gIdx),
+    }));
+    onConfirm(groups);
+  }
+
+  return (
+    <div className="mt-1 rounded-lg border border-indigo-200 bg-white p-3 space-y-3">
+      <p className="text-xs font-semibold text-gray-700">
+        Split into blocks — assign each day to a block
+      </p>
+
+      <div className="space-y-2">
+        {daysOfWeek.map((day) => {
+          const dayLabel =
+            DAYS_OF_WEEK.find((d) => d.value === day)?.label ?? day;
+          return (
+            <div key={day} className="flex items-center gap-3">
+              <span className="text-xs text-gray-700 w-16 shrink-0">
+                {dayLabel}
+              </span>
+              <select
+                value={assignments[day]}
+                onChange={(e) => handleAssign(day, Number(e.target.value))}
+                className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {groupLabels.map((label, i) => (
+                  <option key={i} value={i + 1}>
+                    {label}
+                  </option>
+                ))}
+                <option value={groupCount + 1}>+ New block</option>
+              </select>
+            </div>
+          );
+        })}
+      </div>
+
+      {groupCount < 7 && (
+        <button
+          type="button"
+          onClick={() => setGroupCount((g) => g + 1)}
+          className="text-xs text-indigo-600 hover:text-indigo-800 transition"
+        >
+          + Add block group
+        </button>
+      )}
+
+      {!isValid && (
+        <p className="text-xs text-amber-600">
+          Assign days to at least 2 different blocks to split.
+        </p>
+      )}
+
+      <div className="flex gap-2 justify-end pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-xs text-gray-500 hover:text-gray-700 transition px-2 py-1"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleConfirm}
+          disabled={!isValid}
+          className="text-xs font-medium bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-default"
+        >
+          Confirm Split
+        </button>
+      </div>
     </div>
   );
 }

@@ -13,7 +13,11 @@ import {
 } from "@/types";
 import { EmailStatusBadge } from "./EmailStatusBadge";
 import { listEmails, listSentEmails } from "./actions/listEmails";
-import { listTemplates, deleteTemplate, cloneTemplateToEmail } from "./actions/listTemplates";
+import {
+  listTemplates,
+  deleteTemplate,
+  cloneTemplateToEmail,
+} from "./actions/listTemplates";
 import { listUnsubscribed, listSubscribed } from "./actions/listSubscriptions";
 import { listEmailSubscribers } from "./actions/listEmailSubscribers";
 import { addEmailSubscriber } from "./actions/addEmailSubscriber";
@@ -24,6 +28,12 @@ import { revertToDraft } from "./actions/revertToDraft";
 import { deleteEmail } from "./actions/deleteEmail";
 import { cloneEmail } from "./actions/cloneEmail";
 import { createEmailDraft } from "./actions/createEmailDraft";
+import {
+  getEmailFailedDeliveries,
+  type FailedDelivery,
+} from "./actions/getEmailFailedDeliveries";
+import { retryFailedRecipients } from "./actions/retryFailedRecipients";
+import { simulateDeliveryFailure } from "./actions/simulateDeliveryFailure";
 
 type Props = {
   isSuperAdmin: boolean;
@@ -52,7 +62,7 @@ function formatDate(iso: string | null) {
 }
 
 function pct(n: number) {
-  return `${(n * 100).toFixed(1)}%`;
+  return `${(n * 1).toFixed(1)}%`;
 }
 
 export default function EmailsClient({ isSuperAdmin }: Props) {
@@ -60,28 +70,50 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
   const [activeTab, setActiveTab] = useState<EmailTab>("drafts");
   const [page, setPage] = useState(0);
 
-  const [draftData, setDraftData] = useState<PaginatedResult<EmailListRow> | null>(null);
-  const [scheduledData, setScheduledData] = useState<PaginatedResult<EmailListRow> | null>(null);
-  const [sentData, setSentData] = useState<PaginatedResult<EmailAnalyticsRow> | null>(null);
-  const [failedData, setFailedData] = useState<PaginatedResult<EmailListRow> | null>(null);
-  const [templatesData, setTemplatesData] = useState<PaginatedResult<TemplateListRow> | null>(null);
-  const [unsubData, setUnsubData] = useState<PaginatedResult<SubscriptionListRow> | null>(null);
-  const [subData, setSubData] = useState<PaginatedResult<SubscriptionListRow> | null>(null);
-  const [extSubsData, setExtSubsData] = useState<PaginatedResult<EmailSubscriber> | null>(null);
+  const [draftData, setDraftData] =
+    useState<PaginatedResult<EmailListRow> | null>(null);
+  const [scheduledData, setScheduledData] =
+    useState<PaginatedResult<EmailListRow> | null>(null);
+  const [sentData, setSentData] =
+    useState<PaginatedResult<EmailAnalyticsRow> | null>(null);
+  const [failedData, setFailedData] =
+    useState<PaginatedResult<EmailListRow> | null>(null);
+  const [templatesData, setTemplatesData] =
+    useState<PaginatedResult<TemplateListRow> | null>(null);
+  const [unsubData, setUnsubData] =
+    useState<PaginatedResult<SubscriptionListRow> | null>(null);
+  const [subData, setSubData] =
+    useState<PaginatedResult<SubscriptionListRow> | null>(null);
+  const [extSubsData, setExtSubsData] =
+    useState<PaginatedResult<EmailSubscriber> | null>(null);
 
   // External subscriber search
   const [extSubSearch, setExtSubSearch] = useState("");
-  const extSubSearchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const extSubSearchDebounce = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // Add subscriber form state
   const [newSubEmail, setNewSubEmail] = useState("");
   const [newSubName, setNewSubName] = useState("");
   const [newSubPhone, setNewSubPhone] = useState("");
-  const [addSubStatus, setAddSubStatus] = useState<"idle" | "loading" | "conflict" | "already_exists" | "error">("idle");
+  const [addSubStatus, setAddSubStatus] = useState<
+    "idle" | "loading" | "conflict" | "already_exists" | "error"
+  >("idle");
   const [addSubConflictMsg, setAddSubConflictMsg] = useState("");
 
   const [isLoading, setIsLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Failure detail panel
+  const [expandedFailures, setExpandedFailures] = useState<string | null>(null);
+  const [failureDetails, setFailureDetails] = useState<
+    Record<string, FailedDelivery[]>
+  >({});
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [simulatingId, setSimulatingId] = useState<string | null>(null);
+
+  console.log("SENT DATA EMAIL", sentData);
 
   const fetchTab = useCallback(
     async (tab: EmailTab, p: number) => {
@@ -131,7 +163,9 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
           }
         }
       } catch (err) {
-        setActionError(err instanceof Error ? err.message : "Failed to load data");
+        setActionError(
+          err instanceof Error ? err.message : "Failed to load data",
+        );
       } finally {
         setIsLoading(false);
       }
@@ -146,15 +180,17 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
   // Debounced search for external subscribers
   useEffect(() => {
     if (activeTab !== "external_subscribers") return;
-    if (extSubSearchDebounce.current) clearTimeout(extSubSearchDebounce.current);
+    if (extSubSearchDebounce.current)
+      clearTimeout(extSubSearchDebounce.current);
     extSubSearchDebounce.current = setTimeout(() => {
       setPage(0);
       fetchTab("external_subscribers", 0);
     }, 400);
     return () => {
-      if (extSubSearchDebounce.current) clearTimeout(extSubSearchDebounce.current);
+      if (extSubSearchDebounce.current)
+        clearTimeout(extSubSearchDebounce.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extSubSearch]);
 
   function handleTabChange(tab: EmailTab) {
@@ -167,7 +203,9 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
       const { emailId } = await createEmailDraft();
       router.push(`/admin/emails/${emailId}/edit?step=setup`);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to create draft");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to create draft",
+      );
     }
   }
 
@@ -181,8 +219,71 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
     }
   }
 
+  async function handleViewFailures(emailId: string) {
+    if (expandedFailures === emailId) {
+      setExpandedFailures(null);
+      return;
+    }
+    try {
+      const details = await getEmailFailedDeliveries(emailId);
+      setFailureDetails((prev) => ({ ...prev, [emailId]: details }));
+      setExpandedFailures(emailId);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to load failure details",
+      );
+    }
+  }
+
+  async function handleRetryFailed(emailId: string, fromTab: EmailTab) {
+    setRetryingId(emailId);
+    try {
+      const result = await retryFailedRecipients(emailId);
+      // Refresh failure details
+      const details = await getEmailFailedDeliveries(emailId);
+      setFailureDetails((prev) => ({ ...prev, [emailId]: details }));
+      if (details.length === 0) setExpandedFailures(null);
+      fetchTab(fromTab, page);
+      if (result.stillFailed === 0) {
+        setActionError(null);
+      } else {
+        setActionError(
+          `${result.succeeded} retried successfully, ${result.stillFailed} still failing.`,
+        );
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Retry failed");
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
+  async function handleSimulateFailure(emailId: string) {
+    setSimulatingId(emailId);
+    try {
+      const result = await simulateDeliveryFailure(emailId);
+      if (result.simulated === 0) {
+        setActionError("No sent deliveries found to simulate failure on.");
+        return;
+      }
+      // Refresh sent tab data so failed_count updates
+      fetchTab("sent", page);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Simulate failed",
+      );
+    } finally {
+      setSimulatingId(null);
+    }
+  }
+
   async function handleRevertToDraft(emailId: string, fromTab: EmailTab) {
-    if (!confirm("Revert this email to draft? The scheduled time and recipient snapshot will be cleared.")) return;
+    if (
+      !confirm(
+        "Revert this email to draft? The scheduled time and recipient snapshot will be cleared.",
+      )
+    )
+      return;
     try {
       await revertToDraft(emailId);
       fetchTab(fromTab, page);
@@ -242,7 +343,12 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
     if (!newSubEmail.trim()) return;
     setAddSubStatus("loading");
     try {
-      const result = await addEmailSubscriber(newSubEmail, newSubName, newSubPhone, force);
+      const result = await addEmailSubscriber(
+        newSubEmail,
+        newSubName,
+        newSubPhone,
+        force,
+      );
       if (result.status === "conflict") {
         setAddSubStatus("conflict");
         setAddSubConflictMsg(result.message);
@@ -258,13 +364,16 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
       setAddSubStatus("idle");
       fetchTab("external_subscribers", page);
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to add subscriber");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to add subscriber",
+      );
       setAddSubStatus("error");
     }
   }
 
   async function handleRemoveSubscriber(id: string) {
-    if (!confirm("Remove this subscriber? They will no longer receive emails.")) return;
+    if (!confirm("Remove this subscriber? They will no longer receive emails."))
+      return;
     try {
       await removeEmailSubscriber(id);
       fetchTab("external_subscribers", page);
@@ -338,7 +447,9 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
 
         {/* Content */}
         {isLoading ? (
-          <div className="py-12 text-center text-sm text-gray-400">Loading…</div>
+          <div className="py-12 text-center text-sm text-gray-400">
+            Loading…
+          </div>
         ) : (
           <>
             {/* Drafts tab */}
@@ -403,7 +514,9 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                       {row.subject}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500">
-                      {(row.recipient_count as unknown as { count: number }[])?.[0]?.count?.toLocaleString() ?? "—"}
+                      {(
+                        row.recipient_count as unknown as { count: number }[]
+                      )?.[0]?.count?.toLocaleString() ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                       {formatDate(row.scheduled_at)}
@@ -412,7 +525,9 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                       <div className="flex gap-3">
                         {isSuperAdmin && (
                           <button
-                            onClick={() => handleRevertToDraft(row.id, "scheduled")}
+                            onClick={() =>
+                              handleRevertToDraft(row.id, "scheduled")
+                            }
                             className="text-indigo-600 hover:text-indigo-700 font-medium"
                           >
                             Revert to Draft
@@ -440,35 +555,60 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                 emptyLabel="No failed emails."
                 columns={["Subject", "Recipients", "Attempted", "Actions"]}
                 renderRow={(row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium max-w-xs truncate">
-                      {row.subject}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {(row.recipient_count as unknown as { count: number }[])?.[0]?.count?.toLocaleString() ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                      {formatDate(row.sent_at)}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex gap-3">
-                        {isSuperAdmin && (
+                  <>
+                    <tr key={row.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium max-w-xs truncate">
+                        {row.subject}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {(
+                          row.recipient_count as unknown as { count: number }[]
+                        )?.[0]?.count?.toLocaleString() ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {formatDate(row.sent_at)}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex gap-3 flex-wrap">
                           <button
-                            onClick={() => handleRevertToDraft(row.id, "failed")}
-                            className="text-indigo-600 hover:text-indigo-700 font-medium"
+                            onClick={() => handleViewFailures(row.id)}
+                            className="text-red-600 hover:text-red-700 font-medium"
                           >
-                            Revert to Draft
+                            {expandedFailures === row.id
+                              ? "Hide failures"
+                              : "View failures"}
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleClone(row.id)}
-                          className="text-gray-500 hover:text-gray-700"
-                        >
-                          Clone
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                          {isSuperAdmin && (
+                            <button
+                              onClick={() =>
+                                handleRevertToDraft(row.id, "failed")
+                              }
+                              className="text-indigo-600 hover:text-indigo-700 font-medium"
+                            >
+                              Revert to Draft
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleClone(row.id)}
+                            className="text-gray-500 hover:text-gray-700"
+                          >
+                            Clone
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expandedFailures === row.id && (
+                      <tr key={`${row.id}-failures`}>
+                        <td colSpan={4} className="px-4 pb-4">
+                          <FailureDetailPanel
+                            failures={failureDetails[row.id] ?? []}
+                            isRetrying={retryingId === row.id}
+                            onRetry={() => handleRetryFailed(row.id, "failed")}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 )}
               />
             )}
@@ -485,37 +625,76 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                   "Delivered",
                   "Opens",
                   "Clicks",
+                  "Failed",
                   "Actions",
                 ]}
                 renderRow={(row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium max-w-xs truncate">
-                      {row.subject}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                      {formatDate(row.sent_at)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {row.recipient_count.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {row.delivered_count.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {pct(row.open_rate)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {pct(row.click_rate)}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <button
-                        onClick={() => handleClone(row.id)}
-                        className="text-gray-500 hover:text-gray-700 font-medium"
-                      >
-                        Clone
-                      </button>
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={row.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900 font-medium max-w-xs truncate">
+                        {row.subject}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {formatDate(row.sent_at)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {row.recipient_count.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {row.delivered_count.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {pct(row.open_rate)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {pct(row.click_rate)}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {row.failed_count > 0 ? (
+                          <button
+                            onClick={() => handleViewFailures(row.id)}
+                            className="text-red-600 hover:text-red-700 font-medium"
+                          >
+                            {row.failed_count.toLocaleString()}
+                          </button>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => handleClone(row.id)}
+                            className="text-gray-500 hover:text-gray-700 font-medium"
+                          >
+                            Clone
+                          </button>
+                          {isSuperAdmin && row.failed_count === 0 && (
+                            <button
+                              onClick={() => handleSimulateFailure(row.id)}
+                              disabled={simulatingId === row.id}
+                              className="text-amber-600 hover:text-amber-700 disabled:opacity-40"
+                            >
+                              {simulatingId === row.id
+                                ? "Simulating…"
+                                : "Simulate failure"}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                    {expandedFailures === row.id && (
+                      <tr key={`${row.id}-failures`}>
+                        <td colSpan={8} className="px-4 pb-4">
+                          <FailureDetailPanel
+                            failures={failureDetails[row.id] ?? []}
+                            isRetrying={retryingId === row.id}
+                            onRetry={() => handleRetryFailed(row.id, "sent")}
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 )}
               />
             )}
@@ -621,7 +800,9 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
               <div className="space-y-6">
                 {/* Add subscriber form */}
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 space-y-4">
-                  <p className="text-sm font-medium text-gray-700">Add external subscriber</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    Add external subscriber
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <input
                       type="text"
@@ -651,7 +832,9 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
 
                   {addSubStatus === "conflict" && (
                     <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
-                      <p className="text-sm text-amber-800">{addSubConflictMsg}</p>
+                      <p className="text-sm text-amber-800">
+                        {addSubConflictMsg}
+                      </p>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleAddSubscriber(true)}
@@ -678,10 +861,14 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                   {addSubStatus !== "conflict" && (
                     <button
                       onClick={() => handleAddSubscriber(false)}
-                      disabled={!newSubEmail.trim() || addSubStatus === "loading"}
+                      disabled={
+                        !newSubEmail.trim() || addSubStatus === "loading"
+                      }
                       className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      {addSubStatus === "loading" ? "Adding…" : "Add subscriber"}
+                      {addSubStatus === "loading"
+                        ? "Adding…"
+                        : "Add subscriber"}
                     </button>
                   )}
                 </div>
@@ -704,9 +891,15 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                   columns={["Email", "Name", "Phone", "Added", "Actions"]}
                   renderRow={(row) => (
                     <tr key={row.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">{row.email}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{row.name ?? "—"}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{row.phone ?? "—"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">
+                        {row.email}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {row.name ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">
+                        {row.phone ?? "—"}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                         {formatDate(row.created_at)}
                       </td>
@@ -750,6 +943,69 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
             )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Failure detail panel                                                        */
+/* -------------------------------------------------------------------------- */
+
+function FailureDetailPanel({
+  failures,
+  isRetrying,
+  onRetry,
+}: {
+  failures: FailedDelivery[];
+  isRetrying: boolean;
+  onRetry: () => void;
+}) {
+  if (failures.length === 0) {
+    return (
+      <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-400">
+        No failure details available.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-red-100 bg-red-50 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-red-800">
+          {failures.length} failed recipient{failures.length !== 1 ? "s" : ""}
+        </p>
+        <button
+          onClick={onRetry}
+          disabled={isRetrying}
+          className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 transition disabled:opacity-40"
+        >
+          {isRetrying ? "Retrying…" : "Retry all"}
+        </button>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-red-200 bg-white">
+        <table className="min-w-full divide-y divide-red-100 text-sm">
+          <thead className="bg-red-50">
+            <tr>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-red-700 uppercase tracking-wide">
+                Email Address
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-red-700 uppercase tracking-wide">
+                Reason
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-red-50">
+            {failures.map((f) => (
+              <tr key={f.emailAddress}>
+                <td className="px-3 py-2 text-gray-900">{f.emailAddress}</td>
+                <td className="px-3 py-2 text-gray-500">
+                  {f.failureReason ?? "Unknown"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

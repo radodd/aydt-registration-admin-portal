@@ -2,10 +2,8 @@
 
 import {
   EmailDraft,
-  EmailSelectionCriteria,
   EmailStatus,
   EmailWizardAction,
-  ManualUserEntry,
 } from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JSX, useEffect, useReducer, useRef, useState } from "react";
@@ -47,12 +45,24 @@ function emailReducer(
       const existing = state.recipients?.selections ?? [];
       if (existing.some((s) => s.localId === action.payload.localId))
         return state;
+      // Auto-remove narrower selections subsumed by the new one
+      const newSel = action.payload;
+      let filtered = existing;
+      if (newSel.type === "semester" && newSel.semesterId) {
+        filtered = existing.filter(
+          (s) => !(s.semesterId === newSel.semesterId && (s.type === "class" || s.type === "session")),
+        );
+      } else if (newSel.type === "class" && newSel.classId) {
+        filtered = existing.filter(
+          (s) => !(s.classId === newSel.classId && s.type === "session"),
+        );
+      }
       return {
         ...state,
         recipients: {
-          selections: [...existing, action.payload],
+          selections: [...filtered, newSel],
           manualAdditions: state.recipients?.manualAdditions ?? [],
-          exclusions: state.recipients?.exclusions ?? [],
+          excludedFamilyIds: state.recipients?.excludedFamilyIds ?? [],
           resolvedCount: state.recipients?.resolvedCount,
         },
       };
@@ -67,7 +77,22 @@ function emailReducer(
             (s) => s.localId !== action.payload,
           ),
           manualAdditions: state.recipients?.manualAdditions ?? [],
-          exclusions: state.recipients?.exclusions ?? [],
+          excludedFamilyIds: state.recipients?.excludedFamilyIds ?? [],
+        },
+      };
+
+    case "TOGGLE_INSTRUCTOR_INCLUSION":
+      return {
+        ...state,
+        recipients: {
+          ...state.recipients,
+          selections: (state.recipients?.selections ?? []).map((s) =>
+            s.localId === action.payload
+              ? { ...s, includeInstructors: !s.includeInstructors }
+              : s,
+          ),
+          manualAdditions: state.recipients?.manualAdditions ?? [],
+          excludedFamilyIds: state.recipients?.excludedFamilyIds ?? [],
         },
       };
 
@@ -83,7 +108,7 @@ function emailReducer(
           ...state.recipients,
           selections: state.recipients?.selections ?? [],
           manualAdditions: [...existing, action.payload],
-          exclusions: state.recipients?.exclusions ?? [],
+          excludedFamilyIds: state.recipients?.excludedFamilyIds ?? [],
         },
       };
     }
@@ -97,25 +122,43 @@ function emailReducer(
           manualAdditions: (state.recipients?.manualAdditions ?? []).filter(
             (u) => (u.subscriberId ?? u.userId) !== action.payload,
           ),
-          exclusions: state.recipients?.exclusions ?? [],
+          excludedFamilyIds: state.recipients?.excludedFamilyIds ?? [],
         },
       };
 
-    case "TOGGLE_EXCLUSION": {
-      const exclusions = state.recipients?.exclusions ?? [];
-      const isExcluded = exclusions.includes(action.payload);
+    case "TOGGLE_FAMILY_EXCLUSION": {
+      const excluded = state.recipients?.excludedFamilyIds ?? [];
+      const isExcluded = excluded.includes(action.payload);
       return {
         ...state,
         recipients: {
           ...state.recipients,
           selections: state.recipients?.selections ?? [],
           manualAdditions: state.recipients?.manualAdditions ?? [],
-          exclusions: isExcluded
-            ? exclusions.filter((id) => id !== action.payload)
-            : [...exclusions, action.payload],
+          excludedFamilyIds: isExcluded
+            ? excluded.filter((id) => id !== action.payload)
+            : [...excluded, action.payload],
+          // Remove from resolvedFamilies immediately for instant UI feedback
+          resolvedFamilies: isExcluded
+            ? state.recipients?.resolvedFamilies
+            : (state.recipients?.resolvedFamilies ?? []).filter(
+                (f) => f.familyId !== action.payload,
+              ),
         },
       };
     }
+
+    case "SET_RESOLVED_FAMILIES":
+      return {
+        ...state,
+        recipients: {
+          selections: state.recipients?.selections ?? [],
+          manualAdditions: state.recipients?.manualAdditions ?? [],
+          excludedFamilyIds: state.recipients?.excludedFamilyIds ?? [],
+          resolvedFamilies: action.payload,
+          resolvedCount: action.payload.length,
+        },
+      };
 
     case "SET_RESOLVED_COUNT":
       return {
@@ -123,7 +166,7 @@ function emailReducer(
         recipients: {
           selections: state.recipients?.selections ?? [],
           manualAdditions: state.recipients?.manualAdditions ?? [],
-          exclusions: state.recipients?.exclusions ?? [],
+          excludedFamilyIds: state.recipients?.excludedFamilyIds ?? [],
           resolvedCount: action.payload,
         },
       };
@@ -164,8 +207,6 @@ export default function EmailForm({
   const persistedSnapshotRef = useRef<string>(
     JSON.stringify(initialState ?? {}),
   );
-
-  console.log("STATE", state);
 
   // Header action state
   const [headerSaving, setHeaderSaving] = useState(false);
