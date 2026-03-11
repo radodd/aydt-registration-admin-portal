@@ -38,7 +38,6 @@ interface ClassDetail {
   name: string;
   discipline: string;
   division: string;
-  level: string | null;
   description: string | null;
   min_age: number | null;
   max_age: number | null;
@@ -386,7 +385,6 @@ export default function ClassDetailPage() {
     setEditForm({
       name: cls.name,
       description: cls.description ?? "",
-      level: cls.level ?? "",
       min_age: cls.min_age,
       max_age: cls.max_age,
       min_grade: cls.min_grade,
@@ -413,7 +411,6 @@ export default function ClassDetailPage() {
             ...editForm,
             name: editForm.name ?? prev.name,
             description: editForm.description ?? prev.description,
-            level: editForm.level ?? prev.level,
           }
         : prev
     );
@@ -632,28 +629,6 @@ export default function ClassDetailPage() {
               <p className="text-sm font-medium text-gray-800">
                 {DIVISION_LABELS[cls.division] ?? cls.division}
               </p>
-            </div>
-
-            {/* Level */}
-            <div>
-              <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
-                Level
-              </p>
-              {editing ? (
-                <input
-                  type="text"
-                  value={editForm.level ?? ""}
-                  onChange={(e) =>
-                    setEditForm((f) => ({ ...f, level: e.target.value }))
-                  }
-                  placeholder="e.g. Beginner"
-                  className="w-full text-sm text-slate-600 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                />
-              ) : (
-                <p className="text-sm font-medium text-gray-800">
-                  {cls.level ?? "—"}
-                </p>
-              )}
             </div>
 
             {/* Min age */}

@@ -101,7 +101,6 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
           display_name: cls.display_name ?? null,
           discipline: cls.discipline,
           division: cls.division,
-          level: cls.level ?? null,
           description: cls.description ?? null,
           min_age: cls.min_age ?? null,
           max_age: cls.max_age ?? null,

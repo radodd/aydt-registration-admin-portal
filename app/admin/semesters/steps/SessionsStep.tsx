@@ -61,7 +61,6 @@ function buildDefaultPriceTierFromState(
   division: string,
   weeklyCount: number,
   discipline: string,
-  level: string | null | undefined,
   rateBands: DraftTuitionRateBand[],
   specialRates: DraftSpecialProgramTuition[],
 ): DraftSchedulePriceTier | null {
@@ -69,7 +68,6 @@ function buildDefaultPriceTierFromState(
     division,
     weeklyClassCount: Math.max(1, weeklyCount),
     discipline,
-    level,
     rateBands,
     specialRates,
   });
@@ -118,7 +116,7 @@ function emptyStandardClass(): DraftClass {
     displayName: "",
     discipline: "ballet",
     division: "junior",
-    level: "",
+
     description: "",
     minAge: undefined,
     maxAge: undefined,
@@ -146,7 +144,7 @@ function emptyCompetitionTrackClass(): DraftClass {
     displayName: "",
     discipline: "ballet",
     division: "competition",
-    level: "",
+
     description: "",
     minAge: undefined,
     maxAge: undefined,
@@ -746,7 +744,7 @@ function ClassCard({
                     if ((sched.priceTiers ?? []).length === 0) {
                       const weeklyCount = Math.max(1, sched.daysOfWeek.length);
                       const tier = buildDefaultPriceTierFromState(
-                        newDivision, weeklyCount, cls.discipline, cls.level,
+                        newDivision, weeklyCount, cls.discipline,
                         rateBands, specialRates,
                       );
                       if (tier) {
@@ -1065,7 +1063,6 @@ function ClassCard({
                   onRemove={() => onRemoveSchedule(scheduleIdx)}
                   division={cls.division}
                   discipline={cls.discipline}
-                  level={cls.level}
                   rateBands={rateBands}
                   specialRates={specialRates}
                 />
@@ -1098,7 +1095,6 @@ function ScheduleEditor({
   onRemove,
   division,
   discipline,
-  level,
   rateBands,
   specialRates,
 }: {
@@ -1109,7 +1105,6 @@ function ScheduleEditor({
   onRemove: () => void;
   division: string;
   discipline: string;
-  level?: string | null;
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
 }) {
@@ -1147,7 +1142,7 @@ function ScheduleEditor({
     // Auto-fill tuition if no tiers are set yet and at least one day is selected.
     if ((schedule.priceTiers ?? []).length === 0 && updated.length > 0) {
       const tier = buildDefaultPriceTierFromState(
-        division, updated.length, discipline, level, rateBands, specialRates,
+        division, updated.length, discipline, rateBands, specialRates,
       );
       if (tier) {
         patch.pricingModel = "full_schedule";
@@ -1623,12 +1618,12 @@ function ScheduleEditor({
         {pricingModel === "full_schedule" && (() => {
           const weeklyCount = Math.max(1, (schedule.daysOfWeek ?? []).length);
           const engineResult = calculateClassTuition({
-            division, weeklyClassCount: weeklyCount, discipline, level,
+            division, weeklyClassCount: weeklyCount, discipline,
             rateBands, specialRates,
           });
           const existingTier = priceTiers[0] ?? null;
           const defaultTierFromEngine = buildDefaultPriceTierFromState(
-            division, weeklyCount, discipline, level, rateBands, specialRates,
+            division, weeklyCount, discipline, rateBands, specialRates,
           );
           const isUnresolved = engineResult.source === "unresolved" && !engineResult.validationError;
           return (

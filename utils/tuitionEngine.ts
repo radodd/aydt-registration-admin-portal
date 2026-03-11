@@ -63,7 +63,7 @@ export function isSpecialProgramClass(cls: {
 }
 
 /**
- * Maps a class's discipline/division/level to the canonical `program_key`
+ * Maps a class's discipline/division to the canonical `program_key`
  * used in `special_program_tuition`.
  *
  * Returns null if the class is not a special program.
@@ -71,12 +71,9 @@ export function isSpecialProgramClass(cls: {
 export function getSpecialProgramKey(cls: {
   discipline: string;
   division: string;
-  level?: string | null;
 }): string | null {
   if (cls.discipline === "technique") return "technique";
   if (cls.discipline === "pointe") {
-    // Pre-Pointe classes have "pre" in their level field
-    if (cls.level?.toLowerCase().includes("pre")) return "pre_pointe";
     return "pointe";
   }
   if (cls.division === "early_childhood") return "early_childhood";
@@ -97,7 +94,6 @@ export interface TuitionCalculationInput {
   /** Total weekly sessions this dancer is enrolled in (determines discount tier). */
   weeklyClassCount: number;
   discipline: string;
-  level?: string | null;
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
   /** Per-class costume fee for junior standard classes (default 55). */
@@ -157,7 +153,6 @@ export function calculateClassTuition(
     division,
     weeklyClassCount,
     discipline,
-    level,
     rateBands,
     specialRates,
     juniorCostumeFeePerClass = 55,
@@ -176,7 +171,7 @@ export function calculateClassTuition(
 
   // 2. Special program override — fixed fee, no progressive discounts
   if (isSpecialProgramClass({ discipline, division })) {
-    const key = getSpecialProgramKey({ discipline, division, level });
+    const key = getSpecialProgramKey({ discipline, division });
     const rate = key ? specialRates.find((r) => r.programKey === key) : null;
     if (!rate) {
       return { ...UNRESOLVED, isSpecialProgram: true };

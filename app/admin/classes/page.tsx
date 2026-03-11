@@ -14,7 +14,6 @@ interface ClassWithSessions {
   name: string;
   discipline: string;
   division: string;
-  level: string | null;
   is_active: boolean;
   class_sessions: {
     id: string;
@@ -324,7 +323,22 @@ export default function AdminClassesPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return classes
-      .filter((c) => !q || c.name.toLowerCase().includes(q))
+      .filter((c) => {
+        if (!q) return true;
+        const tokens = q.split(/\s+/).filter(Boolean);
+        const statusLabel = c.is_active ? "active" : "inactive";
+        const days = c.class_sessions.map((s) => s.day_of_week).join(" ");
+        const searchableText = [
+          c.name,
+          c.discipline,
+          c.division,
+          statusLabel,
+          days,
+        ]
+          .join(" ")
+          .toLowerCase();
+        return tokens.every((token) => searchableText.includes(token));
+      })
       .sort((a, b) => {
         let av = "";
         let bv = "";
@@ -433,7 +447,7 @@ export default function AdminClassesPage() {
             </svg>
             <input
               type="text"
-              placeholder="Search by class name…"
+              placeholder="Search classes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white text-slate-600"
@@ -499,7 +513,6 @@ export default function AdminClassesPage() {
                     sortDir={sortDir}
                     onSort={handleSort}
                   />
-                  <th className="px-6 py-4 text-left font-medium">Level</th>
                   <th className="px-6 py-4 text-left font-medium">Sessions</th>
                   <th className="px-6 py-4 text-left font-medium">Status</th>
                   <th className="px-6 py-4" />
@@ -542,9 +555,6 @@ export default function AdminClassesPage() {
                       </td>
                       <td className="px-6 py-4 text-gray-600">
                         {DIVISION_LABELS[cls.division] ?? cls.division}
-                      </td>
-                      <td className="px-6 py-4 text-gray-600">
-                        {cls.level ?? "—"}
                       </td>
                       <td className="px-6 py-4 text-gray-600">
                         {cls.class_sessions?.length ?? 0}

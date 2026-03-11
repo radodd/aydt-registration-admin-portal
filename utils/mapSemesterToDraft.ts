@@ -40,7 +40,6 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
         displayName: c.display_name ?? undefined,
         discipline: c.discipline ?? "ballet",
         division: c.division ?? "junior",
-        level: c.level ?? undefined,
         description: c.description ?? undefined,
         minAge: c.min_age ?? undefined,
         maxAge: c.max_age ?? undefined,

@@ -5,7 +5,6 @@ import { createClient } from "@/utils/supabase/server";
 export interface ClassMetaUpdate {
   name?: string;
   description?: string;
-  level?: string;
   min_age?: number | null;
   max_age?: number | null;
   min_grade?: number | null;

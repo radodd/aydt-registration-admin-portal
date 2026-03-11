@@ -180,7 +180,6 @@ export interface DanceClass {
   name: string;
   discipline: string;
   division: string;
-  level: string | null;
   description: string | null;
   min_age: number | null;
   max_age: number | null;
@@ -695,7 +694,6 @@ export type DraftClass = {
   displayName?: string;
   discipline: string;
   division: string;
-  level?: string;
   description?: string;
   minAge?: number | null;
   maxAge?: number | null;

@@ -200,7 +200,7 @@ export async function validateEnrollment(
             const { data: priorRegs } = await supabase
               .from("registrations")
               .select(
-                "id, class_sessions(semester_id, classes(discipline, level))",
+                "id, class_sessions(semester_id, classes(discipline))",
               )
               .eq("dancer_id", dancerId)
               .eq("status", "confirmed");
@@ -219,8 +219,6 @@ export async function validateEnrollment(
                 req.required_discipline &&
                 cls.discipline !== req.required_discipline
               )
-                return false;
-              if (req.required_level && cls.level !== req.required_level)
                 return false;
               return true;
             });

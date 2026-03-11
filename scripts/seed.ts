@@ -2696,7 +2696,6 @@ async function seedAYDTClassCatalog() {
       name: c.name,
       discipline: c.discipline,
       division: c.division,
-      level: c.level ?? null,
       description: null,
       min_age: c.min_age ?? null,
       max_age: c.max_age ?? null,

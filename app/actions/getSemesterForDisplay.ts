@@ -51,7 +51,6 @@ export async function getSemesterForDisplay(
         name,
         discipline,
         division,
-        level,
         description,
         min_age,
         max_age,
@@ -411,7 +410,6 @@ interface ClassRow {
   name: string;
   discipline: string;
   division: string;
-  level: string | null;
   description: string | null;
   min_age: number | null;
   max_age: number | null;
