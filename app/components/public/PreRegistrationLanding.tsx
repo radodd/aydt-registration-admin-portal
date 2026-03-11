@@ -148,7 +148,13 @@ export function PreRegistrationLanding({ semester, onOpen }: Props) {
     e.preventDefault();
     setNotifyState("submitting");
     try {
-      const result = await subscribeForNotification({ email, name });
+      const result = await subscribeForNotification({
+        email,
+        name,
+        semesterId: semester.id,
+        semesterName: semester.name,
+        registrationOpenAt: semester.registrationOpenAt ?? null,
+      });
       if (!result.success) {
         setNotifyState("error");
         return;

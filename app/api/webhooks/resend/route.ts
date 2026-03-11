@@ -95,5 +95,12 @@ async function handleEvent(event: ResendEvent): Promise<NextResponse> {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Also update notification_subscription_emails if this was a subscription
+  // confirmation email — no-op if the resend_message_id isn't found there.
+  await supabase
+    .from("notification_subscription_emails")
+    .update(updates)
+    .eq("resend_message_id", resendMessageId);
+
   return NextResponse.json({ ok: true });
 }
