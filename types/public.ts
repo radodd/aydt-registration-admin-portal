@@ -122,6 +122,8 @@ export interface PublicSemester {
   description?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  /** When set, the class catalog is hidden until this timestamp is reached. */
+  registrationOpenAt?: string | null;
   paymentPlan?: PublicPaymentPlan | null;
   registrationForm: RegistrationFormElement[];
   sessions: PublicSession[];

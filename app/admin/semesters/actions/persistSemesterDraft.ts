@@ -177,7 +177,6 @@ async function syncTuitionRateBands(
     division: b.division,
     weekly_class_count: b.weekly_class_count,
     base_tuition: b.base_tuition,
-    recital_fee_included: b.recital_fee_included,
     progressive_discount_percent: b.progressive_discount_percent ?? 0,
     semester_total: b.semester_total ?? null,
     autopay_installment_amount: b.autopay_installment_amount ?? null,

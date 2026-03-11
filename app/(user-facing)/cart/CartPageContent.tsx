@@ -21,6 +21,8 @@ function sessionPrice(session: PublicSession): number {
   }
   const defaultTier =
     session.priceTiers?.find((t) => t.isDefault) ?? session.priceTiers?.[0];
+
+  console.log("DEFAULT TIERS", defaultTier);
   return defaultTier?.amount ?? 0;
 }
 
@@ -60,11 +62,17 @@ export function CartPageContent() {
     setLoading(true);
     console.log("[CartPage] Fetching semester:", semesterId);
 
-    getSemesterForDisplay(semesterId, preview ? "preview" : "live").then((semester) => {
-      console.log("[CartPage] Semester fetched:", semester.sessions.length, "sessions");
-      setSemesterSessions(semester.sessions);
-      setLoading(false);
-    });
+    getSemesterForDisplay(semesterId, preview ? "preview" : "live").then(
+      (semester) => {
+        console.log(
+          "[CartPage] Semester fetched:",
+          semester.sessions.length,
+          "sessions",
+        );
+        setSemesterSessions(semester.sessions);
+        setLoading(false);
+      },
+    );
   }, [hydrated, semesterId]);
 
   /* ---------------------------------------------------------------- */
@@ -81,13 +89,25 @@ export function CartPageContent() {
   /* ---------------------------------------------------------------- */
 
   useEffect(() => {
-    console.log(`[CartPage] expiry check: isExpired=${isExpired} secondsRemaining=${secondsRemaining} hydrated=${hydrated} itemCount=${itemCount}`);
+    console.log(
+      `[CartPage] expiry check: isExpired=${isExpired} secondsRemaining=${secondsRemaining} hydrated=${hydrated} itemCount=${itemCount}`,
+    );
     if (isExpired) {
       console.warn("[CartPage] Cart expired — clearing and redirecting");
       clear();
-      router.push(preview ? `/preview/semester/${semesterId}` : `/semester/${semesterId}`);
+      router.push(
+        preview ? `/preview/semester/${semesterId}` : `/semester/${semesterId}`,
+      );
     }
-  }, [isExpired, clear, router, semesterId, secondsRemaining, hydrated, itemCount]);
+  }, [
+    isExpired,
+    clear,
+    router,
+    semesterId,
+    secondsRemaining,
+    hydrated,
+    itemCount,
+  ]);
 
   const subtotal = enrichedSessions.reduce(
     (acc, s) => acc + sessionPrice(s),
@@ -197,7 +217,11 @@ export function CartPageContent() {
 
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <Link
-                  href={preview ? `/preview/semester/${semesterId}` : `/semester/${semesterId}`}
+                  href={
+                    preview
+                      ? `/preview/semester/${semesterId}`
+                      : `/semester/${semesterId}`
+                  }
                   className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                 >
                   ← Add more sessions
@@ -236,13 +260,21 @@ export function CartPageContent() {
       {/* CTAs */}
       <div className="flex flex-col sm:flex-row gap-3">
         <Link
-          href={preview ? `/preview/semester/${semesterId}` : `/semester/${semesterId}`}
+          href={
+            preview
+              ? `/preview/semester/${semesterId}`
+              : `/semester/${semesterId}`
+          }
           className="flex-1 text-center py-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
         >
           ← Add more sessions
         </Link>
         <Link
-          href={preview ? `/preview/semester/${semesterId}/register` : `/register?semester=${semesterId}`}
+          href={
+            preview
+              ? `/preview/semester/${semesterId}/register`
+              : `/register?semester=${semesterId}`
+          }
           className="flex-1 text-center py-3 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors text-sm font-semibold"
         >
           Continue to Registration

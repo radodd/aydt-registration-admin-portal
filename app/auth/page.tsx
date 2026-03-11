@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { signOut, signUp } from "./actions";
 import { z } from "zod";
 import {
@@ -10,7 +11,11 @@ import {
 } from "../lib/validation/auth";
 import { FormField } from "../components/form/FormField";
 
-export default function SignUpPage() {
+function SignUpForm() {
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") ?? "";
+  const prefillEmail = searchParams.get("email") ?? "";
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const ref = useRef<HTMLFormElement>(null);
 
@@ -38,6 +43,9 @@ export default function SignUpPage() {
     setErrors({});
   };
 
+  // Preserve next param in the login link so users can switch flows without losing context
+  const loginHref = next ? `/auth/login?next=${encodeURIComponent(next)}` : "/auth/login";
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
@@ -52,6 +60,9 @@ export default function SignUpPage() {
           className="space-y-4"
           noValidate
         >
+          {/* Thread the redirect destination through the form */}
+          {next && <input type="hidden" name="next" value={next} />}
+
           <div>
             <FormField
               label="First Name"
@@ -74,6 +85,7 @@ export default function SignUpPage() {
               name="email"
               type="email"
               placeholder="Enter you email"
+              defaultValue={prefillEmail}
               error={errors.email}
             />
           </div>
@@ -87,17 +99,9 @@ export default function SignUpPage() {
             />
           </div>
 
-          {/* <label className="flex items-center gap-2 text-sm text-gray-600">
-            <input type="checkbox" className="w-4 h-4" /> I agree to all the
-            <a href="#" className="underline font-medium">
-              Terms & Conditions
-            </a>
-          </label> */}
-
           <button
             type="submit"
             className="w-full bg-blue-900 text-white py-3 rounded-xl mt-2 hover:bg-blue-800 transition"
-            // formAction={signUp}
           >
             Sign up
           </button>
@@ -115,22 +119,21 @@ export default function SignUpPage() {
           <div className="h-px flex-1 bg-gray-300"></div>
         </div>
 
-        {/* <div className="flex gap-3">
-          <button className="flex-1 border border-gray-300 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-100 transition">
-            <span className="text-lg">🌐</span> Google
-          </button>
-          <button className="flex-1 border border-gray-300 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-gray-100 transition">
-            <span className="text-lg">📘</span> Facebook
-          </button>
-        </div> */}
-
         <p className="text-center text-sm text-gray-600 mt-6">
           Already have an account?{" "}
-          <a className="text-blue-700 font-medium" href="/auth/login">
+          <a className="text-blue-700 font-medium" href={loginHref}>
             Log in
           </a>
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense>
+      <SignUpForm />
+    </Suspense>
   );
 }

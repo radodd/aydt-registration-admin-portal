@@ -12,54 +12,25 @@ export default async function Profile() {
   if (!authUser) {
     redirect("/");
   }
-  console.log("authUser", authUser);
-  // 2️⃣ Get user record (for family_id)
+
   const { data: user } = await supabase
     .from("users")
-    .select("*")
+    .select(
+      "id, family_id, email, first_name, middle_name, last_name, phone_number, is_primary_parent, role, status, created_at, address_line1, address_line2, city, state, zipcode",
+    )
     .eq("id", authUser.id)
     .single();
 
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
-  console.log("user", user);
 
-  // 3️⃣ Get all dancers in that family + their programs
-  const { data: dancers, error } = await supabase
-
+  const { data: dancers } = await supabase
     .from("dancers")
-    .select(
-      `
-    id,
-    first_name,
-    last_name,
-    registrations (
-      id,
-      status,
-      total_amount,
-      sessions (
-        id,
-        title,
-        location,
-        start_date,
-        end_date,
-        semester_id,
-        semesters (
-          id,
-          name
-        )
-      )
-    )
-  `,
-    )
-    .eq("family_id", user.family_id);
-  console.log("Fetched dancers for family_id", user.family_id, ":", dancers);
-  if (error) {
-    console.error("Error fetching family registrations:", error.message);
-  } else {
-    console.log("Fetched Family Data:", dancers);
-  }
-  // @ts-expect-error define dancer props later
-  return <FamilyProfileCard user={user} dancers={dancers} />;
+    .select("id, first_name, last_name, birth_date, grade")
+    .eq("family_id", user.family_id)
+    .order("created_at", { ascending: true });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return <FamilyProfileCard user={user as any} dancers={dancers as any} />;
 }

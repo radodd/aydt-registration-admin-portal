@@ -260,12 +260,11 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
   // Clone tuition rate bands
   console.log("[cloneSemester] cloning tuition_rate_bands, count:", source.tuition_rate_bands?.length ?? 0);
   if (source.tuition_rate_bands?.length > 0) {
-    const bandInserts = (source.tuition_rate_bands as { division: string; weekly_class_count: number; base_tuition: number; recital_fee_included: boolean }[]).map((b) => ({
+    const bandInserts = (source.tuition_rate_bands as { division: string; weekly_class_count: number; base_tuition: number }[]).map((b) => ({
       semester_id: newId,
       division: b.division,
       weekly_class_count: b.weekly_class_count,
       base_tuition: b.base_tuition,
-      recital_fee_included: b.recital_fee_included,
     }));
     const { error: bandsError } = await supabase
       .from("tuition_rate_bands")

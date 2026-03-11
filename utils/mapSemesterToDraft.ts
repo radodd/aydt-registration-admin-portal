@@ -161,7 +161,6 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
       division: b.division,
       weekly_class_count: b.weekly_class_count,
       base_tuition: Number(b.base_tuition),
-      recital_fee_included: Number(b.recital_fee_included),
       notes: b.notes ?? undefined,
     })),
 

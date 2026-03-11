@@ -52,7 +52,7 @@ export default function SemesterLifecycleActions({
     setActionError(null);
     startTransition(async () => {
       try {
-        await scheduleSemester(semesterId, scheduledDate);
+        await scheduleSemester(semesterId, new Date(scheduledDate).toISOString());
       } catch (e) {
         setActionError(e instanceof Error ? e.message : "Failed to schedule.");
       }
@@ -184,7 +184,14 @@ export default function SemesterLifecycleActions({
 
         {publishAt && status === "scheduled" && (
           <div className="text-xs text-gray-500">
-            Currently scheduled for: {publishAt}
+            Currently scheduled for:{" "}
+            {new Date(publishAt).toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}
           </div>
         )}
       </div>}

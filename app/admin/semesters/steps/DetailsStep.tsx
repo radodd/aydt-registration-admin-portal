@@ -12,7 +12,7 @@ export default function DetailsStep({
   dispatch,
   onNext,
 }: DetailsStepProps) {
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<DetailsFormState>({
     name: state.details?.name ?? "",
     trackingMode: state.details?.trackingMode ?? false,
   });

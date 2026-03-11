@@ -58,7 +58,10 @@ function LogInForm() {
 
         <p className="text-center text-sm text-gray-600 mt-6">
           New to AYDT&apos;s Portal?{" "}
-          <a className="text-blue-700 font-medium" href="/auth">
+          <a
+            className="text-blue-700 font-medium"
+            href={next ? `/auth?next=${encodeURIComponent(next)}` : "/auth"}
+          >
             Sign up
           </a>
         </p>

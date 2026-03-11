@@ -119,9 +119,16 @@ export async function computePricingQuote(
     )
     .eq("semester_id", input.semesterId);
 
+  // const activeDiscounts: ActiveDiscount[] = (discountLinks ?? [])
+  //   .map((link: any) => link.discounts as ActiveDiscount | null)
+  //   .filter((d): d is ActiveDiscount => d !== null && d.is_active === true);
+
   const activeDiscounts: ActiveDiscount[] = (discountLinks ?? [])
     .map((link: any) => link.discounts as ActiveDiscount | null)
-    .filter((d): d is ActiveDiscount => d !== null && d.is_active === true);
+    .filter(
+      (d): d is ActiveDiscount =>
+        d !== null && d.is_active === true && d.category !== "family",
+    );
 
   const familyDancerCount = input.enrollments.filter(
     (e) => e.sessionIds.length > 0,
@@ -132,13 +139,19 @@ export async function computePricingQuote(
   /* ---------------------------------------------------------------------- */
   const perDancer: DancerPricingBreakdown[] = [];
 
-  for (const { dancerId, dancerName: dancerNameOverride, sessionIds } of input.enrollments) {
+  for (const {
+    dancerId,
+    dancerName: dancerNameOverride,
+    sessionIds,
+  } of input.enrollments) {
     if (sessionIds.length === 0) continue;
 
     // Fetch the class + schedule_date for each session
     const { data: sessionRows, error: sessionError } = await supabase
       .from("class_sessions")
-      .select("id, schedule_date, day_of_week, classes(id, name, division, discipline, is_competition_track)")
+      .select(
+        "id, schedule_date, day_of_week, classes(id, name, division, discipline, is_competition_track)",
+      )
       .in("id", sessionIds);
 
     if (sessionError) throw new Error(sessionError.message);
@@ -184,7 +197,9 @@ export async function computePricingQuote(
 
     // Per-day model: weekly class count = distinct (class_id, day_of_week) pairs.
     // Legacy model: weekly class count = total enrolled sessions.
-    const isPerDayModel = sessionRows.some((s) => (s as any).schedule_date !== null);
+    const isPerDayModel = sessionRows.some(
+      (s) => (s as any).schedule_date !== null,
+    );
     let weeklyClassCount: number;
     if (isPerDayModel) {
       const classDayPairs = new Set(
@@ -221,7 +236,10 @@ export async function computePricingQuote(
         sessionRows
           .filter((s) => {
             const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
-            return cls && !isFeeExemptClass(cls as { discipline: string; division: string });
+            return (
+              cls &&
+              !isFeeExemptClass(cls as { discipline: string; division: string })
+            );
           })
           .map((s) => {
             const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
@@ -270,10 +288,29 @@ export async function computePricingQuote(
 
     // Rate-band sessions (use division + count of this subset)
     if (rateBandIds.length > 0) {
-      const bandCount = rateBandIds.length;
+      // In per-day model, deduplicate by (class_id, day_of_week) so that
+      // multiple dated instances of the same class count as 1 class/week.
+      let bandCount: number;
+      if (isPerDayModel) {
+        const bandSessionRows = sessionRows.filter((s) =>
+          rateBandIds.includes(s.id),
+        );
+        const bandClassDayPairs = new Set(
+          bandSessionRows.map((s) => {
+            const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+            const clsId = (cls as { id?: string } | null)?.id ?? "";
+            const dow =
+              (s as { day_of_week?: string | null }).day_of_week ?? "";
+            return `${clsId}:${dow}`;
+          }),
+        );
+        bandCount = bandClassDayPairs.size;
+      } else {
+        bandCount = weeklyClassCount;
+      }
       const { data: rateBand, error: bandError } = await supabase
         .from("tuition_rate_bands")
-        .select("base_tuition, recital_fee_included")
+        .select("base_tuition")
         .eq("semester_id", input.semesterId)
         .eq("division", division)
         .eq("weekly_class_count", bandCount)
@@ -289,18 +326,30 @@ export async function computePricingQuote(
       }
 
       const bandTotal = Number(rateBand.base_tuition);
-      const bandRecital = Number(rateBand.recital_fee_included);
+      // const bandRecital = Number(rateBand.recital_fee_included);
       tuition += bandTotal;
-      recitalFee += bandRecital;
+      // recitalFee += bandRecital;
       lineItems.push(
         {
           type: "tuition",
           label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
-          amount: round2(bandTotal - bandRecital),
+          amount: round2(bandTotal),
         },
-        { type: "recital_fee", label: "Recital Fee", amount: bandRecital },
+        // { type: "recital_fee", label: "Recital Fee", amount: bandRecital },
       );
     }
+
+    // Compute costume fee: per-class rate × standard weekly class count.
+    // Junior: $55/class, Senior: $65/class (from semester_fee_config defaults).
+    let recitalCostumeFeePerClass = 0;
+    if (division === "senior") {
+      recitalCostumeFeePerClass = feeConfig.senior_costume_fee_per_class;
+    } else if (division === "junior") {
+      recitalCostumeFeePerClass = feeConfig.junior_costume_fee_per_class;
+    }
+    const recitalCostumeFee = round2(
+      recitalCostumeFeePerClass * standardWeeklyCount,
+    );
 
     /* -------------------------------------------------------------------- */
     /* Division costume / video fees                                          */
@@ -310,15 +359,13 @@ export async function computePricingQuote(
     /* Technique / Pointe / Competition / Early Childhood → exempt           */
     /* -------------------------------------------------------------------- */
     let videoFee = 0;
-    let costumeFee = 0;
 
     if (standardWeeklyCount > 0) {
       if (division === "senior") {
         videoFee = feeConfig.senior_video_fee_per_registrant;
-        costumeFee = round2(feeConfig.senior_costume_fee_per_class * standardWeeklyCount);
-
         tuition += videoFee;
-        tuition += costumeFee;
+        tuition += recitalCostumeFee;
+        recitalFee += recitalCostumeFee;
 
         lineItems.push(
           {
@@ -329,18 +376,18 @@ export async function computePricingQuote(
           },
           {
             type: "costume_fee",
-            label: `Costume Fee (${standardWeeklyCount} class${standardWeeklyCount !== 1 ? "es" : ""})`,
-            amount: costumeFee,
+            label: `Recital Costume Fee (${standardWeeklyCount} class${standardWeeklyCount !== 1 ? "es" : ""})`,
+            amount: recitalCostumeFee,
             description: `$${feeConfig.senior_costume_fee_per_class} per class`,
           },
         );
       } else if (division === "junior") {
-        costumeFee = round2(feeConfig.junior_costume_fee_per_class * standardWeeklyCount);
-        tuition += costumeFee;
+        tuition += recitalCostumeFee;
+        recitalFee += recitalCostumeFee;
         lineItems.push({
           type: "costume_fee",
-          label: `Costume Fee (${standardWeeklyCount} class${standardWeeklyCount !== 1 ? "es" : ""})`,
-          amount: costumeFee,
+          label: `Recital Costume Fee (${standardWeeklyCount} class${standardWeeklyCount !== 1 ? "es" : ""})`,
+          amount: recitalCostumeFee,
           description: `$${feeConfig.junior_costume_fee_per_class} per class`,
         });
       }
@@ -420,7 +467,7 @@ export async function computePricingQuote(
       tuition: round2(tuition),
       recitalFee: round2(recitalFee),
       videoFee: round2(videoFee),
-      costumeFee: round2(costumeFee),
+      costumeFee: round2(recitalCostumeFee),
       sessionDiscountTotal: round2(sessionDiscountTotal),
       registrationFee,
       lineItems,
@@ -430,9 +477,7 @@ export async function computePricingQuote(
   /* ---------------------------------------------------------------------- */
   /* 5. Family-level aggregation                                              */
   /* ---------------------------------------------------------------------- */
-  const tuitionSubtotal = round2(
-    perDancer.reduce((s, d) => s + d.tuition, 0),
-  );
+  const tuitionSubtotal = round2(perDancer.reduce((s, d) => s + d.tuition, 0));
   const registrationFeeTotal = round2(
     perDancer.reduce((s, d) => s + d.registrationFee, 0),
   );
@@ -444,9 +489,10 @@ export async function computePricingQuote(
   /* 6. Family discount: $X flat, once per family per semester               */
   /* Applied after all per-session discounts.                                */
   /* ---------------------------------------------------------------------- */
-  const familyDiscountAmount = isDiscountEligible
-    ? feeConfig.family_discount_amount
-    : 0;
+  const familyDiscountAmount =
+    isDiscountEligible && familyDancerCount >= 2
+      ? feeConfig.family_discount_amount
+      : 0;
 
   /* ---------------------------------------------------------------------- */
   /* 7. Auto-pay admin fee: $X/month × installment count                    */

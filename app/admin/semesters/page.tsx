@@ -3,10 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-// Replace with your Supabase client
 import { createClient } from "@/utils/supabase/client";
 import { deleteSemester } from "./actions/deleteSemester";
-import { r } from "happy-dom/lib/PropertySymbol";
 import { StatusBadge } from "@/app/components/SemesterStatusBadge";
 
 type Semester = {
@@ -17,7 +15,10 @@ type Semester = {
   created_at: string;
 };
 
+type View = "current" | "past";
+
 export default function SemesterListPage() {
+  const [view, setView] = useState<View>("current");
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -26,10 +27,18 @@ export default function SemesterListPage() {
   useEffect(() => {
     async function fetchSemesters() {
       setLoading(true);
-      const { data, error } = await createClient()
+      let query = createClient()
         .from("semesters")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (view === "current") {
+        query = query.neq("status", "archived");
+      } else {
+        query = query.eq("status", "archived");
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("Error fetching semesters:", error);
@@ -42,7 +51,7 @@ export default function SemesterListPage() {
     }
 
     fetchSemesters();
-  }, []);
+  }, [view]);
 
   async function handleDelete(id: string) {
     console.log("🖱 Delete button clicked for:", id);
@@ -73,14 +82,33 @@ export default function SemesterListPage() {
     <div className="max-w-5xl mx-auto p-6">
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-8">
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
-              Semesters
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Manage and publish academic semesters.
-            </p>
+        <div className="flex justify-between items-start">
+          <div className="space-y-3">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
+                Semesters
+              </h1>
+              <p className="text-sm text-gray-500 mt-1">
+                Manage and publish academic semesters.
+              </p>
+            </div>
+
+            {/* Segmented toggle */}
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1 gap-1">
+              {(["current", "past"] as View[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    view === v
+                      ? "bg-white text-gray-900 shadow-sm border border-gray-200"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {v === "current" ? "Current Seasons" : "Past Seasons"}
+                </button>
+              ))}
+            </div>
           </div>
 
           <button
@@ -96,7 +124,11 @@ export default function SemesterListPage() {
           <div className="text-sm text-gray-500">Loading semesters...</div>
         ) : semesters.length === 0 ? (
           <div className="border border-dashed border-gray-300 rounded-xl p-8 text-center">
-            <p className="text-sm text-gray-500">No semesters found.</p>
+            <p className="text-sm text-gray-500">
+              {view === "current"
+                ? "No active or upcoming semesters."
+                : "No archived semesters."}
+            </p>
           </div>
         ) : (
           <ul className="space-y-4">

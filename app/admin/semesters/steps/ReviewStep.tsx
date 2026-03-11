@@ -73,7 +73,7 @@ export default function ReviewStep({
                 />
                 <button
                   disabled={!scheduledDate}
-                  onClick={() => onSchedule(scheduledDate)}
+                  onClick={() => onSchedule(new Date(scheduledDate).toISOString())}
                   className="px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-medium disabled:opacity-50"
                 >
                   Schedule Publish

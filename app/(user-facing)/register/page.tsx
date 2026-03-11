@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import {
   RegistrationProvider,
   useRegistration,
@@ -15,6 +15,7 @@ import {
   emailStepSchema,
   type EmailStepData,
 } from "@/lib/schemas/registration";
+import { createClient } from "@/utils/supabase/client";
 
 /* -------------------------------------------------------------------------- */
 /* Inner form (needs RegistrationProvider in tree)                            */
@@ -25,6 +26,26 @@ function EmailForm({ semesterId }: { semesterId: string }) {
   const { setEmail, setParentCheck } = useRegistration();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  // true while we're checking whether the user is already logged in
+  const [authChecking, setAuthChecking] = useState(true);
+
+  const participantsPath = `/register/participants?semester=${semesterId}`;
+
+  // --- Auth bypass: skip email step for already-authenticated users ---
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        // Seed provider state so downstream steps have the authenticated user's info
+        setEmail(user.email ?? "");
+        setParentCheck(true, user.id);
+        router.replace(participantsPath);
+      } else {
+        setAuthChecking(false);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const {
     register,
@@ -41,15 +62,14 @@ function EmailForm({ semesterId }: { semesterId: string }) {
       const result = await checkParentByEmail(data.email);
       setEmail(data.email);
       setParentCheck(result.exists, result.parentId);
-      console.log(result);
+      // Encode the full destination so the semester param survives the redirect
+      const next = encodeURIComponent(participantsPath);
       if (result.exists) {
-        // Existing parent — redirect to login, return after auth
-        router.push(
-          `/auth/login?next=/register/participants&semester=${semesterId}`,
-        );
+        // Existing parent — send to login, return to registration after auth
+        router.push(`/auth/login?next=${next}`);
       } else {
-        // New parent — continue onboarding
-        router.push(`/register/participants?semester=${semesterId}`);
+        // New parent — create account first, then return to registration
+        router.push(`/auth?next=${next}&email=${encodeURIComponent(data.email)}`);
       }
     } catch {
       setServerError("Something went wrong. Please try again.");
@@ -57,6 +77,17 @@ function EmailForm({ semesterId }: { semesterId: string }) {
       setIsSubmitting(false);
     }
   }
+
+  // Show nothing while we determine auth state (avoids flashing the email form)
+  if (authChecking) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const signInHref = `/auth/login?next=${encodeURIComponent(participantsPath)}`;
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -105,10 +136,7 @@ function EmailForm({ semesterId }: { semesterId: string }) {
 
       <p className="text-xs text-gray-400 text-center">
         Already have an account?{" "}
-        <a
-          href={`/auth/login?next=/register/participants&semester=${semesterId}`}
-          className="text-indigo-600 hover:underline"
-        >
+        <a href={signInHref} className="text-indigo-600 hover:underline">
           Sign in
         </a>
       </p>

@@ -15,6 +15,21 @@ function revalidateSemester(semesterId: string) {
 
 export async function saveSemesterDraft(semesterId: string) {
   const supabase = await createClient();
+
+  // Block revert-to-draft if any active registrations exist
+  const { count: regCount, error: regCountError } = await supabase
+    .from("registrations")
+    .select("*, class_sessions!inner(semester_id)", { count: "exact", head: true })
+    .eq("class_sessions.semester_id", semesterId)
+    .not("status", "in", "(cancelled,waitlisted)");
+
+  if (regCountError) throw new Error(regCountError.message);
+  if (regCount && regCount > 0) {
+    throw new Error(
+      `Cannot revert to draft — ${regCount} active registration(s) exist. Cancel those registrations first.`
+    );
+  }
+
   const { error } = await supabase
     .from("semesters")
     .update({

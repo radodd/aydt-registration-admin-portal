@@ -25,6 +25,11 @@ export interface User {
   signature_html?: string | null;
   signature_config?: SignatureConfig | null;
   reply_to_email?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zipcode?: string | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -234,7 +239,6 @@ export interface TuitionRateBand {
   division: string;
   weekly_class_count: number;
   base_tuition: number;
-  recital_fee_included: number;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -268,7 +272,6 @@ export type DraftTuitionRateBand = {
   division: "early_childhood" | "junior" | "senior" | "competition";
   weekly_class_count: number;
   base_tuition: number;
-  recital_fee_included: number;
   /** Discount % applied to the base tuition for this nth class (0 = no discount). */
   progressive_discount_percent: number;
   /** Pre-calculated semester total (base + discounts + fees). Admin-editable reference. */

@@ -35,13 +35,6 @@ export async function getSemesterForDisplay(
   /* 1. Semester + classes (with class_sessions) + groups + payment + discounts */
   /* ---------------------------------------------------------------------- */
 
-  console.log(
-    "[getSemesterForDisplay]",
-    "semesterId:",
-    semesterId,
-    "mode:",
-    mode,
-  );
   const { data: semester, error: semesterError } = await supabase
     .from("semesters")
     .select(
@@ -50,6 +43,7 @@ export async function getSemesterForDisplay(
       name,
       status,
       description,
+      publish_at,
       registration_form,
       waitlist_settings,
       classes (
@@ -114,7 +108,15 @@ export async function getSemesterForDisplay(
     throw new Error(`Semester not found: ${semesterId} ?? "unknown"}`);
   }
 
-  if (mode === "live" && semester.status !== "published") {
+  // Allow published semesters always.
+  // Also allow scheduled semesters when a registration_open_at is set — they
+  // will render the pre-registration landing page instead of the class catalog.
+  const isVisible =
+    semester.status === "published" ||
+    (semester.status === "scheduled" &&
+      !!(semester as { publish_at?: string | null }).publish_at);
+
+  if (mode === "live" && !isVisible) {
     throw new Error("Semester is not published");
   }
 
@@ -232,7 +234,6 @@ export async function getSemesterForDisplay(
               amount: Number(t.amount),
               isDefault: t.is_default,
             }));
-
           return {
             id: cs.id,
             name: c.name,
@@ -331,6 +332,12 @@ export async function getSemesterForDisplay(
     description: semester.description ?? null,
     startDate,
     endDate,
+    // For scheduled semesters, publish_at is the registration open time.
+    // Once published the gate is gone — return null so the catalog shows immediately.
+    registrationOpenAt:
+      semester.status === "scheduled"
+        ? ((semester.publish_at as string | null) ?? null)
+        : null,
     paymentPlan: publicPaymentPlan,
     registrationForm:
       (semester.registration_form as { elements: RegistrationFormElement[] })

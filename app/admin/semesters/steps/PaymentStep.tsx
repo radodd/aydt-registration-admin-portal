@@ -87,7 +87,6 @@ export default function PaymentStep({
     division: "junior",
     weekly_class_count: 1,
     base_tuition: 0,
-    recital_fee_included: 0,
     progressive_discount_percent: 0,
     semester_total: undefined,
     autopay_installment_amount: undefined,
@@ -125,10 +124,6 @@ export default function PaymentStep({
   function addBand() {
     if (newBand.base_tuition <= 0) {
       alert("Base tuition must be greater than zero.");
-      return;
-    }
-    if (newBand.recital_fee_included > newBand.base_tuition) {
-      alert("Recital fee cannot exceed base tuition.");
       return;
     }
     if (
@@ -172,7 +167,6 @@ export default function PaymentStep({
       ...prev,
       weekly_class_count: prev.weekly_class_count + 1,
       base_tuition: 0,
-      recital_fee_included: 0,
       progressive_discount_percent: 0,
       semester_total: undefined,
       autopay_installment_amount: undefined,
@@ -479,7 +473,6 @@ export default function PaymentStep({
                       <th className="px-3 py-3 text-left whitespace-nowrap">Division</th>
                       <th className="px-3 py-3 text-left whitespace-nowrap">Classes/Wk</th>
                       <th className="px-3 py-3 text-left whitespace-nowrap">Base Tuition</th>
-                      <th className="px-3 py-3 text-left whitespace-nowrap">Recital Fee</th>
                       <th className="px-3 py-3 text-left whitespace-nowrap">Discount %</th>
                       <th className="px-3 py-3 text-left whitespace-nowrap">Semester Total</th>
                       <th className="px-3 py-3 text-left whitespace-nowrap">Auto-Pay /mo</th>
@@ -539,25 +532,6 @@ export default function PaymentStep({
                                 value={band.base_tuition}
                                 onChange={(e) =>
                                   updateBand(band._clientKey, "base_tuition", Number(e.target.value))
-                                }
-                                className="w-24 pl-4 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                              />
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
-                          {isLocked ? (
-                            `$${band.recital_fee_included.toFixed(2)}`
-                          ) : (
-                            <div className="relative">
-                              <span className="absolute left-2 top-1.5 text-gray-400 text-xs">$</span>
-                              <input
-                                type="number"
-                                min={0}
-                                step={0.01}
-                                value={band.recital_fee_included}
-                                onChange={(e) =>
-                                  updateBand(band._clientKey, "recital_fee_included", Number(e.target.value))
                                 }
                                 className="w-24 pl-4 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                               />
@@ -731,23 +705,6 @@ export default function PaymentStep({
                         setNewBand((prev) => ({
                           ...prev,
                           base_tuition: Number(e.target.value),
-                        }))
-                      }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Recital Fee ($)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      placeholder="0.00"
-                      value={newBand.recital_fee_included || ""}
-                      onChange={(e) =>
-                        setNewBand((prev) => ({
-                          ...prev,
-                          recital_fee_included: Number(e.target.value),
                         }))
                       }
                       className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1285,7 +1242,7 @@ export default function PaymentStep({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Costume fee (per class, junior)
+                    Recital Costume Fee (per class, junior)
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
@@ -1307,7 +1264,7 @@ export default function PaymentStep({
                     />
                   </div>
                   <p className="text-xs text-gray-400">
-                    Per-class costume fee for junior dancers; multiplied by weekly
+                    Per-class recital costume fee for junior dancers; multiplied by weekly
                     class count (default $55).
                   </p>
                 </div>
@@ -1352,7 +1309,7 @@ export default function PaymentStep({
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Costume fee (per class, senior)
+                    Recital Costume Fee (per class, senior)
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
@@ -1374,7 +1331,7 @@ export default function PaymentStep({
                     />
                   </div>
                   <p className="text-xs text-gray-400">
-                    Per-class costume fee for senior dancers; multiplied by weekly
+                    Per-class recital costume fee for senior dancers; multiplied by weekly
                     class count (default $65).
                   </p>
                 </div>
