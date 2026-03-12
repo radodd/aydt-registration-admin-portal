@@ -40,6 +40,14 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
   const [semesterSessions, setSemesterSessions] = useState<PublicSession[]>([]);
   const [dancerNames, setDancerNames] = useState<Map<string, string>>(new Map());
 
+  // Promo code
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
+  const [couponFeedback, setCouponFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
   // Stable batchId: same cart + retry = same ID, so createRegistrations()
   // idempotency guard returns existing registrations without duplicate DB inserts.
   // If cart assignments change the fingerprint shifts, a new ID is generated,
@@ -156,8 +164,25 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       semesterId,
       enrollments,
       paymentPlanType: "pay_in_full",
+      couponCode: appliedCouponCode ?? undefined,
     })
-      .then(setQuote)
+      .then((q) => {
+        setQuote(q);
+        // Update coupon feedback based on server result
+        if (appliedCouponCode) {
+          if (q.couponDiscount > 0 && q.appliedCouponName) {
+            setCouponFeedback({
+              type: "success",
+              message: `"${q.appliedCouponName}" applied — ${formatCurrency(q.couponDiscount)} off`,
+            });
+          } else {
+            setCouponFeedback({
+              type: "error",
+              message: "This promo code is invalid, expired, or not applicable to your enrollment.",
+            });
+          }
+        }
+      })
       .catch((err) => {
         setQuoteError(
           err instanceof Error ? err.message : "Could not load pricing.",
@@ -165,7 +190,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       })
       .finally(() => setQuoteLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.participants, semesterId]);
+  }, [state.participants, semesterId, appliedCouponCode]);
 
   async function handleConfirm() {
     setProcessing(true);
@@ -204,6 +229,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       })),
       batchId,
       pricingQuote: quote ?? undefined,
+      couponCode: appliedCouponCode ?? undefined,
     });
 
     if (!result.success) {
@@ -330,12 +356,19 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
 
               {/* Family-level adjustments */}
               {(quote.familyDiscountAmount > 0 ||
-                quote.autoPayAdminFeeTotal > 0) && (
+                quote.autoPayAdminFeeTotal > 0 ||
+                quote.couponDiscount > 0) && (
                 <div className="space-y-1 px-1">
                   {quote.familyDiscountAmount > 0 && (
                     <div className="flex justify-between text-sm text-green-700 font-medium">
                       <span>Family Discount</span>
                       <span>−{formatCurrency(quote.familyDiscountAmount)}</span>
+                    </div>
+                  )}
+                  {quote.couponDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-green-700 font-medium">
+                      <span>{quote.appliedCouponName ?? "Promo Code"}</span>
+                      <span>−{formatCurrency(quote.couponDiscount)}</span>
                     </div>
                   )}
                   {quote.autoPayAdminFeeTotal > 0 && (
@@ -389,6 +422,77 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Promo code entry */}
+      {!state.isPreview && (
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-3">
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById("promo-code-section");
+              if (el) el.classList.toggle("hidden");
+            }}
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
+          >
+            Have a promo code?
+          </button>
+
+          <div id="promo-code-section" className="hidden space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={couponInput}
+                onChange={(e) => {
+                  setCouponInput(e.target.value.toUpperCase());
+                  // Clear previous feedback if user edits the code
+                  if (couponFeedback) setCouponFeedback(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") setAppliedCouponCode(couponInput.trim() || null);
+                }}
+                placeholder="Enter code"
+                className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setCouponFeedback(null);
+                  setAppliedCouponCode(couponInput.trim() || null);
+                }}
+                disabled={quoteLoading || !couponInput.trim()}
+                className="px-4 py-2 rounded-xl bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition"
+              >
+                Apply
+              </button>
+              {appliedCouponCode && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCouponInput("");
+                    setAppliedCouponCode(null);
+                    setCouponFeedback(null);
+                  }}
+                  className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+
+            {couponFeedback && (
+              <p
+                className={`text-xs font-medium ${
+                  couponFeedback.type === "success"
+                    ? "text-green-600"
+                    : "text-red-600"
+                }`}
+              >
+                {couponFeedback.message}
+              </p>
+            )}
+          </div>
         </div>
       )}
 

@@ -326,6 +326,49 @@ export type DraftFeeConfig = {
   junior_costume_fee_per_class: number;        // default 55.00
 };
 
+/** A coupon/promo code as held in the SemesterDraft editor state. */
+export type DraftCoupon = {
+  _clientKey: string;
+  id?: string;
+  name: string;
+  /** Alphanumeric code the parent enters at checkout. null = auto-apply by date range. */
+  code: string | null;
+  value: number;
+  valueType: "flat" | "percent";
+  /** ISO date-time string or null (no start restriction). */
+  validFrom: string | null;
+  /** ISO date-time string or null (no expiry). */
+  validUntil: string | null;
+  /** null = unlimited uses. */
+  maxTotalUses: number | null;
+  usesCount: number;
+  maxPerFamily: number;
+  /** If false, coupon will not apply when threshold-based discounts are already applied. */
+  stackable: boolean;
+  eligibleSessionsMode: "all" | "selected";
+  /** Only populated when eligibleSessionsMode = 'selected'. */
+  sessionIds?: string[];
+  isActive: boolean;
+};
+
+/**
+ * Result of validating a coupon code or auto-apply coupon at checkout.
+ * `valid: true` means it is safe to apply and the coupon details are included.
+ */
+export type CouponValidationResult =
+  | { valid: true; coupon: DraftCoupon }
+  | {
+      valid: false;
+      reason:
+        | "not_found"      // code does not exist or is not linked to this semester
+        | "inactive"       // coupon is disabled by admin
+        | "expired"        // current date is past valid_until
+        | "not_yet_valid"  // current date is before valid_from
+        | "cap_reached"    // max_total_uses exhausted
+        | "already_used"   // this family has already redeemed this coupon
+        | "not_applicable"; // eligible_sessions_mode=selected but no enrolled session matches
+    };
+
 export interface PricingInput {
   semesterId: string;
   /**
@@ -340,6 +383,8 @@ export interface PricingInput {
     sessionIds: string[];
   }>;
   paymentPlanType: "pay_in_full" | "deposit_50pct" | "auto_pay_monthly";
+  /** Optional promo code entered by the parent at checkout. */
+  couponCode?: string;
 }
 
 export interface LineItem {
@@ -351,7 +396,8 @@ export interface LineItem {
     | "auto_pay_admin_fee"
     | "video_fee"       // senior division: flat fee per registrant
     | "costume_fee"     // senior division: per-class costume fee
-    | "session_discount"; // custom/multi-session discount rules
+    | "session_discount" // custom/multi-session discount rules
+    | "coupon_discount"; // promo code or auto-apply coupon
   label: string;
   amount: number; // positive = charge, negative = credit
   description?: string;
@@ -384,6 +430,9 @@ export interface PricingQuote {
   recitalFeeTotal: number;
   familyDiscountAmount: number;
   autoPayAdminFeeTotal: number;
+  couponDiscount: number;       // 0 if no coupon applied; positive = amount saved
+  appliedCouponId?: string;
+  appliedCouponName?: string;
   grandTotal: number;
   amountDueNow: number;
   lineItems: LineItem[];
@@ -895,6 +944,9 @@ export type SemesterDraft = {
 
   /** Tuition engine: fixed-fee programs that bypass progressive discount calculations. */
   specialProgramTuition?: DraftSpecialProgramTuition[];
+
+  /** Coupon/promo codes linked to this semester. */
+  coupons?: DraftCoupon[];
 };
 
 export type SemesterAction =
@@ -916,6 +968,7 @@ export type SemesterAction =
   | { type: "SET_TUITION_RATE_BANDS"; payload: DraftTuitionRateBand[] }
   | { type: "SET_FEE_CONFIG"; payload: DraftFeeConfig }
   | { type: "SET_SPECIAL_PROGRAM_TUITION"; payload: DraftSpecialProgramTuition[] }
+  | { type: "SET_COUPONS"; payload: DraftCoupon[] }
   | { type: "ADD_FORM_ELEMENT"; payload: RegistrationFormElement }
   | { type: "UPDATE_FORM_ELEMENT"; payload: RegistrationFormElement }
   | { type: "REMOVE_FORM_ELEMENT"; payload: string }
@@ -1387,6 +1440,12 @@ export type MediaImage = {
 };
 
 export type ImageLayout = "inline" | "banner";
+
+export type MediaFolderRow = {
+  name: string;
+  label: string;
+  created_at?: string;
+};
 
 /* -------------------------------------------------------------------------- */
 /* EPG Payment Types                                                           */

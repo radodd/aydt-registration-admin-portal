@@ -69,6 +69,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { SemesterDraft } from "@/types";
 import { syncSemesterDiscounts } from "./syncSemesterDiscounts";
+import { syncSemesterCoupons } from "./syncSemesterCoupons";
 import { syncSemesterSessionGroups } from "./syncSemesterGroups";
 import { syncSemesterPayment } from "./syncSemesterPayments";
 import { syncSemesterSessions } from "./syncSemesterSessions";
@@ -144,6 +145,11 @@ export async function persistSemesterDraft(
   // Tuition engine: sync special program tuition overrides
   if (state.specialProgramTuition !== undefined) {
     await syncSpecialProgramTuition(supabase, semesterId, state.specialProgramTuition);
+  }
+
+  // Sync coupon links for this semester
+  if (state.coupons !== undefined) {
+    await syncSemesterCoupons(semesterId, state.coupons);
   }
 
   return { semesterId };

@@ -18,6 +18,8 @@ export interface CreateRegistrationsInput {
   batchId: string;
   /** Client-visible pricing quote — server re-computes and validates it matches. */
   pricingQuote?: PricingQuote;
+  /** Optional promo code entered by the parent at checkout. */
+  couponCode?: string;
 }
 
 export interface CreateRegistrationsResult {
@@ -146,6 +148,7 @@ export async function createRegistrations(
       semesterId: input.semesterId,
       enrollments,
       paymentPlanType: "pay_in_full",
+      couponCode: input.couponCode,
     });
   } catch (err) {
     // Pricing failed — still allow registration but with zero totals
@@ -235,6 +238,26 @@ export async function createRegistrations(
       registrationIds: [],
       error: batchInsertError.message,
     };
+  }
+
+  // 7.5. Record coupon redemption and increment uses_count (non-fatal)
+  if (serverQuote?.appliedCouponId && familyId) {
+    await supabase
+      .from("coupon_redemptions")
+      .insert({
+        coupon_id: serverQuote.appliedCouponId,
+        family_id: familyId,
+        registration_batch_id: input.batchId,
+      })
+      .then(({ error }) => {
+        if (error) {
+          console.warn("[createRegistrations] Failed to record coupon redemption:", error.message);
+        }
+      });
+
+    await supabase.rpc("increment_coupon_uses", {
+      p_coupon_id: serverQuote.appliedCouponId,
+    });
   }
 
   // 8. Insert one registration per participant

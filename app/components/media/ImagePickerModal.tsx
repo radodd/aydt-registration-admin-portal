@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MEDIA_FOLDERS, MEDIA_FOLDER_LABELS, type MediaFolder, type MediaImage, type ImageLayout } from "@/types";
+import { type MediaFolderRow, type MediaImage, type ImageLayout } from "@/types";
 
 type Props = {
   isOpen: boolean;
@@ -17,6 +17,7 @@ export default function ImagePickerModal({
   onInsert,
 }: Props) {
   const [images, setImages] = useState<MediaImage[]>([]);
+  const [folders, setFolders] = useState<MediaFolderRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [folder, setFolder] = useState("");
@@ -43,7 +44,7 @@ export default function ImagePickerModal({
     }
   }, []);
 
-  // Reset state each time the modal opens
+  // Reset state and fetch folders each time the modal opens
   useEffect(() => {
     if (!isOpen) return;
     setSelected(null);
@@ -51,6 +52,10 @@ export default function ImagePickerModal({
     setFolder("");
     setLayout(defaultLayout);
     fetchImages("", "");
+    fetch("/api/media/folders")
+      .then((r) => r.json())
+      .then((json) => setFolders((json.folders as MediaFolderRow[]) ?? []))
+      .catch(() => setFolders([]));
   }, [isOpen, defaultLayout, fetchImages]);
 
   const handleSearchChange = (value: string) => {
@@ -135,9 +140,9 @@ export default function ImagePickerModal({
             className="text-sm text-slate-700 border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">All folders</option>
-            {MEDIA_FOLDERS.map((f) => (
-              <option key={f} value={f}>
-                {MEDIA_FOLDER_LABELS[f as MediaFolder]}
+            {folders.map((f) => (
+              <option key={f.name} value={f.name}>
+                {f.label}
               </option>
             ))}
           </select>

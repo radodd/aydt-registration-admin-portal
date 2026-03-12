@@ -506,9 +506,9 @@ export async function computePricingQuote(
       : 0;
 
   /* ---------------------------------------------------------------------- */
-  /* 8. Grand total                                                          */
+  /* 8. Pre-coupon grand total                                              */
   /* ---------------------------------------------------------------------- */
-  const grandTotal = round2(
+  const preCouponTotal = round2(
     tuitionSubtotal +
       registrationFeeTotal -
       familyDiscountAmount +
@@ -540,7 +540,121 @@ export async function computePricingQuote(
   }
 
   /* ---------------------------------------------------------------------- */
-  /* 10. Payment schedule                                                    */
+  /* 10. Coupon / promo code                                                 */
+  /* Evaluated after all other discounts; stackable flag controls whether    */
+  /* it applies when threshold-based discounts are already active.           */
+  /* ---------------------------------------------------------------------- */
+  const allEnrolledSessionIds = input.enrollments.flatMap((e) => e.sessionIds);
+  const hasThresholdDiscounts = perDancer.some(
+    (d) => d.sessionDiscountTotal < 0,
+  );
+
+  let couponDiscount = 0;
+  let appliedCouponId: string | undefined;
+  let appliedCouponName: string | undefined;
+
+  const resolvedFamilyId = familyId ?? "";
+
+  // Try code-based coupon first, then auto-apply coupons
+  const couponCandidates: Array<{ code: string | null }> = input.couponCode
+    ? [{ code: input.couponCode }]
+    : [{ code: null }];
+
+  for (const candidate of couponCandidates) {
+    if (!resolvedFamilyId) break;
+
+    const now = new Date().toISOString();
+
+    // Fetch matching coupon for this semester
+    let couponQuery = supabase
+      .from("semester_coupons")
+      .select(
+        `coupon:discount_coupons (
+          id, name, code, value, value_type,
+          valid_from, valid_until, max_total_uses, uses_count,
+          max_per_family, stackable, eligible_sessions_mode, is_active,
+          coupon_session_restrictions ( session_id )
+        )`,
+      )
+      .eq("semester_id", input.semesterId);
+
+    if (candidate.code) {
+      couponQuery = couponQuery.ilike("coupon.code", candidate.code.trim());
+    } else {
+      couponQuery = couponQuery.is("coupon.code", null);
+    }
+
+    const { data: couponLinks } = await couponQuery;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const matchedCoupons: any[] = (couponLinks ?? [])
+      .map((row: any) => row.coupon)
+      .filter(Boolean)
+      .filter((c: any) =>
+        candidate.code
+          ? c.code?.toLowerCase() === candidate.code!.trim().toLowerCase()
+          : c.code === null,
+      )
+      .filter((c: any) => c.is_active);
+
+    for (const coupon of matchedCoupons) {
+      // Date window
+      if (coupon.valid_from && now < coupon.valid_from) continue;
+      if (coupon.valid_until && now > coupon.valid_until) continue;
+      // Usage cap
+      if (
+        coupon.max_total_uses !== null &&
+        coupon.uses_count >= coupon.max_total_uses
+      )
+        continue;
+      // Per-family limit
+      const { count: redemptions } = await supabase
+        .from("coupon_redemptions")
+        .select("*", { count: "exact", head: true })
+        .eq("coupon_id", coupon.id)
+        .eq("family_id", resolvedFamilyId);
+      if ((redemptions ?? 0) >= coupon.max_per_family) continue;
+      // Session eligibility
+      if (coupon.eligible_sessions_mode === "selected") {
+        const restrictedIds = new Set(
+          (coupon.coupon_session_restrictions ?? []).map(
+            (r: { session_id: string }) => r.session_id,
+          ),
+        );
+        if (!allEnrolledSessionIds.some((id) => restrictedIds.has(id)))
+          continue;
+      }
+      // Stackable check
+      if (!coupon.stackable && hasThresholdDiscounts) continue;
+
+      // Apply — first valid coupon wins
+      const rawDiscount =
+        coupon.value_type === "percent"
+          ? round2((preCouponTotal * Number(coupon.value)) / 100)
+          : Number(coupon.value);
+      couponDiscount = Math.min(rawDiscount, preCouponTotal); // never negative
+      appliedCouponId = coupon.id;
+      appliedCouponName = coupon.name;
+      break;
+    }
+    if (couponDiscount > 0) break;
+  }
+
+  if (couponDiscount > 0) {
+    familyLineItems.push({
+      type: "coupon_discount",
+      label: appliedCouponName ?? "Promo Code",
+      amount: -couponDiscount,
+    });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 11. Final grand total (after coupon)                                   */
+  /* ---------------------------------------------------------------------- */
+  const grandTotal = round2(preCouponTotal - couponDiscount);
+
+  /* ---------------------------------------------------------------------- */
+  /* 12. Payment schedule                                                    */
   /* ---------------------------------------------------------------------- */
   const today = new Date().toISOString().slice(0, 10);
   const { amountDueNow, schedule } = buildPaymentSchedule(
@@ -557,6 +671,9 @@ export async function computePricingQuote(
     recitalFeeTotal,
     familyDiscountAmount,
     autoPayAdminFeeTotal,
+    couponDiscount,
+    appliedCouponId,
+    appliedCouponName,
     grandTotal,
     amountDueNow,
     lineItems: familyLineItems,

@@ -1,12 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  MEDIA_FOLDERS,
-  MEDIA_FOLDER_LABELS,
-  type MediaFolder,
-  type MediaImage,
-} from "@/types";
+import { type MediaFolderRow, type MediaImage } from "@/types";
 
 export default function MediaLibraryPage() {
   const [images, setImages] = useState<MediaImage[]>([]);
@@ -14,6 +9,14 @@ export default function MediaLibraryPage() {
   const [search, setSearch] = useState("");
   const [folder, setFolder] = useState("");
   const [uploading, setUploading] = useState(false);
+
+  // Folder management
+  const [folders, setFolders] = useState<MediaFolderRow[]>([]);
+  const [newFolderLabel, setNewFolderLabel] = useState("");
+  const [addingFolder, setAddingFolder] = useState(false);
+  const [savingFolder, setSavingFolder] = useState(false);
+  const [deletingFolder, setDeletingFolder] = useState<string | null>(null);
+  const newFolderInputRef = useRef<HTMLInputElement>(null);
 
   // Rename state
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -35,6 +38,16 @@ export default function MediaLibraryPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const fetchFolders = useCallback(async () => {
+    try {
+      const res = await fetch("/api/media/folders");
+      const json = await res.json();
+      setFolders((json.folders as MediaFolderRow[]) ?? []);
+    } catch {
+      setFolders([]);
+    }
+  }, []);
+
   const fetchImages = useCallback(async (q: string, f: string) => {
     setLoading(true);
     const params = new URLSearchParams();
@@ -52,8 +65,9 @@ export default function MediaLibraryPage() {
   }, []);
 
   useEffect(() => {
+    void fetchFolders();
     fetchImages("", "");
-  }, [fetchImages]);
+  }, [fetchFolders, fetchImages]);
 
   // Auto-dismiss warnings after 6s
   useEffect(() => {
@@ -61,6 +75,11 @@ export default function MediaLibraryPage() {
     const t = setTimeout(() => setUploadWarnings([]), 6000);
     return () => clearTimeout(t);
   }, [uploadWarnings]);
+
+  // Focus new folder input when it appears
+  useEffect(() => {
+    if (addingFolder) newFolderInputRef.current?.focus();
+  }, [addingFolder]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -100,7 +119,10 @@ export default function MediaLibraryPage() {
 
   const handleRenameSubmit = async (id: string) => {
     const trimmed = renameValue.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      setRenamingId(null);
+      return;
+    }
     try {
       const res = await fetch(`/api/media/${id}`, {
         method: "PATCH",
@@ -148,6 +170,44 @@ export default function MediaLibraryPage() {
     }
   };
 
+  const handleAddFolder = async () => {
+    const label = newFolderLabel.trim();
+    if (!label) return;
+    setSavingFolder(true);
+    try {
+      const res = await fetch("/api/media/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error((json.error as string) ?? "Failed to create folder");
+      await fetchFolders();
+      setNewFolderLabel("");
+      setAddingFolder(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to create folder");
+    } finally {
+      setSavingFolder(false);
+    }
+  };
+
+  const handleDeleteFolder = async (name: string) => {
+    setDeletingFolder(null);
+    try {
+      const res = await fetch(`/api/media/folders/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error((json.error as string) ?? "Failed to delete folder");
+      // If we're viewing the deleted folder, go back to All Media
+      if (folder === name) handleFolderChange("");
+      await fetchFolders();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete folder");
+    }
+  };
+
   const copyUrl = (url: string) => {
     navigator.clipboard.writeText(url).catch(() => {});
     setOpenMenuId(null);
@@ -157,11 +217,12 @@ export default function MediaLibraryPage() {
     <div className="flex gap-6 px-6 py-8 max-w-6xl mx-auto">
 
       {/* Left sidebar — folder navigation */}
-      <aside className="w-44 shrink-0">
+      <aside className="w-48 shrink-0">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 mb-2">
           Folders
         </p>
         <nav className="space-y-0.5">
+          {/* All Media — pseudo-folder, never deletable */}
           <button
             type="button"
             onClick={() => handleFolderChange("")}
@@ -173,21 +234,84 @@ export default function MediaLibraryPage() {
           >
             All Media
           </button>
-          {MEDIA_FOLDERS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => handleFolderChange(f)}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
-                folder === f
-                  ? "bg-indigo-50 text-indigo-700 font-medium"
-                  : "text-gray-600 hover:bg-gray-100"
-              }`}
-            >
-              {MEDIA_FOLDER_LABELS[f]}
-            </button>
+
+          {/* Dynamic folders */}
+          {folders.map((f) => (
+            <div key={f.name} className="group flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handleFolderChange(f.name)}
+                className={`flex-1 text-left px-3 py-2 rounded-lg text-sm transition ${
+                  folder === f.name
+                    ? "bg-indigo-50 text-indigo-700 font-medium"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                {f.label}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeletingFolder(f.name)}
+                className="opacity-0 group-hover:opacity-100 shrink-0 text-gray-300 hover:text-red-500 text-sm leading-none px-1 transition-opacity"
+                title={`Delete ${f.label}`}
+              >
+                ×
+              </button>
+            </div>
           ))}
         </nav>
+
+        {/* Add folder */}
+        <div className="mt-3 px-1">
+          {addingFolder ? (
+            <div className="space-y-1.5">
+              <input
+                ref={newFolderInputRef}
+                type="text"
+                placeholder="Folder name"
+                value={newFolderLabel}
+                onChange={(e) => setNewFolderLabel(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void handleAddFolder();
+                  if (e.key === "Escape") {
+                    setAddingFolder(false);
+                    setNewFolderLabel("");
+                  }
+                }}
+                className="w-full text-xs text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={savingFolder}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => void handleAddFolder()}
+                  className="text-xs text-indigo-600 font-medium hover:underline disabled:opacity-50"
+                >
+                  {savingFolder ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddingFolder(false);
+                    setNewFolderLabel("");
+                  }}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAddingFolder(true)}
+              className="text-xs text-gray-400 hover:text-indigo-600 transition flex items-center gap-1"
+            >
+              <span className="text-base leading-none">+</span> New folder
+            </button>
+          )}
+        </div>
       </aside>
 
       {/* Main content */}
@@ -244,127 +368,134 @@ export default function MediaLibraryPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {images.map((img) => (
-              <div
-                key={img.id}
-                className="group relative rounded-xl border border-gray-200 overflow-hidden bg-gray-50"
-              >
-                {/* Thumbnail */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`${img.public_url}?width=300&quality=70`}
-                  alt={img.display_name}
-                  className="w-full aspect-square object-cover"
-                />
+            {images.map((img) => {
+              const folderLabel =
+                folders.find((f) => f.name === img.folder)?.label ?? img.folder;
+              return (
+                <div
+                  key={img.id}
+                  className="group relative rounded-xl border border-gray-200 overflow-hidden bg-gray-50"
+                >
+                  {/* Thumbnail */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`${img.public_url}?width=300&quality=70`}
+                    alt={img.display_name}
+                    className="w-full aspect-square object-cover"
+                  />
 
-                {/* Metadata footer */}
-                <div className="px-2 py-1.5">
-                  {renamingId === img.id ? (
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void handleRenameSubmit(img.id);
-                      }}
-                      className="flex gap-1"
-                    >
-                      <input
-                        autoFocus
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={() => setRenamingId(null)}
-                        className="flex-1 text-xs text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      <button
-                        type="submit"
-                        className="text-xs text-indigo-600 font-medium hover:underline"
+                  {/* Metadata footer */}
+                  <div className="px-2 py-1.5">
+                    {renamingId === img.id ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void handleRenameSubmit(img.id);
+                        }}
+                        className="flex gap-1"
                       >
-                        Save
-                      </button>
-                    </form>
-                  ) : (
-                    <div className="flex items-center justify-between gap-1">
-                      <p
-                        className="text-xs text-gray-700 truncate flex-1"
-                        title={img.display_name}
-                      >
-                        {img.display_name}
-                      </p>
-
-                      {/* Actions menu */}
-                      <div className="relative">
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") setRenamingId(null);
+                          }}
+                          className="flex-1 text-xs text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
                         <button
-                          type="button"
-                          onClick={() =>
-                            setOpenMenuId(
-                              openMenuId === img.id ? null : img.id
-                            )
-                          }
-                          className="text-gray-400 hover:text-gray-600 text-sm leading-none px-0.5"
-                          title="Options"
+                          type="submit"
+                          onMouseDown={(e) => e.preventDefault()}
+                          className="text-xs text-indigo-600 font-medium hover:underline"
                         >
-                          ⋯
+                          Save
                         </button>
+                      </form>
+                    ) : (
+                      <div className="flex items-center justify-between gap-1">
+                        <p
+                          className="text-xs text-gray-700 truncate flex-1"
+                          title={img.display_name}
+                        >
+                          {img.display_name}
+                        </p>
 
-                        {openMenuId === img.id && (
-                          <div className="absolute right-0 bottom-6 z-10 bg-white border border-gray-200 rounded-lg shadow-lg text-xs w-32 py-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setRenamingId(img.id);
-                                setRenameValue(img.display_name);
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
-                            >
-                              Rename
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setMovingImage(img);
-                                setSelectedMoveFolder(img.folder);
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
-                            >
-                              Move to…
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => copyUrl(img.public_url)}
-                              className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
-                            >
-                              Copy URL
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDeletingId(img.id);
-                                setOpenMenuId(null);
-                              }}
-                              className="w-full text-left px-3 py-1.5 text-red-600 hover:bg-red-50"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
+                        {/* Actions menu */}
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenMenuId(
+                                openMenuId === img.id ? null : img.id
+                              )
+                            }
+                            className="text-gray-400 hover:text-gray-600 text-sm leading-none px-0.5"
+                            title="Options"
+                          >
+                            ⋯
+                          </button>
+
+                          {openMenuId === img.id && (
+                            <div className="absolute right-0 bottom-6 z-10 bg-white border border-gray-200 rounded-lg shadow-lg text-xs w-32 py-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRenamingId(img.id);
+                                  setRenameValue(img.display_name);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
+                              >
+                                Rename
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setMovingImage(img);
+                                  setSelectedMoveFolder(img.folder);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
+                              >
+                                Move to…
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => copyUrl(img.public_url)}
+                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
+                              >
+                                Copy URL
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDeletingId(img.id);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full text-left px-3 py-1.5 text-red-600 hover:bg-red-50"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {MEDIA_FOLDER_LABELS[img.folder as MediaFolder] ?? img.folder}
-                    {img.width && img.height ? ` · ${img.width}×${img.height}` : ""}
-                    {` · ${Math.round(img.size_bytes / 1024)} KB`}
-                  </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {folderLabel}
+                      {img.width && img.height ? ` · ${img.width}×${img.height}` : ""}
+                      {` · ${Math.round(img.size_bytes / 1024)} KB`}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Delete confirmation dialog */}
+      {/* Delete image confirmation dialog */}
       {deletingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
@@ -395,6 +526,39 @@ export default function MediaLibraryPage() {
         </div>
       )}
 
+      {/* Delete folder confirmation dialog */}
+      {deletingFolder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">
+              Delete folder?
+            </h3>
+            <p className="text-sm text-gray-500 mb-6">
+              <span className="font-medium text-gray-700">
+                {folders.find((f) => f.name === deletingFolder)?.label ?? deletingFolder}
+              </span>{" "}
+              will be removed. This only works if the folder is empty.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingFolder(null)}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteFolder(deletingFolder)}
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Move to folder dialog */}
       {movingImage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -406,19 +570,17 @@ export default function MediaLibraryPage() {
               {movingImage.display_name}
             </p>
             <div className="space-y-2 mb-6">
-              {MEDIA_FOLDERS.map((f) => (
-                <label key={f} className="flex items-center gap-3 cursor-pointer">
+              {folders.map((f) => (
+                <label key={f.name} className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="radio"
                     name="move-folder"
-                    value={f}
-                    checked={selectedMoveFolder === f}
-                    onChange={() => setSelectedMoveFolder(f)}
+                    value={f.name}
+                    checked={selectedMoveFolder === f.name}
+                    onChange={() => setSelectedMoveFolder(f.name)}
                     className="accent-indigo-600"
                   />
-                  <span className="text-sm text-gray-700">
-                    {MEDIA_FOLDER_LABELS[f]}
-                  </span>
+                  <span className="text-sm text-gray-700">{f.label}</span>
                 </label>
               ))}
             </div>

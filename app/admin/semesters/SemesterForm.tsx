@@ -74,6 +74,10 @@ function semesterReducer(
       nextState = { ...state, specialProgramTuition: action.payload };
       break;
 
+    case "SET_COUPONS":
+      nextState = { ...state, coupons: action.payload };
+      break;
+
     case "ADD_FORM_ELEMENT":
       nextState = {
         ...state,
@@ -241,6 +245,25 @@ export default function SemesterForm({
     navigateToStep(activeStepIndex - 1);
   }
 
+  /* ------------------------- Dev Test Data Fill -------------------------- */
+
+  async function fillTestData() {
+    const { TEST_SEMESTER_FIXTURE } = await import(
+      "./dev/semesterTestFixture"
+    );
+    dispatchAndSync({ type: "SET_DETAILS", payload: TEST_SEMESTER_FIXTURE.details });
+    dispatchAndSync({ type: "SET_SESSIONS", payload: TEST_SEMESTER_FIXTURE.sessions });
+    dispatchAndSync({ type: "SET_SESSION_GROUPS", payload: TEST_SEMESTER_FIXTURE.sessionGroups });
+    dispatchAndSync({ type: "SET_PAYMENT", payload: TEST_SEMESTER_FIXTURE.paymentPlan });
+    dispatchAndSync({ type: "SET_TUITION_RATE_BANDS", payload: TEST_SEMESTER_FIXTURE.tuitionRateBands! });
+    dispatchAndSync({ type: "SET_FEE_CONFIG", payload: TEST_SEMESTER_FIXTURE.feeConfig! });
+    dispatchAndSync({ type: "SET_DISCOUNTS", payload: TEST_SEMESTER_FIXTURE.discounts });
+    dispatchAndSync({ type: "SET_COUPONS", payload: TEST_SEMESTER_FIXTURE.coupons! });
+    dispatchAndSync({ type: "SET_REGISTRATION_FORM", payload: TEST_SEMESTER_FIXTURE.registrationForm });
+    dispatchAndSync({ type: "SET_CONFIRMATION_EMAIL", payload: TEST_SEMESTER_FIXTURE.confirmationEmail });
+    dispatchAndSync({ type: "SET_WAITLIST", payload: TEST_SEMESTER_FIXTURE.waitlist });
+  }
+
   /* ---------------------------- Step Render ------------------------------ */
 
   const stepRenderers: Record<StepKey, JSX.Element> = {
@@ -358,6 +381,23 @@ export default function SemesterForm({
         <h1 className="mb-4 text-2xl font-semibold">
           {mode === "create" ? "Create New" : "Edit"} Semester
         </h1>
+
+        {/* DEV: Fill Test Data */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="mb-4 flex items-center gap-3 rounded-lg border border-dashed border-purple-300 bg-purple-50 px-3 py-2">
+            <span className="font-mono text-xs font-semibold text-purple-400">DEV</span>
+            <button
+              type="button"
+              onClick={fillTestData}
+              className="text-sm font-medium text-purple-700 underline hover:text-purple-900"
+            >
+              Fill Test Data
+            </button>
+            <span className="text-xs text-purple-400">
+              Populates all 9 steps with a complete test semester fixture
+            </span>
+          </div>
+        )}
 
         {/* Step Indicator */}
         <div className="mb-8 flex flex-wrap gap-2">
