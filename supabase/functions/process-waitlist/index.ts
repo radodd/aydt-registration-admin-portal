@@ -21,6 +21,37 @@ function replaceTokens(html: string, tokens: Record<string, string>): string {
   return result;
 }
 
+function prepareEmailHtml(html: string): string {
+  const processed = html.replace(/<img([^>]*?)>/gi, (_match: string, attrs: string) => {
+    if (/\bwidth=/i.test(attrs)) return _match;
+    const isBanner =
+      /data-layout="banner"/i.test(attrs) || !/data-layout=/i.test(attrs);
+    return `<img${attrs} width="${isBanner ? 600 : 400}">`;
+  });
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f3f4f6" style="background-color:#f3f4f6;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;">
+        <tr>
+          <td style="padding:32px;">
+            ${processed}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Main handler                                                               */
 /* -------------------------------------------------------------------------- */
@@ -225,7 +256,7 @@ async function processSession(sessionId: string, now: string) {
     "{{accept_link}}": acceptLink,
   };
 
-  const html = replaceTokens(emailConfig.htmlBody, tokens);
+  const html = prepareEmailHtml(replaceTokens(emailConfig.htmlBody, tokens));
   const subject = emailConfig.subject
     ? replaceTokens(emailConfig.subject, tokens)
     : `A spot opened up in ${session.title}`;

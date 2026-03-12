@@ -6,6 +6,7 @@ import {
   fetchEpgTransaction,
   epgEventTypeToPaymentState,
 } from "@/utils/payment/epg";
+import { prepareEmailHtml } from "@/utils/prepareEmailHtml";
 
 // Node runtime required — never edge for payment webhooks.
 // Edge runtimes lack crypto.timingSafeEqual and may strip env vars.
@@ -344,6 +345,7 @@ async function sendConfirmationEmail(
     for (const [token, value] of Object.entries(tokens)) {
       htmlBody = htmlBody.replaceAll(token, value);
     }
+    htmlBody = prepareEmailHtml(htmlBody);
 
     const fromEmail =
       emailTemplate.fromEmail ??

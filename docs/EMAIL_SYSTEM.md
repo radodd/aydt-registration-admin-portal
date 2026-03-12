@@ -64,17 +64,32 @@ Recipients are selected at multiple levels of granularity:
 
 ## Delivery Tracking
 
-All delivery events are recorded in `email_deliveries`:
+All delivery events are recorded in `email_deliveries` (one row per recipient per campaign):
 
-| Status      | When set                                    |
-|-------------|---------------------------------------------|
-| `pending`   | Row inserted (before Resend response)       |
-| `sent`      | Resend API accepted the message             |
-| `delivered` | Resend webhook: delivery confirmed          |
-| `bounced`   | Resend webhook: hard/soft bounce            |
-| `complained`| Resend webhook: spam complaint              |
+| Status      | When set                                      |
+|-------------|-----------------------------------------------|
+| `pending`   | Row inserted (before Resend response)         |
+| `sent`      | Resend API accepted the message               |
+| `delivered` | Resend webhook: delivery confirmed            |
+| `bounced`   | Resend webhook: hard/soft bounce              |
+| `complained`| Resend webhook: spam complaint                |
+| `failed`    | Resend API returned an error for this address |
 
-Open and click events are also tracked via Resend webhooks at `api/webhooks/resend/`.
+When status is `failed`, the `failure_reason` column stores the raw error message from Resend. Open and click events are also tracked via Resend webhooks at `api/webhooks/resend/`.
+
+### Failure reporting in the admin UI
+
+**Sent tab** — includes a "Failed" column showing the per-email count of `failed` delivery rows. Clicking the count expands an inline panel listing each recipient address and reason. A "Simulate failure" button (super admin, only shown when failed count is 0) marks up to 3 sent deliveries as failed for testing.
+
+**Failed tab** — shows campaigns where every recipient failed. A "View failures" toggle on each row expands the same recipient/reason detail panel with a "Retry all" button.
+
+### Retry
+
+`retryFailedRecipients(emailId)` re-sends to all `email_deliveries` rows with `status = 'failed'` for a given campaign, using the original email body, recipient context, and sender config. On success each delivery is updated to `status = 'sent'` and `failure_reason` is cleared. On continued failure the `failure_reason` is updated with the new error.
+
+### Simulation
+
+`simulateDeliveryFailure(emailId)` is a super admin-only helper that marks up to 3 `sent` delivery rows as `failed` with `failure_reason = 'Simulated failure'`. Use it to test the failure detail panel and retry flow without sending to a real bad address.
 
 ---
 
@@ -89,8 +104,11 @@ Open and click events are also tracked via Resend webhooks at `api/webhooks/rese
 | `app/admin/emails/actions/previewResolvedFamilies.ts` | Live preview of recipients before draft is saved |
 | `app/admin/emails/actions/previewRecipientCount.ts` | Fast family count for count badge |
 | `app/admin/emails/actions/updateEmailDraft.ts` | Persists draft + recipient selections to DB |
-| `app/admin/emails/actions/sendEmailNow.ts` | Resolves, snapshots, and sends inline or via edge function |
+| `app/admin/emails/actions/sendEmailNow.ts` | Resolves, snapshots, and sends inline or via edge function; records `failed` status + reason on error |
 | `app/admin/emails/actions/scheduleEmail.ts` | Resolves, snapshots, and schedules |
+| `app/admin/emails/actions/getEmailFailedDeliveries.ts` | Returns all `failed` delivery rows for an email (address + reason) |
+| `app/admin/emails/actions/retryFailedRecipients.ts` | Re-sends to all `failed` deliveries; updates status on success |
+| `app/admin/emails/actions/simulateDeliveryFailure.ts` | Super admin: marks up to 3 `sent` rows as `failed` for testing |
 | `utils/resolveEmailVariables.ts` | `{{token}}` substitution engine |
 | `utils/prepareEmailHtml.ts` | Normalizes email HTML for cross-client rendering |
 

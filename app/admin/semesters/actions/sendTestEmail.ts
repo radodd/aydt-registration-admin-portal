@@ -2,6 +2,7 @@
 
 import { Resend } from "resend";
 import { createClient } from "@/utils/supabase/server";
+import { prepareEmailHtml } from "@/utils/prepareEmailHtml";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -51,7 +52,7 @@ export async function sendTestEmail(
     return { success: false, error: "No email body configured" };
   }
 
-  const processedHtml = replaceTokens(email.htmlBody, MOCK_TOKENS);
+  const processedHtml = prepareEmailHtml(replaceTokens(email.htmlBody, MOCK_TOKENS));
   const subject = email.subject
     ? replaceTokens(email.subject, MOCK_TOKENS)
     : "Test: Registration Confirmation";

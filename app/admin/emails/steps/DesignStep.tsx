@@ -8,6 +8,7 @@ import { updateEmailDraft } from "../actions/updateEmailDraft";
 import { sendTestBroadcastEmail } from "../actions/sendTestBroadcastEmail";
 import { sendTestAsFamily } from "../actions/sendTestAsFamily";
 import { applyMockTokens } from "@/utils/resolveEmailVariables";
+import { wrapEmailLayout } from "@/utils/prepareEmailHtml";
 
 type Props = {
   state: EmailDraft;
@@ -27,6 +28,8 @@ const VARIABLES = [
   { token: "{{session_name}}", description: "Session title" },
 ];
 
+const DEFAULT_EMAIL_SEED_HTML = `<h1 style="margin:0 0 12px 0;font-size:24px;color:#7B1F1A;">Email Heading</h1><p style="margin:0 0 16px 0;font-size:16px;color:#333333;line-height:1.6;">Dear {{parent_name}},</p><p style="margin:0 0 24px 0;font-size:16px;color:#333333;line-height:1.6;">We are excited to share news with our AYDT families. Please update this content with your message.</p><div style="text-align:center;margin:24px 0;"><!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="#" style="height:48px;v-text-anchor:middle;width:200px;" arcsize="13%" stroke="f" fillcolor="#8E2A23"><w:anchorlock/><center><![endif]--><table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;display:inline-block;"><tr><td align="center" bgcolor="#8E2A23" style="border-radius:6px;padding:12px 24px;"><a href="#" target="_blank" style="font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#ffffff;text-decoration:none;display:inline-block;border-radius:6px;">View Classes</a></td></tr></table><!--[if mso]></center></v:roundrect><![endif]--></div>`;
+
 export default function DesignStep({
   state,
   dispatch,
@@ -35,7 +38,7 @@ export default function DesignStep({
   emailId,
 }: Props) {
   const [activeTab, setActiveTab] = useState<SubTab>("design");
-  const [htmlBody, setHtmlBody] = useState(state.design?.bodyHtml ?? "");
+  const [htmlBody, setHtmlBody] = useState(state.design?.bodyHtml || DEFAULT_EMAIL_SEED_HTML);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
     "desktop",
@@ -107,7 +110,7 @@ export default function DesignStep({
     { key: "test", label: "3. Test Send" },
   ];
 
-  const previewHtml = applyMockTokens(htmlBody);
+  const previewHtml = wrapEmailLayout(applyMockTokens(htmlBody));
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-8">
@@ -210,8 +213,8 @@ export default function DesignStep({
                   <iframe
                     srcDoc={previewHtml}
                     title="Email preview"
-                    className="rounded-lg border border-gray-200 bg-white"
-                    style={{ width: "600px", height: "500px" }}
+                    className="rounded-lg border border-gray-200"
+                    style={{ width: "720px", height: "500px" }}
                     sandbox="allow-same-origin"
                   />
                 ) : (

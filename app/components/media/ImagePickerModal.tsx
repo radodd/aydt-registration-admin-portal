@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MEDIA_FOLDERS, type MediaImage, type ImageLayout } from "@/types";
+import { MEDIA_FOLDERS, MEDIA_FOLDER_LABELS, type MediaFolder, type MediaImage, type ImageLayout } from "@/types";
 
 type Props = {
   isOpen: boolean;
@@ -137,7 +137,7 @@ export default function ImagePickerModal({
             <option value="">All folders</option>
             {MEDIA_FOLDERS.map((f) => (
               <option key={f} value={f}>
-                {f.charAt(0).toUpperCase() + f.slice(1)}
+                {MEDIA_FOLDER_LABELS[f as MediaFolder]}
               </option>
             ))}
           </select>

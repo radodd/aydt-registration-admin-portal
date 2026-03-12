@@ -1356,8 +1356,20 @@ export type FamilyEmailHistoryRow = {
    MEDIA
 ============================================================================ */
 
-export const MEDIA_FOLDERS = ["general", "banners", "logos"] as const;
+export const MEDIA_FOLDERS = [
+  "general",
+  "email-banners",
+  "website",
+  "staff",
+] as const;
 export type MediaFolder = (typeof MEDIA_FOLDERS)[number];
+
+export const MEDIA_FOLDER_LABELS: Record<MediaFolder, string> = {
+  "general":       "General",
+  "email-banners": "Email Banners",
+  "website":       "Website Images",
+  "staff":         "Staff Photos",
+};
 
 export type MediaImage = {
   id: string;

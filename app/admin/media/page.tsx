@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MEDIA_FOLDERS, type MediaImage } from "@/types";
+import {
+  MEDIA_FOLDERS,
+  MEDIA_FOLDER_LABELS,
+  type MediaFolder,
+  type MediaImage,
+} from "@/types";
 
 export default function MediaLibraryPage() {
   const [images, setImages] = useState<MediaImage[]>([]);
@@ -17,8 +22,15 @@ export default function MediaLibraryPage() {
   // Delete confirmation state
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Move to folder state
+  const [movingImage, setMovingImage] = useState<MediaImage | null>(null);
+  const [selectedMoveFolder, setSelectedMoveFolder] = useState<string>("");
+
   // Per-image dropdown open state
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Upload warning toast
+  const [uploadWarnings, setUploadWarnings] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,6 +54,13 @@ export default function MediaLibraryPage() {
   useEffect(() => {
     fetchImages("", "");
   }, [fetchImages]);
+
+  // Auto-dismiss warnings after 6s
+  useEffect(() => {
+    if (!uploadWarnings.length) return;
+    const t = setTimeout(() => setUploadWarnings([]), 6000);
+    return () => clearTimeout(t);
+  }, [uploadWarnings]);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
@@ -68,6 +87,9 @@ export default function MediaLibraryPage() {
       const res = await fetch("/api/upload-image", { method: "POST", body: form });
       const json = await res.json();
       if (!res.ok) throw new Error((json.error as string) ?? "Upload failed");
+      if ((json.warnings as string[] | undefined)?.length) {
+        setUploadWarnings(json.warnings as string[]);
+      }
       await fetchImages(search, folder);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Upload failed");
@@ -110,182 +132,237 @@ export default function MediaLibraryPage() {
     }
   };
 
+  const handleMove = async (id: string, targetFolder: string) => {
+    try {
+      const res = await fetch(`/api/media/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder: targetFolder }),
+      });
+      if (!res.ok) throw new Error("Move failed");
+      await fetchImages(search, folder);
+    } catch {
+      alert("Move failed. Please try again.");
+    } finally {
+      setMovingImage(null);
+    }
+  };
+
   const copyUrl = (url: string) => {
     navigator.clipboard.writeText(url).catch(() => {});
     setOpenMenuId(null);
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
-      {/* Page header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Media Library</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Shared image library for all email templates
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
-        >
-          {uploading ? "Uploading…" : "Upload Image"}
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/gif,image/webp"
-          className="hidden"
-          onChange={handleUpload}
-        />
-      </div>
+    <div className="flex gap-6 px-6 py-8 max-w-6xl mx-auto">
 
-      {/* Filters */}
-      <div className="flex gap-3 mb-6">
-        <input
-          type="text"
-          placeholder="Search images…"
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          className="flex-1 text-sm text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-        <select
-          value={folder}
-          onChange={(e) => handleFolderChange(e.target.value)}
-          className="text-sm text-slate-700 border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">All folders</option>
+      {/* Left sidebar — folder navigation */}
+      <aside className="w-44 shrink-0">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 mb-2">
+          Folders
+        </p>
+        <nav className="space-y-0.5">
+          <button
+            type="button"
+            onClick={() => handleFolderChange("")}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition ${
+              folder === ""
+                ? "bg-indigo-50 text-indigo-700"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            All Media
+          </button>
           {MEDIA_FOLDERS.map((f) => (
-            <option key={f} value={f}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </option>
+            <button
+              key={f}
+              type="button"
+              onClick={() => handleFolderChange(f)}
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
+                folder === f
+                  ? "bg-indigo-50 text-indigo-700 font-medium"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              {MEDIA_FOLDER_LABELS[f]}
+            </button>
           ))}
-        </select>
-      </div>
+        </nav>
+      </aside>
 
-      {/* Grid */}
-      {loading ? (
-        <p className="text-sm text-gray-400 text-center py-24">Loading…</p>
-      ) : images.length === 0 ? (
-        <div className="text-center py-24">
-          <p className="text-sm text-gray-400">No images yet.</p>
+      {/* Main content */}
+      <div className="flex-1 min-w-0">
+        {/* Page header */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">Media Library</h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Shared image library for all email templates
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="mt-3 text-sm text-indigo-600 font-medium hover:underline"
+            disabled={uploading}
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
           >
-            Upload the first one
+            {uploading ? "Uploading…" : "Upload Image"}
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={handleUpload}
+          />
         </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {images.map((img) => (
-            <div
-              key={img.id}
-              className="group relative rounded-xl border border-gray-200 overflow-hidden bg-gray-50"
+
+        {/* Search bar */}
+        <div className="mb-5">
+          <input
+            type="text"
+            placeholder="Search images…"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className="w-full text-sm text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        {/* Grid */}
+        {loading ? (
+          <p className="text-sm text-gray-400 text-center py-24">Loading…</p>
+        ) : images.length === 0 ? (
+          <div className="text-center py-24">
+            <p className="text-sm text-gray-400">No images yet.</p>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="mt-3 text-sm text-indigo-600 font-medium hover:underline"
             >
-              {/* Thumbnail */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`${img.public_url}?width=300&quality=70`}
-                alt={img.display_name}
-                className="w-full aspect-square object-cover"
-              />
+              Upload the first one
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {images.map((img) => (
+              <div
+                key={img.id}
+                className="group relative rounded-xl border border-gray-200 overflow-hidden bg-gray-50"
+              >
+                {/* Thumbnail */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`${img.public_url}?width=300&quality=70`}
+                  alt={img.display_name}
+                  className="w-full aspect-square object-cover"
+                />
 
-              {/* Metadata footer */}
-              <div className="px-2 py-1.5">
-                {renamingId === img.id ? (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void handleRenameSubmit(img.id);
-                    }}
-                    className="flex gap-1"
-                  >
-                    <input
-                      autoFocus
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onBlur={() => setRenamingId(null)}
-                      className="flex-1 text-xs text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                    <button
-                      type="submit"
-                      className="text-xs text-indigo-600 font-medium hover:underline"
+                {/* Metadata footer */}
+                <div className="px-2 py-1.5">
+                  {renamingId === img.id ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleRenameSubmit(img.id);
+                      }}
+                      className="flex gap-1"
                     >
-                      Save
-                    </button>
-                  </form>
-                ) : (
-                  <div className="flex items-center justify-between gap-1">
-                    <p
-                      className="text-xs text-gray-700 truncate flex-1"
-                      title={img.display_name}
-                    >
-                      {img.display_name}
-                    </p>
-
-                    {/* Actions menu */}
-                    <div className="relative">
+                      <input
+                        autoFocus
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => setRenamingId(null)}
+                        className="flex-1 text-xs text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
                       <button
-                        type="button"
-                        onClick={() =>
-                          setOpenMenuId(
-                            openMenuId === img.id ? null : img.id
-                          )
-                        }
-                        className="text-gray-400 hover:text-gray-600 text-sm leading-none px-0.5"
-                        title="Options"
+                        type="submit"
+                        className="text-xs text-indigo-600 font-medium hover:underline"
                       >
-                        ⋯
+                        Save
                       </button>
+                    </form>
+                  ) : (
+                    <div className="flex items-center justify-between gap-1">
+                      <p
+                        className="text-xs text-gray-700 truncate flex-1"
+                        title={img.display_name}
+                      >
+                        {img.display_name}
+                      </p>
 
-                      {openMenuId === img.id && (
-                        <div className="absolute right-0 bottom-6 z-10 bg-white border border-gray-200 rounded-lg shadow-lg text-xs w-32 py-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRenamingId(img.id);
-                              setRenameValue(img.display_name);
-                              setOpenMenuId(null);
-                            }}
-                            className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
-                          >
-                            Rename
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => copyUrl(img.public_url)}
-                            className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
-                          >
-                            Copy URL
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDeletingId(img.id);
-                              setOpenMenuId(null);
-                            }}
-                            className="w-full text-left px-3 py-1.5 text-red-600 hover:bg-red-50"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                      {/* Actions menu */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenMenuId(
+                              openMenuId === img.id ? null : img.id
+                            )
+                          }
+                          className="text-gray-400 hover:text-gray-600 text-sm leading-none px-0.5"
+                          title="Options"
+                        >
+                          ⋯
+                        </button>
+
+                        {openMenuId === img.id && (
+                          <div className="absolute right-0 bottom-6 z-10 bg-white border border-gray-200 rounded-lg shadow-lg text-xs w-32 py-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setRenamingId(img.id);
+                                setRenameValue(img.display_name);
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
+                            >
+                              Rename
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMovingImage(img);
+                                setSelectedMoveFolder(img.folder);
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
+                            >
+                              Move to…
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyUrl(img.public_url)}
+                              className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
+                            >
+                              Copy URL
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDeletingId(img.id);
+                                setOpenMenuId(null);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-red-600 hover:bg-red-50"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {img.folder} · {Math.round(img.size_bytes / 1024)} KB
-                </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {MEDIA_FOLDER_LABELS[img.folder as MediaFolder] ?? img.folder}
+                    {img.width && img.height ? ` · ${img.width}×${img.height}` : ""}
+                    {` · ${Math.round(img.size_bytes / 1024)} KB`}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Delete confirmation dialog */}
       {deletingId && (
@@ -314,6 +391,79 @@ export default function MediaLibraryPage() {
                 Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move to folder dialog */}
+      {movingImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">
+              Move to folder
+            </h3>
+            <p className="text-sm text-gray-500 mb-4 truncate">
+              {movingImage.display_name}
+            </p>
+            <div className="space-y-2 mb-6">
+              {MEDIA_FOLDERS.map((f) => (
+                <label key={f} className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="move-folder"
+                    value={f}
+                    checked={selectedMoveFolder === f}
+                    onChange={() => setSelectedMoveFolder(f)}
+                    className="accent-indigo-600"
+                  />
+                  <span className="text-sm text-gray-700">
+                    {MEDIA_FOLDER_LABELS[f]}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setMovingImage(null)}
+                className="text-sm text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleMove(movingImage.id, selectedMoveFolder)}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition"
+              >
+                Move
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload warning toast */}
+      {uploadWarnings.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in bg-amber-50 border border-amber-200 rounded-xl shadow-lg p-4 max-w-sm">
+          <div className="flex items-start gap-3">
+            <span className="text-amber-500 text-base mt-0.5">⚠</span>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800 mb-1">
+                Upload succeeded with warnings
+              </p>
+              <ul className="text-xs text-amber-700 space-y-0.5 list-disc list-inside">
+                {uploadWarnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+            <button
+              type="button"
+              onClick={() => setUploadWarnings([])}
+              className="text-amber-400 hover:text-amber-600 text-lg leading-none"
+            >
+              ×
+            </button>
           </div>
         </div>
       )}

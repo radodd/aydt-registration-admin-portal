@@ -5,6 +5,7 @@ import { SemesterDraft, SemesterAction, WaitlistConfig } from "@/types";
 import TipTapEditor from "@/app/components/semester-flow/TipTapEditor";
 import { autosaveSemesterField } from "../actions/autosaveSemesterField";
 import { sendTestWaitlistEmail } from "../actions/sendTestWaitlistEmail";
+import { wrapEmailLayout } from "@/utils/prepareEmailHtml";
 
 type Props = {
   state: SemesterDraft;
@@ -499,11 +500,11 @@ export default function WaitlistStep({
             {htmlBody ? (
               <div className="border border-gray-200 rounded-xl overflow-hidden bg-gray-50 p-4 flex justify-center">
                 <iframe
-                  srcDoc={applyTokens(htmlBody)}
+                  srcDoc={wrapEmailLayout(applyTokens(htmlBody))}
                   title="Waitlist email preview"
-                  className="rounded-lg border border-gray-200 bg-white"
+                  className="rounded-lg border border-gray-200"
                   style={{
-                    width: previewMode === "desktop" ? "600px" : "375px",
+                    width: previewMode === "desktop" ? "720px" : "375px",
                     height: "480px",
                   }}
                   sandbox="allow-same-origin"
