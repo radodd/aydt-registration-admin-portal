@@ -416,7 +416,9 @@ async function seedAdmin(): Promise<string> {
     email: "sarah.mitchell@aydt.com",
     first_name: "Sarah",
     last_name: "Mitchell",
-    phone_number: "(555) 100-2001",
+    phone_number: "+18087285029",
+    sms_opt_in: true,
+    sms_verified: true,
     role: "admin",
     status: "active",
     display_name: "Ms. Sarah Mitchell",
@@ -442,6 +444,9 @@ interface UserRow {
   email: string;
   first_name: string;
   last_name: string;
+  phone_number?: string;
+  sms_opt_in?: boolean;
+  sms_verified?: boolean;
 }
 interface DancerRow {
   id: string;
@@ -484,7 +489,9 @@ async function seedFamilies() {
         .toLowerCase(),
       first_name: faker.person.firstName("female"),
       last_name: lastName,
-      phone_number: faker.phone.number("(555) ###-####"),
+      phone_number: "+18087285029",
+      sms_opt_in: true,
+      sms_verified: true,
       role: "parent",
       status: "active",
       is_primary_parent: true,

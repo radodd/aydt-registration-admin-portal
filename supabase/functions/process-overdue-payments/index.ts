@@ -6,6 +6,67 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
+/* -------------------------------------------------------------------------- */
+/* Twilio SMS helper (inline — Deno can't import from @/ paths)               */
+/* -------------------------------------------------------------------------- */
+
+async function sendSmsViaApi(
+  toPhone: string,
+  message: string,
+  userId: string,
+): Promise<void> {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const fromPhone = Deno.env.get("TWILIO_PHONE_NUMBER");
+  if (!accountSid || !authToken || !fromPhone || !toPhone) return;
+
+  const body = ("AYDT: " + message).slice(0, 160);
+  let twilioSid: string | undefined;
+  let errorMessage: string | undefined;
+  let status = "failed";
+
+  try {
+    const credentials = btoa(`${accountSid}:${authToken}`);
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          To: toPhone,
+          From: fromPhone,
+          Body: body,
+        }).toString(),
+      },
+    );
+    if (res.ok) {
+      const data = await res.json();
+      twilioSid = data.sid;
+      status = "sent";
+    } else {
+      errorMessage = await res.text();
+    }
+  } catch (err) {
+    errorMessage = String(err);
+  }
+
+  try {
+    await supabase.from("sms_notifications").insert({
+      user_id: userId,
+      to_phone: toPhone,
+      body,
+      status,
+      twilio_sid: twilioSid ?? null,
+      error_message: errorMessage ?? null,
+    });
+  } catch (_) {
+    // logging failure must never break the primary flow
+  }
+}
+
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 const siteUrl = Deno.env.get("SITE_URL") ?? "https://aydt.com";
 const adminEmail = Deno.env.get("ADMIN_NOTIFICATION_EMAIL") ?? "admin@aydt.com";
@@ -29,7 +90,7 @@ Deno.serve(async (_req) => {
          registration_batches(
            id, semester_id,
            semesters:semester_id(name),
-           users:parent_id(first_name, last_name, email)
+           users:parent_id(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified)
          )`,
       )
       .eq("status", "scheduled")
@@ -62,8 +123,12 @@ Deno.serve(async (_req) => {
 
     // Group installments by batch for readable summary
     type BatchGroup = {
+      parentId: string;
       parentName: string;
       parentEmail: string;
+      parentPhone: string | null;
+      smsOptIn: boolean;
+      smsVerified: boolean;
       semesterName: string;
       installments: { num: number; amount: number; dueDate: string }[];
     };
@@ -85,10 +150,14 @@ Deno.serve(async (_req) => {
 
       if (!grouped.has((batch as any).id)) {
         grouped.set((batch as any).id, {
+          parentId: user?.id ?? "",
           parentName: user
             ? `${user.first_name} ${user.last_name}`
             : "Unknown",
           parentEmail: user?.email ?? "",
+          parentPhone: (user as any)?.phone_number ?? null,
+          smsOptIn: (user as any)?.sms_opt_in ?? false,
+          smsVerified: (user as any)?.sms_verified ?? false,
           semesterName: semester?.name ?? "Unknown semester",
           installments: [],
         });
@@ -146,6 +215,17 @@ Deno.serve(async (_req) => {
     console.log(
       `process-overdue-payments: marked ${overdueIds.length} installments overdue`,
     );
+
+    /* ------------------------------------------------------------------ */
+    /* STEP 4 — Send SMS to opted-in parents                              */
+    /* ------------------------------------------------------------------ */
+
+    for (const group of grouped.values()) {
+      if (!group.smsOptIn || !group.smsVerified || !group.parentPhone) continue;
+      const count = group.installments.length;
+      const smsMsg = `You have ${count} overdue payment${count > 1 ? "s" : ""} for ${group.semesterName}. Pay now: ${siteUrl}/payments`;
+      await sendSmsViaApi(group.parentPhone, smsMsg, group.parentId);
+    }
 
     return new Response(
       JSON.stringify({ ok: true, updated: overdueIds.length }),

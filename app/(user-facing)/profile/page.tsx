@@ -16,7 +16,7 @@ export default async function Profile() {
   const { data: user } = await supabase
     .from("users")
     .select(
-      "id, family_id, email, first_name, middle_name, last_name, phone_number, is_primary_parent, role, status, created_at, address_line1, address_line2, city, state, zipcode",
+      "id, family_id, email, first_name, middle_name, last_name, phone_number, is_primary_parent, role, status, created_at, address_line1, address_line2, city, state, zipcode, sms_opt_in, sms_verified",
     )
     .eq("id", authUser.id)
     .single();

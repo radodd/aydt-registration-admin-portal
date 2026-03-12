@@ -6,6 +6,67 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
+/* -------------------------------------------------------------------------- */
+/* Twilio SMS helper (inline — Deno can't import from @/ paths)               */
+/* -------------------------------------------------------------------------- */
+
+async function sendSmsViaApi(
+  toPhone: string,
+  message: string,
+  userId: string,
+): Promise<void> {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const fromPhone = Deno.env.get("TWILIO_PHONE_NUMBER");
+  if (!accountSid || !authToken || !fromPhone || !toPhone) return;
+
+  const body = ("AYDT: " + message).slice(0, 160);
+  let twilioSid: string | undefined;
+  let errorMessage: string | undefined;
+  let status = "failed";
+
+  try {
+    const credentials = btoa(`${accountSid}:${authToken}`);
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          To: toPhone,
+          From: fromPhone,
+          Body: body,
+        }).toString(),
+      },
+    );
+    if (res.ok) {
+      const data = await res.json();
+      twilioSid = data.sid;
+      status = "sent";
+    } else {
+      errorMessage = await res.text();
+    }
+  } catch (err) {
+    errorMessage = String(err);
+  }
+
+  try {
+    await supabase.from("sms_notifications").insert({
+      user_id: userId,
+      to_phone: toPhone,
+      body,
+      status,
+      twilio_sid: twilioSid ?? null,
+      error_message: errorMessage ?? null,
+    });
+  } catch (_) {
+    // logging failure must never break the primary flow
+  }
+}
+
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 const siteUrl = Deno.env.get("SITE_URL") ?? "https://aydt.com";
 
@@ -187,7 +248,7 @@ async function processSession(sessionId: string, now: string) {
   // 5. Find the next waiting entry
   const { data: nextEntry } = await supabase
     .from("waitlist_entries")
-    .select("id, dancer_id, invite_token, dancers ( first_name, last_name, users ( first_name, last_name, email ) )")
+    .select("id, dancer_id, invite_token, dancers ( first_name, last_name, users ( id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified ) )")
     .eq("session_id", sessionId)
     .eq("status", "waiting")
     .order("position", { ascending: true })
@@ -285,5 +346,23 @@ async function processSession(sessionId: string, now: string) {
         invitation_expires_at: null,
       })
       .eq("id", nextEntry.id);
+    return;
+  }
+
+  // SMS notification — best-effort, does not affect the invite record
+  if (
+    (parentUser as any)?.sms_opt_in &&
+    (parentUser as any)?.sms_verified &&
+    (parentUser as any)?.phone_number
+  ) {
+    const className = Array.isArray(session.classes)
+      ? (session.classes[0] as any)?.name
+      : (session.classes as any)?.name ?? "your class";
+    const smsMsg = `A spot opened in ${className}. Accept by ${holdUntilStr}: ${acceptLink}`;
+    await sendSmsViaApi(
+      (parentUser as any).phone_number,
+      smsMsg,
+      (parentUser as any).id ?? "",
+    );
   }
 }

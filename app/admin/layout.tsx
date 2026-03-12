@@ -56,6 +56,9 @@ export default function AdminLayout({
           <Link href="/admin/classes" className="block hover:underline">
             Classes
           </Link>
+          <Link href="/admin/sessions" className="block hover:underline">
+            Sessions
+          </Link>
           <Link href="/admin/emails" className="block hover:underline">
             Emails
           </Link>

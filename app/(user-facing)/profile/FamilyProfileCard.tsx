@@ -2,6 +2,7 @@
 
 import type { Dancer, User } from "@/types";
 import { ParentInfoCard } from "./ParentInfoCard";
+import { SmsOptInCard } from "./SmsOptInCard";
 import { DancerCard } from "./DancerCard";
 import AddDancerForm from "./AddDancerForm";
 
@@ -28,6 +29,9 @@ export const FamilyProfileCard = ({
 
       {/* Parent / Guardian */}
       <ParentInfoCard user={user} />
+
+      {/* SMS Notifications */}
+      <SmsOptInCard user={user} />
 
       {/* Dancers */}
       <section className="space-y-6">

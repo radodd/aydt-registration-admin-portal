@@ -30,6 +30,8 @@ export interface User {
   city?: string | null;
   state?: string | null;
   zipcode?: string | null;
+  sms_opt_in?: boolean;
+  sms_verified?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -217,6 +219,8 @@ export interface ClassSession {
   registration_close_at: string | null;
   is_active: boolean;
   created_at: string;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
   /** Nested occurrence dates — included when queried with select */
   session_occurrence_dates?: SessionOccurrenceDate[];
 }
@@ -1591,6 +1595,23 @@ export type CreateInviteInput = {
   maxUses?: number;
   notes?: string;
 };
+
+/* -------------------------------------------------------------------------- */
+/* SMS Domain                                                                  */
+/* -------------------------------------------------------------------------- */
+
+export interface SmsNotification {
+  id: string;
+  user_id: string | null;
+  to_phone: string;
+  body: string;
+  status: "queued" | "sent" | "delivered" | "failed" | "undelivered";
+  twilio_sid: string | null;
+  error_message: string | null;
+  delivered_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 /** Result returned from validateInviteToken server action. */
 export type InviteTokenValidation =
