@@ -150,11 +150,15 @@ tests/
     ├── utils/
     │   └── supabase/
     │       └── client.test.ts           # Supabase client initialization test
-    └── actions/
-        ├── fixtures/
-        │   └── pricingFixtures.ts       # Shared mock factories and test data
-        ├── computePricingQuote.test.ts  # 8 tests for the pricing engine
-        └── validateCoupon.test.ts       # 9 tests for coupon validation
+    ├── actions/
+    │   ├── fixtures/
+    │   │   └── pricingFixtures.ts       # Shared mock factories and test data
+    │   ├── computePricingQuote.test.ts  # 8 tests — pricing engine
+    │   └── validateCoupon.test.ts       # 9 tests — coupon validation
+    └── payment/
+        ├── epg.test.ts                  # 10 tests — epgEventTypeToPaymentState pure function
+        ├── webhookHandler.test.ts       # 21 tests — POST /api/webhooks/epg handler
+        └── createEPGPaymentSession.test.ts  # 11 tests — createEPGPaymentSession action
 ```
 
 ---
@@ -292,12 +296,15 @@ npx vitest run --reporter=verbose tests/unit/actions/
 ### What Passing Looks Like
 
 ```
-✓ tests/unit/actions/validateCoupon.test.ts   (9 tests)  15ms
-✓ tests/unit/actions/computePricingQuote.test.ts (8 tests)  25ms
+✓ tests/unit/actions/validateCoupon.test.ts          (9 tests)   15ms
+✓ tests/unit/actions/computePricingQuote.test.ts      (8 tests)   25ms
+✓ tests/unit/payment/epg.test.ts                     (10 tests)   8ms
+✓ tests/unit/payment/webhookHandler.test.ts          (21 tests)  49ms
+✓ tests/unit/payment/createEPGPaymentSession.test.ts (11 tests)  30ms
 
-Test Files  2 passed (2)
-     Tests  17 passed (17)
-  Duration  377ms
+Test Files  5 passed (5)
+     Tests  59 passed (59)
+  Duration  604ms
 ```
 
 ### What a Failure Looks Like
@@ -316,14 +323,55 @@ The failure tells you: the test name, what assertion failed, what value was expe
 
 ---
 
+## Payment Gateway Tests (`tests/unit/payment/`)
+
+The three payment gateway test files cover the full EPG integration surface:
+
+### `epg.test.ts` — Pure function
+
+Tests `epgEventTypeToPaymentState` — the mapping from EPG's `eventType` strings to our internal `payments.state` values. All 7 tracked events plus unknown/empty inputs.
+
+### `webhookHandler.test.ts` — POST /api/webhooks/epg (21 tests)
+
+| Group | Tests |
+|---|---|
+| HTTP Basic auth | Missing header → 401; wrong password → 401; correct → proceeds |
+| Notification filtering | Non-transaction resourceType → 200; untracked event → 200; missing resource URL → 200; malformed JSON → 200 |
+| EPG fetch | API unreachable → 500 (triggers EPG retry); no customReference → 200 |
+| Payment lookup | No matching payment record → 200 |
+| Replay protection | All 6 terminal states → 200, no DB writes, no email |
+| saleDeclined | Payment state updated; batch NOT confirmed; no email |
+| saleAuthorized (happy path) | Batch confirmed; installment marked paid; registrations confirmed; email sent with resolved template variables |
+| Bug regression | Batch update uses `.eq("status", "pending")` — not `"pending_payment"` |
+| No email config | Batch confirmed but no email sent when `confirmation_email` is null |
+| Concurrent delivery | Second webhook returns 200 silently; no second email sent |
+
+### `createEPGPaymentSession.test.ts` — Server action (11 tests)
+
+| Test | What it verifies |
+|---|---|
+| Not authenticated | Returns error |
+| Batch not found | Returns error |
+| Batch already confirmed | Returns error |
+| Batch in wrong state | Returns error |
+| Existing `pending_authorization` + valid session | Re-fetches and returns existing URL (no new Order) |
+| Existing session expired | Falls through to create a new session |
+| Existing payment already terminal | Returns error |
+| Happy path | Creates Order + PaymentSession; upserts payments row |
+| EPG order creation fails | Returns descriptive error |
+| EPG session creation fails | Returns descriptive error |
+| Payments upsert fails (non-fatal) | Still returns session URL — user can still pay |
+
+---
+
 ## What's Not Tested Yet
 
 | Area | Why | Recommended Tool |
 |---|---|---|
 | Full registration flow (user-facing) | Requires browser + running server | Playwright E2E |
 | Admin semester creation flow | Multi-step form, browser interaction | Playwright E2E |
-| Email sending | Involves Resend API | Mock Resend + unit test |
 | Supabase DB triggers | Require real DB | Supabase local dev + SQL tests |
 | `createRegistrations` server action | Complex, high-value target | Unit test (similar to pricing) |
+| `BatchConfirmationGuard` polling | Client component, needs jsdom | Vitest + jsdom or Playwright |
 
-The pricing engine and coupon validator were prioritized first because they handle money — errors there have direct financial impact.
+The pricing engine, coupon validator, and EPG payment gateway are prioritized because errors there have direct financial impact.

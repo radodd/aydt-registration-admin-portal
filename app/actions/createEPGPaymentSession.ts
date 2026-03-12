@@ -81,8 +81,6 @@ export async function createEPGPaymentSession(
   const returnUrl = `${siteUrl}/register/confirmation?semester=${semesterId}&batch=${batchId}`;
   const cancelUrl = `${siteUrl}/register/payment?semester=${semesterId}&payment_cancelled=1`;
 
-  console.log("returnUrl:", returnUrl);
-  console.log("cancelUrl:", cancelUrl);
   // 5. Create EPG Order
   let order;
   try {
@@ -108,8 +106,7 @@ export async function createEPGPaymentSession(
       doThreeDSecure: true,
     });
   } catch (err) {
-    // console.error("[EPG] createEpgPaymentSession failed:", err);
-    console.error("[EPG] createEpgOrder failed:", {
+    console.error("[EPG] createEpgPaymentSession failed:", {
       batchId,
       amountDueNow,
       semesterName,

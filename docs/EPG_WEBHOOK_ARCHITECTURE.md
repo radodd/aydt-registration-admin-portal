@@ -82,44 +82,50 @@ arrival, it is too unreliable and insecure to use as the sole mechanism.
 
 ```
 [User] → createRegistrations()
-           → registration_batches: pending
-           → registrations: pending_payment (hold_expires_at = now+30m)
-           → batch_payment_installments: scheduled
+           → registration_batches: status = "pending"
+           → registrations:        status = "pending_payment" (hold_expires_at = now+30m)
+           → batch_payment_installments: status = "scheduled"
 
 [User] → createEPGPaymentSession()
-           → EPG Order created
-           → EPG PaymentSession created
-           → payments: pending_authorization
+           → verify batch.status === "pending"
+           → EPG Order created  (POST /orders)
+           → EPG PaymentSession created  (POST /payment-sessions,
+               hppType: "fullPageRedirect", doCapture: true, doThreeDSecure: true)
+           → payments: UPSERT state = "pending_authorization"
            → browser.location = EPG HPP URL
 
 [EPG HPP] → user enters card → EPG processes charge
 
 [EPG]  → POST /api/webhooks/epg  (saleAuthorized)
            → validate Basic auth
-           → GET EPG transaction  (authoritative fetch)
-           → payments: state = authorized
-           → registration_batches: status = confirmed  ← only if pending_payment (idempotent)
-           → registrations: status = confirmed
-           → batch_payment_installments[1]: status = paid
+           → GET EPG transaction  (authoritative fetch via resource URL)
+           → resolve batchId from transaction.customReference
+           → look up payments row (idempotency check — skip if terminal state)
+           → payments: state = "authorized"
+           → registration_batches: status = "confirmed"  ← only if status = "pending"
+               + confirmed_at, payment_reference_id set
+           → registrations: status = "confirmed"
+           → batch_payment_installments[1]: status = "paid"
+               + paid_at, paid_amount, payment_reference_id set
            → Resend: confirmation email
 
 [EPG]  → browser redirect to returnUrl
            → ConfirmationCleanup clears localStorage
-           → BatchConfirmationGuard polls until confirmed
+           → BatchConfirmationGuard polls /api/register/batch-status until confirmed
 
 [EPG]  → POST /api/webhooks/epg  (saleCaptured)        ← later
-           → payments: state = captured
+           → payments: state = "captured"
            → batch already confirmed → early return (idempotent)
 
 [EPG]  → POST /api/webhooks/epg  (saleSettled)         ← at settlement
-           → payments: state = settled
+           → payments: state = "settled"
            → batch already confirmed → early return (idempotent)
 ```
 
 The lifecycle correctly distinguishes between transient events (`authorized`, `captured`, `settled`)
 and terminal failure events (`declined`, `voided`). All three success events trigger the same
-confirmation path. The idempotency guard on `registration_batches` (`.eq("status", "pending_payment")`)
-ensures confirmation happens only once regardless of how many success webhooks arrive.
+confirmation path. The idempotency guard on `registration_batches` uses `.eq("status", "pending")`
+to ensure confirmation happens only once regardless of how many success webhooks arrive.
 
 ---
 
@@ -194,7 +200,7 @@ body claiming a transaction is `authorized` for a batch they chose.
 `voided`, `refunded`) at the top of the handler fast-paths duplicate deliveries without touching
 the DB.
 
-**Database-level:** The `registration_batches` update uses `.eq("status", "pending_payment")`.
+**Database-level:** The `registration_batches` update uses `.eq("status", "pending")`.
 Even if two simultaneous webhook deliveries both pass the application check (race condition), only
 one wins the conditional DB update. The loser receives `null` from `.maybeSingle()` and returns
 early. This is the true atomicity guarantee.
@@ -230,26 +236,64 @@ No distributed lock is needed.
 Steps 8 and 9a–9c (payments, registration_batches, registrations) are fully idempotent. Step 9d
 (email) is not — if the webhook ran twice and both passes got past the idempotency guard, two emails
 would be sent. The guard at the `if (!batch)` check prevents this: only the first delivery updates
-`registration_batches` from `pending_payment` → `confirmed` and receives a non-null `batch`. The
+`registration_batches` from `"pending"` → `"confirmed"` and receives a non-null `batch`. The
 second delivery sees zero rows updated, `batch` is `null`, and returns early before email is sent.
+
+### Symptom: "Payment received — your registration is being confirmed"
+
+This message is shown by `BatchConfirmationGuard` when it polls `GET /api/register/batch-status`
+for 30 seconds (15 attempts × 2s) and the batch never transitions from `"pending"` to
+`"confirmed"`. It means **the webhook did not fire**.
+
+The most common cause during development and sandbox testing is:
+
+> **The webhook URL has not been registered in the Elavon merchant portal.**
+
+EPG only POSTs to URLs that have been explicitly configured in the portal. If no URL is registered,
+EPG silently drops the notification after payment — it does not return an error to the user, it just
+never calls your endpoint. The payment is captured and money moves, but AYDT's server never receives
+the `saleAuthorized` event, so:
+
+- `payments.state` stays `"pending_authorization"`
+- `registration_batches.status` stays `"pending"`
+- No confirmation email is sent
+- The hold timer continues counting down
+
+**How to verify this is the cause:**
+
+1. Check your Vercel/server logs for any inbound `POST /api/webhooks/epg` requests — if there are
+   none after a completed payment, the URL is not registered.
+2. Log into the Elavon merchant portal and confirm a webhook destination URL is configured for your
+   merchant account.
+
+**Fix:** Register `https://<your-domain>/api/webhooks/epg` in the Elavon merchant portal with the
+`EPG_WEBHOOK_USERNAME` and `EPG_WEBHOOK_PASSWORD` values from your `.env.local`. In development,
+use an ngrok tunnel to expose your local server (e.g. `https://<id>.ngrok.io/api/webhooks/epg`).
+
+**Recovery for already-affected registrations:** The user paid but has no confirmed registration.
+Find the batch in Supabase (`registration_batches` where `status = 'pending'`), manually update
+`status → 'confirmed'`, mark installment 1 as `paid`, and trigger a manual confirmation email.
+Once the webhook is registered, all future payments will confirm automatically.
+
+---
 
 ### Failure modes
 
-| Failure | Outcome | Recovery |
+| Failure | Symptom | Recovery |
 |---|---|---|
+| **Webhook URL not registered in portal** | All payments stuck — confirmation page shows "processing" after 30s; no email sent | Register URL in Elavon merchant portal |
+| **Webhook credentials wrong in portal** | `401` logged server-side; EPG may not retry | Fix credentials in portal to match env vars |
 | EPG API down (`fetchEpgTransaction` throws) | Returns `500` → EPG retries | Automatic |
-| Supabase down during `payments` update | `payments` stale, confirmation still attempted | Partial — retry heals it |
 | Supabase down during batch confirmation | `registration_batches` not confirmed | EPG retries → heals automatically |
 | Resend API fails | Email not sent; batch is confirmed | Manual re-send or admin notification |
-| Webhook credential wrong in portal | `401` returned; EPG may not retry | Fix credential in merchant portal |
 | Webhook URL unreachable (DNS, deploy gap) | EPG retries until TTL | Ensure route is deployed before going live |
 
 **Most operationally dangerous failure:** Supabase partial write — `payments` updated to `authorized`
-but `registration_batches` still `pending_payment`. The application-level idempotency check would
-pass on retry (payment is already terminal), but the batch update would succeed because it is still
-`pending_payment`. This means the system **does not self-heal on retry in this case**. Consider
-checking both `payments.state` and `registration_batches.status` independently rather than using the
-payment terminal-state check as a combined gate.
+but `registration_batches` still `pending`. The application-level idempotency check would pass on
+retry (payment is already terminal), but the batch update would succeed because it is still
+`pending`. This means the system **does not self-heal on retry in this case**. Consider checking
+both `payments.state` and `registration_batches.status` independently rather than using the payment
+terminal-state check as a combined gate.
 
 ### Logging
 

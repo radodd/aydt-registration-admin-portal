@@ -208,7 +208,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         payment_reference_id: transaction.id,
       })
       .eq("id", batchId)
-      .eq("status", "pending_payment")
+      .eq("status", "pending")
       .select("id, semester_id, parent_id, grand_total, payment_plan_type")
       .maybeSingle();
 
