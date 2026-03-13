@@ -13,6 +13,12 @@ import type { NewDancerInput } from "./actions/createAdminRegistration";
 type Props = {
   initialSemesterId: string;
   initialSemesterName: string;
+  initialDancer?: {
+    id: string;
+    name: string;
+    familyId: string | null;
+    parentUserId: string | null;
+  } | null;
 };
 
 type State = {
@@ -44,13 +50,14 @@ const STEPS = [
 export default function AdminRegisterFlow({
   initialSemesterId,
   initialSemesterName,
+  initialDancer,
 }: Props) {
   const [state, setState] = useState<State>({
-    step: 1,
-    dancerId: null,
-    dancerName: "",
-    familyId: null,
-    parentUserId: null,
+    step: initialDancer ? 2 : 1,
+    dancerId: initialDancer?.id ?? null,
+    dancerName: initialDancer?.name ?? "",
+    familyId: initialDancer?.familyId ?? null,
+    parentUserId: initialDancer?.parentUserId ?? null,
     isNewDancer: false,
     newDancer: null,
     semesterId: initialSemesterId,

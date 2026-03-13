@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, Check, Tag, AlertCircle, Pencil, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronLeft, Check, Tag, AlertCircle, Pencil, X, Plus } from "lucide-react";
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
-import type { PricingQuote } from "@/types";
+import type { PricingQuote, AdminAdjustment } from "@/types";
 import {
   createAdminRegistration,
   type NewDancerInput,
@@ -85,6 +85,17 @@ export default function CheckoutStep({
     initialPriceOverride != null ? initialPriceOverride.toFixed(2) : ""
   );
 
+  // Payment plan
+  const [paymentPlanType, setPaymentPlanType] = useState<"pay_in_full" | "monthly">("pay_in_full");
+
+  // Adjustments
+  const [adjustments, setAdjustments] = useState<AdminAdjustment[]>([]);
+  const [showAdjForm, setShowAdjForm] = useState(false);
+  const [adjType, setAdjType] = useState<"tuition_adjustment" | "credit">("tuition_adjustment");
+  const [adjLabel, setAdjLabel] = useState("");
+  const [adjAmountStr, setAdjAmountStr] = useState("");
+  const [adjError, setAdjError] = useState("");
+
   // Payment
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [amountInput, setAmountInput] = useState("");
@@ -100,7 +111,10 @@ export default function CheckoutStep({
     ? parseFloat(overrideInput) || 0
     : (quote?.grandTotal ?? 0);
 
-  // Fetch pricing on mount and when coupon changes
+  const adjustmentsSum = adjustments.reduce((sum, a) => sum + a.amount, 0);
+  const effectiveTotal = Math.max(0, grandTotal - adjustmentsSum);
+
+  // Fetch pricing on mount
   const fetchPricing = async (coupon?: string) => {
     setPricingLoading(true);
     try {
@@ -119,7 +133,10 @@ export default function CheckoutStep({
       });
       setQuote(q);
       if (!amountInput) {
-        setAmountInput(q.grandTotal.toFixed(2));
+        const eff = Math.max(0, q.grandTotal - adjustmentsSum);
+        setAmountInput(
+          paymentPlanType === "monthly" ? "0.00" : eff.toFixed(2)
+        );
       }
     } catch (err) {
       console.warn("Pricing failed:", err);
@@ -131,6 +148,23 @@ export default function CheckoutStep({
   useEffect(() => {
     fetchPricing();
   }, [semesterId, familyId, dancerId, sessionIds.join(",")]);
+
+  // Re-seed amount when adjustments change (only if not monthly and no manual input)
+  useEffect(() => {
+    if (paymentPlanType === "monthly") return;
+    if (!quote && !overrideActive) return;
+    setAmountInput(effectiveTotal.toFixed(2));
+  }, [adjustmentsSum]);
+
+  // Handle payment plan toggle
+  function handlePaymentPlanChange(plan: "pay_in_full" | "monthly") {
+    setPaymentPlanType(plan);
+    if (plan === "monthly") {
+      setAmountInput("0.00");
+    } else {
+      setAmountInput(effectiveTotal.toFixed(2));
+    }
+  }
 
   async function handleApplyCoupon() {
     if (!couponCode.trim()) return;
@@ -153,7 +187,10 @@ export default function CheckoutStep({
       if (q.couponDiscount > 0) {
         setQuote(q);
         setAppliedCoupon(couponCode.trim());
-        setAmountInput(q.grandTotal.toFixed(2));
+        if (paymentPlanType !== "monthly") {
+          const eff = Math.max(0, q.grandTotal - adjustmentsSum);
+          setAmountInput(eff.toFixed(2));
+        }
       } else {
         setCouponError("Code not valid or not applicable.");
       }
@@ -173,9 +210,31 @@ export default function CheckoutStep({
   function handleOverrideToggle() {
     if (!overrideActive) {
       setOverrideInput(grandTotal.toFixed(2));
-      setAmountInput(grandTotal.toFixed(2));
+      if (paymentPlanType !== "monthly") setAmountInput(effectiveTotal.toFixed(2));
     }
     setOverrideActive((v) => !v);
+  }
+
+  function handleAddAdjustment() {
+    const amount = parseFloat(adjAmountStr);
+    if (!adjLabel.trim()) {
+      setAdjError("Label is required.");
+      return;
+    }
+    if (isNaN(amount) || amount <= 0) {
+      setAdjError("Amount must be greater than $0.");
+      return;
+    }
+    setAdjustments((prev) => [...prev, { type: adjType, label: adjLabel.trim(), amount }]);
+    setAdjLabel("");
+    setAdjAmountStr("");
+    setAdjType("tuition_adjustment");
+    setAdjError("");
+    setShowAdjForm(false);
+  }
+
+  function handleRemoveAdjustment(index: number) {
+    setAdjustments((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit() {
@@ -189,8 +248,10 @@ export default function CheckoutStep({
 
     const result = await createAdminRegistration({
       semesterId,
+      semesterName,
       sessionIds,
       dancerId: isNewDancer ? null : (dancerId ?? null),
+      dancerName,
       familyId: isNewDancer ? null : (familyId ?? null),
       parentUserId: isNewDancer ? null : (parentUserId ?? null),
       newDancer: isNewDancer && newDancer
@@ -207,6 +268,8 @@ export default function CheckoutStep({
       formData,
       couponCode: appliedCoupon || undefined,
       priceOverride: overrideActive ? grandTotal : undefined,
+      adjustments: adjustments.length > 0 ? adjustments : undefined,
+      paymentPlanType,
       paymentMethod,
       amountCollected: amount,
       checkNumber: paymentMethod === "check" ? checkNumber : undefined,
@@ -228,6 +291,148 @@ export default function CheckoutStep({
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
       {/* Main — payment form */}
       <div className="space-y-5">
+
+        {/* Payment plan */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+          <h2 className="text-sm font-semibold text-slate-700">Payment Plan</h2>
+          <div className="grid grid-cols-2 gap-2">
+            {(["pay_in_full", "monthly"] as const).map((plan) => (
+              <button
+                key={plan}
+                onClick={() => handlePaymentPlanChange(plan)}
+                className={`py-2 px-3 rounded-lg text-sm font-medium border transition ${
+                  paymentPlanType === plan
+                    ? "bg-blue-600 border-blue-600 text-white"
+                    : "border-gray-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {plan === "pay_in_full" ? "Pay in Full" : "Monthly"}
+              </button>
+            ))}
+          </div>
+          {paymentPlanType === "monthly" && (
+            <p className="text-xs text-slate-500">
+              Billing managed externally — recording $0 collected at this time.
+            </p>
+          )}
+        </div>
+
+        {/* Adjustments */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-700">Adjustments</h2>
+            {!showAdjForm && (
+              <button
+                onClick={() => { setShowAdjForm(true); setAdjError(""); }}
+                className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700"
+              >
+                <Plus className="w-3 h-3" />
+                Add adjustment
+              </button>
+            )}
+          </div>
+
+          {/* Inline add form */}
+          {showAdjForm && (
+            <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-gray-200">
+              {/* Type toggle */}
+              <div className="grid grid-cols-2 gap-2">
+                {(["tuition_adjustment", "credit"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setAdjType(t)}
+                    className={`py-1.5 px-3 rounded-lg text-xs font-medium border transition ${
+                      adjType === t
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-gray-200 text-slate-600 hover:bg-slate-50 bg-white"
+                    }`}
+                  >
+                    {t === "tuition_adjustment" ? "Tuition Adjustment" : "Credit"}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Week 1 proration"
+                    value={adjLabel}
+                    onChange={(e) => { setAdjLabel(e.target.value); setAdjError(""); }}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                    Amount
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      value={adjAmountStr}
+                      onChange={(e) => { setAdjAmountStr(e.target.value); setAdjError(""); }}
+                      onKeyDown={(e) => e.key === "Enter" && handleAddAdjustment()}
+                      className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+              {adjError && <p className="text-xs text-red-500">{adjError}</p>}
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => { setShowAdjForm(false); setAdjLabel(""); setAdjAmountStr(""); setAdjError(""); }}
+                  className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddAdjustment}
+                  className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Adjustment list */}
+          {adjustments.length > 0 ? (
+            <ul className="space-y-2">
+              {adjustments.map((adj, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`shrink-0 text-xs font-medium px-1.5 py-0.5 rounded ${
+                      adj.type === "credit"
+                        ? "bg-purple-100 text-purple-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {adj.type === "credit" ? "Credit" : "Adj"}
+                    </span>
+                    <span className="text-slate-600 truncate">{adj.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-green-600 font-medium">-{fmt$$(adj.amount)}</span>
+                    <button
+                      onClick={() => handleRemoveAdjustment(i)}
+                      className="text-slate-300 hover:text-slate-500 transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : !showAdjForm ? (
+            <p className="text-xs text-slate-400">No adjustments. Use adjustments for proration credits, scholarships, or other deductions visible to the family.</p>
+          ) : null}
+        </div>
+
         {/* Payment method */}
         <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
           <h2 className="text-sm font-semibold text-slate-700">Payment</h2>
@@ -380,25 +585,41 @@ export default function CheckoutStep({
           {pricingLoading ? (
             <p className="text-xs text-slate-400">Calculating…</p>
           ) : overrideActive ? (
-            <div>
-              <label className="block text-xs text-slate-500 mb-1">Custom total</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                  $
-                </span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={overrideInput}
-                  onChange={(e) => {
-                    setOverrideInput(e.target.value);
-                    setAmountInput(e.target.value);
-                  }}
-                  className="w-full pl-6 pr-3 py-2 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  autoFocus
-                />
+            <div className="space-y-2">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Custom base total</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={overrideInput}
+                    onChange={(e) => {
+                      setOverrideInput(e.target.value);
+                      if (paymentPlanType !== "monthly") setAmountInput(e.target.value);
+                    }}
+                    className="w-full pl-6 pr-3 py-2 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+                </div>
               </div>
+              {adjustments.length > 0 && (
+                <div className="space-y-1.5 text-sm pt-1">
+                  {adjustments.map((adj, i) => (
+                    <div key={i} className="flex justify-between gap-4">
+                      <span className="text-slate-500 truncate">{adj.label}</span>
+                      <span className="text-green-600 shrink-0">-{fmt$$(adj.amount)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between gap-4 pt-2 border-t border-gray-100 font-semibold">
+                    <span className="text-slate-700">Total Due</span>
+                    <span className="text-slate-800">{fmt$$(effectiveTotal)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           ) : quote ? (
             <div className="space-y-1.5 text-sm">
@@ -416,9 +637,15 @@ export default function CheckoutStep({
                     </span>
                   </div>
                 ))}
+              {adjustments.map((adj, i) => (
+                <div key={`adj-${i}`} className="flex justify-between gap-4">
+                  <span className="text-slate-500 truncate">{adj.label}</span>
+                  <span className="text-green-600 shrink-0">-{fmt$$(adj.amount)}</span>
+                </div>
+              ))}
               <div className="flex justify-between gap-4 pt-2 border-t border-gray-100 font-semibold">
-                <span className="text-slate-700">Total</span>
-                <span className="text-slate-800">{fmt$$(quote.grandTotal)}</span>
+                <span className="text-slate-700">Total Due</span>
+                <span className="text-slate-800">{fmt$$(effectiveTotal)}</span>
               </div>
             </div>
           ) : (
@@ -474,14 +701,14 @@ export default function CheckoutStep({
         <div className="bg-slate-50 border border-gray-200 rounded-xl p-4">
           <div className="flex justify-between text-sm">
             <span className="text-slate-500">Balance due</span>
-            <span className="font-semibold text-slate-800">{fmt$$(grandTotal)}</span>
+            <span className="font-semibold text-slate-800">{fmt$$(effectiveTotal)}</span>
           </div>
           {!isNaN(parseFloat(amountInput)) && (
             <div className="flex justify-between text-sm mt-1">
               <span className="text-slate-500">Amount collected</span>
               <span
                 className={
-                  parseFloat(amountInput) >= grandTotal
+                  parseFloat(amountInput) >= effectiveTotal
                     ? "font-medium text-green-600"
                     : "font-medium text-amber-600"
                 }

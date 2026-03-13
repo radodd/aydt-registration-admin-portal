@@ -62,9 +62,9 @@ function processImages(html: string): string {
 }
 
 const LOGO_URL =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_URL
+  typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_URL
     ? `${process.env.NEXT_PUBLIC_APP_URL}/email-logo.png`
-    : "https://aydt.com/email-logo.png");
+    : "https://aydt.com/email-logo.png";
 
 const SITE_URL =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_URL) ||
@@ -84,12 +84,25 @@ export function wrapEmailLayout(content: string): string {
     <td align="center">
       <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;">
 
-        <!-- HEADER -->
-        <tr>
-          <td bgcolor="#7B1F1A" style="background-color:#7B1F1A;padding:24px;text-align:center;">
-            <img src="${LOGO_URL}" width="160" style="display:block;margin:0 auto;width:160px;height:auto;" alt="AYDT Logo">
-          </td>
-        </tr>
+   <!-- HEADER -->
+<tr>
+  <td bgcolor="#7B1F1A" style="background-color:#7B1F1A;padding:18px 24px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+      <tr>
+        <td style="vertical-align:middle;width:120px;">
+          <img 
+            src="https://bulplzknfbietpmdfwlk.supabase.co/storage/v1/object/public/email-assets/email-images/04d4ec78-727f-4f61-a6a1-372e9c1623b4.png"
+            width="50"
+            style="display:block;width:50px;height:auto;border:0;"
+            alt="AYDT Logo">
+        </td>
+        <td style="vertical-align:middle;color:#ffffff;font-size:18px;font-weight:600;font-family:Arial,Helvetica,sans-serif;">
+          American Youth Dance Theater
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
 
         <!-- CONTENT -->
         <tr>
@@ -99,16 +112,50 @@ export function wrapEmailLayout(content: string): string {
         </tr>
 
         <!-- FOOTER -->
-        <tr>
-          <td bgcolor="#7B1F1A" style="background-color:#7B1F1A;color:#ffffff;padding:24px;text-align:center;font-size:13px;line-height:1.5;">
-            <p style="margin:0 0 8px 0;font-weight:bold;">AYDT Dance Studio</p>
-            <p style="margin:0 0 8px 0;">Raleigh, NC</p>
-            <p style="margin:0;">
-              <a href="${SITE_URL}" style="color:#E6D5D1;text-decoration:none;">Visit Website</a> &nbsp;|&nbsp;
-              <a href="${SITE_URL}/contact" style="color:#E6D5D1;text-decoration:none;">Contact Us</a>
-            </p>
-          </td>
-        </tr>
+<tr>
+  <td bgcolor="#7B1F1A" style="background-color:#7B1F1A;padding:28px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;">
+    
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+      <tr>
+
+        <!-- LOCATION 1 -->
+        <td style="vertical-align:top;width:50%;padding-right:12px;">
+          <strong style="font-size:14px;">Upper East Side</strong><br>
+          428 E 75th Street<br>
+          New York, NY 10021<br><br>
+
+          O: (212) 717-5419<br>
+          F: (866) 679-8943<br><br>
+
+          Mon – Fri 9:00 am – 8:30 pm<br>
+          Sat 9:00 am – 3:00 pm
+        </td>
+
+        <!-- LOCATION 2 -->
+        <td style="vertical-align:top;width:50%;padding-left:12px;">
+          <strong style="font-size:14px;">Washington Heights</strong><br>
+          4140 Broadway, Fl 2 @ NoMAA<br>
+          New York, NY 10033<br><br>
+
+          O: (212) 717-5419<br>
+          Español: (646) 586-8661<br><br>
+
+          Tues 3:00 pm – 5:45 pm<br>
+          Sat 10:00 am – 1:00 pm
+        </td>
+
+      </tr>
+    </table>
+
+    <!-- FOOTER LINKS -->
+    <div style="margin-top:22px;text-align:center;">
+      <a href="${SITE_URL}" style="color:#E6D5D1;text-decoration:none;">Visit Website</a>
+      &nbsp;|&nbsp;
+      <a href="${SITE_URL}/contact" style="color:#E6D5D1;text-decoration:none;">Contact Us</a>
+    </div>
+
+  </td>
+</tr>
 
       </table>
     </td>

@@ -479,15 +479,13 @@ async function seedFamilies() {
   const users: UserRow[] = [];
   const dancers: DancerRow[] = [];
 
-  for (const fam of families) {
+  for (const [famIdx, fam] of families.entries()) {
     const lastName = fam.family_name.replace(" Family", "");
     const parentId = uid();
     users.push({
       id: parentId,
       family_id: fam.id,
-      email: faker.internet
-        .email({ firstName: faker.person.firstName("female"), lastName })
-        .toLowerCase(),
+      email: `ethanf.flores+${famIdx + 1}@gmail.com`,
       first_name: faker.person.firstName("female"),
       last_name: lastName,
       phone_number: "+18087285029",

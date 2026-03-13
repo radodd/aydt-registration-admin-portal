@@ -1613,6 +1613,18 @@ export interface SmsNotification {
   updated_at: string;
 }
 
+// ─── Admin Registration ────────────────────────────────────────────────────
+
+export type AdminPaymentPlanType = "pay_in_full" | "monthly";
+
+export type AdminAdjustment = {
+  type: "tuition_adjustment" | "credit";
+  label: string;
+  amount: number; // positive value; applied as a deduction from grand total
+};
+
+// ─── Invite Token ──────────────────────────────────────────────────────────
+
 /** Result returned from validateInviteToken server action. */
 export type InviteTokenValidation =
   | {

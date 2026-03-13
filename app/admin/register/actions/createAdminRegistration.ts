@@ -2,6 +2,8 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
+import type { AdminAdjustment } from "@/types";
+import { sendRegistrationReceipt } from "./sendRegistrationReceipt";
 
 export type NewDancerInput = {
   firstName: string;
@@ -15,9 +17,11 @@ export type NewDancerInput = {
 
 export type AdminRegInput = {
   semesterId: string;
+  semesterName: string;
   sessionIds: string[];
   // Existing dancer
   dancerId?: string | null;
+  dancerName: string;
   familyId?: string | null;
   parentUserId?: string | null;
   // New dancer (mutually exclusive with dancerId)
@@ -27,6 +31,8 @@ export type AdminRegInput = {
   // Payment
   couponCode?: string;
   priceOverride?: number | null;
+  adjustments?: AdminAdjustment[];
+  paymentPlanType?: "pay_in_full" | "monthly";
   paymentMethod: string;
   amountCollected: number;
   checkNumber?: string;
@@ -148,6 +154,10 @@ export async function createAdminRegistration(
     }
   }
 
+  // Apply admin adjustments (proration credits, scholarships, etc.)
+  const adjustmentsSum = (input.adjustments ?? []).reduce((sum, a) => sum + a.amount, 0);
+  const effectiveTotal = Math.max(0, grandTotal - adjustmentsSum);
+
   // Insert registration_batch as confirmed
   const batchId = crypto.randomUUID();
   const today = new Date().toISOString().split("T")[0];
@@ -162,9 +172,10 @@ export async function createAdminRegistration(
     recital_fee_total: quote?.recitalFeeTotal ?? 0,
     family_discount_amount: quote?.familyDiscountAmount ?? 0,
     auto_pay_admin_fee_total: quote?.autoPayAdminFeeTotal ?? 0,
-    grand_total: grandTotal,
-    payment_plan_type: "pay_in_full",
-    amount_due_now: grandTotal,
+    grand_total: effectiveTotal,
+    payment_plan_type: input.paymentPlanType ?? "pay_in_full",
+    amount_due_now: effectiveTotal,
+    admin_adjustments: input.adjustments?.length ? input.adjustments : null,
     status: "confirmed",
     confirmed_at: new Date().toISOString(),
     payment_reference_id: "admin",
@@ -201,8 +212,8 @@ export async function createAdminRegistration(
     await supabase.rpc("increment_coupon_uses", { p_coupon_id: quote.appliedCouponId });
   }
 
-  // Insert installment — paid if amount collected covers grand total
-  const isPaid = input.amountCollected >= grandTotal;
+  // Insert installment — paid if amount collected covers effective total
+  const isPaid = input.amountCollected >= effectiveTotal;
   const payRef =
     input.paymentMethod === "check" && input.checkNumber
       ? `check-${input.checkNumber}`
@@ -213,7 +224,7 @@ export async function createAdminRegistration(
     .insert({
       batch_id: batchId,
       installment_number: 1,
-      amount_due: grandTotal,
+      amount_due: effectiveTotal,
       due_date: today,
       status: isPaid ? "paid" : "scheduled",
       paid_at: isPaid ? new Date().toISOString() : null,
@@ -223,6 +234,28 @@ export async function createAdminRegistration(
     .then(({ error }) => {
       if (error) console.warn("[createAdminRegistration] Installment insert failed:", error.message);
     });
+
+  // Send email receipt — fire and forget; never block registration on email failure
+  const resolvedDancerName = input.dancerName ||
+    (input.newDancer ? `${input.newDancer.firstName} ${input.newDancer.lastName}` : "Student");
+
+  sendRegistrationReceipt({
+    supabase,
+    batchId,
+    dancerName: resolvedDancerName,
+    semesterId: input.semesterId,
+    semesterName: input.semesterName,
+    sessionIds: input.sessionIds,
+    quote,
+    adjustments: input.adjustments ?? [],
+    effectiveTotal,
+    amountCollected: input.amountCollected,
+    paymentMethod: input.paymentMethod,
+    paymentPlanType: input.paymentPlanType ?? "pay_in_full",
+    notes: input.notes,
+    familyId,
+    parentUserId,
+  }).catch((err) => console.warn("[createAdminRegistration] Receipt send failed:", err));
 
   return { success: true, batchId, dancerId };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { Family } from "@/types";
 import { getFamilies } from "@/queries/admin";
 import { createFamily, type CreateFamilyInput } from "./actions/createFamily";
@@ -279,6 +280,12 @@ export default function FamiliesAdmin() {
                               )}
                             </div>
                             <div className="flex items-center gap-2">
+                              <Link
+                                href={`/admin/register?dancer=${dancer.id}&family=${family.id}`}
+                                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                              >
+                                Register
+                              </Link>
                               <button
                                 onClick={() =>
                                   setModal({ type: "editDancer", dancer })
