@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export interface UpdateDancerInput {
   dancerId: string;
@@ -11,6 +12,7 @@ export interface UpdateDancerInput {
 }
 
 export async function updateDancer(input: UpdateDancerInput): Promise<void> {
+  await requireAdmin();
   const supabase = await createClient();
 
   const { error } = await supabase

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export type DancerSearchResult = {
   id: string;
@@ -26,6 +27,7 @@ export async function searchDancersByCriteria(params: {
   lastName?: string;
   birthDate?: string;
 }): Promise<DancerSearchResult[]> {
+  await requireAdmin();
   const { firstName, lastName, birthDate } = params;
   const hasAny = (firstName?.trim() ?? "").length > 0 ||
     (lastName?.trim() ?? "").length > 0 ||
@@ -77,6 +79,7 @@ export async function searchDancersByCriteria(params: {
 
 // Legacy single-query search kept for backwards compatibility
 export async function searchDancers(query: string): Promise<DancerSearchResult[]> {
+  await requireAdmin();
   const q = query.trim();
   if (q.length < 2) return [];
 
@@ -125,6 +128,7 @@ export async function searchDancers(query: string): Promise<DancerSearchResult[]
 }
 
 export async function searchFamilies(query: string): Promise<FamilySearchResult[]> {
+  await requireAdmin();
   const q = query.trim();
   if (q.length < 2) return [];
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 import type {
   DraftClass,
   DraftClassRequirement,
@@ -31,6 +32,7 @@ export async function syncSemesterSessions(
   semesterId: string,
   incomingClasses: DraftClass[],
 ): Promise<Map<string, string>> {
+  await requireAdmin();
   const supabase = await createClient();
   // For backward-compat with session group sync; maps any session UUID to itself
   const classSessionIdMap = new Map<string, string>();

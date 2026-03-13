@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export interface AddParentInput {
   familyId: string;
@@ -11,6 +12,7 @@ export interface AddParentInput {
 }
 
 export async function addParent(input: AddParentInput): Promise<void> {
+  await requireAdmin();
   const supabase = await createClient();
 
   const { error } = await supabase.from("users").insert({

@@ -1,11 +1,13 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export async function setPrimaryParent(
   familyId: string,
   newPrimaryUserId: string,
 ): Promise<void> {
+  await requireAdmin();
   const supabase = await createClient();
 
   // Demote current primary

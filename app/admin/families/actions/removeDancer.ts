@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export type RemoveDancerResult =
   | { ok: true }
@@ -9,6 +10,7 @@ export type RemoveDancerResult =
 export async function removeDancer(
   dancerId: string,
 ): Promise<RemoveDancerResult> {
+  await requireAdmin();
   const supabase = await createClient();
 
   const { count, error: regErr } = await supabase

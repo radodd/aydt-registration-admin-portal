@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export interface ClassMetaUpdate {
   name?: string;
@@ -15,6 +16,7 @@ export async function updateClassMeta(
   classId: string,
   updates: ClassMetaUpdate
 ): Promise<{ success: boolean; error?: string }> {
+  await requireAdmin();
   const supabase = await createClient();
 
   const { error } = await supabase

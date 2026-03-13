@@ -3,8 +3,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { logAudit } from "./logAudit";
 import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export async function unpublishSemester(id: string) {
+  await requireAdmin();
   const supabase = await createClient();
 
   // Block unpublish if any active registrations exist for this semester

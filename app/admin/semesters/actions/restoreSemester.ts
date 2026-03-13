@@ -3,8 +3,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { logAudit } from "./logAudit";
 import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export async function restoreSemester(id: string) {
+  await requireAdmin();
   const supabase = await createClient();
 
   const { error } = await supabase

@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { Resend } from "resend";
 import { sendSms } from "@/utils/sendSms";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 interface FamilyEntry {
   userId: string;
@@ -24,23 +25,13 @@ export async function cancelClass(
   sessionId: string,
   reason: string
 ): Promise<{ notified?: number; error?: string }> {
-  const supabase = await createClient();
-
-  // Auth + role check
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-  if (!authUser) return { error: "Not authenticated" };
-
-  const { data: currentUser } = await supabase
-    .from("users")
-    .select("role")
-    .eq("id", authUser.id)
-    .single();
-
-  if (!currentUser || !["admin", "super_admin"].includes(currentUser.role)) {
+  try {
+    await requireAdmin();
+  } catch {
     return { error: "Unauthorized" };
   }
+
+  const supabase = await createClient();
 
   // 1. Mark session cancelled
   const { error: cancelErr } = await supabase

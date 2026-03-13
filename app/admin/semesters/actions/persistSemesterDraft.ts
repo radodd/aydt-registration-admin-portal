@@ -74,10 +74,12 @@ import { syncSemesterSessionGroups } from "./syncSemesterGroups";
 import { syncSemesterPayment } from "./syncSemesterPayments";
 import { syncSemesterSessions } from "./syncSemesterSessions";
 import { updateSemesterDetails } from "./updateSemesterDetails";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export async function persistSemesterDraft(
   state: SemesterDraft,
 ): Promise<{ semesterId: string }> {
+  await requireAdmin();
   const supabase = await createClient();
   let semesterId: string;
 

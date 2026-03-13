@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 /** Shift a DATE string "YYYY-MM-DD" forward by N years (string-safe, no TZ issues). */
 function shiftDate(date: string | null, years: number): string | null {
@@ -18,6 +19,7 @@ function shiftTimestamp(ts: string | null, years: number): string | null {
 }
 
 export async function cloneSemester(sourceId: string, yearShift: number = 0): Promise<string> {
+  await requireAdmin();
   console.log("[cloneSemester] start — sourceId:", sourceId);
   const supabase = await createClient();
 

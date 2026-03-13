@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 type GroupInput = {
   id: string;
@@ -13,6 +14,7 @@ export async function syncSemesterSessionGroups(
   groups: GroupInput[],
   idMap: Map<string, string>,
 ) {
+  await requireAdmin();
   const supabase = await createClient();
 
   // 1️⃣ Fetch existing group IDs for this semester

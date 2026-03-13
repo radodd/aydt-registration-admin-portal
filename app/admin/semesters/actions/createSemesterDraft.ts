@@ -1,8 +1,10 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export async function createSemesterDraft() {
+  await requireAdmin();
   const supabase = await createClient();
 
   const { data, error } = await supabase

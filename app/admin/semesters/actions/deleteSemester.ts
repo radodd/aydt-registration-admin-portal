@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export async function deleteSemester(id: string) {
+  await requireAdmin();
   console.log("🧨 deleteSemester called with ID:", id);
 
   if (!id) {

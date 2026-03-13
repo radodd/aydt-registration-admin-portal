@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export async function updateSemesterDetails(
   semesterId: string,
@@ -11,6 +12,7 @@ export async function updateSemesterDetails(
     publishAt?: Date;
   },
 ) {
+  await requireAdmin();
   if (!details) return;
 
   const supabase = await createClient();

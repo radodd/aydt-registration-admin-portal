@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logAudit } from "./logAudit";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 function revalidateSemester(semesterId: string) {
   revalidatePath("/admin/semesters");
@@ -14,6 +15,7 @@ function revalidateSemester(semesterId: string) {
 ============================================================ */
 
 export async function saveSemesterDraft(semesterId: string) {
+  await requireAdmin();
   const supabase = await createClient();
 
   // Block revert-to-draft if any active registrations exist
@@ -55,6 +57,7 @@ export async function saveSemesterDraft(semesterId: string) {
 ============================================================ */
 
 export async function publishSemesterNow(semesterId: string) {
+  await requireAdmin();
   const supabase = await createClient();
   const now = new Date().toISOString();
 
@@ -100,6 +103,7 @@ export async function publishSemesterNow(semesterId: string) {
 ============================================================ */
 
 export async function scheduleSemester(semesterId: string, publishAt: string) {
+  await requireAdmin();
   const supabase = await createClient();
 
   const { error } = await supabase

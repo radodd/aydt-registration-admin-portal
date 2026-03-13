@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export type AdminSessionInfo = {
   sessionId: string;
@@ -36,6 +37,7 @@ export type AdminClassGroup = {
 };
 
 export async function fetchSemesterClasses(semesterId: string): Promise<AdminClassGroup[]> {
+  await requireAdmin();
   if (!semesterId) return [];
   const supabase = await createClient();
 

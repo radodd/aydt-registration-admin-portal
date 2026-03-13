@@ -3,6 +3,7 @@
 import { Resend } from "resend";
 import { createClient } from "@/utils/supabase/server";
 import { prepareEmailHtml } from "@/utils/prepareEmailHtml";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -27,6 +28,7 @@ export async function sendTestWaitlistEmail(
   semesterId: string,
   testEmail: string,
 ): Promise<{ success: boolean; error?: string }> {
+  await requireAdmin();
   const supabase = await createClient();
 
   const { data: semester, error: fetchError } = await supabase

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export type FamilyPersonOption = {
   id: string;
@@ -27,6 +28,7 @@ export type FamilyDetails = {
 export async function fetchFamilyMembers(
   familyId: string
 ): Promise<FamilyDetails | null> {
+  await requireAdmin();
   if (!familyId) return null;
   const supabase = await createClient();
 

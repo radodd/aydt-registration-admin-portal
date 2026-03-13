@@ -2,11 +2,13 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { SemesterDraft } from "@/types";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export async function syncSemesterPayment(
   semesterId: string,
   payment?: SemesterDraft["paymentPlan"],
 ) {
+  await requireAdmin();
   const supabase = await createClient();
 
   // If no payment defined → remove existing

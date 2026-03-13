@@ -2,11 +2,13 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { AppliedSemesterDiscount } from "@/types";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export async function syncSemesterDiscounts(
   semesterId: string,
   appliedDiscounts: AppliedSemesterDiscount[],
 ) {
+  await requireAdmin();
   const supabase = await createClient();
 
   // Remove existing mappings

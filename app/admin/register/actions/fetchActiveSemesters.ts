@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export type SemesterOption = {
   id: string;
@@ -9,6 +10,7 @@ export type SemesterOption = {
 };
 
 export async function fetchActiveSemesters(): Promise<SemesterOption[]> {
+  await requireAdmin();
   const supabase = await createClient();
   const { data } = await supabase
     .from("semesters")

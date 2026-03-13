@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { DraftCoupon } from "@/types";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 /**
  * Syncs the list of coupons linked to a semester.
@@ -12,6 +13,7 @@ export async function syncSemesterCoupons(
   semesterId: string,
   coupons: DraftCoupon[],
 ): Promise<void> {
+  await requireAdmin();
   const supabase = await createClient();
 
   // Remove all existing semester → coupon links for this semester

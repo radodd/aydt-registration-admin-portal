@@ -1,8 +1,10 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { requireAdmin } from "@/utils/requireAdmin";
 
 export async function removeParent(userId: string): Promise<void> {
+  await requireAdmin();
   const supabase = await createClient();
 
   const { data: user, error: fetchErr } = await supabase
