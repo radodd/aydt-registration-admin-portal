@@ -429,3 +429,24 @@ The `webhookHandler.test.ts` suite includes a **regression test** that directly 
    - Set the Basic auth credentials in the portal to match `EPG_WEBHOOK_USERNAME` and `EPG_WEBHOOK_PASSWORD` from your `.env.local`
    - After registering, verify by checking server logs for inbound `POST /api/webhooks/epg` after a test payment
 4. **Health check** — `curl https://uat.api.converge.eu.elavonaws.com/health` should return 200
+
+---
+
+## Elavon Reference Documentation
+
+All Elavon docs are saved locally in [`docs/elavon/`](./elavon/). Reference the relevant file when working on each feature area:
+
+| Working on... | Reference doc |
+|---|---|
+| Overall architecture / capabilities | [`00_overview.md`](./elavon/00_overview.md) |
+| Any direct API call (endpoints, auth, errors, formats) | [`01_api_reference.md`](./elavon/01_api_reference.md) |
+| HPP checkout flow, PCI scope, redirect vs lightbox | [`02_hosted_payments.md`](./elavon/02_hosted_payments.md) |
+| Order + payment session creation, redirect SDK | [`03_redirect_sdk.md`](./elavon/03_redirect_sdk.md) |
+| Gateway-managed recurring billing | [`04_plans_and_subscriptions.md`](./elavon/04_plans_and_subscriptions.md) |
+| Creating/retrieving Shopper records | [`api_shoppers.md`](./elavon/api_shoppers.md) |
+| Storing a card on file after HPP checkout | [`api_stored_cards.md`](./elavon/api_stored_cards.md) |
+| Storing ACH/bank account after HPP checkout | [`api_stored_ach.md`](./elavon/api_stored_ach.md) |
+| Server-to-server charges (installments, stored card) | [`api_transactions.md`](./elavon/api_transactions.md) |
+| Recurring billing plan definitions | [`api_plans.md`](./elavon/api_plans.md) |
+| Attaching stored card to a recurring plan | [`api_subscriptions.md`](./elavon/api_subscriptions.md) |
+| Sandbox testing — card numbers, decline triggers | [`test_cards.md`](./elavon/test_cards.md) |
