@@ -549,6 +549,24 @@ export async function computePricingQuote(
     (d) => d.sessionDiscountTotal < 0,
   );
 
+  type EligibleLineItemType = "tuition" | "registration_fee" | "recital_fee";
+  const ALL_ELIGIBLE: EligibleLineItemType[] = ["tuition", "registration_fee", "recital_fee"];
+
+  function computeEligibleBase(
+    lineItems: LineItem[],
+    eligibleTypes: string[] | null | undefined,
+    mostExpensiveOnly: boolean | null | undefined,
+  ): number {
+    const types = (eligibleTypes?.length ? eligibleTypes : ALL_ELIGIBLE) as EligibleLineItemType[];
+    const amounts = lineItems
+      .filter((li) => li.amount > 0 && types.includes(li.type as EligibleLineItemType))
+      .map((li) => li.amount);
+    if (amounts.length === 0) return 0;
+    return mostExpensiveOnly
+      ? Math.max(...amounts)
+      : round2(amounts.reduce((s, a) => s + a, 0));
+  }
+
   let couponDiscount = 0;
   let appliedCouponId: string | undefined;
   let appliedCouponName: string | undefined;
@@ -573,6 +591,7 @@ export async function computePricingQuote(
           id, name, code, value, value_type,
           valid_from, valid_until, max_total_uses, uses_count,
           max_per_family, stackable, eligible_sessions_mode, is_active,
+          applies_to_most_expensive_only, eligible_line_item_types,
           coupon_session_restrictions ( session_id )
         )`,
       )
@@ -628,11 +647,16 @@ export async function computePricingQuote(
       if (!coupon.stackable && hasThresholdDiscounts) continue;
 
       // Apply — first valid coupon wins
+      const eligibleBase = computeEligibleBase(
+        familyLineItems,
+        coupon.eligible_line_item_types,
+        coupon.applies_to_most_expensive_only,
+      );
       const rawDiscount =
         coupon.value_type === "percent"
-          ? round2((preCouponTotal * Number(coupon.value)) / 100)
+          ? round2((eligibleBase * Number(coupon.value)) / 100)
           : Number(coupon.value);
-      couponDiscount = Math.min(rawDiscount, preCouponTotal); // never negative
+      couponDiscount = Math.min(rawDiscount, eligibleBase); // clamp: never exceed eligible base
       appliedCouponId = coupon.id;
       appliedCouponName = coupon.name;
       break;

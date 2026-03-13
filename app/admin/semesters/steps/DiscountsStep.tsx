@@ -6,9 +6,11 @@ import { deleteDiscount } from "@/app/admin/semesters/new/discounts/DeleteDiscou
 import { createCoupon } from "@/app/admin/semesters/new/discounts/createCoupon";
 import { updateCoupon } from "@/app/admin/semesters/new/discounts/updateCoupon";
 import { deleteCoupon } from "@/app/admin/semesters/new/discounts/deleteCoupon";
+import { getCouponRedemptions } from "@/app/admin/semesters/actions/getCouponRedemptions";
 import { getDiscounts } from "@/queries/admin";
 import {
   AppliedSemesterDiscount,
+  CouponRedemptionRecord,
   DiscountsStepProps,
   DraftCoupon,
   HydratedDiscount,
@@ -32,6 +34,8 @@ const EMPTY_COUPON: Omit<DraftCoupon, "_clientKey" | "id"> = {
   eligibleSessionsMode: "all",
   sessionIds: [],
   isActive: true,
+  appliesToMostExpensiveOnly: false,
+  eligibleLineItemTypes: ["tuition", "registration_fee", "recital_fee"],
 };
 
 export default function DiscountsStep({
@@ -63,6 +67,10 @@ export default function DiscountsStep({
   >(EMPTY_COUPON);
   const [couponSaving, setCouponSaving] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
+  const [historyCache, setHistoryCache] = useState<
+    Record<string, { loading: boolean; records: CouponRedemptionRecord[] }>
+  >({});
 
   /* ────────────────────────────── Session options ──────────────────────── */
   const sessionOptions = (state.sessions?.classes ?? []).flatMap((cls) =>
@@ -130,6 +138,8 @@ export default function DiscountsStep({
       eligibleSessionsMode: coupon.eligibleSessionsMode,
       sessionIds: coupon.sessionIds ?? [],
       isActive: coupon.isActive,
+      appliesToMostExpensiveOnly: coupon.appliesToMostExpensiveOnly ?? false,
+      eligibleLineItemTypes: coupon.eligibleLineItemTypes ?? ["tuition", "registration_fee", "recital_fee"],
     });
     setEditingCoupon(coupon);
     setCouponError(null);
@@ -190,6 +200,23 @@ export default function DiscountsStep({
       await deleteCoupon(coupon.id);
     }
     setCoupons((prev) => prev.filter((c) => c._clientKey !== coupon._clientKey));
+  }
+
+  async function toggleHistory(couponId: string) {
+    if (expandedHistoryId === couponId) {
+      setExpandedHistoryId(null);
+      return;
+    }
+    setExpandedHistoryId(couponId);
+    if (!historyCache[couponId]) {
+      setHistoryCache((h) => ({ ...h, [couponId]: { loading: true, records: [] } }));
+      try {
+        const records = await getCouponRedemptions(couponId);
+        setHistoryCache((h) => ({ ...h, [couponId]: { loading: false, records } }));
+      } catch {
+        setHistoryCache((h) => ({ ...h, [couponId]: { loading: false, records: [] } }));
+      }
+    }
   }
 
   /* ────────────────────────────── Submit ───────────────────────────────── */
@@ -581,6 +608,70 @@ export default function DiscountsStep({
                       </span>
                     </label>
 
+                    {/* Most expensive item only */}
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={couponDraft.appliesToMostExpensiveOnly ?? false}
+                        onChange={(e) =>
+                          setCouponDraft((d) => ({
+                            ...d,
+                            appliesToMostExpensiveOnly: e.target.checked,
+                          }))
+                        }
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        Apply to most expensive eligible item only
+                      </span>
+                    </label>
+
+                    {/* Eligible line item types */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Discount applies to
+                      </label>
+                      <div className="flex flex-wrap gap-4">
+                        {(
+                          [
+                            ["tuition", "Tuition"],
+                            ["registration_fee", "Registration Fee"],
+                            ["recital_fee", "Recital Fee"],
+                          ] as const
+                        ).map(([type, label]) => {
+                          const checked = (
+                            couponDraft.eligibleLineItemTypes ?? []
+                          ).includes(type);
+                          return (
+                            <label
+                              key={type}
+                              className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) =>
+                                  setCouponDraft((d) => ({
+                                    ...d,
+                                    eligibleLineItemTypes: e.target.checked
+                                      ? [
+                                          ...(d.eligibleLineItemTypes ?? []),
+                                          type,
+                                        ]
+                                      : (d.eligibleLineItemTypes ?? []).filter(
+                                          (t) => t !== type,
+                                        ),
+                                  }))
+                                }
+                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                              {label}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     {/* Session eligibility */}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -693,60 +784,98 @@ export default function DiscountsStep({
               return (
                 <div
                   key={coupon._clientKey}
-                  className={`flex items-start gap-3 border rounded-xl p-4 bg-white ${
+                  className={`border rounded-xl bg-white ${
                     coupon.isActive
                       ? "border-gray-200"
                       : "border-gray-200 opacity-50"
                   } ${isLocked ? "opacity-60" : ""}`}
                 >
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-gray-900">
-                        {coupon.name}
-                      </span>
-                      {coupon.code && (
-                        <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
-                          {coupon.code}
+                  <div className="flex items-start gap-3 p-4">
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-gray-900">
+                          {coupon.name}
                         </span>
-                      )}
-                      {!coupon.code && (
-                        <span className="text-xs text-gray-400 italic">
-                          auto-apply
-                        </span>
-                      )}
-                      {!coupon.isActive && (
-                        <span className="text-xs text-red-500">Inactive</span>
-                      )}
+                        {coupon.code && (
+                          <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                            {coupon.code}
+                          </span>
+                        )}
+                        {!coupon.code && (
+                          <span className="text-xs text-gray-400 italic">
+                            auto-apply
+                          </span>
+                        )}
+                        {!coupon.isActive && (
+                          <span className="text-xs text-red-500">Inactive</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 flex-wrap text-xs text-gray-500">
+                        <span>{valueText}</span>
+                        <span>{usageText}</span>
+                        {coupon.validUntil && (
+                          <span>
+                            Expires{" "}
+                            {new Date(coupon.validUntil).toLocaleDateString()}
+                          </span>
+                        )}
+                        {coupon.stackable && (
+                          <span className="text-green-600">Stackable</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-wrap text-xs text-gray-500">
-                      <span>{valueText}</span>
-                      <span>{usageText}</span>
-                      {coupon.validUntil && (
-                        <span>
-                          Expires{" "}
-                          {new Date(coupon.validUntil).toLocaleDateString()}
-                        </span>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {coupon.id && (
+                        <button
+                          onClick={() => toggleHistory(coupon.id!)}
+                          className="text-xs font-medium text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-50"
+                        >
+                          {expandedHistoryId === coupon.id
+                            ? "Hide history"
+                            : "History"}
+                        </button>
                       )}
-                      {coupon.stackable && (
-                        <span className="text-green-600">Stackable</span>
+                      {!isLocked && (
+                        <>
+                          <button
+                            onClick={() => openEditCoupon(coupon)}
+                            className="text-xs font-medium text-gray-400 hover:text-indigo-600 transition px-2 py-1 rounded-lg hover:bg-indigo-50"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCoupon(coupon)}
+                            className="text-xs font-medium text-gray-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
 
-                  {!isLocked && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => openEditCoupon(coupon)}
-                        className="text-xs font-medium text-gray-400 hover:text-indigo-600 transition px-2 py-1 rounded-lg hover:bg-indigo-50"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteCoupon(coupon)}
-                        className="text-xs font-medium text-gray-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"
-                      >
-                        Delete
-                      </button>
+                  {/* Redemption history panel */}
+                  {expandedHistoryId === coupon.id && coupon.id && (
+                    <div className="border-t border-gray-100 px-4 pb-4 pt-3">
+                      {historyCache[coupon.id]?.loading && (
+                        <p className="text-xs text-gray-400">Loading…</p>
+                      )}
+                      {!historyCache[coupon.id]?.loading &&
+                        (historyCache[coupon.id]?.records.length ?? 0) === 0 && (
+                          <p className="text-xs text-gray-400">No redemptions yet.</p>
+                        )}
+                      {(historyCache[coupon.id]?.records ?? []).map((r) => (
+                        <div
+                          key={r.id}
+                          className="flex justify-between items-center text-xs text-gray-600 py-1 border-b border-gray-50 last:border-0"
+                        >
+                          <span>{r.familyName ?? r.familyId}</span>
+                          <span className="text-gray-400">
+                            {new Date(r.redeemedAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

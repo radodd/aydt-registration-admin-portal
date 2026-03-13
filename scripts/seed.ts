@@ -326,6 +326,10 @@ async function clearDatabase() {
 
   // Leaf → root order to respect FK constraints
   const tables: [string, string?][] = [
+    ["coupon_redemptions"],
+    ["coupon_session_restrictions"],
+    ["semester_coupons"],
+    ["discount_coupons"],
     ["sms_notifications"],
     ["email_deliveries"],
     ["email_recipients"],
@@ -916,6 +920,162 @@ async function seedDiscounts() {
   await ins("semester_discounts", semDiscs);
 
   console.log(`  ✓ ${discounts.length} discounts, ${rules.length} rules\n`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5b. COUPONS / PROMO CODES
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Short code prefix per semester name (matches admin naming convention). */
+const SEM_CODE_PREFIX: Record<string, string> = {
+  "Spring 2026":       "SP26",
+  "Fall 2025":         "F25",
+  "Spring 2025":       "SP25",
+  "Fall 2024":         "F24",
+  "Summer 2026":       "SU26",
+  "Fall 2026":         "F26",
+  "Summer 2026 Draft": "SU26D",
+  "Fall 2026 Draft":   "F26D",
+};
+
+async function seedCoupons(families: FamilyRow[]) {
+  console.log("🎟️   Seeding coupons / promo codes…");
+
+  const coupons: Record<string, unknown>[] = [];
+  const semCoupons: Record<string, unknown>[] = [];
+  const redemptions: Record<string, unknown>[] = [];
+
+  // Track LWF coupon IDs for redemption records (one per semester)
+  const lwfByName: Record<string, string> = {}; // semName → couponId
+
+  // ── Plant Parents Promo — single coupon linked to Fall 2025 + Spring 2026 ──
+  // (discount_coupons.code has a UNIQUE constraint, so one row, two sem links)
+  const plant50Id = uid();
+  const sp26Sem = SEMS.find((s) => s.name === "Spring 2026")!;
+  coupons.push({
+    id: plant50Id,
+    name: "Plant Parents Promo",
+    code: "PLANT50",
+    value: 50,
+    value_type: "flat",
+    valid_from: sp26Sem.publish_at,
+    valid_until: sp26Sem.endDate.toISOString(),
+    max_total_uses: 20,
+    uses_count: 0,
+    max_per_family: 1,
+    stackable: true,
+    eligible_sessions_mode: "all",
+    is_active: true,
+    applies_to_most_expensive_only: false,
+    eligible_line_item_types: ["tuition", "registration_fee", "recital_fee"],
+  });
+
+  for (const s of SEMS) {
+    if (s.status === "draft") continue; // draft semesters have no active coupons
+
+    const prefix = SEM_CODE_PREFIX[s.name] ?? s.name.replace(/\s/g, "").slice(0, 5).toUpperCase();
+
+    // ── Lucy Walsh Fund (LWF) — 20% off most expensive tuition item ──────────
+    const lwfId = uid();
+    coupons.push({
+      id: lwfId,
+      name: `${s.name} Tuition Assistance (LWF)`,
+      code: `${prefix}LWF`,
+      value: 20,
+      value_type: "percent",
+      valid_from: s.publish_at,
+      valid_until: s.endDate.toISOString(),
+      max_total_uses: null,
+      uses_count: 0,
+      max_per_family: 1,
+      stackable: false,
+      eligible_sessions_mode: "all",
+      is_active: true,
+      applies_to_most_expensive_only: true,
+      eligible_line_item_types: ["tuition"],
+    });
+    semCoupons.push({ semester_id: s.id, coupon_id: lwfId });
+    lwfByName[s.name] = lwfId;
+
+    // Link PLANT50 to Fall 2025 and Spring 2026
+    if (s.name === "Fall 2025" || s.name === "Spring 2026") {
+      semCoupons.push({ semester_id: s.id, coupon_id: plant50Id });
+    }
+
+    // ── Early Registration Auto-apply — 5% off (scheduled semesters only) ───
+    if (s.status === "scheduled") {
+      const earlyId = uid();
+      const earlyUntil = new Date(s.startDate);
+      earlyUntil.setDate(earlyUntil.getDate() - 14); // expires 2 weeks before start
+      coupons.push({
+        id: earlyId,
+        name: "Early Registration Discount",
+        code: null, // auto-apply by date
+        value: 5,
+        value_type: "percent",
+        valid_from: s.publish_at,
+        valid_until: earlyUntil.toISOString(),
+        max_total_uses: null,
+        uses_count: 0,
+        max_per_family: 1,
+        stackable: true,
+        eligible_sessions_mode: "all",
+        is_active: true,
+        applies_to_most_expensive_only: false,
+        eligible_line_item_types: ["tuition", "registration_fee", "recital_fee"],
+      });
+      semCoupons.push({ semester_id: s.id, coupon_id: earlyId });
+    }
+  }
+
+  // ── Redemption records for published + archived semesters ──────────────────
+  // LWF: 3 families redeemed per past semester
+  const pastSemNames = ["Fall 2025", "Spring 2025", "Fall 2024"];
+  for (const semName of pastSemNames) {
+    const couponId = lwfByName[semName];
+    if (!couponId) continue;
+    const redemptionFamilies = families.slice(0, 3);
+    for (const fam of redemptionFamilies) {
+      redemptions.push({
+        id: uid(),
+        coupon_id: couponId,
+        family_id: fam.id,
+        registration_batch_id: null,
+        redeemed_at: new Date(
+          new Date(SEMS.find((s) => s.name === semName)!.startDate).getTime() +
+            Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+      });
+    }
+    // Update uses_count to match redemptions
+    const coupon = coupons.find((c) => c.id === couponId);
+    if (coupon) coupon.uses_count = redemptionFamilies.length;
+  }
+
+  // PLANT50: 2 families redeemed (single coupon shared across semesters)
+  const promoFamilies = families.slice(1, 3);
+  for (const fam of promoFamilies) {
+    redemptions.push({
+      id: uid(),
+      coupon_id: plant50Id,
+      family_id: fam.id,
+      registration_batch_id: null,
+      redeemed_at: new Date(
+        new Date("2025-09-20").getTime() +
+          Math.floor(Math.random() * 14) * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+    });
+  }
+  const plant50Coupon = coupons.find((c) => c.id === plant50Id);
+  if (plant50Coupon) plant50Coupon.uses_count = promoFamilies.length;
+
+  await ins("discount_coupons", coupons);
+  await ins("semester_coupons", semCoupons);
+  if (redemptions.length) await ins("coupon_redemptions", redemptions);
+
+  console.log(
+    `  ✓ ${coupons.length} coupons, ${semCoupons.length} semester links, ${redemptions.length} redemptions\n`,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2750,6 +2910,7 @@ async function main() {
   await seedSemesters();
   await seedSpecialProgramTuition();
   await seedDiscounts();
+  await seedCoupons(families);
 
   const { classes, schedules, tiers, sessions } = await seedClasses();
 
@@ -2776,6 +2937,7 @@ async function main() {
   );
   console.log("  Emails      : 5 (draft, scheduled, sending, sent, cancelled)");
   console.log("  Waitlist    : 9 entries across 2 Spring 2026 sessions");
+  console.log("  Coupons     : LWF (20% tuition) + PLANT50 ($50 promo) + early-reg auto-apply per semester");
 }
 
 main().catch((err) => {

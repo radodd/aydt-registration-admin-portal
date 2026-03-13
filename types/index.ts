@@ -353,6 +353,10 @@ export type DraftCoupon = {
   /** Only populated when eligibleSessionsMode = 'selected'. */
   sessionIds?: string[];
   isActive: boolean;
+  /** When true, discount applies only to the single highest-amount eligible line item. */
+  appliesToMostExpensiveOnly?: boolean;
+  /** Which line item types this coupon is eligible to discount. Undefined = all three. */
+  eligibleLineItemTypes?: Array<"tuition" | "registration_fee" | "recital_fee">;
 };
 
 /**
@@ -372,6 +376,14 @@ export type CouponValidationResult =
         | "already_used"   // this family has already redeemed this coupon
         | "not_applicable"; // eligible_sessions_mode=selected but no enrolled session matches
     };
+
+export interface CouponRedemptionRecord {
+  id: string;
+  redeemedAt: string;
+  familyId: string;
+  familyName: string | null;
+  registrationBatchId: string | null;
+}
 
 export interface PricingInput {
   semesterId: string;

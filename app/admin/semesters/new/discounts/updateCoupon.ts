@@ -24,6 +24,10 @@ export async function updateCoupon(input: UpdateCouponInput): Promise<void> {
       stackable: input.stackable,
       eligible_sessions_mode: input.eligibleSessionsMode,
       is_active: input.isActive,
+      applies_to_most_expensive_only: input.appliesToMostExpensiveOnly ?? false,
+      eligible_line_item_types: (input.eligibleLineItemTypes ?? []).length > 0
+        ? input.eligibleLineItemTypes
+        : ["tuition", "registration_fee", "recital_fee"],
     })
     .eq("id", input.id);
 
