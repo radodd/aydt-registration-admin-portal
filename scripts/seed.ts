@@ -326,6 +326,7 @@ async function clearDatabase() {
 
   // Leaf → root order to respect FK constraints
   const tables: [string, string?][] = [
+    ["sms_notifications"],
     ["email_deliveries"],
     ["email_recipients"],
     ["email_activity_logs"],
@@ -1112,6 +1113,12 @@ async function seedRegistrations(
       const isConfirmed = sem.status === "archived" || fi < 4;
       const planType = fi % 2 === 0 ? "pay_in_full" : "installments";
 
+      // Spread registration timestamps: one family every ~10 days after publication
+      const pubMs = sem.published_at
+        ? new Date(sem.published_at).getTime()
+        : sem.startDate.getTime() - 90 * 24 * 60 * 60 * 1000;
+      const regAt = new Date(pubMs + fi * 10 * 24 * 60 * 60 * 1000);
+
       let tuitionTotal = 0;
       const regFeeTotal = famDancers.length * REG_FEE;
 
@@ -1162,9 +1169,8 @@ async function seedRegistrations(
         family_id: fam.id,
         semester_id: sem.id,
         status: isConfirmed ? "confirmed" : "pending",
-        confirmed_at: isConfirmed
-          ? new Date(sem.published_at ?? TODAY).toISOString()
-          : null,
+        created_at: regAt.toISOString(),
+        confirmed_at: isConfirmed ? regAt.toISOString() : null,
         cart_snapshot: [],
         tuition_total: tuitionTotal,
         registration_fee_total: regFeeTotal,
@@ -1194,6 +1200,7 @@ async function seedRegistrations(
             },
           },
           total_amount: e.tuition + REG_FEE,
+          created_at: regAt.toISOString(),
           hold_expires_at: !isConfirmed
             ? new Date(TODAY.getTime() + 15 * 60 * 1000).toISOString()
             : null,

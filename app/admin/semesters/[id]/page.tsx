@@ -58,6 +58,12 @@ export default async function SemesterDetailPage({ params }: PageProps) {
 
         <div className="flex items-center gap-3">
           <Link
+            href={`/admin/semesters/${id}/dashboard`}
+            className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition"
+          >
+            Dashboard
+          </Link>
+          <Link
             href={`/admin/semesters/${id}/invites`}
             className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition"
           >
