@@ -11,8 +11,11 @@ import {
   DraftTuitionRateBand,
   SessionsStepProps,
 } from "@/types";
-import { useState } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { calculateClassTuition } from "@/utils/tuitionEngine";
+import { getRequirementWaivers, type RequirementWaiverRow } from "@/app/admin/semesters/actions/getRequirementWaivers";
+import { grantRequirementWaiver } from "@/app/admin/semesters/actions/grantRequirementWaiver";
+import { revokeRequirementWaiver } from "@/app/admin/semesters/actions/revokeRequirementWaiver";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
@@ -521,6 +524,7 @@ export default function SessionsStep({
               onSplitSchedule={(scheduleIdx, groups) =>
                 handleSplitSchedule(classIdx, scheduleIdx, groups)
               }
+              allClasses={classes}
               onAddRequirement={(req) =>
                 handleUpdateClass(classIdx, {
                   requirements: [...(cls.requirements ?? []), req],
@@ -530,6 +534,13 @@ export default function SessionsStep({
                 handleUpdateClass(classIdx, {
                   requirements: (cls.requirements ?? []).filter(
                     (_, i) => i !== reqIdx,
+                  ),
+                })
+              }
+              onUpdateRequirement={(reqIdx, patch) =>
+                handleUpdateClass(classIdx, {
+                  requirements: (cls.requirements ?? []).map((r, i) =>
+                    i === reqIdx ? { ...r, ...patch } : r,
                   ),
                 })
               }
@@ -605,6 +616,7 @@ export default function SessionsStep({
               onSplitSchedule={(scheduleIdx, groups) =>
                 handleSplitSchedule(classIdx, scheduleIdx, groups)
               }
+              allClasses={classes}
               onAddRequirement={(req) =>
                 handleUpdateClass(classIdx, {
                   requirements: [...(cls.requirements ?? []), req],
@@ -614,6 +626,13 @@ export default function SessionsStep({
                 handleUpdateClass(classIdx, {
                   requirements: (cls.requirements ?? []).filter(
                     (_, i) => i !== reqIdx,
+                  ),
+                })
+              }
+              onUpdateRequirement={(reqIdx, patch) =>
+                handleUpdateClass(classIdx, {
+                  requirements: (cls.requirements ?? []).map((r, i) =>
+                    i === reqIdx ? { ...r, ...patch } : r,
                   ),
                 })
               }
@@ -665,12 +684,13 @@ export default function SessionsStep({
 
 function ClassCard({
   cls,
-  classIdx,
+  classIdx: _classIdx,
   semesterId,
   isExpanded,
   isLocked,
   rateBands,
   specialRates,
+  allClasses,
   onToggle,
   onUpdateClass,
   onUpdateSchedule,
@@ -681,6 +701,7 @@ function ClassCard({
   onSplitSchedule,
   onAddRequirement,
   onRemoveRequirement,
+  onUpdateRequirement,
   rangeErrors,
 }: {
   cls: DraftClass;
@@ -690,6 +711,8 @@ function ClassCard({
   isLocked: boolean;
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
+  /** All classes in the semester (for the concurrent enrollment picker). */
+  allClasses: DraftClass[];
   onToggle: () => void;
   onUpdateClass: (patch: Partial<DraftClass>) => void;
   onUpdateSchedule: (idx: number, patch: Partial<DraftClassSchedule>) => void;
@@ -700,6 +723,7 @@ function ClassCard({
   onSplitSchedule: (idx: number, groups: { days: string[] }[]) => void;
   onAddRequirement: (req: DraftClassRequirement) => void;
   onRemoveRequirement: (idx: number) => void;
+  onUpdateRequirement: (idx: number, patch: Partial<DraftClassRequirement>) => void;
   rangeErrors: string[];
 }) {
   const isCompetitionTrack = cls.offeringType === "competition_track";
@@ -843,6 +867,40 @@ function ClassCard({
                 ))}
               </select>
             </div>
+
+            {/* Tuition Override — only for standard classes with schedules */}
+            {!isCompetitionTrack && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
+                  Tuition Override
+                </label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    disabled={isLocked}
+                    value={cls.tuitionOverride ?? ""}
+                    onChange={(e) =>
+                      onUpdateClass({
+                        tuitionOverride: e.target.value
+                          ? Number(e.target.value)
+                          : null,
+                      })
+                    }
+                    placeholder="Leave blank — uses rate-band"
+                    className="w-full rounded-xl border border-gray-300 pl-7 pr-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-400">
+                  Flat semester tuition for this class — bypasses division rate-band lookup.
+                  Competition and Pointe classes typically use this.
+                </p>
+              </div>
+            )}
 
             {/* Age restriction toggle */}
             {(() => {
@@ -1154,9 +1212,11 @@ function ClassCard({
           {/* Enrollment Requirements */}
           <RequirementsSection
             requirements={cls.requirements ?? []}
+            allClasses={allClasses.filter((c) => c.id !== cls.id)}
             isLocked={isLocked}
             onAdd={onAddRequirement}
             onRemove={onRemoveRequirement}
+            onUpdate={onUpdateRequirement}
           />
         </div>
       )}
@@ -2131,10 +2191,9 @@ const REQUIREMENT_TYPES: {
   value: DraftClassRequirement["requirement_type"];
   label: string;
 }[] = [
-  { value: "prerequisite_completed", label: "Prerequisite completed" },
+  { value: "prerequisite_completed", label: "Prerequisite required" },
   { value: "concurrent_enrollment", label: "Concurrent enrollment" },
   { value: "teacher_recommendation", label: "Teacher recommendation" },
-  { value: "skill_qualification", label: "Skill qualification" },
   { value: "audition_required", label: "Audition required" },
 ];
 
@@ -2144,22 +2203,136 @@ function emptyRequirement(): DraftClassRequirement {
     description: "",
     enforcement: "hard_block",
     is_waivable: false,
+    approvedDancerIds: [],
   };
+}
+
+/** Default enforcement level per requirement type. */
+function defaultEnforcement(
+  type: DraftClassRequirement["requirement_type"],
+): "hard_block" | "soft_warn" {
+  if (type === "teacher_recommendation") return "soft_warn";
+  return "hard_block";
+}
+
+/* ---------------------------------------------------------------------- */
+/* AuditionWaiverPanel — inline panel for managing audition_required waivers */
+/* ---------------------------------------------------------------------- */
+function AuditionWaiverPanel({ requirementId }: { requirementId: string }) {
+  const [waivers, setWaivers] = useState<RequirementWaiverRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dancerIdInput, setDancerIdInput] = useState("");
+  const [notesInput, setNotesInput] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setLoading(true);
+    getRequirementWaivers(requirementId)
+      .then(setWaivers)
+      .finally(() => setLoading(false));
+  }, [requirementId]);
+
+  function handleGrant() {
+    const id = dancerIdInput.trim();
+    if (!id) return;
+    startTransition(async () => {
+      await grantRequirementWaiver(requirementId, id, notesInput.trim() || undefined);
+      const updated = await getRequirementWaivers(requirementId);
+      setWaivers(updated);
+      setDancerIdInput("");
+      setNotesInput("");
+    });
+  }
+
+  function handleRevoke(waiverId: string) {
+    startTransition(async () => {
+      await revokeRequirementWaiver(waiverId);
+      setWaivers((prev) => prev.filter((w) => w.id !== waiverId));
+    });
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-indigo-100 bg-indigo-50/40 px-3 py-2.5 space-y-2">
+      <p className="text-xs font-semibold text-indigo-700">
+        Approved Dancers (Audition Passed)
+      </p>
+      {loading ? (
+        <p className="text-xs text-gray-400 italic">Loading…</p>
+      ) : waivers.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">No dancers approved yet.</p>
+      ) : (
+        <ul className="space-y-1">
+          {waivers.map((w) => (
+            <li key={w.id} className="flex items-center justify-between text-xs">
+              <span className="text-gray-700">{w.dancer_name}</span>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => handleRevoke(w.id)}
+                className="ml-2 text-red-500 hover:text-red-700 transition disabled:opacity-40"
+              >
+                Revoke
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2 pt-1">
+        <input
+          type="text"
+          value={dancerIdInput}
+          onChange={(e) => setDancerIdInput(e.target.value)}
+          placeholder="Dancer UUID"
+          className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <input
+          type="text"
+          value={notesInput}
+          onChange={(e) => setNotesInput(e.target.value)}
+          placeholder="Notes (optional)"
+          className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+        <button
+          type="button"
+          disabled={!dancerIdInput.trim() || isPending}
+          onClick={handleGrant}
+          className="shrink-0 text-xs font-medium bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+        >
+          Mark Passed
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function RequirementsSection({
   requirements,
+  allClasses,
   isLocked,
   onAdd,
   onRemove,
+  onUpdate,
 }: {
   requirements: DraftClassRequirement[];
+  /** Other classes in the semester — for concurrent enrollment class picker. */
+  allClasses: DraftClass[];
   isLocked: boolean;
   onAdd: (req: DraftClassRequirement) => void;
   onRemove: (idx: number) => void;
+  onUpdate: (idx: number, patch: Partial<DraftClassRequirement>) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState<DraftClassRequirement>(emptyRequirement());
+  const [expandedWaiverIdx, setExpandedWaiverIdx] = useState<number | null>(null);
+
+  function handleTypeChange(type: DraftClassRequirement["requirement_type"]) {
+    setDraft((d) => ({
+      ...d,
+      requirement_type: type,
+      enforcement: defaultEnforcement(type),
+      required_class_id: null,
+    }));
+  }
 
   function handleAdd() {
     if (!draft.description.trim()) return;
@@ -2195,37 +2368,118 @@ function RequirementsSection({
       {requirements.map((req, i) => (
         <div
           key={i}
-          className="flex items-start justify-between rounded-xl border border-gray-200 px-3 py-2 bg-gray-50/50"
+          className="rounded-xl border border-gray-200 px-3 py-2 bg-gray-50/50 space-y-1"
         >
-          <div className="space-y-0.5">
-            <p className="text-xs font-medium text-gray-700">
-              {REQUIREMENT_TYPES.find((t) => t.value === req.requirement_type)
-                ?.label ?? req.requirement_type}
-              <span
-                className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
-                  req.enforcement === "hard_block"
-                    ? "bg-red-50 text-red-600"
-                    : "bg-amber-50 text-amber-600"
-                }`}
-              >
-                {req.enforcement === "hard_block" ? "Hard block" : "Soft warn"}
-              </span>
-              {req.is_waivable && (
-                <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-green-50 text-green-600">
-                  Waivable
+          <div className="flex items-start justify-between">
+            <div className="space-y-0.5">
+              <p className="text-xs font-medium text-gray-700">
+                {REQUIREMENT_TYPES.find((t) => t.value === req.requirement_type)
+                  ?.label ?? req.requirement_type}
+                <span
+                  className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
+                    req.enforcement === "hard_block"
+                      ? "bg-red-50 text-red-600"
+                      : "bg-amber-50 text-amber-600"
+                  }`}
+                >
+                  {req.enforcement === "hard_block" ? "Hard block" : "Soft warn"}
                 </span>
+                {req.is_waivable && (
+                  <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-green-50 text-green-600">
+                    Waivable
+                  </span>
+                )}
+                {req.requirement_type === "teacher_recommendation" &&
+                  (req.approvedDancerIds?.length ?? 0) > 0 && (
+                    <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
+                      {req.approvedDancerIds!.length} approved
+                    </span>
+                  )}
+              </p>
+              <p className="text-xs text-gray-500">{req.description}</p>
+              {(req.requirement_type === "concurrent_enrollment" ||
+                req.requirement_type === "prerequisite_completed") &&
+                req.required_class_id && (
+                  <p className="text-xs text-indigo-600">
+                    {req.requirement_type === "concurrent_enrollment"
+                      ? "Required concurrent class:"
+                      : "Required prior class:"}{" "}
+                    {allClasses.find((c) => c.id === req.required_class_id)?.name ??
+                      req.required_class_id}
+                  </p>
+                )}
+            </div>
+            <div className="flex items-center gap-2 ml-3 shrink-0">
+              {req.requirement_type === "audition_required" && req.id && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedWaiverIdx(expandedWaiverIdx === i ? null : i)
+                  }
+                  className="text-xs text-indigo-600 hover:text-indigo-800 transition"
+                >
+                  {expandedWaiverIdx === i ? "Hide" : "Manage"} approvals
+                </button>
               )}
-            </p>
-            <p className="text-xs text-gray-500">{req.description}</p>
+              {!isLocked && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(i)}
+                  className="text-xs text-red-500 hover:text-red-700 transition"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
-          {!isLocked && (
-            <button
-              type="button"
-              onClick={() => onRemove(i)}
-              className="ml-3 shrink-0 text-xs text-red-500 hover:text-red-700 transition"
-            >
-              Remove
-            </button>
+
+          {/* Audition waiver management panel */}
+          {req.requirement_type === "audition_required" &&
+            req.id &&
+            expandedWaiverIdx === i && (
+              <AuditionWaiverPanel requirementId={req.id} />
+            )}
+
+          {/* Teacher recommendation: approved-dancer ID chips */}
+          {req.requirement_type === "teacher_recommendation" && !isLocked && (
+            <div className="pt-1">
+              <p className="text-xs text-gray-500 mb-1">
+                Approved dancers (bypass warning):
+              </p>
+              <div className="flex flex-wrap gap-1 mb-1.5">
+                {(req.approvedDancerIds ?? []).map((did) => (
+                  <span
+                    key={did}
+                    className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 rounded-full px-2 py-0.5"
+                  >
+                    {did.slice(0, 8)}…
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onUpdate(i, {
+                          approvedDancerIds: (req.approvedDancerIds ?? []).filter(
+                            (id) => id !== did,
+                          ),
+                        })
+                      }
+                      className="ml-0.5 hover:text-red-500 transition"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <AddApprovedDancerInput
+                onAdd={(did) =>
+                  onUpdate(i, {
+                    approvedDancerIds: [
+                      ...(req.approvedDancerIds ?? []),
+                      did,
+                    ],
+                  })
+                }
+              />
+            </div>
           )}
         </div>
       ))}
@@ -2238,11 +2492,9 @@ function RequirementsSection({
               <select
                 value={draft.requirement_type}
                 onChange={(e) =>
-                  setDraft((d) => ({
-                    ...d,
-                    requirement_type: e.target
-                      .value as DraftClassRequirement["requirement_type"],
-                  }))
+                  handleTypeChange(
+                    e.target.value as DraftClassRequirement["requirement_type"],
+                  )
                 }
                 className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
@@ -2275,6 +2527,38 @@ function RequirementsSection({
             </div>
           </div>
 
+          {/* Concurrent enrollment: class picker */}
+          {draft.requirement_type === "concurrent_enrollment" && (
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">
+                Required concurrent class *
+              </label>
+              <select
+                value={draft.required_class_id ?? ""}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    required_class_id: e.target.value || null,
+                  }))
+                }
+                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">— Select class —</option>
+                {allClasses
+                  .filter((c) => c.id)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{" "}
+                      {c.division ? `(${c.division})` : ""}
+                    </option>
+                  ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">
+                Dancer must also enroll in this class in the same registration.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs text-gray-500 mb-1">
               Message shown to user *
@@ -2290,42 +2574,37 @@ function RequirementsSection({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* prerequisite_completed: required prior class picker */}
+          {draft.requirement_type === "prerequisite_completed" && (
             <div>
               <label className="block text-xs text-gray-500 mb-1">
-                Required discipline (optional)
+                Required prior class *
               </label>
-              <input
-                type="text"
-                value={draft.required_discipline ?? ""}
+              <select
+                value={draft.required_class_id ?? ""}
                 onChange={(e) =>
                   setDraft((d) => ({
                     ...d,
-                    required_discipline: e.target.value || null,
+                    required_class_id: e.target.value || null,
                   }))
                 }
-                placeholder="e.g. ballet, technique"
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">— Select class —</option>
+                {allClasses
+                  .filter((c) => c.id)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{" "}
+                      {c.division ? `(${c.division})` : ""}
+                    </option>
+                  ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">
+                Dancer must have a confirmed registration in this class from a prior semester.
+              </p>
             </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">
-                Required level (optional)
-              </label>
-              <input
-                type="text"
-                value={draft.required_level ?? ""}
-                onChange={(e) =>
-                  setDraft((d) => ({
-                    ...d,
-                    required_level: e.target.value || null,
-                  }))
-                }
-                placeholder="e.g. 1, 2, Advanced"
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
+          )}
 
           <label className="flex items-center gap-2 cursor-pointer select-none">
             <input
@@ -2355,7 +2634,12 @@ function RequirementsSection({
             <button
               type="button"
               onClick={handleAdd}
-              disabled={!draft.description.trim()}
+              disabled={
+                !draft.description.trim() ||
+                ((draft.requirement_type === "concurrent_enrollment" ||
+                  draft.requirement_type === "prerequisite_completed") &&
+                  !draft.required_class_id)
+              }
               className="text-xs font-medium bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
             >
               Add Requirement
@@ -2363,6 +2647,36 @@ function RequirementsSection({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Small inline input to add a dancer ID to the approved list. */
+function AddApprovedDancerInput({ onAdd }: { onAdd: (dancerId: string) => void }) {
+  const [value, setValue] = useState("");
+  function handleAdd() {
+    const id = value.trim();
+    if (!id) return;
+    onAdd(id);
+    setValue("");
+  }
+  return (
+    <div className="flex gap-1.5">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Dancer UUID"
+        className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+      />
+      <button
+        type="button"
+        disabled={!value.trim()}
+        onClick={handleAdd}
+        className="shrink-0 text-xs font-medium bg-blue-600 text-white px-2.5 py-1 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+      >
+        Add
+      </button>
     </div>
   );
 }

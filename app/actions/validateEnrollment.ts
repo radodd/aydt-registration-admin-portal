@@ -22,8 +22,9 @@ export interface ValidateEnrollmentInput {
  * Checks:
  *   1. Time conflicts — same day_of_week + overlapping start/end times.
  *   2. Class requirements — prerequisite_completed, concurrent_enrollment,
- *      teacher_recommendation, skill_qualification, audition_required.
+ *      teacher_recommendation, audition_required.
  *      Skipped if an admin has granted a requirement_waiver.
+ *      teacher_recommendation: also skipped if dancer is in class_requirement_approved_dancers.
  *
  * Returns a structured result with each issue typed as soft_warn or
  * hard_block. The caller decides whether to proceed or reject.
@@ -195,12 +196,13 @@ export async function validateEnrollment(
           if ((waiverCount ?? 0) > 0) continue;
 
           if (req.requirement_type === "prerequisite_completed") {
-            // Check if dancer has a confirmed registration in a class
-            // matching the required discipline + level in a PRIOR semester.
+            // Check if dancer has a confirmed registration in a prior semester.
+            // If required_class_id is set, match by exact class.
+            // Otherwise fall back to required_discipline filter.
             const { data: priorRegs } = await supabase
               .from("registrations")
               .select(
-                "id, class_sessions(semester_id, classes(discipline))",
+                "id, class_sessions(semester_id, class_id, classes(discipline))",
               )
               .eq("dancer_id", dancerId)
               .eq("status", "confirmed");
@@ -211,6 +213,9 @@ export async function validateEnrollment(
                 : reg.class_sessions;
               if (!session || session.semester_id === input.semesterId)
                 return false;
+              if (req.required_class_id) {
+                return session.class_id === req.required_class_id;
+              }
               const cls = Array.isArray(session.classes)
                 ? session.classes[0]
                 : session.classes;
@@ -249,14 +254,29 @@ export async function validateEnrollment(
                 isWaivable: req.is_waivable,
               });
             }
-          } else if (
-            req.requirement_type === "teacher_recommendation" ||
-            req.requirement_type === "skill_qualification" ||
-            req.requirement_type === "audition_required"
-          ) {
-            // These always require an admin waiver to bypass (already checked above).
+          } else if (req.requirement_type === "teacher_recommendation") {
+            // Also check the per-requirement approved-dancer list.
+            // If the dancer is in class_requirement_approved_dancers, skip the warning.
+            const { count: approvedCount } = await supabase
+              .from("class_requirement_approved_dancers")
+              .select("dancer_id", { count: "exact", head: true })
+              .eq("class_requirement_id", req.id)
+              .eq("dancer_id", dancerId);
+
+            if ((approvedCount ?? 0) > 0) continue;
+
             issues.push({
-              type: req.requirement_type as EnrollmentValidationIssue["type"],
+              type: "teacher_recommendation",
+              enforcement: req.enforcement,
+              message: req.description,
+              dancerId,
+              requirementId: req.id,
+              isWaivable: req.is_waivable,
+            });
+          } else if (req.requirement_type === "audition_required") {
+            // audition_required always blocks unless a requirement_waiver exists (checked above).
+            issues.push({
+              type: "audition_required",
               enforcement: req.enforcement,
               message: req.description,
               dancerId,

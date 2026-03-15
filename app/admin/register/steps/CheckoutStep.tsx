@@ -88,6 +88,9 @@ export default function CheckoutStep({
   // Payment plan
   const [paymentPlanType, setPaymentPlanType] = useState<"pay_in_full" | "monthly">("pay_in_full");
 
+  const toBackendPlan = (p: "pay_in_full" | "monthly") =>
+    p === "monthly" ? ("auto_pay_monthly" as const) : ("pay_in_full" as const);
+
   // Adjustments
   const [adjustments, setAdjustments] = useState<AdminAdjustment[]>([]);
   const [showAdjForm, setShowAdjForm] = useState(false);
@@ -128,7 +131,7 @@ export default function CheckoutStep({
             sessionIds,
           },
         ],
-        paymentPlanType: "pay_in_full",
+        paymentPlanType: toBackendPlan(paymentPlanType),
         couponCode: coupon || undefined,
       });
       setQuote(q);
@@ -147,7 +150,7 @@ export default function CheckoutStep({
 
   useEffect(() => {
     fetchPricing();
-  }, [semesterId, familyId, dancerId, sessionIds.join(",")]);
+  }, [semesterId, familyId, dancerId, sessionIds.join(","), paymentPlanType]);
 
   // Re-seed amount when adjustments change (only if not monthly and no manual input)
   useEffect(() => {
@@ -181,7 +184,7 @@ export default function CheckoutStep({
             sessionIds,
           },
         ],
-        paymentPlanType: "pay_in_full",
+        paymentPlanType: toBackendPlan(paymentPlanType),
         couponCode: couponCode.trim(),
       });
       if (q.couponDiscount > 0) {
@@ -310,7 +313,19 @@ export default function CheckoutStep({
               </button>
             ))}
           </div>
-          {paymentPlanType === "monthly" && (
+          {paymentPlanType === "monthly" && quote && quote.paymentSchedule.length > 0 && (
+            <div className="space-y-1 pt-1">
+              <p className="text-xs font-medium text-slate-500">Payment schedule</p>
+              {quote.paymentSchedule.map((inst) => (
+                <div key={inst.installmentNumber} className="flex justify-between text-xs text-slate-500">
+                  <span>Installment {inst.installmentNumber} · {new Date(inst.dueDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                  <span>{fmt$$(inst.amountDue)}</span>
+                </div>
+              ))}
+              <p className="text-xs text-slate-400 pt-1">Billing managed externally — recording $0 collected today.</p>
+            </div>
+          )}
+          {paymentPlanType === "monthly" && (!quote || quote.paymentSchedule.length === 0) && (
             <p className="text-xs text-slate-500">
               Billing managed externally — recording $0 collected at this time.
             </p>

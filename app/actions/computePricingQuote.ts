@@ -72,6 +72,8 @@ export async function computePricingQuote(
     junior_costume_fee_per_class: Number(
       feeConfigRow?.junior_costume_fee_per_class ?? 55,
     ),
+    costume_fee_exempt_keys: (feeConfigRow?.costume_fee_exempt_keys ??
+      ["technique", "pointe", "competition"]) as string[],
   };
 
   /* ---------------------------------------------------------------------- */
@@ -150,7 +152,7 @@ export async function computePricingQuote(
     const { data: sessionRows, error: sessionError } = await supabase
       .from("class_sessions")
       .select(
-        "id, schedule_date, day_of_week, classes(id, name, division, discipline, is_competition_track)",
+        "id, schedule_date, day_of_week, classes(id, name, division, discipline, is_competition_track, tuition_override_amount)",
       )
       .in("id", sessionIds);
 
@@ -181,6 +183,7 @@ export async function computePricingQuote(
         division: string;
         discipline: string;
         is_competition_track: boolean;
+        tuition_override_amount: number | null;
       } | null;
     });
 
@@ -220,10 +223,13 @@ export async function computePricingQuote(
     const isFeeExemptClass = (cls: {
       discipline: string;
       division: string;
-    }): boolean =>
-      cls.discipline === "technique" ||
-      cls.discipline === "pointe" ||
-      cls.division === "competition";
+    }): boolean => {
+      const keys = feeConfig.costume_fee_exempt_keys;
+      return (
+        keys.includes(cls.discipline) ||
+        (keys.includes("competition") && cls.division === "competition")
+      );
+    };
 
     const standardClasses = classesForDancer.filter(
       (c) => c !== null && !isFeeExemptClass(c),
@@ -251,8 +257,10 @@ export async function computePricingQuote(
       standardWeeklyCount = standardClasses.length;
     }
 
-    // Dual-path pricing: check for per-session price rows first,
-    // fall back to tuition_rate_bands for sessions without explicit prices.
+    // Tri-path pricing (priority order):
+    //   1. Per-session price rows  → explicit per-session amounts
+    //   2. Class-level overrides   → flat class tuition bypassing rate bands
+    //   3. Rate-band lookup        → division + weekly count progressive tiers
     const { data: priceRowsData, error: priceRowsError } = await supabase
       .from("class_session_price_rows")
       .select("class_session_id, amount")
@@ -266,14 +274,37 @@ export async function computePricingQuote(
       priceRowMap.set(row.class_session_id as string, Number(row.amount));
     }
 
+    // Build sessionId → class map for override lookups.
+    type SessionClassInfo = {
+      id: string;
+      name: string;
+      division: string;
+      tuition_override_amount: number | null;
+    };
+    const sessionClassMap = new Map<string, SessionClassInfo>();
+    for (const row of sessionRows) {
+      const cls = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+      if (cls) sessionClassMap.set(row.id, cls as SessionClassInfo);
+    }
+
     const perSessionIds = sessionIds.filter((id) => priceRowMap.has(id));
-    const rateBandIds = sessionIds.filter((id) => !priceRowMap.has(id));
+    const remainingIds = sessionIds.filter((id) => !priceRowMap.has(id));
+
+    // Among remaining, split by whether the class has a flat override.
+    const overrideIds = remainingIds.filter((id) => {
+      const cls = sessionClassMap.get(id);
+      return cls != null && cls.tuition_override_amount != null;
+    });
+    const rateBandIds = remainingIds.filter((id) => {
+      const cls = sessionClassMap.get(id);
+      return cls == null || cls.tuition_override_amount == null;
+    });
 
     const lineItems: LineItem[] = [];
     let tuition = 0;
     let recitalFee = 0;
 
-    // Per-session priced sessions (additive, no recital fee)
+    // Path 1: Per-session priced sessions (additive, no recital fee)
     if (perSessionIds.length > 0) {
       const perSessionTotal = round2(
         perSessionIds.reduce((sum, id) => sum + priceRowMap.get(id)!, 0),
@@ -286,7 +317,24 @@ export async function computePricingQuote(
       });
     }
 
-    // Rate-band sessions (use division + count of this subset)
+    // Path 2: Class-level tuition overrides (one line item per unique class)
+    if (overrideIds.length > 0) {
+      const seenClasses = new Set<string>();
+      for (const sid of overrideIds) {
+        const cls = sessionClassMap.get(sid);
+        if (!cls || seenClasses.has(cls.id)) continue;
+        seenClasses.add(cls.id);
+        const overrideAmount = round2(Number(cls.tuition_override_amount));
+        tuition += overrideAmount;
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${cls.name} (custom rate)`,
+          amount: overrideAmount,
+        });
+      }
+    }
+
+    // Path 3: Rate-band sessions (use division + count of this subset only)
     if (rateBandIds.length > 0) {
       // In per-day model, deduplicate by (class_id, day_of_week) so that
       // multiple dated instances of the same class count as 1 class/week.
@@ -326,16 +374,13 @@ export async function computePricingQuote(
       }
 
       const bandTotal = Number(rateBand.base_tuition);
-      // const bandRecital = Number(rateBand.recital_fee_included);
       tuition += bandTotal;
-      // recitalFee += bandRecital;
       lineItems.push(
         {
           type: "tuition",
           label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
           amount: round2(bandTotal),
         },
-        // { type: "recital_fee", label: "Recital Fee", amount: bandRecital },
       );
     }
 

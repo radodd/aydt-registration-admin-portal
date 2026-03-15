@@ -144,7 +144,7 @@ export async function createAdminRegistration(
         semesterId: input.semesterId,
         familyId: familyId ?? undefined,
         enrollments: [{ dancerId, sessionIds: input.sessionIds }],
-        paymentPlanType: "pay_in_full",
+        paymentPlanType: input.paymentPlanType === "monthly" ? "auto_pay_monthly" : "pay_in_full",
         couponCode: input.couponCode || undefined,
       });
       grandTotal = quote.grandTotal;

@@ -258,6 +258,12 @@ export interface SemesterFeeConfig {
   senior_video_fee_per_registrant: number;
   /** Per-class costume fee for senior division ($65/class default). */
   senior_costume_fee_per_class: number;
+  /**
+   * Class discipline/division keys exempt from costume and registration fees.
+   * Matches against cls.discipline or the special value "competition" for
+   * cls.division === "competition". Defaults: ['technique','pointe','competition'].
+   */
+  costume_fee_exempt_keys: string[];
   created_at: string;
   updated_at: string;
 }
@@ -328,6 +334,9 @@ export type DraftFeeConfig = {
   senior_video_fee_per_registrant: number;     // default 15.00
   senior_costume_fee_per_class: number;        // default 65.00
   junior_costume_fee_per_class: number;        // default 55.00
+  /** Class discipline/division keys exempt from costume and registration fees.
+   *  Defaults: ['technique','pointe','competition']. */
+  costume_fee_exempt_keys: string[];
 };
 
 /** A coupon/promo code as held in the SemesterDraft editor state. */
@@ -494,7 +503,6 @@ export type ValidationIssueType =
   | "prerequisite_completed"
   | "concurrent_enrollment"
   | "teacher_recommendation"
-  | "skill_qualification"
   | "audition_required"
   | "age_range"
   | "parent_accompaniment"
@@ -685,7 +693,6 @@ export type DraftClassRequirement = {
     | "prerequisite_completed"
     | "concurrent_enrollment"
     | "teacher_recommendation"
-    | "skill_qualification"
     | "audition_required"
     | "parent_accompaniment";
   /** Human-readable explanation shown to the user when the rule fires */
@@ -696,8 +703,14 @@ export type DraftClassRequirement = {
   required_discipline?: string | null;
   /** Optionally constrain to a specific level (e.g. '2') */
   required_level?: string | null;
-  /** Optionally constrain to a specific class DB id */
+  /** Optionally constrain to a specific class DB id (used by concurrent_enrollment) */
   required_class_id?: string | null;
+  /**
+   * Dancer IDs pre-approved for teacher_recommendation requirements.
+   * When a dancer is in this list the soft warning is suppressed — they're approved.
+   * Stored in class_requirement_approved_dancers; client-side only during editing.
+   */
+  approvedDancerIds?: string[];
 };
 
 /**
@@ -781,6 +794,11 @@ export type DraftClass = {
   visibility?: ClassVisibility;
   /** "standard" | "audition" — controls booking flow */
   enrollmentType?: ClassEnrollmentType;
+  /**
+   * Flat dollar override that bypasses tuition_rate_bands lookup for all
+   * sessions of this class. Null/undefined → use normal rate-band pricing.
+   */
+  tuitionOverride?: number | null;
   /** Schedule blocks — each generates per-day class_sessions automatically.
    *  INVARIANT: always [] for competition_track classes. */
   schedules: DraftClassSchedule[];

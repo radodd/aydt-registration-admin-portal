@@ -46,7 +46,16 @@ const DEFAULT_FEE_CONFIG: DraftFeeConfig = {
   senior_video_fee_per_registrant: 15,
   senior_costume_fee_per_class: 65,
   junior_costume_fee_per_class: 55,
+  costume_fee_exempt_keys: ["technique", "pointe", "competition"],
 };
+
+const EXEMPT_KEY_OPTIONS: { value: string; label: string }[] = [
+  { value: "technique", label: "Technique" },
+  { value: "pre_pointe", label: "Pre-Pointe" },
+  { value: "pointe", label: "Pointe" },
+  { value: "competition", label: "Competition" },
+  { value: "early_childhood", label: "Early Childhood" },
+];
 
 const EMPTY_PROGRAM: Omit<DraftSpecialProgramTuition, "_clientKey" | "id"> = {
   programKey: "technique",
@@ -97,6 +106,7 @@ export default function PaymentStep({
   const [programs, setPrograms] = useState<DraftSpecialProgramTuition[]>(
     state.specialProgramTuition ?? [],
   );
+  const [autoPopulateMsg, setAutoPopulateMsg] = useState("");
   const [newProgram, setNewProgram] = useState<
     Omit<DraftSpecialProgramTuition, "_clientKey" | "id">
   >({ ...EMPTY_PROGRAM });
@@ -220,6 +230,56 @@ export default function PaymentStep({
 
   function removeProgram(clientKey: string) {
     setPrograms((prev) => prev.filter((p) => p._clientKey !== clientKey));
+  }
+
+  /** Scans the semester's classes and adds a program entry for each discipline
+   *  that maps to a special program key and doesn't already have one. */
+  function autoPopulatePrograms() {
+    const classes = state.sessions?.classes ?? [];
+    const disciplineToProgram: Record<string, { key: string; label: string }> = {
+      technique:       { key: "technique",         label: "Technique 1 / 2 / 3" },
+      pre_pointe:      { key: "pre_pointe",         label: "Pre-Pointe (2×/week)" },
+      pointe:          { key: "pointe",             label: "Pointe (2×/week)" },
+      early_childhood: { key: "early_childhood",    label: "Early Childhood (9-class session)" },
+    };
+    const seen = new Set<string>();
+    const toAdd: DraftSpecialProgramTuition[] = [];
+
+    for (const cls of classes) {
+      // Competition track → junior or senior
+      if (cls.isCompetitionTrack) {
+        const key = cls.division === "senior" ? "competition_senior" : "competition_junior";
+        const label = cls.division === "senior"
+          ? "Competition Team — Senior"
+          : "Competition Team — Junior";
+        if (!seen.has(key)) {
+          seen.add(key);
+          toAdd.push({ _clientKey: crypto.randomUUID(), programKey: key, programLabel: label,
+            semesterTotal: 0, autoPayInstallmentAmount: null, autoPayInstallmentCount: 5,
+            registrationFeeOverride: 0 });
+        }
+        continue;
+      }
+      const mapping = disciplineToProgram[cls.discipline];
+      if (mapping && !seen.has(mapping.key)) {
+        seen.add(mapping.key);
+        toAdd.push({ _clientKey: crypto.randomUUID(), programKey: mapping.key,
+          programLabel: mapping.label, semesterTotal: 0,
+          autoPayInstallmentAmount: null, autoPayInstallmentCount: 5,
+          registrationFeeOverride: 0 });
+      }
+    }
+
+    setPrograms((prev) => {
+      const existingKeys = new Set(prev.map((p) => p.programKey));
+      const newEntries = toAdd.filter((p) => !existingKeys.has(p.programKey));
+      if (newEntries.length === 0) {
+        setAutoPopulateMsg("All programs already added.");
+        return prev;
+      }
+      setAutoPopulateMsg(`Added ${newEntries.length} program${newEntries.length !== 1 ? "s" : ""} — enter tuition rates below.`);
+      return [...prev, ...newEntries];
+    });
   }
 
   function updateProgram(
@@ -798,11 +858,25 @@ export default function PaymentStep({
         {/* ------------------------------------------------------------------ */}
         {activeSubStep === "programs" && (
           <div className="space-y-6">
-            <p className="text-sm text-gray-500">
-              Fixed-tuition programs that bypass division-based progressive
-              discount calculations. These amounts are used exactly as entered —
-              no additional discounts apply.
-            </p>
+            <div className="flex items-start justify-between gap-4">
+              <p className="text-sm text-gray-500">
+                Fixed-tuition programs that bypass division-based progressive
+                discount calculations. These amounts are used exactly as entered —
+                no additional discounts apply.
+              </p>
+              {!isLocked && (
+                <button
+                  type="button"
+                  onClick={autoPopulatePrograms}
+                  className="shrink-0 px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition"
+                >
+                  Auto-populate from classes
+                </button>
+              )}
+            </div>
+            {autoPopulateMsg && (
+              <p className="text-xs text-indigo-600">{autoPopulateMsg}</p>
+            )}
 
             {programs.length > 0 ? (
               <div className="overflow-x-auto">
@@ -1234,10 +1308,36 @@ export default function PaymentStep({
 
             <div className="border-t border-gray-100 pt-6">
               <p className="text-sm font-medium text-gray-700 mb-1">
+                Fee-Exempt Class Types
+              </p>
+              <p className="text-xs text-gray-400 mb-3">
+                Classes with these disciplines or division types are exempt from costume fees and the registration fee.
+              </p>
+              <div className="flex flex-wrap gap-3 mb-6">
+                {EXEMPT_KEY_OPTIONS.map((opt) => (
+                  <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      disabled={isLocked}
+                      checked={(feeConfig.costume_fee_exempt_keys ?? []).includes(opt.value)}
+                      onChange={(e) => {
+                        const current = feeConfig.costume_fee_exempt_keys ?? [];
+                        const next = e.target.checked
+                          ? [...current, opt.value]
+                          : current.filter((k) => k !== opt.value);
+                        updateFeeConfig("costume_fee_exempt_keys", next);
+                      }}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                    />
+                    <span className="text-sm text-gray-700">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-sm font-medium text-gray-700 mb-1">
                 Junior Division Fees
               </p>
               <p className="text-xs text-gray-400 mb-4">
-                Applied to standard junior classes only. Technique, Pointe, Competition, and Early Childhood are exempt.
+                Applied to standard junior classes (non-exempt types above).
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-2">
@@ -1276,7 +1376,7 @@ export default function PaymentStep({
                 Senior Division Fees
               </p>
               <p className="text-xs text-gray-400 mb-4">
-                Applied to standard senior classes only. Technique, Pointe, and Competition are exempt.
+                Applied to standard senior classes (non-exempt types above).
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-2">

@@ -9,7 +9,7 @@ import type {
  * SemesterDraft shape used by the admin UI and SemesterTabs components.
  *
  * Expects the semester query to include:
- *   classes(*, class_schedules(*, schedule_price_tiers(*)), class_requirements(*))
+ *   classes(*, class_schedules(*, schedule_price_tiers(*)), class_requirements(*, class_requirement_approved_dancers(dancer_id)))
  *   session_groups(id, name, session_group_sessions(session_id))
  *   semester_payment_plans(*)
  *   semester_payment_installments(*)
@@ -49,6 +49,7 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
         offeringType: c.is_competition_track ? "competition_track" : "standard",
         isCompetitionTrack: c.is_competition_track ?? false,
         requiresTeacherRec: c.requires_teacher_rec ?? false,
+        tuitionOverride: c.tuition_override_amount ? Number(c.tuition_override_amount) : null,
         visibility: c.visibility ?? "public",
         enrollmentType: c.enrollment_type ?? "standard",
         schedules: (c.class_schedules ?? []).map((cs: any): DraftClassSchedule => ({
@@ -86,6 +87,9 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
           required_discipline: r.required_discipline ?? null,
           required_level: r.required_level ?? null,
           required_class_id: r.required_class_id ?? null,
+          approvedDancerIds: (r.class_requirement_approved_dancers ?? []).map(
+            (d: { dancer_id: string }) => d.dancer_id,
+          ),
         })),
         // Competition track transactional email configs (null for standard classes)
         inviteEmail: c.invite_email ?? undefined,
@@ -183,6 +187,12 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
           senior_costume_fee_per_class: Number(
             semester.semester_fee_config.senior_costume_fee_per_class ?? 65,
           ),
+          junior_costume_fee_per_class: Number(
+            semester.semester_fee_config.junior_costume_fee_per_class ?? 55,
+          ),
+          costume_fee_exempt_keys:
+            semester.semester_fee_config.costume_fee_exempt_keys ??
+            ["technique", "pointe", "competition"],
         }
       : undefined,
   };

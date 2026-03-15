@@ -89,6 +89,7 @@ export async function syncSemesterSessions(
           max_grade: draftClass.maxGrade ?? null,
           is_competition_track: isCompTrack,
           requires_teacher_rec: draftClass.requiresTeacherRec ?? false,
+          tuition_override_amount: draftClass.tuitionOverride ?? null,
           // Enforce derived invariants: competition tracks are always invite_only + audition.
           visibility: isCompTrack ? "invite_only" : (draftClass.visibility ?? "public"),
           enrollment_type: isCompTrack ? "audition" : (draftClass.enrollmentType ?? "standard"),
@@ -119,6 +120,7 @@ export async function syncSemesterSessions(
           max_grade: draftClass.maxGrade ?? null,
           is_competition_track: isCompTrackNew,
           requires_teacher_rec: draftClass.requiresTeacherRec ?? false,
+          tuition_override_amount: draftClass.tuitionOverride ?? null,
           // Enforce derived invariants: competition tracks are always invite_only + audition.
           visibility: isCompTrackNew ? "invite_only" : (draftClass.visibility ?? "public"),
           enrollment_type: isCompTrackNew ? "audition" : (draftClass.enrollmentType ?? "standard"),
@@ -732,10 +734,42 @@ async function syncClassRequirements(
     required_class_id: r.required_class_id ?? null,
   }));
 
-  const { error: insErr } = await supabase
+  const { data: inserted, error: insErr } = await supabase
     .from("class_requirements")
-    .insert(rows);
+    .insert(rows)
+    .select("id");
   if (insErr) throw new Error(insErr.message);
+
+  // Sync approved-dancer lists for teacher_recommendation requirements.
+  // Build a map from old id → new id (re-insert gives new id when old id wasn't preserved).
+  const insertedIds = (inserted ?? []).map((r: { id: string }) => r.id);
+
+  for (let i = 0; i < requirements.length; i++) {
+    const req = requirements[i];
+    if (req.requirement_type !== "teacher_recommendation") continue;
+    const approvedIds = req.approvedDancerIds ?? [];
+    // Determine the DB requirement id: either the preserved id or the freshly inserted one.
+    const reqDbId = req.id ?? insertedIds[i];
+    if (!reqDbId) continue;
+
+    // Delete existing approved dancers for this requirement then re-insert.
+    const { error: delApprovedErr } = await supabase
+      .from("class_requirement_approved_dancers")
+      .delete()
+      .eq("class_requirement_id", reqDbId);
+    if (delApprovedErr) throw new Error(delApprovedErr.message);
+
+    if (approvedIds.length > 0) {
+      const approvedRows = approvedIds.map((dancerId) => ({
+        class_requirement_id: reqDbId,
+        dancer_id: dancerId,
+      }));
+      const { error: insApprovedErr } = await supabase
+        .from("class_requirement_approved_dancers")
+        .insert(approvedRows);
+      if (insApprovedErr) throw new Error(insApprovedErr.message);
+    }
+  }
 }
 
 /* -------------------------------------------------------------------------- */

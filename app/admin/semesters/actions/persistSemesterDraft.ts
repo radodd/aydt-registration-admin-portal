@@ -245,6 +245,7 @@ async function upsertFeeConfig(
       senior_video_fee_per_registrant: feeConfig.senior_video_fee_per_registrant,
       senior_costume_fee_per_class: feeConfig.senior_costume_fee_per_class,
       junior_costume_fee_per_class: feeConfig.junior_costume_fee_per_class,
+      costume_fee_exempt_keys: feeConfig.costume_fee_exempt_keys,
     },
     { onConflict: "semester_id" },
   );
