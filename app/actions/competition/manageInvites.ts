@@ -160,6 +160,67 @@ export async function createAuditionSession(
 }
 
 /* -------------------------------------------------------------------------- */
+/* List invite events for a class (admin)                                     */
+/* -------------------------------------------------------------------------- */
+
+export interface InviteEventRow {
+  id: string;
+  event_type: string;
+  created_at: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  invite_id: string;
+  /** Target email or dancer display name from the parent invite */
+  invite_target: string;
+}
+
+export async function listInviteEvents(
+  classId: string,
+): Promise<InviteEventRow[]> {
+  const supabase = await createAdminClient();
+
+  const { data, error } = await supabase
+    .from("invite_events")
+    .select(
+      `
+      id, event_type, created_at, ip_address, user_agent, invite_id,
+      invite:class_invites!invite_id (
+        email,
+        dancer:dancers ( first_name, last_name ),
+        class_id
+      )
+    `,
+    )
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error || !data) return [];
+
+  // Filter to events belonging to this class and shape the result
+  return (
+    data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((row: any) => row.invite?.class_id === classId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((row: any) => {
+        const d = row.invite?.dancer;
+        const target = d
+          ? `${d.first_name} ${d.last_name}`.trim()
+          : (row.invite?.email ?? "unknown");
+        return {
+          id: row.id,
+          event_type: row.event_type,
+          created_at: row.created_at,
+          ip_address: row.ip_address ?? null,
+          user_agent: row.user_agent ?? null,
+          invite_id: row.invite_id,
+          invite_target: target,
+        };
+      })
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* List audition sessions for a class (admin)                                 */
 /* -------------------------------------------------------------------------- */
 

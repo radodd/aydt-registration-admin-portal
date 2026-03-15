@@ -8,7 +8,10 @@ import {
   revokeClassInvite,
   listAuditionSessions,
   createAuditionSession,
+  listInviteEvents,
+  type InviteEventRow,
 } from "@/app/actions/competition/manageInvites";
+import { sendInviteEmail } from "@/app/actions/competition/sendInviteEmail";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                       */
@@ -81,6 +84,12 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
   // Email modal
   const [emailModalInvite, setEmailModalInvite] = useState<ClassInviteRow | null>(null);
   const [emailCopied, setEmailCopied] = useState(false);
+  const [emailSendState, setEmailSendState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [emailSendError, setEmailSendError] = useState("");
+
+  // Activity log
+  const [activityEvents, setActivityEvents] = useState<InviteEventRow[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
 
   // Session form
   const [showSessionForm, setShowSessionForm] = useState(false);
@@ -156,6 +165,39 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
     setInvites(updated);
   }
 
+  /* ---- Activity log load ------------------------------------------------ */
+
+  useEffect(() => {
+    if (activeTab !== "activity" || !selectedClassId) return;
+    setActivityLoading(true);
+    listInviteEvents(selectedClassId).then((events) => {
+      setActivityEvents(events);
+      setActivityLoading(false);
+    });
+  }, [activeTab, selectedClassId]);
+
+  /* ---- Send invite email ------------------------------------------------ */
+
+  async function handleSendEmail(inviteId: string) {
+    setEmailSendState("sending");
+    setEmailSendError("");
+    const result = await sendInviteEmail(inviteId);
+    if (result.success) {
+      setEmailSendState("sent");
+      // Reflect new status in the invite list
+      setInvites((prev) =>
+        prev.map((inv) =>
+          inv.id === inviteId
+            ? { ...inv, status: "sent" as ClassInviteRow["status"] }
+            : inv,
+        ),
+      );
+    } else {
+      setEmailSendState("error");
+      setEmailSendError(result.error ?? "Send failed.");
+    }
+  }
+
   /* ---- Session creation ------------------------------------------------- */
 
   async function handleCreateSession() {
@@ -200,6 +242,9 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
         : `/audition/${invite.invite_token}`;
     const config = selectedClass?.invite_email;
     const className = selectedClass?.name ?? "our competition team";
+    const dancerName = invite.dancer
+      ? `${invite.dancer.first_name} ${invite.dancer.last_name}`.trim()
+      : "dancer";
 
     const subject =
       config?.subject ||
@@ -208,13 +253,14 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
     // Strip HTML tags from htmlBody for plain-text copy, or use the canonical default template.
     const rawBody = config?.htmlBody
       ? config.htmlBody.replace(/<[^>]+>/g, "").trim()
-      : `Hi,\n\nYou have been personally selected to audition for {{class_name}}.\n\nPlease choose your audition time using the link below:\n\n{{invite_link}}\n\nWe look forward to seeing you at {{studio_name}}!`;
+      : `Hi {{dancer_name}},\n\nYou have been personally selected to audition for {{class_name}}.\n\nPlease choose your audition time using the link below:\n\n{{invite_link}}\n\nWe look forward to seeing you at {{studio_name}}!`;
 
     // Substitute canonical tokens, with a catch-all for any remaining {{…}} placeholders.
     const body = rawBody
+      .replace(/\{\{dancer_name\}\}/g, dancerName)
       .replace(/\{\{invite_link\}\}/g, link)
       .replace(/\{\{class_name\}\}/g, className)
-      .replace(/\{\{studio_name\}\}/g, "our studio")
+      .replace(/\{\{studio_name\}\}/g, "AYDT")
       .replace(/\{\{[^}]+\}\}/g, link);
 
     return { subject, body };
@@ -510,6 +556,8 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                                 onClick={() => {
                                   setEmailModalInvite(inv);
                                   setEmailCopied(false);
+                                  setEmailSendState("idle");
+                                  setEmailSendError("");
                                 }}
                                 className="text-xs text-gray-500 hover:text-gray-700"
                                 title="Generate invitation email"
@@ -736,10 +784,50 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
 
           {/* Tab: Activity Log */}
           {activeTab === "activity" && (
-            <div className="p-6">
-              <p className="text-sm text-gray-400 text-center py-8">
-                Activity log coming soon — will show opens, clicks, bookings, expirations, and revocations across all invites for this track.
-              </p>
+            <div className="p-6 space-y-4">
+              {activityLoading ? (
+                <p className="text-sm text-gray-400 text-center py-8">Loading…</p>
+              ) : activityEvents.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-8">
+                  No activity yet. Events will appear here when invites are sent, opened, or booked.
+                </p>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-2.5">Time</th>
+                        <th className="px-4 py-2.5">Event</th>
+                        <th className="px-4 py-2.5">Target</th>
+                        <th className="px-4 py-2.5">IP</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {activityEvents.map((evt) => (
+                        <tr key={evt.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                            {new Date(evt.created_at).toLocaleString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="px-4 py-3">
+                            <ActivityEventBadge type={evt.event_type} />
+                          </td>
+                          <td className="px-4 py-3 text-gray-700 text-xs">
+                            {evt.invite_target}
+                          </td>
+                          <td className="px-4 py-3 text-gray-400 text-xs font-mono">
+                            {evt.ip_address ?? "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -756,6 +844,8 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                 onClick={() => {
                   setEmailModalInvite(null);
                   setEmailCopied(false);
+                  setEmailSendState("idle");
+                  setEmailSendError("");
                 }}
                 className="text-gray-400 hover:text-gray-600 text-lg leading-none"
                 aria-label="Close"
@@ -822,8 +912,37 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
               </p>
             )}
 
+            {/* Send error */}
+            {emailSendState === "error" && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {emailSendError}
+              </p>
+            )}
+
             {/* Actions */}
             <div className="flex gap-2 pt-1">
+              {/* One-click send — only available when the invite has a target email */}
+              {emailModalInvite.email && (
+                <button
+                  onClick={() => handleSendEmail(emailModalInvite.id)}
+                  disabled={emailSendState === "sending" || emailSendState === "sent"}
+                  className={`flex-1 rounded-xl text-sm font-medium py-2.5 transition-colors ${
+                    emailSendState === "sent"
+                      ? "bg-green-600 text-white"
+                      : emailSendState === "error"
+                        ? "bg-red-600 text-white hover:bg-red-700"
+                        : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  } disabled:opacity-60`}
+                >
+                  {emailSendState === "sending"
+                    ? "Sending…"
+                    : emailSendState === "sent"
+                      ? "Sent!"
+                      : emailSendState === "error"
+                        ? "Retry Send"
+                        : `Send to ${emailModalInvite.email}`}
+                </button>
+              )}
               <button
                 onClick={() => {
                   const { subject, body } = buildInviteEmailText(emailModalInvite);
@@ -831,22 +950,16 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                   setEmailCopied(true);
                   setTimeout(() => setEmailCopied(false), 2000);
                 }}
-                className="flex-1 rounded-xl bg-indigo-600 text-white text-sm font-medium py-2.5 hover:bg-indigo-700 transition-colors"
+                className="px-4 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
-                {emailCopied ? "Copied!" : "Copy Email"}
+                {emailCopied ? "Copied!" : "Copy"}
               </button>
-              <a
-                href="/admin/emails/new"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center whitespace-nowrap"
-              >
-                Create Email Draft →
-              </a>
               <button
                 onClick={() => {
                   setEmailModalInvite(null);
                   setEmailCopied(false);
+                  setEmailSendState("idle");
+                  setEmailSendError("");
                 }}
                 className="px-4 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
@@ -863,6 +976,26 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
 /* -------------------------------------------------------------------------- */
+
+function ActivityEventBadge({ type }: { type: string }) {
+  const colors: Record<string, string> = {
+    sent: "bg-blue-50 text-blue-700",
+    opened: "bg-yellow-50 text-yellow-700",
+    clicked: "bg-yellow-50 text-yellow-700",
+    registered: "bg-green-50 text-green-700",
+    revoked: "bg-red-50 text-red-600",
+    expired: "bg-gray-100 text-gray-500",
+  };
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
+        colors[type] ?? "bg-gray-100 text-gray-600"
+      }`}
+    >
+      {type}
+    </span>
+  );
+}
 
 function InviteStatusBadge({ invite }: { invite: ClassInviteRow }) {
   const { status, isExpired, isExhausted } = invite;

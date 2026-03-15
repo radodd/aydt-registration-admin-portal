@@ -38,18 +38,18 @@ I have a question about what the endpoints would look like once in production. T
 
 ### Class & Semester Management
 
-- [ ] **Enrollment requirements — refine types**
+- [x] **Enrollment requirements — refine types**
   - Keep: `prerequisite`, `teacher_recommendation` (soft), `audition_required`, `concurrent_enrollment`
   - Remove: `skill_qualification` (redundant with prerequisite)
   - Flush out `concurrent_enrollment` logic (what class must be co-enrolled?)
   - Teacher rec: implement as soft warning; add ability to upload an approved-dancer list so the system can auto-validate
   - Audition required: hard block until admin marks dancer as passed
 
-- [ ] **Add per-class tuition override field** in Classes & Offerings form
+- [x] **Add per-class tuition override field** in Classes & Offerings form
   - Competition and Pointe have different rates than the division default
   - Admin should be able to type in a flat override that bypasses rate-band lookup
 
-- [ ] **Resolve Point class question** _(needs AYDT decision)_
+- [x] **Resolve Point class question** _(needs AYDT decision)_
   - Option A: add-on session under a parent class (hidden from catalog, only visible to enrolled dancers)
   - Option B: standalone class with enrollment requirement gating
   - Either way, implement chosen approach once AYDT decides
@@ -58,16 +58,16 @@ I have a question about what the endpoints would look like once in production. T
 
 ### Payment Step
 
-- [ ] **Add semester-level fee-exemption controls** in Fee Config tab
+- [x] **Add semester-level fee-exemption controls** in Fee Config tab
   - Current: hard-coded text "Technique, Pointe, Competition are exempt from senior division fee"
   - Replace with: multi-select or per-class toggle so admin can add/remove exemptions without code changes
   - Future-proof: any new class type can be marked exempt by admin
 
-- [ ] **Auto-populate Technique 1/2/3 special program rates**
+- [x] **Auto-populate Technique 1/2/3 special program rates**
   - Currently admin must manually enter these in Special Programs tab
   - Investigate mapping class name/code → auto-fill rate when class is added to semester
 
-- [ ] **Monthly payment plan: surface $25 admin fee in checkout**
+- [x] **Monthly payment plan: surface $25 admin fee in checkout**
   - Admin reg flow step 3 (checkout): add payment plan selector (Full vs Monthly)
   - When Monthly is selected, show $25 fee line item and 5-installment schedule
   - Note: blocked on Elavon hosted-component integration (in progress)
@@ -76,7 +76,7 @@ I have a question about what the endpoints would look like once in production. T
 
 ### Discounts / Promo Codes
 
-- [ ] **Fix discount code input — zeros bug**
+- [x] **Fix discount code input — zeros bug**
   - Input fields for dollar/percentage amounts are showing unexpected zeros
   - Reproduce and fix validation/formatting on the coupon form
 
@@ -84,7 +84,7 @@ I have a question about what the endpoints would look like once in production. T
 
 ### Competition Invites & Auditions
 
-- [ ] **Fix invite/audition email flow**
+- [x] **Fix invite/audition email flow**
   - Auto-populate email body with invite details (dancer name, class, link, date)
   - Replace draft link with the correct public-facing registration/acceptance URL
   - Add a one-click "Send Email" button on the invite card (no copy-paste required)
