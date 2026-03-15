@@ -30,6 +30,12 @@ const BANNER_HEIGHT_MAP: Record<string, number> = {
   large: 320,
 };
 
+const IMAGE_WIDTH_MAP: Record<string, number> = {
+  small: 200,
+  medium: 400,
+  large: 600,
+};
+
 function processImages(html: string): string {
   return html.replace(/<img([^>]*?)>/gi, (match, attrs: string) => {
     const isBanner =
@@ -39,7 +45,14 @@ function processImages(html: string): string {
 
     // Add width if missing
     if (!/\bwidth=/i.test(result)) {
-      const px = isBanner ? 600 : 400;
+      let px: number;
+      if (isBanner) {
+        px = 600;
+      } else {
+        const sizeKey =
+          /data-image-size="(\w+)"/i.exec(result)?.[1] ?? "medium";
+        px = IMAGE_WIDTH_MAP[sizeKey] ?? 400;
+      }
       result += ` width="${px}"`;
     }
 

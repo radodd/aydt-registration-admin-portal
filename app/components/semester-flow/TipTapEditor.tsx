@@ -92,6 +92,12 @@ const BANNER_HEIGHTS: { label: string; key: string; px: number }[] = [
   { label: "L", key: "large", px: 280 },
 ];
 
+const IMAGE_WIDTHS: { label: string; key: string; px: number }[] = [
+  { label: "S", key: "small", px: 200 },
+  { label: "M", key: "medium", px: 400 },
+  { label: "L", key: "large", px: 600 },
+];
+
 const BUTTON_PRESETS = {
   bgColor: "#4f46e5",
   textColor: "#ffffff",
@@ -193,6 +199,12 @@ const EmailImage = TiptapImage.extend({
     return {
       ...this.parent?.(),
 
+      layout: {
+        default: "inline",
+        parseHTML: (el) => el.getAttribute("data-layout") ?? "inline",
+        renderHTML: (attrs) => ({ "data-layout": attrs.layout }),
+      },
+
       align: {
         default: "left",
         parseHTML: (el) => el.getAttribute("data-align") ?? "left",
@@ -208,17 +220,55 @@ const EmailImage = TiptapImage.extend({
           };
         },
       },
+
+      bannerHeight: {
+        default: "medium",
+        parseHTML: (el) => el.getAttribute("data-banner-height") ?? "medium",
+        renderHTML: (attrs) => ({ "data-banner-height": attrs.bannerHeight }),
+      },
+
+      imageId: {
+        default: null,
+        parseHTML: (el) => el.getAttribute("data-image-id"),
+        renderHTML: (attrs) =>
+          attrs.imageId ? { "data-image-id": attrs.imageId } : {},
+      },
+
+      imageSize: {
+        default: "medium",
+        parseHTML: (el) => el.getAttribute("data-image-size") ?? "medium",
+        renderHTML: (attrs) => ({ "data-image-size": attrs.imageSize }),
+      },
     };
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
+    const layout = node.attrs.layout ?? "inline";
+    const imageSize = node.attrs.imageSize ?? "medium";
+    const align = node.attrs.align ?? "left";
+    const maxPx =
+      layout === "banner"
+        ? 600
+        : (IMAGE_WIDTHS.find((w) => w.key === imageSize)?.px ?? 400);
+
+    const marginStyle =
+      align === "center"
+        ? "margin-left:auto;margin-right:auto;"
+        : align === "right"
+          ? "margin-left:auto;margin-right:0;"
+          : "margin-left:0;margin-right:auto;";
+
+    // object-fit:cover is included in the style so processImages() doesn't
+    // need to inject it separately (it only does so when style= is absent).
+    const objectFit = layout === "banner" ? "object-fit:cover;" : "";
+
     return [
       "img",
       {
         ...HTMLAttributes,
-        width: 600,
+        width: maxPx,
         border: 0,
-        style: "display:block;width:100%;max-width:600px;height:auto;",
+        style: `display:block;width:100%;max-width:${maxPx}px;height:auto;${marginStyle}${objectFit}`,
       },
     ];
   },
@@ -694,6 +744,7 @@ export default function TipTapEditor({
         alt: image.display_name,
         layout,
         bannerHeight: layout === "banner" ? "medium" : undefined,
+        imageSize: layout === "inline" ? "medium" : undefined,
         imageId: image.id,
       }).run();
     },
@@ -945,6 +996,32 @@ export default function TipTapEditor({
                   title={`Banner height ${h.key} (${h.px}px)`}
                 >
                   {h.label}
+                </ToolbarButton>
+              ))}
+            </>
+          )}
+
+          {/* Inline image width controls — only shown when a non-banner image is selected */}
+          {isImageSelected && !isBannerSelected && (
+            <>
+              <Divider />
+              <span className="text-xs text-gray-400 px-1">W:</span>
+              {IMAGE_WIDTHS.map((w) => (
+                <ToolbarButton
+                  key={w.key}
+                  onClick={() =>
+                    editor
+                      .chain()
+                      .focus()
+                      .updateAttributes("image", { imageSize: w.key })
+                      .run()
+                  }
+                  active={
+                    (selectedImageAttrs?.imageSize ?? "medium") === w.key
+                  }
+                  title={`Image width ${w.key} (${w.px}px)`}
+                >
+                  {w.label}
                 </ToolbarButton>
               ))}
             </>
