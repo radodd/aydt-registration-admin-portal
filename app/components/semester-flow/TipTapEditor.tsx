@@ -29,12 +29,14 @@ import {
   Baseline,
   Highlighter,
   RectangleHorizontal,
+  Paperclip,
   X,
   Heading1,
   Heading2,
   Pilcrow,
 } from "lucide-react";
 import ImagePickerModal from "@/app/components/media/ImagePickerModal";
+import PDFAttachmentModal from "./PDFAttachmentModal";
 import type { MediaImage, ImageLayout } from "@/types";
 import type { RawCommands, ChainedCommands } from "@tiptap/core";
 
@@ -651,6 +653,7 @@ export default function TipTapEditor({
   const [imageModalLayout, setImageModalLayout] =
     useState<ImageLayout>("inline");
   const [buttonModalOpen, setButtonModalOpen] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [textColorOpen, setTextColorOpen] = useState(false);
   const [highlightColorOpen, setHighlightColorOpen] = useState(false);
   const [lastTextColor, setLastTextColor] = useState("#111827");
@@ -757,6 +760,12 @@ export default function TipTapEditor({
     editor.chain().focus().insertContent(buildButtonHtml(config)).run();
   };
 
+  const handleInsertPDF = ({ url, label }: { url: string; label: string }) => {
+    if (!editor) return;
+    const html = `<p style="margin:12px 0;font-family:Arial,sans-serif;font-size:14px;">📄 <a href="${url}" target="_blank" style="color:#7B1F1A;text-decoration:underline;word-break:break-all;">${label}</a></p>`;
+    editor.chain().focus().insertContent(html).run();
+  };
+
   if (!editor) return null;
 
   // Detect selected image attributes for conditional toolbar controls
@@ -790,6 +799,14 @@ export default function TipTapEditor({
         <ButtonBuilderModal
           onInsert={handleInsertButton}
           onClose={() => setButtonModalOpen(false)}
+        />
+      )}
+
+      {pdfModalOpen && (
+        <PDFAttachmentModal
+          isOpen={pdfModalOpen}
+          onClose={() => setPdfModalOpen(false)}
+          onInsert={handleInsertPDF}
         />
       )}
 
@@ -957,6 +974,14 @@ export default function TipTapEditor({
             title="Insert button"
           >
             <RectangleHorizontal size={14} />
+          </ToolbarButton>
+
+          {/* PDF attachment */}
+          <ToolbarButton
+            onClick={() => setPdfModalOpen(true)}
+            title="Insert PDF link"
+          >
+            <Paperclip size={14} />
           </ToolbarButton>
 
           <Divider />
