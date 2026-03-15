@@ -468,7 +468,7 @@ export default function DiscountsStep({
                           type="number"
                           min={0}
                           step={0.01}
-                          value={couponDraft.value}
+                          value={couponDraft.value || ""}
                           onChange={(e) =>
                             setCouponDraft((d) => ({
                               ...d,

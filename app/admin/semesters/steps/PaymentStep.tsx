@@ -571,7 +571,7 @@ export default function PaymentStep({
                             <input
                               type="number"
                               min={1}
-                              value={band.weekly_class_count}
+                              value={band.weekly_class_count || ""}
                               onChange={(e) =>
                                 updateBand(band._clientKey, "weekly_class_count", Number(e.target.value))
                               }
@@ -589,7 +589,7 @@ export default function PaymentStep({
                                 type="number"
                                 min={0}
                                 step={0.01}
-                                value={band.base_tuition}
+                                value={band.base_tuition || ""}
                                 onChange={(e) =>
                                   updateBand(band._clientKey, "base_tuition", Number(e.target.value))
                                 }
@@ -1211,7 +1211,7 @@ export default function PaymentStep({
                     type="number"
                     min={0}
                     step={0.01}
-                    value={feeConfig.registration_fee_per_child}
+                    value={feeConfig.registration_fee_per_child || ""}
                     onChange={(e) =>
                       updateFeeConfig(
                         "registration_fee_per_child",
@@ -1239,7 +1239,7 @@ export default function PaymentStep({
                     type="number"
                     min={0}
                     step={0.01}
-                    value={feeConfig.family_discount_amount}
+                    value={feeConfig.family_discount_amount || ""}
                     onChange={(e) =>
                       updateFeeConfig(
                         "family_discount_amount",
@@ -1267,7 +1267,7 @@ export default function PaymentStep({
                     type="number"
                     min={0}
                     step={0.01}
-                    value={feeConfig.auto_pay_admin_fee_monthly}
+                    value={feeConfig.auto_pay_admin_fee_monthly || ""}
                     onChange={(e) =>
                       updateFeeConfig(
                         "auto_pay_admin_fee_monthly",
@@ -1290,7 +1290,7 @@ export default function PaymentStep({
                 <input
                   type="number"
                   min={1}
-                  value={feeConfig.auto_pay_installment_count}
+                  value={feeConfig.auto_pay_installment_count || ""}
                   onChange={(e) =>
                     updateFeeConfig(
                       "auto_pay_installment_count",
