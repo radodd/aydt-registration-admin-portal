@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ChevronRight, ChevronLeft, Check, AlertCircle, MapPin, Calendar, Users, X } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ChevronRight, ChevronLeft, Check, AlertCircle, MapPin, Calendar, Users, X, Search } from "lucide-react";
 import {
   fetchSemesterClasses,
   type AdminClassGroup,
@@ -76,6 +76,8 @@ export default function ClassesStep({
   const [semesters, setSemesters] = useState<SemesterOption[]>([]);
   const [classes, setClasses] = useState<AdminClassGroup[]>([]);
   const [loading, setLoading] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Class-level selection (classId → Set of sessionIds are auto-selected)
   const [selectedClassIds, setSelectedClassIds] = useState<Set<string>>(() => {
@@ -220,8 +222,19 @@ export default function ClassesStep({
     });
   }
 
-  // Group classes by division
-  const grouped = classes.reduce<Record<string, AdminClassGroup[]>>((acc, c) => {
+  // Filter + group classes by division
+  const filteredClasses = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return classes;
+    return classes.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.discipline ?? "").toLowerCase().includes(q) ||
+        (c.division ?? "").toLowerCase().replace("_", " ").includes(q)
+    );
+  }, [classes, searchQuery]);
+
+  const grouped = filteredClasses.reduce<Record<string, AdminClassGroup[]>>((acc, c) => {
     const key = c.division ?? "other";
     if (!acc[key]) acc[key] = [];
     acc[key].push(c);
@@ -283,25 +296,53 @@ export default function ClassesStep({
             No classes found for this semester.
           </div>
         ) : (
-          <div className="max-h-[640px] overflow-y-auto space-y-5 pr-0.5">
-            {sortedDivisions.map((division) => (
-              <div key={division}>
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-                  {capitalizeFirst(division.replace("_", " "))}
-                </p>
-                <div className="space-y-2">
-                  {grouped[division].map((cls) => (
-                    <ClassCard
-                      key={cls.classId}
-                      cls={cls}
-                      isSelected={selectedClassIds.has(cls.classId)}
-                      onToggle={toggleClass}
-                    />
-                  ))}
-                </div>
+          <>
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, discipline, or division…"
+                className="w-full pl-9 pr-9 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white placeholder:text-slate-400"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {filteredClasses.length === 0 ? (
+              <div className="text-sm text-slate-400 py-8 text-center">
+                No classes match &ldquo;{searchQuery}&rdquo;.
               </div>
-            ))}
-          </div>
+            ) : (
+              <div className="max-h-[580px] overflow-y-auto space-y-5 pr-0.5">
+                {sortedDivisions.map((division) => (
+                  <div key={division}>
+                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+                      {capitalizeFirst(division.replace("_", " "))}
+                    </p>
+                    <div className="space-y-2">
+                      {grouped[division].map((cls) => (
+                        <ClassCard
+                          key={cls.classId}
+                          cls={cls}
+                          isSelected={selectedClassIds.has(cls.classId)}
+                          onToggle={toggleClass}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* Nav */}

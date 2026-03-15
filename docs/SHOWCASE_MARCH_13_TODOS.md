@@ -94,15 +94,15 @@ I have a question about what the endpoints would look like once in production. T
 
 ### Email Editor
 
-- [ ] **Image resizing in TipTap email editor**
+- [x] **Image resizing in TipTap email editor**
   - Toolbar shows alignment options but no resize handle
   - Add Small / Medium / Large (or px width) size selector for inserted images, consistent with banner height control
 
-- [ ] **PDF attachment support in email editor**
+- [x] **PDF attachment support in email editor**
   - Currently no way to attach a PDF (e.g., flyers, schedules)
   - Add file attachment UI; store in Supabase storage, insert download link into email body
 
-- [ ] **Update email color palette**
+- [] **Update email color palette**
   - Awaiting Canva branding board from AYDT
   - Once received, update preset colors in TipTap toolbar to match official brand
 
@@ -110,7 +110,7 @@ I have a question about what the endpoints would look like once in production. T
 
 ### Admin Registration Flow
 
-- [ ] **Add class search in admin registration flow**
+- [x] **Add class search in admin registration flow**
   - When selecting classes for a dancer, the list will be long — add a search/filter input
   - Filtering by name, discipline, or division would be most useful
 
@@ -118,7 +118,7 @@ I have a question about what the endpoints would look like once in production. T
 
 ### Documentation
 
-- [ ] **Create hard-blocks vs. soft-warnings reference doc** in shared Google Doc
+- [x] **Create hard-blocks vs. soft-warnings reference doc** in shared Google Doc
   - List every enforcement point: age restriction, grade restriction, time conflict, enrollment requirement, division mismatch
   - For each: is it a hard block (prevents progression) or soft warning (notifies but allows override)?
   - Share link with AYDT so they have a reference
