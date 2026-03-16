@@ -32,6 +32,13 @@ type SortDir = "asc" | "desc";
 
 const DAY_ORDER = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
+function formatDate(d: string | null): string {
+  if (!d) return "";
+  const [, m, day] = d.split("-").map(Number);
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  return `${months[m - 1]} ${day}`;
+}
+
 function formatTime(t: string | null): string {
   if (!t) return "—";
   const [h, m] = t.split(":").map(Number);
@@ -177,7 +184,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
 
       {rows.length === 0 ? (
         <div className="bg-white border border-neutral-200 rounded-xl p-8 text-center text-sm text-neutral-400">
-          No active sessions found.
+          No active classes found.
         </div>
       ) : (
         <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
@@ -291,7 +298,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
               {filteredSorted.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-sm text-neutral-400">
-                    No sessions match your filters.
+                    No classes match your filters.
                   </td>
                 </tr>
               ) : (
@@ -310,9 +317,17 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                       <td className="px-4 py-3 text-neutral-600 capitalize">{discipline}</td>
                       <td className="px-4 py-3 text-neutral-600">{semesterName}</td>
                       <td className="px-4 py-3 text-neutral-600">
-                        {session.day_of_week}{" "}
-                        {formatTime(session.start_time)}
-                        {session.end_time ? ` – ${formatTime(session.end_time)}` : ""}
+                        <div>
+                          {session.day_of_week}{" "}
+                          {formatTime(session.start_time)}
+                          {session.end_time ? ` – ${formatTime(session.end_time)}` : ""}
+                        </div>
+                        {(session.start_date || session.end_date) && (
+                          <div className="text-xs text-neutral-400 mt-0.5">
+                            {formatDate(session.start_date)}
+                            {session.end_date ? ` – ${formatDate(session.end_date)}` : ""}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={isFull ? "font-semibold text-red-600" : "text-neutral-600"}>
@@ -329,7 +344,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                           onClick={() => openModal(session.id)}
                           className="text-red-600 hover:text-red-700 font-medium text-sm"
                         >
-                          Cancel Session
+                          Cancel Class
                         </button>
                       </td>
                     </tr>
@@ -342,7 +357,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
           {/* Result count */}
           {hasFilters && (
             <div className="px-4 py-2 border-t border-neutral-200 text-xs text-neutral-400">
-              Showing {filteredSorted.length} of {rows.length} sessions
+              Showing {filteredSorted.length} of {rows.length} classes
             </div>
           )}
         </div>
@@ -352,7 +367,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
       {cancellingId && cancellingSession && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5">
-            <h2 className="text-lg font-semibold text-neutral-900">Cancel Session</h2>
+            <h2 className="text-lg font-semibold text-neutral-900">Cancel Class</h2>
 
             {/* Session details */}
             <div className="bg-neutral-50 rounded-lg px-4 py-3 text-sm text-neutral-700 space-y-1">
@@ -416,7 +431,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 disabled={isPending || !reason.trim()}
                 className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
-                {isPending ? "Cancelling…" : "Cancel Session & Notify"}
+                {isPending ? "Cancelling…" : "Cancel Class & Notify"}
               </button>
             </div>
           </div>
