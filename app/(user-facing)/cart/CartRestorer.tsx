@@ -66,15 +66,15 @@ export function CartRestorer() {
     return (
       <div className="max-w-2xl mx-auto px-6 py-20 text-center">
         <div className="text-5xl mb-4">🛒</div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        <h1 className="text-2xl font-bold text-neutral-900 mb-2">
           Your cart is empty
         </h1>
-        <p className="text-gray-500 mb-8">
+        <p className="text-neutral-500 mb-8">
           Browse available semesters to add sessions.
         </p>
         <Link
           href="/"
-          className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
+          className="inline-block bg-primary-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors"
         >
           Browse Semesters
         </Link>

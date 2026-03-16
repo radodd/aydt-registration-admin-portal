@@ -171,23 +171,23 @@ export default function SessionsGroupsStep({
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div>
-        <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">
+        <h2 className="text-2xl font-semibold text-neutral-900 tracking-tight">
           Session Groups
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-neutral-500 mt-1">
           Create groups to allow users to book sessions a la carte.
         </p>
       </div>
 
       {/* All Sessions Overview */}
 
-      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+      <section className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-neutral-900 mb-4">
           All Sessions Overview
         </h3>
 
         {appliedSessions.length === 0 && (
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-neutral-500">
             No sessions applied in previous step.
           </div>
         )}
@@ -199,18 +199,18 @@ export default function SessionsGroupsStep({
             return (
               <li
                 key={session.sessionId}
-                className="flex justify-between items-center border border-gray-200 rounded-xl p-4"
+                className="flex justify-between items-center border border-neutral-200 rounded-xl p-4"
               >
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-sm font-medium text-neutral-900">
                   {session.title}
                 </div>
 
                 {groupName ? (
-                  <span className="text-xs font-medium bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">
+                  <span className="text-xs font-medium bg-primary-100 text-primary-700 px-3 py-1 rounded-full">
                     {groupName}
                   </span>
                 ) : (
-                  <span className="text-xs font-medium bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
+                  <span className="text-xs font-medium bg-neutral-100 text-neutral-600 px-3 py-1 rounded-full">
                     Unassigned
                   </span>
                 )}
@@ -221,8 +221,8 @@ export default function SessionsGroupsStep({
       </section>
 
       {/* Create Group */}
-      <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4">
-        <h3 className="text-lg font-semibold text-gray-900">
+      <section className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-6 space-y-4">
+        <h3 className="text-lg font-semibold text-neutral-900">
           Create New Group
         </h3>
 
@@ -232,11 +232,11 @@ export default function SessionsGroupsStep({
             placeholder="Group name"
             value={newGroupName}
             onChange={(e) => setNewGroupName(e.target.value)}
-            className="flex-1 rounded-xl border border-gray-300 px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="flex-1 rounded-xl border border-neutral-300 px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-600 focus:outline-none"
           />
           <button
             onClick={handleCreateGroup}
-            className="px-4 py-2 rounded-xl bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 transition"
+            className="px-4 py-2 rounded-xl bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 transition"
           >
             Create
           </button>
@@ -247,7 +247,7 @@ export default function SessionsGroupsStep({
       {groups.map((group, groupIdx) => (
         <section
           key={group.id}
-          className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 space-y-4"
+          className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-6 space-y-4"
         >
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -256,7 +256,7 @@ export default function SessionsGroupsStep({
                   type="button"
                   onClick={() => handleMoveGroup(groupIdx, "up")}
                   disabled={groupIdx === 0}
-                  className="text-gray-400 hover:text-gray-700 disabled:opacity-25 leading-none"
+                  className="text-neutral-400 hover:text-neutral-700 disabled:opacity-25 leading-none"
                   aria-label="Move group up"
                 >
                   ▲
@@ -265,13 +265,13 @@ export default function SessionsGroupsStep({
                   type="button"
                   onClick={() => handleMoveGroup(groupIdx, "down")}
                   disabled={groupIdx === groups.length - 1}
-                  className="text-gray-400 hover:text-gray-700 disabled:opacity-25 leading-none"
+                  className="text-neutral-400 hover:text-neutral-700 disabled:opacity-25 leading-none"
                   aria-label="Move group down"
                 >
                   ▼
                 </button>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-neutral-900">
                 {group.name}
               </h3>
             </div>
@@ -286,8 +286,8 @@ export default function SessionsGroupsStep({
 
           {/* Assigned Sessions */}
           {group.sessionIds.length === 0 && (
-            <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center">
-              <p className="text-sm text-gray-500">
+            <div className="rounded-xl border border-dashed border-neutral-300 p-4 text-center">
+              <p className="text-sm text-neutral-500">
                 No sessions assigned to this group.
               </p>
             </div>
@@ -303,7 +303,7 @@ export default function SessionsGroupsStep({
               return (
                 <li
                   key={session.sessionId}
-                  className="flex justify-between items-center border border-gray-200 rounded-xl p-3"
+                  className="flex justify-between items-center border border-neutral-200 rounded-xl p-3"
                 >
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col gap-0.5">
@@ -311,7 +311,7 @@ export default function SessionsGroupsStep({
                         type="button"
                         onClick={() => handleMoveSession(group.id, sessionIdx, "up")}
                         disabled={sessionIdx === 0}
-                        className="text-gray-400 hover:text-gray-700 disabled:opacity-25 text-[10px] leading-none"
+                        className="text-neutral-400 hover:text-neutral-700 disabled:opacity-25 text-[10px] leading-none"
                         aria-label="Move up"
                       >
                         ▲
@@ -320,13 +320,13 @@ export default function SessionsGroupsStep({
                         type="button"
                         onClick={() => handleMoveSession(group.id, sessionIdx, "down")}
                         disabled={sessionIdx === group.sessionIds.length - 1}
-                        className="text-gray-400 hover:text-gray-700 disabled:opacity-25 text-[10px] leading-none"
+                        className="text-neutral-400 hover:text-neutral-700 disabled:opacity-25 text-[10px] leading-none"
                         aria-label="Move down"
                       >
                         ▼
                       </button>
                     </div>
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-neutral-900">
                       {session.title}
                     </span>
                   </div>
@@ -347,7 +347,7 @@ export default function SessionsGroupsStep({
           {/* Add Sessions */}
           {ungroupedSessions.length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-gray-700">
+              <h4 className="text-sm font-medium text-neutral-700">
                 Add Sessions
               </h4>
 
@@ -355,9 +355,9 @@ export default function SessionsGroupsStep({
                 {ungroupedSessions.map((session) => (
                   <li
                     key={session.sessionId}
-                    className="flex justify-between items-center border border-gray-200 rounded-xl p-3"
+                    className="flex justify-between items-center border border-neutral-200 rounded-xl p-3"
                   >
-                    <span className="text-sm text-gray-700">
+                    <span className="text-sm text-neutral-700">
                       {session.title}
                     </span>
 
@@ -365,7 +365,7 @@ export default function SessionsGroupsStep({
                       onClick={() =>
                         handleAddSessionToGroup(group.id, session.sessionId)
                       }
-                      className="text-sm font-medium text-green-600 hover:text-green-700"
+                      className="text-sm font-medium text-green-600 hover:text-mint-text"
                     >
                       Add
                     </button>
@@ -379,7 +379,7 @@ export default function SessionsGroupsStep({
 
       {/* Ungrouped Notice */}
       {appliedSessions.length > 0 && ungroupedSessions.length > 0 && (
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-neutral-500">
           {ungroupedSessions.length} session(s) remain ungrouped and will be
           available for standalone booking.
         </div>
@@ -389,14 +389,14 @@ export default function SessionsGroupsStep({
       <div className="flex justify-between pt-4">
         <button
           onClick={onBack}
-          className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+          className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
         >
           Back
         </button>
 
         <button
           onClick={handleSubmit}
-          className="px-6 py-2.5 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
+          className="px-6 py-2.5 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition"
         >
           Next
         </button>

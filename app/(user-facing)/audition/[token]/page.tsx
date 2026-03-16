@@ -18,14 +18,14 @@ export default async function AuditionBookingPage({ params }: Props) {
     return (
       <main className="min-h-screen flex items-center justify-center px-4">
         <div className="max-w-md w-full text-center space-y-4">
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="text-2xl font-semibold text-neutral-900">
             {result.reason === "expired"
               ? "Invitation Expired"
               : result.reason === "exhausted"
                 ? "Invitation Fully Used"
                 : "Invitation Revoked"}
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-neutral-500 text-sm">
             {result.reason === "expired"
               ? "This invitation link has expired. Please contact the studio for a new invite."
               : result.reason === "exhausted"

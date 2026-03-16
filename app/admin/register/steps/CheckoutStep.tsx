@@ -296,7 +296,7 @@ export default function CheckoutStep({
       <div className="space-y-5">
 
         {/* Payment plan */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+        <div className="bg-white border border-neutral-200 rounded-xl p-5 space-y-3">
           <h2 className="text-sm font-semibold text-slate-700">Payment Plan</h2>
           <div className="grid grid-cols-2 gap-2">
             {(["pay_in_full", "monthly"] as const).map((plan) => (
@@ -306,7 +306,7 @@ export default function CheckoutStep({
                 className={`py-2 px-3 rounded-lg text-sm font-medium border transition ${
                   paymentPlanType === plan
                     ? "bg-blue-600 border-blue-600 text-white"
-                    : "border-gray-200 text-slate-600 hover:bg-slate-50"
+                    : "border-neutral-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 {plan === "pay_in_full" ? "Pay in Full" : "Monthly"}
@@ -333,7 +333,7 @@ export default function CheckoutStep({
         </div>
 
         {/* Adjustments */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+        <div className="bg-white border border-neutral-200 rounded-xl p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-700">Adjustments</h2>
             {!showAdjForm && (
@@ -349,7 +349,7 @@ export default function CheckoutStep({
 
           {/* Inline add form */}
           {showAdjForm && (
-            <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-gray-200">
+            <div className="space-y-3 p-3 bg-slate-50 rounded-lg border border-neutral-200">
               {/* Type toggle */}
               <div className="grid grid-cols-2 gap-2">
                 {(["tuition_adjustment", "credit"] as const).map((t) => (
@@ -359,7 +359,7 @@ export default function CheckoutStep({
                     className={`py-1.5 px-3 rounded-lg text-xs font-medium border transition ${
                       adjType === t
                         ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-gray-200 text-slate-600 hover:bg-slate-50 bg-white"
+                        : "border-neutral-200 text-slate-600 hover:bg-slate-50 bg-white"
                     }`}
                   >
                     {t === "tuition_adjustment" ? "Tuition Adjustment" : "Credit"}
@@ -376,7 +376,7 @@ export default function CheckoutStep({
                     placeholder="e.g. Week 1 proration"
                     value={adjLabel}
                     onChange={(e) => { setAdjLabel(e.target.value); setAdjError(""); }}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -393,7 +393,7 @@ export default function CheckoutStep({
                       value={adjAmountStr}
                       onChange={(e) => { setAdjAmountStr(e.target.value); setAdjError(""); }}
                       onKeyDown={(e) => e.key === "Enter" && handleAddAdjustment()}
-                      className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full pl-6 pr-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -425,7 +425,7 @@ export default function CheckoutStep({
                     <span className={`shrink-0 text-xs font-medium px-1.5 py-0.5 rounded ${
                       adj.type === "credit"
                         ? "bg-purple-100 text-purple-700"
-                        : "bg-amber-100 text-amber-700"
+                        : "bg-mauve/20 text-mauve-text"
                     }`}>
                       {adj.type === "credit" ? "Credit" : "Adj"}
                     </span>
@@ -449,7 +449,7 @@ export default function CheckoutStep({
         </div>
 
         {/* Payment method */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+        <div className="bg-white border border-neutral-200 rounded-xl p-5 space-y-4">
           <h2 className="text-sm font-semibold text-slate-700">Payment</h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -460,7 +460,7 @@ export default function CheckoutStep({
                 className={`py-2 px-3 rounded-lg text-sm font-medium border transition capitalize ${
                   paymentMethod === m
                     ? "bg-blue-600 border-blue-600 text-white"
-                    : "border-gray-200 text-slate-600 hover:bg-slate-50"
+                    : "border-neutral-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 {m}
@@ -483,7 +483,7 @@ export default function CheckoutStep({
                   min="0"
                   value={amountInput}
                   onChange={(e) => setAmountInput(e.target.value)}
-                  className="w-full pl-6 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-6 pr-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -497,7 +497,7 @@ export default function CheckoutStep({
                   type="text"
                   value={checkNumber}
                   onChange={(e) => setCheckNumber(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             )}
@@ -511,7 +511,7 @@ export default function CheckoutStep({
                 placeholder="Optional"
                 value={payerName}
                 onChange={(e) => setPayerName(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -525,7 +525,7 @@ export default function CheckoutStep({
               placeholder="Optional — not visible to family"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
           </div>
         </div>
@@ -561,7 +561,7 @@ export default function CheckoutStep({
       {/* Sidebar — order summary */}
       <div className="space-y-4">
         {/* Sessions */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
             Order summary
           </p>
@@ -569,7 +569,7 @@ export default function CheckoutStep({
             <p className="text-sm font-medium text-slate-800">{dancerName}</p>
             <p className="text-xs text-slate-400">{semesterName}</p>
           </div>
-          <ul className="space-y-2 pt-1 border-t border-gray-100">
+          <ul className="space-y-2 pt-1 border-t border-neutral-200">
             {sessionInfos.map((s) => (
               <li key={s.sessionId} className="text-sm text-slate-600">
                 <p className="font-medium">{s.className}</p>
@@ -583,7 +583,7 @@ export default function CheckoutStep({
         </div>
 
         {/* Pricing */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
               Pricing
@@ -629,7 +629,7 @@ export default function CheckoutStep({
                       <span className="text-green-600 shrink-0">-{fmt$$(adj.amount)}</span>
                     </div>
                   ))}
-                  <div className="flex justify-between gap-4 pt-2 border-t border-gray-100 font-semibold">
+                  <div className="flex justify-between gap-4 pt-2 border-t border-neutral-200 font-semibold">
                     <span className="text-slate-700">Total Due</span>
                     <span className="text-slate-800">{fmt$$(effectiveTotal)}</span>
                   </div>
@@ -658,7 +658,7 @@ export default function CheckoutStep({
                   <span className="text-green-600 shrink-0">-{fmt$$(adj.amount)}</span>
                 </div>
               ))}
-              <div className="flex justify-between gap-4 pt-2 border-t border-gray-100 font-semibold">
+              <div className="flex justify-between gap-4 pt-2 border-t border-neutral-200 font-semibold">
                 <span className="text-slate-700">Total Due</span>
                 <span className="text-slate-800">{fmt$$(effectiveTotal)}</span>
               </div>
@@ -669,7 +669,7 @@ export default function CheckoutStep({
 
           {/* Coupon */}
           {!overrideActive && (
-            <div className="pt-2 border-t border-gray-100">
+            <div className="pt-2 border-t border-neutral-200">
               {appliedCoupon ? (
                 <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-1 text-green-600">
@@ -694,7 +694,7 @@ export default function CheckoutStep({
                       setCouponError("");
                     }}
                     onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
-                    className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-1.5 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
                     onClick={handleApplyCoupon}
@@ -713,7 +713,7 @@ export default function CheckoutStep({
         </div>
 
         {/* Balance due summary */}
-        <div className="bg-slate-50 border border-gray-200 rounded-xl p-4">
+        <div className="bg-slate-50 border border-neutral-200 rounded-xl p-4">
           <div className="flex justify-between text-sm">
             <span className="text-slate-500">Balance due</span>
             <span className="font-semibold text-slate-800">{fmt$$(effectiveTotal)}</span>
@@ -725,7 +725,7 @@ export default function CheckoutStep({
                 className={
                   parseFloat(amountInput) >= effectiveTotal
                     ? "font-medium text-green-600"
-                    : "font-medium text-amber-600"
+                    : "font-medium text-mauve-text"
                 }
               >
                 {fmt$$(parseFloat(amountInput) || 0)}

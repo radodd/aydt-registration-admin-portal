@@ -303,8 +303,8 @@ function ToolbarButton({
       disabled={disabled}
       className={`px-2 py-1 rounded text-sm transition select-none disabled:opacity-40 ${
         active
-          ? "bg-indigo-100 text-indigo-700 font-semibold"
-          : "text-gray-600 hover:bg-gray-100"
+          ? "bg-primary-100 text-primary-700 font-semibold"
+          : "text-neutral-600 hover:bg-neutral-100"
       }`}
     >
       {children}
@@ -313,7 +313,7 @@ function ToolbarButton({
 }
 
 function Divider() {
-  return <span className="w-px h-4 bg-gray-300 mx-1 shrink-0" />;
+  return <span className="w-px h-4 bg-neutral-300 mx-1 shrink-0" />;
 }
 
 type ColorPalettePopoverProps = {
@@ -346,7 +346,7 @@ function ColorPalettePopover({
           onToggle();
         }}
         title={triggerTitle}
-        className="px-2 py-1 rounded text-sm text-gray-600 hover:bg-gray-100 transition select-none flex flex-col items-center gap-0.5"
+        className="px-2 py-1 rounded text-sm text-neutral-600 hover:bg-neutral-100 transition select-none flex flex-col items-center gap-0.5"
       >
         {triggerIcon}
         <span
@@ -358,10 +358,10 @@ function ColorPalettePopover({
       {isOpen && (
         <div
           ref={popoverRef}
-          className="absolute left-0 top-full mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-3 w-48 space-y-2.5"
+          className="absolute left-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded-xl shadow-lg p-3 w-48 space-y-2.5"
         >
           <div>
-            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1.5">
+            <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">
               Brand
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -374,7 +374,7 @@ function ColorPalettePopover({
                     onSelect(c.value);
                   }}
                   title={c.label}
-                  className="w-5 h-5 rounded-full border border-gray-200 hover:scale-110 transition"
+                  className="w-5 h-5 rounded-full border border-neutral-200 hover:scale-110 transition"
                   style={{ backgroundColor: c.value }}
                 />
               ))}
@@ -382,7 +382,7 @@ function ColorPalettePopover({
           </div>
 
           <div>
-            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1.5">
+            <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">
               Accent
             </p>
             <div className="flex flex-wrap gap-1.5">
@@ -395,7 +395,7 @@ function ColorPalettePopover({
                     onSelect(c.value);
                   }}
                   title={c.label}
-                  className="w-5 h-5 rounded-full border border-gray-200 hover:scale-110 transition"
+                  className="w-5 h-5 rounded-full border border-neutral-200 hover:scale-110 transition"
                   style={{ backgroundColor: c.value }}
                 />
               ))}
@@ -403,7 +403,7 @@ function ColorPalettePopover({
           </div>
 
           <div>
-            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1.5">
+            <p className="text-[10px] font-medium text-neutral-400 uppercase tracking-wide mb-1.5">
               Basic
             </p>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -416,7 +416,7 @@ function ColorPalettePopover({
                     onSelect(c.value);
                   }}
                   title={c.label}
-                  className="w-5 h-5 rounded-full border border-gray-200 hover:scale-110 transition"
+                  className="w-5 h-5 rounded-full border border-neutral-200 hover:scale-110 transition"
                   style={{ backgroundColor: c.value }}
                 />
               ))}
@@ -427,9 +427,9 @@ function ColorPalettePopover({
                   onReset();
                 }}
                 title="Reset"
-                className="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition"
+                className="w-5 h-5 rounded-full border border-neutral-300 flex items-center justify-center hover:bg-neutral-100 transition"
               >
-                <X size={10} className="text-gray-400" />
+                <X size={10} className="text-neutral-400" />
               </button>
             </div>
           </div>
@@ -475,11 +475,11 @@ function ButtonBuilderModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
-        <h3 className="text-base font-semibold text-gray-900">Insert Button</h3>
+        <h3 className="text-base font-semibold text-neutral-900">Insert Button</h3>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">
+            <label className="text-xs font-medium text-neutral-600 block mb-1">
               Button Text
             </label>
             <input
@@ -488,13 +488,13 @@ function ButtonBuilderModal({
               onChange={(e) =>
                 setConfig((c) => ({ ...c, text: e.target.value }))
               }
-              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full border border-neutral-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
               required
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">
+            <label className="text-xs font-medium text-neutral-600 block mb-1">
               Link URL
             </label>
             <input
@@ -503,14 +503,14 @@ function ButtonBuilderModal({
               onChange={(e) =>
                 setConfig((c) => ({ ...c, url: e.target.value }))
               }
-              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full border border-neutral-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
               required
             />
           </div>
 
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="text-xs font-medium text-gray-600 block mb-1">
+              <label className="text-xs font-medium text-neutral-600 block mb-1">
                 Background color
               </label>
               <div className="flex items-center gap-2">
@@ -520,7 +520,7 @@ function ButtonBuilderModal({
                   onChange={(e) =>
                     setConfig((c) => ({ ...c, bgColor: e.target.value }))
                   }
-                  className="w-8 h-8 rounded border border-gray-300 cursor-pointer"
+                  className="w-8 h-8 rounded border border-neutral-300 cursor-pointer"
                 />
                 <input
                   type="text"
@@ -528,14 +528,14 @@ function ButtonBuilderModal({
                   onChange={(e) =>
                     setConfig((c) => ({ ...c, bgColor: e.target.value }))
                   }
-                  className="flex-1 border border-gray-300 rounded-lg px-2 py-1 text-xs font-mono"
+                  className="flex-1 border border-neutral-300 rounded-lg px-2 py-1 text-xs font-mono"
                   maxLength={7}
                 />
               </div>
             </div>
 
             <div className="flex-1">
-              <label className="text-xs font-medium text-gray-600 block mb-1">
+              <label className="text-xs font-medium text-neutral-600 block mb-1">
                 Text color
               </label>
               <div className="flex items-center gap-2">
@@ -545,7 +545,7 @@ function ButtonBuilderModal({
                   onChange={(e) =>
                     setConfig((c) => ({ ...c, textColor: e.target.value }))
                   }
-                  className="w-8 h-8 rounded border border-gray-300 cursor-pointer"
+                  className="w-8 h-8 rounded border border-neutral-300 cursor-pointer"
                 />
                 <input
                   type="text"
@@ -553,7 +553,7 @@ function ButtonBuilderModal({
                   onChange={(e) =>
                     setConfig((c) => ({ ...c, textColor: e.target.value }))
                   }
-                  className="flex-1 border border-gray-300 rounded-lg px-2 py-1 text-xs font-mono"
+                  className="flex-1 border border-neutral-300 rounded-lg px-2 py-1 text-xs font-mono"
                   maxLength={7}
                 />
               </div>
@@ -561,7 +561,7 @@ function ButtonBuilderModal({
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">
+            <label className="text-xs font-medium text-neutral-600 block mb-1">
               Border radius: {config.borderRadius}px
             </label>
             <input
@@ -576,12 +576,12 @@ function ButtonBuilderModal({
                   borderRadius: parseInt(e.target.value),
                 }))
               }
-              className="w-full accent-indigo-600"
+              className="w-full accent-primary-600"
             />
           </div>
 
           {/* Preview */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex justify-center">
+          <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 flex justify-center">
             <span
               style={{
                 display: "inline-block",
@@ -603,13 +603,13 @@ function ButtonBuilderModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-xl border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition"
+              className="flex-1 px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 text-sm hover:bg-neutral-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition"
+              className="flex-1 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition"
             >
               Insert
             </button>
@@ -810,9 +810,9 @@ export default function TipTapEditor({
         />
       )}
 
-      <div className="border border-gray-300 rounded-xl focus-within:ring-2 focus-within:ring-indigo-500">
+      <div className="border border-neutral-300 rounded-xl focus-within:ring-2 focus-within:ring-primary-600">
         {/* ---- Toolbar ---- */}
-        <div className="flex flex-wrap gap-0.5 items-center px-3 py-2 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+        <div className="flex flex-wrap gap-0.5 items-center px-3 py-2 border-b border-neutral-200 bg-neutral-50 rounded-t-xl">
           {/* Block styles */}
           <ToolbarButton
             onClick={() => editor.chain().focus().setParagraph().run()}
@@ -855,7 +855,7 @@ export default function TipTapEditor({
             }}
             onMouseDown={(e) => e.stopPropagation()}
             title="Font family"
-            className="text-xs text-gray-600 border border-gray-200 rounded px-1 py-0.5 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-400 max-w-[110px]"
+            className="text-xs text-neutral-600 border border-neutral-200 rounded px-1 py-0.5 bg-white hover:bg-neutral-50 focus:outline-none focus:ring-1 focus:ring-primary-400 max-w-[110px]"
           >
             {FONT_FAMILIES.map((f) => (
               <option key={f.label} value={f.value}>
@@ -879,7 +879,7 @@ export default function TipTapEditor({
             }}
             onMouseDown={(e) => e.stopPropagation()}
             title="Font size"
-            className="text-xs text-gray-600 border border-gray-200 rounded px-1 py-0.5 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-indigo-400 w-16"
+            className="text-xs text-neutral-600 border border-neutral-200 rounded px-1 py-0.5 bg-white hover:bg-neutral-50 focus:outline-none focus:ring-1 focus:ring-primary-400 w-16"
           >
             <option value="">Size</option>
             {FONT_SIZES.map((s) => (
@@ -1004,7 +1004,7 @@ export default function TipTapEditor({
           {isBannerSelected && (
             <>
               <Divider />
-              <span className="text-xs text-gray-400 px-1">H:</span>
+              <span className="text-xs text-neutral-400 px-1">H:</span>
               {BANNER_HEIGHTS.map((h) => (
                 <ToolbarButton
                   key={h.key}
@@ -1030,7 +1030,7 @@ export default function TipTapEditor({
           {isImageSelected && !isBannerSelected && (
             <>
               <Divider />
-              <span className="text-xs text-gray-400 px-1">W:</span>
+              <span className="text-xs text-neutral-400 px-1">W:</span>
               {IMAGE_WIDTHS.map((w) => (
                 <ToolbarButton
                   key={w.key}
@@ -1055,7 +1055,7 @@ export default function TipTapEditor({
           {isImageSelected && (
             <>
               <Divider />
-              <span className="text-xs text-gray-400 px-1">Align:</span>
+              <span className="text-xs text-neutral-400 px-1">Align:</span>
               <ToolbarButton
                 onClick={() =>
                   editor

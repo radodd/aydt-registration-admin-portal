@@ -28,22 +28,22 @@ function PreviewEmailForm({ semesterId }: { semesterId: string }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">
+        <h1 className="text-2xl font-bold text-neutral-900 mb-1">
           [Preview] Account step
         </h1>
-        <p className="text-gray-500 text-sm">
+        <p className="text-neutral-500 text-sm">
           In preview mode, email lookup is skipped. You can use any email.
         </p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        <label className="block text-sm font-medium text-neutral-700 mb-1.5">
           Email address
         </label>
         <input
           type="email"
           {...register("email")}
-          className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="w-full border border-neutral-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
         />
         {errors.email && (
           <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -53,7 +53,7 @@ function PreviewEmailForm({ semesterId }: { semesterId: string }) {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm disabled:opacity-60"
+        className="w-full bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors text-sm disabled:opacity-60"
       >
         {isSubmitting ? "…" : "Continue"}
       </button>

@@ -126,7 +126,7 @@ export default function FamiliesAdmin() {
   if (loading) {
     return (
       <main className="max-w-7xl mx-auto px-6 py-10">
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 text-gray-500">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-8 text-neutral-500">
           Loading families...
         </div>
       </main>
@@ -138,14 +138,14 @@ export default function FamiliesAdmin() {
       {/* Header */}
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Families</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-semibold text-neutral-900">Families</h1>
+          <p className="text-sm text-neutral-500 mt-1">
             Overview of families, parents, and dancers.
           </p>
         </div>
         <button
           onClick={() => setModal({ type: "createFamily" })}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors"
+          className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition-colors"
         >
           + New Family
         </button>
@@ -153,7 +153,7 @@ export default function FamiliesAdmin() {
 
       {/* Content */}
       {families.length === 0 ? (
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center text-gray-500">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center text-neutral-500">
           No families found.
         </div>
       ) : (
@@ -167,14 +167,14 @@ export default function FamiliesAdmin() {
             return (
               <div
                 key={family.id}
-                className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-6"
+                className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-6"
               >
                 {/* Family Header */}
                 <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-gray-900">
+                  <h2 className="text-xl font-semibold text-neutral-900">
                     {family.family_name}
                   </h2>
-                  <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                  <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-neutral-100 text-neutral-600">
                     {family.dancers.length} Dancer
                     {family.dancers.length !== 1 ? "s" : ""}
                   </span>
@@ -182,7 +182,7 @@ export default function FamiliesAdmin() {
 
                 {/* Parents */}
                 <section className="space-y-3">
-                  <h3 className="text-sm font-medium uppercase tracking-wide text-gray-600">
+                  <h3 className="text-sm font-medium uppercase tracking-wide text-neutral-600">
                     Parents
                   </h3>
                   <div className="grid md:grid-cols-2 gap-4">
@@ -227,12 +227,12 @@ export default function FamiliesAdmin() {
                         isPending={isPending}
                       />
                     ) : (
-                      <div className="bg-gray-50 border border-dashed border-gray-300 rounded-2xl p-6 flex items-center justify-center">
+                      <div className="bg-neutral-50 border border-dashed border-neutral-300 rounded-2xl p-6 flex items-center justify-center">
                         <button
                           onClick={() =>
                             setModal({ type: "addParent", familyId: family.id })
                           }
-                          className="text-sm text-indigo-600 font-medium hover:underline"
+                          className="text-sm text-primary-600 font-medium hover:underline"
                         >
                           + Add Additional Parent
                         </button>
@@ -244,21 +244,21 @@ export default function FamiliesAdmin() {
                 {/* Dancers */}
                 <section className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-medium uppercase tracking-wide text-gray-600">
+                    <h3 className="text-sm font-medium uppercase tracking-wide text-neutral-600">
                       Dancers
                     </h3>
                     <button
                       onClick={() =>
                         setModal({ type: "addDancer", familyId: family.id })
                       }
-                      className="text-xs text-indigo-600 font-medium hover:underline"
+                      className="text-xs text-primary-600 font-medium hover:underline"
                     >
                       + Add Dancer
                     </button>
                   </div>
 
                   {family.dancers.length === 0 ? (
-                    <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 text-sm text-gray-500">
+                    <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 text-sm text-neutral-500">
                       No dancers added yet.
                     </div>
                   ) : (
@@ -266,15 +266,15 @@ export default function FamiliesAdmin() {
                       {family.dancers.map((dancer) => (
                         <div
                           key={dancer.id}
-                          className="bg-gray-50 border border-gray-200 rounded-2xl p-5 space-y-3"
+                          className="bg-neutral-50 border border-neutral-200 rounded-2xl p-5 space-y-3"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <p className="font-semibold text-gray-900">
+                              <p className="font-semibold text-neutral-900">
                                 {dancer.first_name} {dancer.last_name}
                               </p>
                               {dancer.is_self && (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium">
                                   Self
                                 </span>
                               )}
@@ -282,7 +282,7 @@ export default function FamiliesAdmin() {
                             <div className="flex items-center gap-2">
                               <Link
                                 href={`/admin/register?dancer=${dancer.id}&family=${family.id}`}
-                                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                                className="text-xs text-primary-600 hover:text-primary-800 font-medium"
                               >
                                 Register
                               </Link>
@@ -290,7 +290,7 @@ export default function FamiliesAdmin() {
                                 onClick={() =>
                                   setModal({ type: "editDancer", dancer })
                                 }
-                                className="text-xs text-gray-500 hover:text-indigo-600 font-medium"
+                                className="text-xs text-neutral-500 hover:text-primary-600 font-medium"
                               >
                                 Edit
                               </button>
@@ -298,7 +298,7 @@ export default function FamiliesAdmin() {
                                 onClick={() =>
                                   setModal({ type: "removeDancer", dancer })
                                 }
-                                className="text-xs text-gray-500 hover:text-red-600 font-medium"
+                                className="text-xs text-neutral-500 hover:text-red-600 font-medium"
                               >
                                 Remove
                               </button>
@@ -306,16 +306,16 @@ export default function FamiliesAdmin() {
                           </div>
 
                           {dancer.registrations.length > 0 ? (
-                            <ul className="space-y-2 text-sm text-gray-600">
+                            <ul className="space-y-2 text-sm text-neutral-600">
                               {dancer.registrations.map((reg) => (
                                 <li
                                   key={reg.class_sessions?.id ?? reg.id}
-                                  className="bg-white border border-gray-200 rounded-xl px-3 py-2"
+                                  className="bg-white border border-neutral-200 rounded-xl px-3 py-2"
                                 >
-                                  <span className="font-medium text-gray-800">
+                                  <span className="font-medium text-neutral-800">
                                     {reg.class_sessions?.classes?.name}
                                   </span>
-                                  <div className="text-xs text-gray-500">
+                                  <div className="text-xs text-neutral-500">
                                     {reg.class_sessions?.day_of_week} •{" "}
                                     {reg.class_sessions?.start_time}–
                                     {reg.class_sessions?.end_time}
@@ -324,7 +324,7 @@ export default function FamiliesAdmin() {
                               ))}
                             </ul>
                           ) : (
-                            <p className="text-sm text-gray-400">
+                            <p className="text-sm text-neutral-400">
                               No registered classes.
                             </p>
                           )}
@@ -432,14 +432,14 @@ function ParentCard({
   isPending?: boolean;
 }) {
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-2xl p-6 space-y-3">
+    <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium uppercase tracking-wide text-gray-600">
+          <h3 className="text-sm font-medium uppercase tracking-wide text-neutral-600">
             {title}
           </h3>
           {primary && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 font-medium">
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-700 font-medium">
               Primary
             </span>
           )}
@@ -449,7 +449,7 @@ function ParentCard({
             <button
               onClick={onMakePrimary}
               disabled={isPending}
-              className="text-xs text-gray-500 hover:text-indigo-600 font-medium disabled:opacity-50"
+              className="text-xs text-neutral-500 hover:text-primary-600 font-medium disabled:opacity-50"
             >
               Make Primary
             </button>
@@ -457,26 +457,26 @@ function ParentCard({
           {onRemove && (
             <button
               onClick={onRemove}
-              className="text-xs text-gray-500 hover:text-red-600 font-medium"
+              className="text-xs text-neutral-500 hover:text-red-600 font-medium"
             >
               Remove
             </button>
           )}
           <button
             onClick={onEdit}
-            className="text-xs text-gray-500 hover:text-indigo-600 font-medium"
+            className="text-xs text-neutral-500 hover:text-primary-600 font-medium"
           >
             Edit
           </button>
         </div>
       </div>
 
-      <div className="text-sm text-gray-700 space-y-1">
-        <div className="font-medium text-gray-900">
+      <div className="text-sm text-neutral-700 space-y-1">
+        <div className="font-medium text-neutral-900">
           {parent.first_name} {parent.last_name}
         </div>
         <div>{parent.email}</div>
-        <div className="text-gray-500">
+        <div className="text-neutral-500">
           {parent.phone_number || "No phone listed"}
         </div>
       </div>
@@ -514,8 +514,8 @@ function CreateFamilyModal({
   return (
     <form onSubmit={handleSubmit} className="p-6 space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">New Family</h2>
-        <p className="text-sm text-gray-500 mt-0.5">
+        <h2 className="text-lg font-semibold text-neutral-900">New Family</h2>
+        <p className="text-sm text-neutral-500 mt-0.5">
           Create a family and its primary parent account.
         </p>
       </div>
@@ -532,7 +532,7 @@ function CreateFamilyModal({
           />
         </FormField>
 
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 pt-1">
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500 pt-1">
           Primary Parent
         </p>
 
@@ -581,13 +581,13 @@ function CreateFamilyModal({
             type="checkbox"
             checked={sendInvite}
             onChange={(e) => setSendInvite(e.target.checked)}
-            className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="mt-0.5 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
           />
           <div>
-            <p className="text-sm font-medium text-gray-800">
+            <p className="text-sm font-medium text-neutral-800">
               Send invite email
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-neutral-500">
               A welcome email will be sent to the parent once auth is
               configured.
             </p>
@@ -645,7 +645,7 @@ function ParentFormModal({
 
   return (
     <form onSubmit={handleSubmit} className="p-6 space-y-5">
-      <h2 className="text-lg font-semibold text-gray-900">
+      <h2 className="text-lg font-semibold text-neutral-900">
         {mode === "add" ? "Add Additional Parent" : "Edit Parent"}
       </h2>
 
@@ -747,7 +747,7 @@ function DancerFormModal({
 
   return (
     <form onSubmit={handleSubmit} className="p-6 space-y-5">
-      <h2 className="text-lg font-semibold text-gray-900">
+      <h2 className="text-lg font-semibold text-neutral-900">
         {mode === "add" ? "Add Dancer" : "Edit Dancer"}
       </h2>
 
@@ -834,8 +834,8 @@ function ConfirmModal({
   return (
     <div className="p-6 space-y-5">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        <p className="text-sm text-gray-600 mt-1">{message}</p>
+        <h2 className="text-lg font-semibold text-neutral-900">{title}</h2>
+        <p className="text-sm text-neutral-600 mt-1">{message}</p>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -845,7 +845,7 @@ function ConfirmModal({
           type="button"
           onClick={onClose}
           disabled={isPending}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 disabled:opacity-50"
+          className="px-4 py-2 text-sm font-medium text-neutral-700 bg-neutral-100 rounded-xl hover:bg-neutral-200 disabled:opacity-50"
         >
           Cancel
         </button>
@@ -856,7 +856,7 @@ function ConfirmModal({
           className={`px-4 py-2 text-sm font-medium text-white rounded-xl disabled:opacity-50 ${
             destructive
               ? "bg-red-600 hover:bg-red-700"
-              : "bg-indigo-600 hover:bg-indigo-700"
+              : "bg-primary-600 hover:bg-primary-700"
           }`}
         >
           {isPending ? "Working..." : confirmLabel}
@@ -871,7 +871,7 @@ function ConfirmModal({
 ============================================================================ */
 
 const inputCls =
-  "w-full px-3 py-2 text-sm border border-gray-300 rounded-xl text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500";
+  "w-full px-3 py-2 text-sm border border-neutral-300 rounded-xl text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary-600";
 
 function FormField({
   label,
@@ -884,7 +884,7 @@ function FormField({
 }) {
   return (
     <div className="space-y-1">
-      <label className="block text-xs font-medium text-gray-700">
+      <label className="block text-xs font-medium text-neutral-700">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
@@ -908,14 +908,14 @@ function ModalActions({
         type="button"
         onClick={onClose}
         disabled={isPending}
-        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 disabled:opacity-50"
+        className="px-4 py-2 text-sm font-medium text-neutral-700 bg-neutral-100 rounded-xl hover:bg-neutral-200 disabled:opacity-50"
       >
         Cancel
       </button>
       <button
         type="submit"
         disabled={isPending}
-        className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:opacity-50"
+        className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-xl hover:bg-primary-700 disabled:opacity-50"
       >
         {isPending ? "Saving..." : submitLabel}
       </button>

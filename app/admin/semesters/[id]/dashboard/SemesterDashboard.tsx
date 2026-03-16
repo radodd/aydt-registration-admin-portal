@@ -104,7 +104,7 @@ function StatCard({
   icon: React.ElementType;
 }) {
   return (
-    <div className="flex items-start gap-3 p-4 bg-white border border-gray-200 rounded-xl">
+    <div className="flex items-start gap-3 p-4 bg-white border border-neutral-200 rounded-xl">
       <div className="p-2 bg-blue-50 rounded-lg mt-0.5">
         <Icon className="w-4 h-4 text-blue-500" />
       </div>
@@ -168,16 +168,16 @@ export default function SemesterDashboard({
         </div>
 
         {/* Revenue breakdown */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-5">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Revenue</h2>
-          <div className="grid grid-cols-3 divide-x divide-gray-100">
+          <div className="grid grid-cols-3 divide-x divide-neutral-100">
             <div className="pr-6">
               <p className="text-xs text-slate-500 mb-1">Collected</p>
               <p className="text-xl font-semibold text-green-600">{fmt$$(collected)}</p>
             </div>
             <div className="px-6">
               <p className="text-xs text-slate-500 mb-1">Outstanding</p>
-              <p className="text-xl font-semibold text-amber-600">{fmt$$(outstanding)}</p>
+              <p className="text-xl font-semibold text-mauve-text">{fmt$$(outstanding)}</p>
             </div>
             <div className="pl-6">
               <p className="text-xs text-slate-500 mb-1">Total</p>
@@ -187,8 +187,8 @@ export default function SemesterDashboard({
         </div>
 
         {/* Recent registrations */}
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
+        <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-neutral-200">
             <h2 className="text-sm font-semibold text-slate-700">Recent Registrations</h2>
           </div>
 
@@ -249,7 +249,7 @@ export default function SemesterDashboard({
         </div>
 
         {/* Registrations over time */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-5">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">
             Registrations Over Time
           </h2>
@@ -260,7 +260,7 @@ export default function SemesterDashboard({
       {/* ------------------------------------------------------------------ */}
       {/* Sidebar — Quick actions                                             */}
       {/* ------------------------------------------------------------------ */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-1">
+      <div className="bg-white border border-neutral-200 rounded-2xl p-4 space-y-1">
         <p className="px-3 py-1 text-xs font-semibold text-slate-400 uppercase tracking-wide">
           Actions
         </p>

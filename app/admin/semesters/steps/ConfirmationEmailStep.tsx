@@ -173,27 +173,27 @@ export default function ConfirmationEmailStep({
   /* -------------------------------------------------------------------------- */
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-8">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">
+        <h2 className="text-xl font-semibold text-neutral-900">
           Confirmation Email
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-neutral-500 mt-1">
           Configure the email sent to registrants after sign-up.
         </p>
       </div>
 
       {/* Locked banner */}
       {isLocked && (
-        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
           This semester has active registrations. The confirmation email is
           locked.
         </div>
       )}
 
       {/* Sub-step tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-neutral-200">
         <div className="flex gap-1">
           {SUB_STEPS.map((s) => (
             <button
@@ -201,8 +201,8 @@ export default function ConfirmationEmailStep({
               onClick={() => setActiveSubStep(s.key)}
               className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeSubStep === s.key
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  ? "border-primary-600 text-primary-600"
+                  : "border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300"
               }`}
             >
               {s.label}
@@ -217,7 +217,7 @@ export default function ConfirmationEmailStep({
         {activeSubStep === "info" && (
           <div className="space-y-6 max-w-xl">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-neutral-700">
                 Subject *
               </label>
               <input
@@ -226,16 +226,16 @@ export default function ConfirmationEmailStep({
                 onChange={(e) => handleInfoChange("subject", e.target.value)}
                 disabled={isLocked}
                 placeholder="Your registration is confirmed!"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full border border-neutral-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-600 focus:outline-none disabled:bg-neutral-50 disabled:text-neutral-400"
               />
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-neutral-400">
                 Tokens: {"{{first_name}}"}, {"{{session_title}}"},{" "}
                 {"{{registration_date}}"}
               </p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-neutral-700">
                 From Name
               </label>
               <input
@@ -244,12 +244,12 @@ export default function ConfirmationEmailStep({
                 onChange={(e) => handleInfoChange("fromName", e.target.value)}
                 disabled={isLocked}
                 placeholder="AYDT Registration"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full border border-neutral-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-600 focus:outline-none disabled:bg-neutral-50 disabled:text-neutral-400"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-neutral-700">
                 From Email
               </label>
               <input
@@ -258,7 +258,7 @@ export default function ConfirmationEmailStep({
                 onChange={(e) => handleInfoChange("fromEmail", e.target.value)}
                 disabled={isLocked}
                 placeholder="noreply@aydt.com"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full border border-neutral-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-600 focus:outline-none disabled:bg-neutral-50 disabled:text-neutral-400"
               />
             </div>
           </div>
@@ -268,21 +268,21 @@ export default function ConfirmationEmailStep({
         {activeSubStep === "design" && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-neutral-500">
                 Build your email body. Use tokens like{" "}
-                <code className="bg-gray-100 px-1 rounded text-xs">
+                <code className="bg-neutral-100 px-1 rounded text-xs">
                   {"{{first_name}}"}
                 </code>
                 ,{" "}
-                <code className="bg-gray-100 px-1 rounded text-xs">
+                <code className="bg-neutral-100 px-1 rounded text-xs">
                   {"{{session_title}}"}
                 </code>
                 ,{" "}
-                <code className="bg-gray-100 px-1 rounded text-xs">
+                <code className="bg-neutral-100 px-1 rounded text-xs">
                   {"{{total_amount}}"}
                 </code>
                 ,{" "}
-                <code className="bg-gray-100 px-1 rounded text-xs">
+                <code className="bg-neutral-100 px-1 rounded text-xs">
                   {"{{registration_date}}"}
                 </code>
                 .
@@ -310,8 +310,8 @@ export default function ConfirmationEmailStep({
                 onClick={() => setPreviewMode("desktop")}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition ${
                   previewMode === "desktop"
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    ? "border-primary-600 bg-primary-50 text-primary-700"
+                    : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
                 }`}
               >
                 Desktop
@@ -320,8 +320,8 @@ export default function ConfirmationEmailStep({
                 onClick={() => setPreviewMode("mobile")}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition ${
                   previewMode === "mobile"
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    ? "border-primary-600 bg-primary-50 text-primary-700"
+                    : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
                 }`}
               >
                 Mobile
@@ -329,11 +329,11 @@ export default function ConfirmationEmailStep({
             </div>
 
             {htmlBody ? (
-              <div className="border border-gray-200 rounded-xl overflow-hidden bg-gray-50 p-4 flex justify-center">
+              <div className="border border-neutral-200 rounded-xl overflow-hidden bg-neutral-50 p-4 flex justify-center">
                 <iframe
                   srcDoc={wrapEmailLayout(applyTokens(htmlBody))}
                   title="Email preview"
-                  className="rounded-lg border border-gray-200"
+                  className="rounded-lg border border-neutral-200"
                   style={{
                     width: previewMode === "desktop" ? "720px" : "375px",
                     height: "480px",
@@ -342,12 +342,12 @@ export default function ConfirmationEmailStep({
                 />
               </div>
             ) : (
-              <div className="border border-gray-200 rounded-xl p-8 text-sm text-gray-400 text-center">
+              <div className="border border-neutral-200 rounded-xl p-8 text-sm text-neutral-400 text-center">
                 No email body yet. Add content in the Design tab.
               </div>
             )}
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-neutral-400">
               Tokens are replaced with mock data for preview.
             </p>
           </div>
@@ -356,17 +356,17 @@ export default function ConfirmationEmailStep({
         {/* — Test Send — */}
         {activeSubStep === "test" && (
           <div className="space-y-6 max-w-md">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-neutral-500">
               Send a test email with mock token data to verify rendering. The
               subject will be prefixed with{" "}
-              <span className="font-mono text-xs bg-gray-100 px-1 rounded">
+              <span className="font-mono text-xs bg-neutral-100 px-1 rounded">
                 [TEST]
               </span>
               .
             </p>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-neutral-700">
                 Test Email Address
               </label>
               <input
@@ -377,20 +377,20 @@ export default function ConfirmationEmailStep({
                   setTestStatus("idle");
                 }}
                 placeholder="you@example.com"
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full border border-neutral-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-600 focus:outline-none"
               />
             </div>
 
             <button
               onClick={handleTestSend}
               disabled={!testEmail || testStatus === "sending" || !semesterId}
-              className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {testStatus === "sending" ? "Sending..." : "Send Test Email"}
             </button>
 
             {testStatus === "sent" && (
-              <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              <div className="text-sm text-mint-text bg-mint/10 border border-mint rounded-xl px-4 py-3">
                 Test email sent successfully.
               </div>
             )}
@@ -406,16 +406,16 @@ export default function ConfirmationEmailStep({
       </div>
 
       {/* Footer navigation */}
-      <div className="flex justify-between pt-6 border-t border-gray-200">
+      <div className="flex justify-between pt-6 border-t border-neutral-200">
         <button
           onClick={onBack}
-          className="px-5 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+          className="px-5 py-2 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 transition"
         >
           Back
         </button>
         <button
           onClick={onNext}
-          className="px-5 py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition"
+          className="px-5 py-2 rounded-xl bg-primary-600 text-white hover:bg-primary-700 transition"
         >
           Continue
         </button>

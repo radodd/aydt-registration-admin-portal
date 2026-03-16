@@ -186,13 +186,13 @@ function DancerSelector({
       : (assignment?.ageStatus ?? "unchecked");
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5">
-      <h3 className="font-semibold text-gray-900 mb-1">{sessionName}</h3>
+    <div className="bg-white border border-neutral-200 rounded-2xl p-5">
+      <h3 className="font-semibold text-neutral-900 mb-1">{sessionName}</h3>
       {(minAge != null ||
         maxAge != null ||
         minGrade != null ||
         maxGrade != null) && (
-        <p className="text-xs text-gray-400 mb-3">
+        <p className="text-xs text-neutral-400 mb-3">
           {(minAge != null || maxAge != null) && (
             <span>
               Ages{" "}
@@ -228,8 +228,8 @@ function DancerSelector({
               onClick={() => setMode(m)}
               className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
                 mode === m
-                  ? "bg-indigo-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  ? "bg-primary-600 text-white"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
               }`}
             >
               {m === "select" ? "Select dancer" : "Add new dancer"}
@@ -243,7 +243,7 @@ function DancerSelector({
         <select
           value={assignment?.dancerId ?? ""}
           onChange={(e) => handleSelectExisting(e.target.value)}
-          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-400"
         >
           <option value="">— Select a dancer —</option>
           {existingDancers.map((d) => (
@@ -260,12 +260,12 @@ function DancerSelector({
         <form onSubmit={handleSubmit(onCreateSubmit)} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              <label className="block text-xs font-medium text-neutral-600 mb-1">
                 First name
               </label>
               <input
                 {...register("firstName")}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-400"
               />
               {errors.firstName && (
                 <p className="text-xs text-red-600 mt-1">
@@ -274,12 +274,12 @@ function DancerSelector({
               )}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              <label className="block text-xs font-medium text-neutral-600 mb-1">
                 Last name
               </label>
               <input
                 {...register("lastName")}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-400"
               />
               {errors.lastName && (
                 <p className="text-xs text-red-600 mt-1">
@@ -290,13 +290,13 @@ function DancerSelector({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
+            <label className="block text-xs font-medium text-neutral-600 mb-1">
               Date of birth
             </label>
             <input
               type="date"
               {...register("dateOfBirth")}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400"
             />
             {errors.dateOfBirth && (
               <p className="text-xs text-red-600 mt-1">
@@ -306,12 +306,12 @@ function DancerSelector({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">
+            <label className="block text-xs font-medium text-neutral-600 mb-1">
               Gender (optional)
             </label>
             <select
               {...register("gender")}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400"
             >
               <option value="">Prefer not to say</option>
               <option value="female">Female</option>
@@ -326,7 +326,7 @@ function DancerSelector({
           <button
             type="submit"
             disabled={creating}
-            className="w-full bg-gray-900 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-black transition-colors disabled:opacity-50"
+            className="w-full bg-neutral-900 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-black transition-colors disabled:opacity-50"
           >
             {creating ? "Saving…" : "Add dancer"}
           </button>
@@ -335,7 +335,7 @@ function DancerSelector({
 
       {/* Eligibility warning */}
       {assignment?.dancerId && ageStatus === "warning" && (
-        <p className="mt-3 text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+        <p className="mt-3 text-xs text-mauve-text bg-mauve/10 rounded-lg px-3 py-2">
           This dancer is near the age limit. Please confirm eligibility.
         </p>
       )}
@@ -531,7 +531,7 @@ export function ParticipantsContent({
         {[1, 2].map((i) => (
           <div
             key={i}
-            className="bg-white border border-gray-200 rounded-2xl p-5 h-40"
+            className="bg-white border border-neutral-200 rounded-2xl p-5 h-40"
           />
         ))}
       </div>
@@ -541,10 +541,10 @@ export function ParticipantsContent({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">
+        <h1 className="text-2xl font-bold text-neutral-900 mb-1">
           Assign participants
         </h1>
-        <p className="text-gray-500 text-sm">
+        <p className="text-neutral-500 text-sm">
           Select a dancer for each session in your cart.
         </p>
       </div>
@@ -583,7 +583,7 @@ export function ParticipantsContent({
               <button
                 type="button"
                 onClick={() => handleRemoveSession(sid)}
-                className="absolute top-3 right-3 text-gray-400 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-50"
+                className="absolute top-3 right-3 text-neutral-400 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-50"
                 aria-label="Remove session"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -602,7 +602,7 @@ export function ParticipantsContent({
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
+          className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors text-sm font-medium"
         >
           ← Back
         </button>
@@ -610,7 +610,7 @@ export function ParticipantsContent({
           type="button"
           onClick={handleContinue}
           disabled={!allAssigned}
-          className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Continue
         </button>

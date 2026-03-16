@@ -41,8 +41,8 @@ function formatTime(t: string | null): string {
 }
 
 function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol; sortDir: SortDir }) {
-  if (sortCol !== col) return <span className="ml-1 text-gray-300">↕</span>;
-  return <span className="ml-1 text-gray-600">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  if (sortCol !== col) return <span className="ml-1 text-neutral-300">↕</span>;
+  return <span className="ml-1 text-neutral-600">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
 export function SessionsTable({ sessions, registrationCounts, filterOptions }: Props) {
@@ -176,19 +176,19 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
       )}
 
       {rows.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-sm text-gray-400">
+        <div className="bg-white border border-neutral-200 rounded-xl p-8 text-center text-sm text-neutral-400">
           No active sessions found.
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-neutral-50 border-b border-neutral-200">
               {/* Sortable column headers */}
               <tr>
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSortClick("class")}
-                    className="flex items-center font-medium text-gray-600 hover:text-gray-900"
+                    className="flex items-center font-medium text-neutral-600 hover:text-neutral-900"
                   >
                     Class <SortIcon col="class" sortCol={sortCol} sortDir={sortDir} />
                   </button>
@@ -196,7 +196,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSortClick("discipline")}
-                    className="flex items-center font-medium text-gray-600 hover:text-gray-900"
+                    className="flex items-center font-medium text-neutral-600 hover:text-neutral-900"
                   >
                     Discipline <SortIcon col="discipline" sortCol={sortCol} sortDir={sortDir} />
                   </button>
@@ -204,7 +204,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSortClick("semester")}
-                    className="flex items-center font-medium text-gray-600 hover:text-gray-900"
+                    className="flex items-center font-medium text-neutral-600 hover:text-neutral-900"
                   >
                     Semester <SortIcon col="semester" sortCol={sortCol} sortDir={sortDir} />
                   </button>
@@ -212,7 +212,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSortClick("day")}
-                    className="flex items-center font-medium text-gray-600 hover:text-gray-900"
+                    className="flex items-center font-medium text-neutral-600 hover:text-neutral-900"
                   >
                     Schedule <SortIcon col="day" sortCol={sortCol} sortDir={sortDir} />
                   </button>
@@ -220,12 +220,12 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSortClick("enrolled")}
-                    className="flex items-center font-medium text-gray-600 hover:text-gray-900"
+                    className="flex items-center font-medium text-neutral-600 hover:text-neutral-900"
                   >
                     Enrolled / Cap <SortIcon col="enrolled" sortCol={sortCol} sortDir={sortDir} />
                   </button>
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-gray-600">
+                <th className="px-4 py-3 text-right font-medium text-neutral-600">
                   {hasFilters && (
                     <button
                       onClick={clearFilters}
@@ -237,21 +237,21 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 </th>
               </tr>
               {/* Filter row */}
-              <tr className="border-t border-gray-100">
+              <tr className="border-t border-neutral-200">
                 <td className="px-4 py-2">
                   <input
                     type="text"
                     placeholder="Search class…"
                     value={filterClass}
                     onChange={(e) => setFilterClass(e.target.value)}
-                    className="w-full rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
                   />
                 </td>
                 <td className="px-4 py-2">
                   <select
                     value={filterDiscipline}
                     onChange={(e) => setFilterDiscipline(e.target.value)}
-                    className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full rounded-md border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
                   >
                     <option value="">All disciplines</option>
                     {filterOptions.disciplines.map((d) => (
@@ -263,7 +263,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                   <select
                     value={filterSemester}
                     onChange={(e) => setFilterSemester(e.target.value)}
-                    className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full rounded-md border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
                   >
                     <option value="">All semesters</option>
                     {filterOptions.semesters.map((s) => (
@@ -275,7 +275,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                   <select
                     value={filterDay}
                     onChange={(e) => setFilterDay(e.target.value)}
-                    className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                    className="w-full rounded-md border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
                   >
                     <option value="">All days</option>
                     {filterOptions.days.map((d) => (
@@ -287,10 +287,10 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 <td className="px-4 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-neutral-100">
               {filteredSorted.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-neutral-400">
                     No sessions match your filters.
                   </td>
                 </tr>
@@ -305,21 +305,21 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                   const semesterName = (session.semesters as any)?.name ?? "—";
 
                   return (
-                    <tr key={session.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 font-medium text-gray-900">{className}</td>
-                      <td className="px-4 py-3 text-gray-600 capitalize">{discipline}</td>
-                      <td className="px-4 py-3 text-gray-600">{semesterName}</td>
-                      <td className="px-4 py-3 text-gray-600">
+                    <tr key={session.id} className="hover:bg-neutral-50">
+                      <td className="px-4 py-3 font-medium text-neutral-900">{className}</td>
+                      <td className="px-4 py-3 text-neutral-600 capitalize">{discipline}</td>
+                      <td className="px-4 py-3 text-neutral-600">{semesterName}</td>
+                      <td className="px-4 py-3 text-neutral-600">
                         {session.day_of_week}{" "}
                         {formatTime(session.start_time)}
                         {session.end_time ? ` – ${formatTime(session.end_time)}` : ""}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={isFull ? "font-semibold text-red-600" : "text-gray-600"}>
+                        <span className={isFull ? "font-semibold text-red-600" : "text-neutral-600"}>
                           {enrolledCount} / {cap}
                         </span>
                         {isFull && (
-                          <span className="ml-2 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">
+                          <span className="ml-2 text-xs bg-pale-rose/30 text-pale-rose-text px-1.5 py-0.5 rounded-full">
                             Full
                           </span>
                         )}
@@ -341,7 +341,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
 
           {/* Result count */}
           {hasFilters && (
-            <div className="px-4 py-2 border-t border-gray-100 text-xs text-gray-400">
+            <div className="px-4 py-2 border-t border-neutral-200 text-xs text-neutral-400">
               Showing {filteredSorted.length} of {rows.length} sessions
             </div>
           )}
@@ -352,10 +352,10 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
       {cancellingId && cancellingSession && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5">
-            <h2 className="text-lg font-semibold text-gray-900">Cancel Session</h2>
+            <h2 className="text-lg font-semibold text-neutral-900">Cancel Session</h2>
 
             {/* Session details */}
-            <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-700 space-y-1">
+            <div className="bg-neutral-50 rounded-lg px-4 py-3 text-sm text-neutral-700 space-y-1">
               <p>
                 <span className="font-medium">Class:</span>{" "}
                 {(cancellingSession.classes as any)?.name ?? "—"}
@@ -386,7 +386,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
 
             {/* Reason */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
                 Cancellation reason <span className="text-red-500">*</span>
               </label>
               <textarea
@@ -394,7 +394,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
                 placeholder="e.g. Instructor illness, facility issue, low enrollment…"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
               />
             </div>
 
@@ -407,7 +407,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
               <button
                 onClick={closeModal}
                 disabled={isPending}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
               >
                 Go Back
               </button>

@@ -62,8 +62,8 @@ export default function AuditionBookingClient({
 
   if (step === "confirmed") {
     return (
-      <main className="min-h-screen flex items-center justify-center px-4 bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center space-y-4">
+      <main className="min-h-screen flex items-center justify-center px-4 bg-neutral-50">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-neutral-200 p-8 text-center space-y-4">
           <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto">
             <svg
               className="w-6 h-6 text-green-600"
@@ -79,18 +79,18 @@ export default function AuditionBookingClient({
               />
             </svg>
           </div>
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-neutral-900">
             Audition Booked!
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-neutral-500">
             Your spot for{" "}
-            <span className="font-medium text-gray-700">{danceClass.name}</span>{" "}
+            <span className="font-medium text-neutral-700">{danceClass.name}</span>{" "}
             is confirmed.
             {selectedSession && (
               <>
                 {" "}
                 See you on{" "}
-                <span className="font-medium text-gray-700">
+                <span className="font-medium text-neutral-700">
                   {new Date(selectedSession.start_at).toLocaleDateString(
                     "en-US",
                     { weekday: "long", month: "long", day: "numeric" },
@@ -105,31 +105,31 @@ export default function AuditionBookingClient({
               </>
             )}
           </p>
-          <p className="text-xs text-gray-400">Booking ID: {bookingId}</p>
+          <p className="text-xs text-neutral-400">Booking ID: {bookingId}</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 py-12">
+    <main className="min-h-screen bg-neutral-50 px-4 py-12">
       <div className="max-w-lg mx-auto space-y-6">
         {/* Header */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <p className="text-xs font-medium text-indigo-600 uppercase tracking-wider mb-1">
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-6">
+          <p className="text-xs font-medium text-primary-600 uppercase tracking-wider mb-1">
             Competition Track Audition
           </p>
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="text-2xl font-semibold text-neutral-900">
             {danceClass.name}
           </h1>
           {danceClass.description && (
-            <p className="mt-2 text-sm text-gray-500">{danceClass.description}</p>
+            <p className="mt-2 text-sm text-neutral-500">{danceClass.description}</p>
           )}
           <div className="mt-3 flex gap-2 flex-wrap">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 capitalize">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-50 text-primary-700 capitalize">
               {danceClass.discipline.replace(/_/g, " ")}
             </span>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 capitalize">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-600 capitalize">
               {danceClass.division.replace(/_/g, " ")}
             </span>
           </div>
@@ -137,12 +137,12 @@ export default function AuditionBookingClient({
 
         {/* Step: Select session */}
         {step === "select_session" && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-            <h2 className="font-medium text-gray-900">
+          <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-4">
+            <h2 className="font-medium text-neutral-900">
               Select an Audition Slot
             </h2>
             {auditionSessions.length === 0 ? (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-neutral-500">
                 No audition slots are currently available. Please check back
                 later or contact the studio.
               </p>
@@ -159,11 +159,11 @@ export default function AuditionBookingClient({
                       onClick={() => setSelectedSessionId(session.id)}
                       className={`w-full text-left rounded-xl border px-4 py-3 transition-colors ${
                         isSelected
-                          ? "border-indigo-500 bg-indigo-50"
-                          : "border-gray-200 hover:border-gray-300"
+                          ? "border-primary-600 bg-primary-50"
+                          : "border-neutral-200 hover:border-neutral-300"
                       }`}
                     >
-                      <p className="font-medium text-sm text-gray-900">
+                      <p className="font-medium text-sm text-neutral-900">
                         {session.label ??
                           start.toLocaleDateString("en-US", {
                             weekday: "long",
@@ -171,7 +171,7 @@ export default function AuditionBookingClient({
                             day: "numeric",
                           })}
                       </p>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-neutral-500 mt-0.5">
                         {start.toLocaleTimeString("en-US", {
                           hour: "numeric",
                           minute: "2-digit",
@@ -184,7 +184,7 @@ export default function AuditionBookingClient({
                         {session.location && ` · ${session.location}`}
                       </p>
                       {session.price !== null && (
-                        <p className="text-xs font-medium text-indigo-600 mt-1">
+                        <p className="text-xs font-medium text-primary-600 mt-1">
                           ${session.price.toFixed(2)}
                         </p>
                       )}
@@ -196,7 +196,7 @@ export default function AuditionBookingClient({
             <button
               onClick={() => setStep("identity")}
               disabled={!selectedSessionId}
-              className="w-full mt-2 rounded-xl bg-indigo-600 text-white text-sm font-medium py-2.5 disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+              className="w-full mt-2 rounded-xl bg-primary-600 text-white text-sm font-medium py-2.5 disabled:opacity-40 hover:bg-primary-700 transition-colors"
             >
               Continue
             </button>
@@ -205,15 +205,15 @@ export default function AuditionBookingClient({
 
         {/* Step: Identity */}
         {step === "identity" && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-            <h2 className="font-medium text-gray-900">Your Information</h2>
-            <p className="text-xs text-gray-500">
+          <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-6 space-y-4">
+            <h2 className="font-medium text-neutral-900">Your Information</h2>
+            <p className="text-xs text-neutral-500">
               Enter the name and email for the student auditioning.
             </p>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-neutral-700 mb-1">
                   Student Name
                 </label>
                 <input
@@ -221,11 +221,11 @@ export default function AuditionBookingClient({
                   value={guestName}
                   onChange={(e) => setGuestName(e.target.value)}
                   placeholder="Full name"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-neutral-700 mb-1">
                   Email Address
                 </label>
                 <input
@@ -233,7 +233,7 @@ export default function AuditionBookingClient({
                   value={guestEmail}
                   onChange={(e) => setGuestEmail(e.target.value)}
                   placeholder="email@example.com"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                 />
               </div>
             </div>
@@ -247,7 +247,7 @@ export default function AuditionBookingClient({
             <div className="flex gap-2">
               <button
                 onClick={() => setStep("select_session")}
-                className="flex-1 rounded-xl border border-gray-200 text-gray-700 text-sm font-medium py-2.5 hover:bg-gray-50 transition-colors"
+                className="flex-1 rounded-xl border border-neutral-200 text-neutral-700 text-sm font-medium py-2.5 hover:bg-neutral-50 transition-colors"
               >
                 Back
               </button>
@@ -258,7 +258,7 @@ export default function AuditionBookingClient({
                   !guestName.trim() ||
                   !guestEmail.trim()
                 }
-                className="flex-1 rounded-xl bg-indigo-600 text-white text-sm font-medium py-2.5 disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+                className="flex-1 rounded-xl bg-primary-600 text-white text-sm font-medium py-2.5 disabled:opacity-40 hover:bg-primary-700 transition-colors"
               >
                 {submitting ? "Booking…" : "Confirm Booking"}
               </button>

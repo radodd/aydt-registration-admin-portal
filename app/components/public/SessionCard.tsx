@@ -33,7 +33,7 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
   return (
     <div
       className={`bg-white border rounded-2xl overflow-hidden transition-shadow hover:shadow-md ${
-        inCart ? "border-indigo-300 shadow-sm" : "border-gray-200"
+        inCart ? "border-primary-300 shadow-sm" : "border-neutral-200"
       }`}
     >
       {/* Card header */}
@@ -41,29 +41,29 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
             {groupName && (
-              <p className="text-xs font-medium text-indigo-500 mb-1">
+              <p className="text-xs font-medium text-primary-500 mb-1">
                 {groupName}
               </p>
             )}
-            <h3 className="text-base font-semibold text-gray-900 leading-tight">
+            <h3 className="text-base font-semibold text-neutral-900 leading-tight">
               {session.name}
             </h3>
             {session.category && (
-              <p className="text-xs text-gray-400 mt-0.5">{session.category}</p>
+              <p className="text-xs text-neutral-400 mt-0.5">{session.category}</p>
             )}
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
             {/* Competition track badge */}
             {session.isCompetitionTrack && (
-              <span className="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full border border-amber-200">
+              <span className="bg-mauve/20 text-mauve-text text-xs font-semibold px-2.5 py-1 rounded-full border border-mauve">
                 Competition
               </span>
             )}
 
             {/* In-cart badge */}
             {inCart && (
-              <span className="bg-indigo-50 text-indigo-600 text-xs font-semibold px-2.5 py-1 rounded-full">
+              <span className="bg-primary-50 text-primary-600 text-xs font-semibold px-2.5 py-1 rounded-full">
                 In cart
               </span>
             )}
@@ -74,12 +74,12 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
         {(session.scheduleDate || session.startTime) && (
           <div className="flex flex-wrap items-center gap-2 mb-3">
             {session.scheduleDate && (
-              <span className="bg-indigo-50 text-indigo-700 text-xs font-medium px-2.5 py-1 rounded-full capitalize">
+              <span className="bg-primary-50 text-primary-700 text-xs font-medium px-2.5 py-1 rounded-full capitalize">
                 {fmtDate(session.scheduleDate)}
               </span>
             )}
             {session.startTime && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-neutral-500">
                 {fmtTime(session.startTime)}
                 {session.endTime ? ` – ${fmtTime(session.endTime)}` : ""}
               </span>
@@ -88,7 +88,7 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
         )}
 
         {/* Meta row */}
-        <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-3">
+        <div className="flex flex-wrap gap-3 text-sm text-neutral-500 mb-3">
           {session.location && (
             <span className="flex items-center gap-1">
               <svg
@@ -141,7 +141,7 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
 
         {/* Description */}
         {session.description && (
-          <p className="text-sm text-gray-600 mb-3 leading-relaxed">
+          <p className="text-sm text-neutral-600 mb-3 leading-relaxed">
             {session.description}
           </p>
         )}
@@ -153,7 +153,7 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
               isFull
                 ? "text-red-600"
                 : session.spotsRemaining <= 5
-                  ? "text-amber-600"
+                  ? "text-mauve-text"
                   : "text-green-600"
             }`}
           >
@@ -165,7 +165,7 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
           </span>
 
           {price > 0 && (
-            <span className="font-semibold text-gray-900">
+            <span className="font-semibold text-neutral-900">
               {formatCurrency(price)}
             </span>
           )}
@@ -173,7 +173,7 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
 
         {/* Registration close notice */}
         {session.registrationCloseAt && (
-          <p className="text-xs text-amber-600 mb-4">
+          <p className="text-xs text-mauve-text mb-4">
             Registration closes{" "}
             {new Date(session.registrationCloseAt).toLocaleDateString("en-US", {
               month: "long",
@@ -184,11 +184,11 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
 
         {/* Competition track notice */}
         {session.isCompetitionTrack && (
-          <div className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 mb-4">
-            <p className="text-xs font-semibold text-amber-800 mb-0.5">
+          <div className="rounded-xl bg-mauve/10 border border-mauve px-3 py-2 mb-4">
+            <p className="text-xs font-semibold text-mauve-text mb-0.5">
               Competition Track
             </p>
-            <p className="text-xs text-amber-700">
+            <p className="text-xs text-mauve-text">
               Audition or director approval required. Concurrent enrollment in
               required technique classes may be needed. Contact the studio for
               eligibility.
@@ -202,13 +202,13 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
             <button
               type="button"
               onClick={handleRemove}
-              className="flex-1 text-sm py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors font-medium"
+              className="flex-1 text-sm py-2.5 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors font-medium"
             >
               Remove
             </button>
             <a
               href="/cart"
-              className="flex-1 text-sm py-2.5 rounded-xl bg-indigo-600 text-white text-center hover:bg-indigo-700 transition-colors font-semibold"
+              className="flex-1 text-sm py-2.5 rounded-xl bg-primary-600 text-white text-center hover:bg-primary-700 transition-colors font-semibold"
             >
               View Cart
             </a>
@@ -218,7 +218,7 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
             type="button"
             onClick={handleAddToCart}
             disabled={isFull}
-            className="w-full text-sm py-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full text-sm py-2.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isFull
               ? session.waitlistEnabled

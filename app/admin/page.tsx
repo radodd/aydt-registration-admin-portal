@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 
-// Replace with your Supabase client
 import { createClient } from "@/utils/supabase/client";
 import { deleteSemester } from "./semesters/actions/deleteSemester";
-import { r } from "happy-dom/lib/PropertySymbol";
-import { StatusBadge } from "@/app/components/SemesterStatusBadge";
+import { Button, Badge, PageHeader, SectionCard } from "@/app/components/ui";
+import type { BadgeStatus } from "@/app/components/ui";
 
 type Semester = {
   id: string;
@@ -17,7 +17,7 @@ type Semester = {
   created_at: string;
 };
 
-export default function SemesterListPage() {
+export default function AdminDashboardPage() {
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -45,105 +45,87 @@ export default function SemesterListPage() {
   }, []);
 
   async function handleDelete(id: string) {
-    console.log("🖱 Delete button clicked for:", id);
-
     const confirmed = confirm("Are you sure you want to delete this semester?");
-
-    console.log("User confirmed:", confirmed);
-
     if (!confirmed) return;
 
     try {
       setDeletingId(id);
-      console.log("🚀 Calling server action...");
-      // Optimistically remove from UI
       setSemesters((prev) => prev.filter((s) => s.id !== id));
-
-      const result = await deleteSemester(id);
-
-      console.log("🎉 Server action result:", result);
+      await deleteSemester(id);
     } catch (err) {
-      console.error("🔥 Delete failed:", err);
+      console.error("Delete failed:", err);
     } finally {
       setDeletingId(null);
     }
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-8">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
-              Semesters
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Manage and publish academic semesters.
-            </p>
-          </div>
-
-          <button
+    <div className="max-w-4xl mx-auto">
+      <PageHeader
+        title="Semesters"
+        subtitle="Manage and publish academic semesters."
+        action={
+          <Button
+            variant="primary"
+            size="md"
             onClick={() => router.push("/admin/semesters/new")}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
           >
-            + Create New Semester
-          </button>
-        </div>
+            <Plus size={15} />
+            Create New Semester
+          </Button>
+        }
+      />
 
-        {/* Content */}
+      <SectionCard flush>
         {loading ? (
-          <div className="text-sm text-gray-500">Loading semesters...</div>
+          <div className="px-6 py-10 text-center">
+            <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-neutral-500">Loading semesters…</p>
+          </div>
         ) : semesters.length === 0 ? (
-          <div className="border border-dashed border-gray-300 rounded-xl p-8 text-center">
-            <p className="text-sm text-gray-500">No semesters found.</p>
+          <div className="px-6 py-10 text-center border border-dashed border-neutral-300 rounded-lg m-4">
+            <p className="text-sm text-neutral-500">No semesters found.</p>
           </div>
         ) : (
-          <ul className="space-y-4">
+          <ul className="divide-y divide-neutral-100">
             {semesters.map((s) => {
               const isDeleting = deletingId === s.id;
+              const label = s.status.charAt(0).toUpperCase() + s.status.slice(1);
 
               return (
                 <li
                   key={s.id}
-                  className="border border-gray-200 rounded-xl p-5 flex justify-between items-center hover:border-gray-300 transition"
+                  className="px-6 py-4 flex justify-between items-center hover:bg-neutral-50 transition-colors"
                 >
-                  {/* Semester Info */}
-                  <div className="space-y-1">
-                    <div className="font-medium text-gray-900">{s.name}</div>
-                    <StatusBadge status={s.status} />
-                    {/* <div className="text-sm text-gray-500">
-                      {s.publish_at
-                        ? `Published: ${new Date(
-                            s.publish_at,
-                          ).toLocaleDateString()}`
-                        : "Unpublished"}
-                    </div> */}
+                  <div className="flex items-center gap-3">
+                    <p className="text-sm font-medium text-neutral-900">{s.name}</p>
+                    <Badge status={s.status as BadgeStatus}>{label}</Badge>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-4">
-                    <button
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       onClick={() => router.push(`/admin/semesters/${s.id}`)}
-                      className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
                     >
                       View
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(s.id)}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       disabled={isDeleting}
-                      className="text-sm font-medium text-red-600 hover:text-red-700 transition disabled:opacity-50"
+                      onClick={() => handleDelete(s.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
-                      {isDeleting ? "Deleting..." : "Delete"}
-                    </button>
+                      {isDeleting ? "Deleting…" : "Delete"}
+                    </Button>
                   </div>
                 </li>
               );
             })}
           </ul>
         )}
-      </div>
+      </SectionCard>
     </div>
   );
 }

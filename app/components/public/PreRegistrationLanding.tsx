@@ -171,20 +171,20 @@ export function PreRegistrationLanding({ semester, onOpen }: Props) {
       {/* Hero                                                                */}
       {/* ------------------------------------------------------------------ */}
       <div className="text-center space-y-3">
-        <p className="text-sm font-medium text-indigo-600 uppercase tracking-widest">
+        <p className="text-sm font-medium text-primary-600 uppercase tracking-widest">
           Coming Soon
         </p>
-        <h1 className="text-4xl sm:text-5xl font-bold text-gray-900">
+        <h1 className="text-4xl sm:text-5xl font-bold text-neutral-900">
           {semester.name}
         </h1>
         {formattedOpen && (
-          <p className="text-lg text-gray-500">
+          <p className="text-lg text-neutral-500">
             Registration opens{" "}
-            <span className="text-gray-800 font-semibold">{formattedOpen}</span>
+            <span className="text-neutral-800 font-semibold">{formattedOpen}</span>
           </p>
         )}
         {semester.description && (
-          <p className="text-gray-500 max-w-xl mx-auto leading-relaxed">
+          <p className="text-neutral-500 max-w-xl mx-auto leading-relaxed">
             {semester.description}
           </p>
         )}
@@ -194,8 +194,8 @@ export function PreRegistrationLanding({ semester, onOpen }: Props) {
       {/* Countdown                                                           */}
       {/* ------------------------------------------------------------------ */}
       {openAt && secondsLeft > 0 && (
-        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-8">
-          <p className="text-center text-sm font-medium text-indigo-500 mb-6 uppercase tracking-widest">
+        <div className="bg-primary-50 border border-primary-100 rounded-2xl p-8">
+          <p className="text-center text-sm font-medium text-primary-500 mb-6 uppercase tracking-widest">
             Registration opens in
           </p>
           <div className="grid grid-cols-4 gap-4 text-center">
@@ -206,10 +206,10 @@ export function PreRegistrationLanding({ semester, onOpen }: Props) {
               { label: "Seconds", value: seconds },
             ].map(({ label, value }) => (
               <div key={label} className="space-y-1">
-                <div className="text-4xl sm:text-5xl font-bold text-indigo-700 tabular-nums">
+                <div className="text-4xl sm:text-5xl font-bold text-primary-700 tabular-nums">
                   {pad(value)}
                 </div>
-                <div className="text-xs text-indigo-400 uppercase tracking-wider">
+                <div className="text-xs text-primary-400 uppercase tracking-wider">
                   {label}
                 </div>
               </div>
@@ -223,14 +223,14 @@ export function PreRegistrationLanding({ semester, onOpen }: Props) {
       {/* ------------------------------------------------------------------ */}
       {disciplines.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900 text-center">
+          <h2 className="text-lg font-semibold text-neutral-900 text-center">
             Classes being offered
           </h2>
           <div className="flex flex-wrap justify-center gap-2">
             {disciplines.map((d) => (
               <span
                 key={d}
-                className="inline-block bg-white border border-gray-200 text-gray-700 text-sm font-medium px-4 py-1.5 rounded-full shadow-sm"
+                className="inline-block bg-white border border-neutral-200 text-neutral-700 text-sm font-medium px-4 py-1.5 rounded-full shadow-sm"
               >
                 {d}
               </span>
@@ -242,18 +242,18 @@ export function PreRegistrationLanding({ semester, onOpen }: Props) {
       {/* ------------------------------------------------------------------ */}
       {/* Notify-me                                                           */}
       {/* ------------------------------------------------------------------ */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm space-y-4">
+      <div className="bg-white border border-neutral-200 rounded-2xl p-8 shadow-sm space-y-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-neutral-900">
             Get notified when registration opens
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-neutral-500 mt-1">
             We&apos;ll send you a reminder as soon as enrollment is available.
           </p>
         </div>
 
         {notifyState === "done" && (
-          <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+          <div className="rounded-xl bg-mint/10 border border-mint px-4 py-3 text-sm text-green-800">
             You&apos;re on the list! We&apos;ll email you when registration opens.
           </div>
         )}
@@ -277,7 +277,7 @@ export function PreRegistrationLanding({ semester, onOpen }: Props) {
               placeholder="Your name (optional)"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+              className="w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-neutral-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600 transition"
             />
             <div className="flex gap-3">
               <input
@@ -286,12 +286,12 @@ export function PreRegistrationLanding({ semester, onOpen }: Props) {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                className="flex-1 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-neutral-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600 transition"
               />
               <button
                 type="submit"
                 disabled={notifyState === "submitting"}
-                className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition disabled:opacity-60 whitespace-nowrap"
+                className="rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 transition disabled:opacity-60 whitespace-nowrap"
               >
                 {notifyState === "submitting" ? "Saving…" : "Notify me"}
               </button>
@@ -307,7 +307,7 @@ export function PreRegistrationLanding({ semester, onOpen }: Props) {
         <div className="text-center">
           <button
             onClick={() => downloadIcs(semester.name, openAt)}
-            className="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-800 transition"
           >
             <CalendarIcon />
             Add to calendar

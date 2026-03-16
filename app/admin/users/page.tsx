@@ -44,15 +44,15 @@ export default function UsersAdmin() {
       ============================================================ */}
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Users</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-semibold text-neutral-900">Users</h1>
+          <p className="text-sm text-neutral-500 mt-1">
             Manage parent and admin accounts.
           </p>
         </div>
 
         <button
           className="inline-flex items-center px-5 py-2.5 rounded-2xl text-sm font-medium
-                     bg-indigo-600 text-white hover:bg-indigo-700 transition"
+                     bg-primary-600 text-white hover:bg-primary-700 transition"
         >
           + Add User
         </button>
@@ -62,18 +62,18 @@ export default function UsersAdmin() {
           Content
       ============================================================ */}
       {loading ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 text-gray-500">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-8 text-neutral-500">
           Loading users...
         </div>
       ) : users.length === 0 ? (
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center text-gray-500">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center text-neutral-500">
           No users found.
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             {/* Header */}
-            <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wide text-gray-600">
+            <thead className="bg-neutral-50 border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-600">
               <tr>
                 <th className="px-6 py-4 text-left font-medium">Name</th>
                 <th className="px-6 py-4 text-left font-medium">Phone</th>
@@ -84,18 +84,18 @@ export default function UsersAdmin() {
             </thead>
 
             {/* Body */}
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-neutral-100">
               {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4 font-medium text-gray-900">
+                <tr key={user.id} className="hover:bg-neutral-50 transition">
+                  <td className="px-6 py-4 font-medium text-neutral-900">
                     {user.first_name} {user.last_name}
                   </td>
 
-                  <td className="px-6 py-4 text-gray-600">
+                  <td className="px-6 py-4 text-neutral-600">
                     {user.phone_number || "—"}
                   </td>
 
-                  <td className="px-6 py-4 text-gray-600">
+                  <td className="px-6 py-4 text-neutral-600">
                     {user.email || "—"}
                   </td>
 
@@ -103,8 +103,8 @@ export default function UsersAdmin() {
                     <span
                       className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${
                         user.is_primary_parent
-                          ? "bg-indigo-100 text-indigo-700"
-                          : "bg-gray-100 text-gray-600"
+                          ? "bg-primary-100 text-primary-700"
+                          : "bg-neutral-100 text-neutral-600"
                       }`}
                     >
                       {user.is_primary_parent ? "Yes" : "No"}
@@ -114,7 +114,7 @@ export default function UsersAdmin() {
                   <td className="px-6 py-4 text-right space-x-3">
                     <button
                       className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-medium
-                                 bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+                                 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition"
                       onClick={() => alert(`Edit user ${user.first_name}`)}
                     >
                       Edit

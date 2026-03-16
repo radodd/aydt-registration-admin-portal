@@ -24,23 +24,23 @@ export default async function HomePage() {
       {/* ------------------------------------------------------------------ */}
       {/* Hero                                                                */}
       {/* ------------------------------------------------------------------ */}
-      <section className="bg-white border-b border-gray-200">
+      <section className="bg-white border-b border-neutral-200">
         <div className="max-w-6xl mx-auto px-6 py-16 sm:py-20">
           <div className="max-w-2xl">
-            <p className="text-indigo-600 font-semibold text-sm tracking-wide uppercase mb-3">
+            <p className="text-primary-600 font-semibold text-sm tracking-wide uppercase mb-3">
               Enrollment Open
             </p>
-            <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight mb-5">
+            <h1 className="text-4xl sm:text-5xl font-bold text-neutral-900 leading-tight mb-5">
               Dance Programs for Young Artists
             </h1>
-            <p className="text-gray-600 text-lg leading-relaxed mb-8">
+            <p className="text-neutral-600 text-lg leading-relaxed mb-8">
               American Youth Dance Theater offers world-class dance training for
               children and young adults. Browse our upcoming semesters and
               secure your spot today.
             </p>
             <a
               href="#semesters"
-              className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-indigo-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-primary-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-primary-700 transition-colors"
             >
               View Available Semesters
             </a>
@@ -52,10 +52,10 @@ export default async function HomePage() {
       {/* Semesters grid                                                      */}
       {/* ------------------------------------------------------------------ */}
       <section id="semesters" className="max-w-6xl mx-auto px-6 py-14">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="text-2xl font-bold text-neutral-900 mb-2">
           Available Semesters
         </h2>
-        <p className="text-gray-500 mb-8">
+        <p className="text-neutral-500 mb-8">
           Select a semester to view sessions, schedules, and pricing.
         </p>
 
@@ -64,11 +64,11 @@ export default async function HomePage() {
             Unable to load semesters. Please try again shortly.
           </div>
         ) : !semesters || semesters.length === 0 ? (
-          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center">
-            <p className="text-gray-500 font-medium">
+          <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center">
+            <p className="text-neutral-500 font-medium">
               No semesters are currently open for registration.
             </p>
-            <p className="text-gray-400 text-sm mt-1">
+            <p className="text-neutral-400 text-sm mt-1">
               Check back soon for upcoming programs.
             </p>
           </div>
@@ -95,30 +95,30 @@ export default async function HomePage() {
               return (
                 <div
                   key={semester.id}
-                  className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col"
+                  className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col"
                 >
                   {/* Header */}
                   <div className="mb-4 flex-1">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    <h3 className="text-xl font-semibold text-neutral-900 mb-2">
                       {semester.name}
                     </h3>
 
                     {/* Date range */}
                     {earliest && latest && (
-                      <p className="text-sm text-indigo-600 font-medium mb-2">
+                      <p className="text-sm text-primary-600 font-medium mb-2">
                         {formatDate(earliest)} – {formatDate(latest)}
                       </p>
                     )}
 
                     {/* {semester.description && (
-                      <p className="text-gray-500 text-sm leading-relaxed line-clamp-3">
+                      <p className="text-neutral-500 text-sm leading-relaxed line-clamp-3">
                         {semester.description}
                       </p> */}
                   </div>
 
                   {/* Sessions count pill */}
                   {sessions.length > 0 && (
-                    <p className="text-xs text-gray-400 mb-4">
+                    <p className="text-xs text-neutral-400 mb-4">
                       {sessions.length} session
                       {sessions.length !== 1 ? "s" : ""} available
                     </p>
@@ -126,7 +126,7 @@ export default async function HomePage() {
 
                   <Link
                     href={`/semester/${semester.id}`}
-                    className="block text-center bg-indigo-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-indigo-700 transition-colors"
+                    className="block text-center bg-primary-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-primary-700 transition-colors"
                   >
                     View Sessions
                   </Link>

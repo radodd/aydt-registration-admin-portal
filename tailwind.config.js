@@ -4,7 +4,7 @@ const config = {
   theme: {
     extend: {},
   },
-  plugins: [typography],
+  plugins: [],
 };
 
 export default config;

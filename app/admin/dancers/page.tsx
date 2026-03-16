@@ -44,15 +44,15 @@ export default function DancersAdmin() {
       ============================================================ */}
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Dancers</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-semibold text-neutral-900">Dancers</h1>
+          <p className="text-sm text-neutral-500 mt-1">
             Manage dancer profiles across families.
           </p>
         </div>
 
         <button
           className="inline-flex items-center px-5 py-2.5 rounded-2xl text-sm font-medium
-                           bg-indigo-600 text-white hover:bg-indigo-700 transition"
+                           bg-primary-600 text-white hover:bg-primary-700 transition"
         >
           + Add Dancer
         </button>
@@ -62,18 +62,18 @@ export default function DancersAdmin() {
           Content
       ============================================================ */}
       {loading ? (
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 text-gray-500">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-8 text-neutral-500">
           Loading dancers...
         </div>
       ) : dancers.length === 0 ? (
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center text-gray-500">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center text-neutral-500">
           No dancers found.
         </div>
       ) : (
-        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             {/* Header */}
-            <thead className="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wide text-gray-600">
+            <thead className="bg-neutral-50 border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-600">
               <tr>
                 <th className="px-6 py-4 text-left font-medium">Name</th>
                 <th className="px-6 py-4 text-left font-medium">Birth Date</th>
@@ -87,36 +87,36 @@ export default function DancersAdmin() {
             </thead>
 
             {/* Body */}
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-neutral-100">
               {dancers.map((dancer) => (
-                <tr key={dancer.id} className="hover:bg-gray-50 transition">
-                  <td className="px-6 py-4 font-medium text-gray-900">
+                <tr key={dancer.id} className="hover:bg-neutral-50 transition">
+                  <td className="px-6 py-4 font-medium text-neutral-900">
                     {dancer.first_name} {dancer.last_name}
                   </td>
 
-                  <td className="px-6 py-4 text-gray-600">
+                  <td className="px-6 py-4 text-neutral-600">
                     {dancer.birth_date
                       ? new Date(dancer.birth_date).toLocaleDateString()
                       : "—"}
                   </td>
 
-                  <td className="px-6 py-4 text-gray-600">
+                  <td className="px-6 py-4 text-neutral-600">
                     {dancer.grade || "—"}
                   </td>
 
-                  <td className="px-6 py-4 text-gray-600">
+                  <td className="px-6 py-4 text-neutral-600">
                     {[dancer.city, dancer.state].filter(Boolean).join(", ") ||
                       "—"}
                   </td>
 
-                  <td className="px-6 py-4 text-gray-600">
+                  <td className="px-6 py-4 text-neutral-600">
                     <div>{dancer.phone_number || "—"}</div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-neutral-400">
                       {dancer.email || ""}
                     </div>
                   </td>
 
-                  <td className="px-6 py-4 text-gray-600">
+                  <td className="px-6 py-4 text-neutral-600">
                     {Array.isArray(dancer.users) && dancer.users.length > 0
                       ? `${dancer.users[0].first_name} ${dancer.users[0].last_name}`
                       : "—"}
@@ -126,8 +126,8 @@ export default function DancersAdmin() {
                     <span
                       className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${
                         dancer.is_self
-                          ? "bg-indigo-100 text-indigo-700"
-                          : "bg-gray-100 text-gray-600"
+                          ? "bg-primary-100 text-primary-700"
+                          : "bg-neutral-100 text-neutral-600"
                       }`}
                     >
                       {dancer.is_self ? "Yes" : "No"}
@@ -137,7 +137,7 @@ export default function DancersAdmin() {
                   <td className="px-6 py-4 text-right space-x-3">
                     <button
                       className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-medium
-                                 bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+                                 bg-neutral-100 text-neutral-700 hover:bg-neutral-200 transition"
                       onClick={() => alert(`Edit dancer ${dancer.first_name}`)}
                     >
                       Edit

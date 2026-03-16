@@ -428,10 +428,10 @@ export default function SessionsStep({
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">
+        <h2 className="text-2xl font-semibold text-neutral-900 tracking-tight">
           Classes &amp; Schedules
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-neutral-500 mt-1">
           Create the classes offered this semester. Each class can have one or
           more schedule blocks (day/time/date range). The system generates
           individual sessions for each calendar date automatically.
@@ -439,7 +439,7 @@ export default function SessionsStep({
       </div>
 
       {isLocked && (
-        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
           This semester has active registrations. Classes and schedules are
           locked.
         </div>
@@ -451,12 +451,12 @@ export default function SessionsStep({
           <button
             type="button"
             onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-indigo-600 transition"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 hover:text-primary-600 transition"
           >
             <span>A–Z</span>
             <span className="inline-flex flex-col leading-none text-[10px]">
-              <span className={sortDir === "asc" ? "text-indigo-600" : "text-gray-300"}>▲</span>
-              <span className={sortDir === "desc" ? "text-indigo-600" : "text-gray-300"}>▼</span>
+              <span className={sortDir === "asc" ? "text-primary-600" : "text-neutral-300"}>▲</span>
+              <span className={sortDir === "desc" ? "text-primary-600" : "text-neutral-300"}>▼</span>
             </span>
           </button>
         </div>
@@ -470,7 +470,7 @@ export default function SessionsStep({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search classes..."
-            className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
           />
         </div>
       )}
@@ -480,7 +480,7 @@ export default function SessionsStep({
       {/* ------------------------------------------------------------------ */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-gray-800">Standard Classes</h3>
+          <h3 className="text-base font-semibold text-neutral-800">Standard Classes</h3>
         </div>
 
         {[...classes.entries()]
@@ -549,8 +549,8 @@ export default function SessionsStep({
           ))}
 
         {classes.filter((c) => c.offeringType !== "competition_track").length === 0 && (
-          <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
-            <p className="text-sm text-gray-500">
+          <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center">
+            <p className="text-sm text-neutral-500">
               No standard classes yet. Click &ldquo;+ Add Standard Class&rdquo; to get started.
             </p>
           </div>
@@ -560,7 +560,7 @@ export default function SessionsStep({
           <button
             type="button"
             onClick={handleAddStandardClass}
-            className="w-full py-3 rounded-xl border-2 border-dashed border-indigo-300 text-sm font-medium text-indigo-600 hover:border-indigo-500 hover:bg-indigo-50 transition"
+            className="w-full py-3 rounded-xl border-2 border-dashed border-primary-300 text-sm font-medium text-primary-600 hover:border-primary-600 hover:bg-primary-50 transition"
           >
             + Add Standard Class
           </button>
@@ -572,7 +572,7 @@ export default function SessionsStep({
       {/* ------------------------------------------------------------------ */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-gray-800">Competition Tracks</h3>
+          <h3 className="text-base font-semibold text-neutral-800">Competition Tracks</h3>
         </div>
 
         {[...classes.entries()]
@@ -641,8 +641,8 @@ export default function SessionsStep({
           ))}
 
         {classes.filter((c) => c.offeringType === "competition_track").length === 0 && (
-          <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
-            <p className="text-sm text-gray-500">
+          <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center">
+            <p className="text-sm text-neutral-500">
               No competition tracks yet. Click &ldquo;+ Add Competition Track&rdquo; to add one.
             </p>
           </div>
@@ -663,13 +663,13 @@ export default function SessionsStep({
       <div className="flex justify-between pt-4">
         <button
           onClick={onBack}
-          className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+          className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
         >
           Back
         </button>
         <button
           onClick={handleSubmit}
-          className="px-6 py-2.5 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
+          className="px-6 py-2.5 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition"
         >
           Next
         </button>
@@ -736,15 +736,15 @@ function ClassCard({
     DIVISIONS.find((d) => d.value === cls.division)?.label ?? cls.division;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
       {/* Card header — always visible */}
       <div
-        className="flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-gray-50 transition"
+        className="flex items-center justify-between px-6 py-4 cursor-pointer hover:bg-neutral-50 transition"
         onClick={onToggle}
       >
         <div className="flex items-center gap-3 min-w-0">
           <svg
-            className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+            className={`w-4 h-4 text-neutral-400 shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
             fill="none"
             stroke="currentColor"
             strokeWidth={2}
@@ -758,9 +758,9 @@ function ClassCard({
           </svg>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-gray-900 truncate">
+              <p className="font-semibold text-neutral-900 truncate">
                 {cls.name || (
-                  <span className="text-gray-400 font-normal italic">
+                  <span className="text-neutral-400 font-normal italic">
                     Untitled {isCompetitionTrack ? "competition track" : "class"}
                   </span>
                 )}
@@ -771,7 +771,7 @@ function ClassCard({
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-neutral-500 mt-0.5">
               {disciplineLabel} · {divisionLabel}
               {isCompetitionTrack
                 ? " · Invite Only · Audition"
@@ -796,11 +796,11 @@ function ClassCard({
 
       {/* Expanded form */}
       {isExpanded && (
-        <div className="border-t border-gray-100 px-6 py-6 space-y-6">
+        <div className="border-t border-neutral-200 px-6 py-6 space-y-6">
           {/* Class identity */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-medium text-neutral-600 mb-1.5 uppercase tracking-wide">
                 Class name *
               </label>
               <input
@@ -809,19 +809,19 @@ function ClassCard({
                 value={cls.name}
                 onChange={(e) => onUpdateClass({ name: e.target.value })}
                 placeholder="e.g. Ballet 1A"
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-medium text-neutral-600 mb-1.5 uppercase tracking-wide">
                 Discipline *
               </label>
               <select
                 disabled={isLocked}
                 value={cls.discipline}
                 onChange={(e) => onUpdateClass({ discipline: e.target.value })}
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
               >
                 {DISCIPLINES.map((d) => (
                   <option key={d.value} value={d.value}>
@@ -832,7 +832,7 @@ function ClassCard({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
+              <label className="block text-xs font-medium text-neutral-600 mb-1.5 uppercase tracking-wide">
                 Division *
               </label>
               <select
@@ -858,7 +858,7 @@ function ClassCard({
                     }
                   });
                 }}
-                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
               >
                 {DIVISIONS.map((d) => (
                   <option key={d.value} value={d.value}>
@@ -871,11 +871,11 @@ function ClassCard({
             {/* Tuition Override — only for standard classes with schedules */}
             {!isCompetitionTrack && (
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
+                <label className="block text-xs font-medium text-neutral-600 mb-1.5 uppercase tracking-wide">
                   Tuition Override
                 </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
                     $
                   </span>
                   <input
@@ -892,10 +892,10 @@ function ClassCard({
                       })
                     }
                     placeholder="Leave blank — uses rate-band"
-                    className="w-full rounded-xl border border-gray-300 pl-7 pr-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                    className="w-full rounded-xl border border-neutral-300 pl-7 pr-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-neutral-400">
                   Flat semester tuition for this class — bypasses division rate-band lookup.
                   Competition and Pointe classes typically use this.
                 </p>
@@ -938,16 +938,16 @@ function ClassCard({
                               },
                         );
                       }}
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
                     />
-                    <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                    <span className="text-xs font-medium text-neutral-600 uppercase tracking-wide">
                       Age restriction
                     </span>
                   </label>
                   {ageEnabled && (
                     <div className="flex items-end gap-6">
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">
+                        <label className="block text-xs text-neutral-500 mb-1">
                           Min age
                         </label>
                         <input
@@ -962,11 +962,11 @@ function ClassCard({
                                 : undefined,
                             })
                           }
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
                         />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">
+                        <label className="block text-xs text-neutral-500 mb-1">
                           Max age
                         </label>
                         <input
@@ -981,7 +981,7 @@ function ClassCard({
                                 : undefined,
                             })
                           }
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
                         />
                       </div>
                     </div>
@@ -1030,16 +1030,16 @@ function ClassCard({
                               },
                         );
                       }}
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
                     />
-                    <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                    <span className="text-xs font-medium text-neutral-600 uppercase tracking-wide">
                       Grade restriction
                     </span>
                   </label>
                   {gradeEnabled && (
                     <div className="flex items-end gap-6">
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">
+                        <label className="block text-xs text-neutral-500 mb-1">
                           Min grade (K=0)
                         </label>
                         <input
@@ -1054,11 +1054,11 @@ function ClassCard({
                                 : undefined,
                             })
                           }
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
                         />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-xs text-gray-500 mb-1">
+                        <label className="block text-xs text-neutral-500 mb-1">
                           Max grade
                         </label>
                         <input
@@ -1073,7 +1073,7 @@ function ClassCard({
                                 : undefined,
                             })
                           }
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
                         />
                       </div>
                     </div>
@@ -1089,7 +1089,7 @@ function ClassCard({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5 uppercase tracking-wide">
+            <label className="block text-xs font-medium text-neutral-600 mb-1.5 uppercase tracking-wide">
               Description
             </label>
             <textarea
@@ -1099,7 +1099,7 @@ function ClassCard({
                 onUpdateClass({ description: e.target.value || undefined })
               }
               rows={2}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+              className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
             />
           </div>
 
@@ -1129,7 +1129,7 @@ function ClassCard({
             /* Standard class: show visibility select (public/hidden only) */
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-neutral-600 mb-1">
                   Catalog Visibility
                 </label>
                 <select
@@ -1140,7 +1140,7 @@ function ClassCard({
                       visibility: e.target.value as "public" | "hidden",
                     })
                   }
-                  className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
                 >
                   <option value="public">Public — appears in catalog</option>
                   <option value="hidden">Hidden — not in catalog, direct link only</option>
@@ -1158,9 +1158,9 @@ function ClassCard({
               onChange={(e) =>
                 onUpdateClass({ requiresTeacherRec: e.target.checked })
               }
-              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
             />
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-neutral-700">
               Requires teacher recommendation
             </span>
           </label>
@@ -1169,14 +1169,14 @@ function ClassCard({
           {!isCompetitionTrack && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-gray-800">
+                <h4 className="text-sm font-semibold text-neutral-800">
                   Schedule Offerings
                 </h4>
                 {!isLocked && (
                   <button
                     type="button"
                     onClick={onAddSchedule}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+                    className="text-xs font-medium text-primary-600 hover:text-primary-800 transition"
                   >
                     + Add schedule block
                   </button>
@@ -1184,7 +1184,7 @@ function ClassCard({
               </div>
 
               {schedules.length === 0 && (
-                <p className="text-xs text-gray-400 italic">
+                <p className="text-xs text-neutral-400 italic">
                   No schedule blocks yet.
                 </p>
               )}
@@ -1386,10 +1386,10 @@ function ScheduleEditor({
   /* ---------------------------------------------------------------------- */
 
   return (
-    <div className="rounded-xl border border-gray-200 p-4 space-y-4 bg-gray-50/50">
+    <div className="rounded-xl border border-neutral-200 p-4 space-y-4 bg-neutral-50/50">
       {/* Block header — summary + duplicate button */}
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-gray-500 truncate">
+        <p className="text-xs font-semibold text-neutral-500 truncate">
           {scheduleBlockSummary(schedule, blockNumber)}
         </p>
         {!isLocked && (
@@ -1397,7 +1397,7 @@ function ScheduleEditor({
             type="button"
             onClick={onDuplicate}
             title="Duplicate this schedule block"
-            className="shrink-0 ml-3 text-xs text-indigo-600 hover:text-indigo-800 transition font-medium"
+            className="shrink-0 ml-3 text-xs text-primary-600 hover:text-primary-800 transition font-medium"
           >
             Duplicate
           </button>
@@ -1406,7 +1406,7 @@ function ScheduleEditor({
 
       {/* Days of week — multi-select checkboxes */}
       <div>
-        <p className="text-xs text-gray-500 mb-1.5">Days *</p>
+        <p className="text-xs text-neutral-500 mb-1.5">Days *</p>
         <div className="flex flex-wrap gap-1.5">
           {DAYS_OF_WEEK.map((d) => {
             const active = (schedule.daysOfWeek ?? []).includes(d.value);
@@ -1419,8 +1419,8 @@ function ScheduleEditor({
                 className={`px-3 py-1 rounded-lg text-xs font-medium border transition
                   ${
                     active
-                      ? "bg-indigo-600 text-white border-indigo-600"
-                      : "bg-white text-gray-600 border-gray-300 hover:border-indigo-400"
+                      ? "bg-primary-600 text-white border-primary-600"
+                      : "bg-white text-neutral-600 border-neutral-300 hover:border-primary-400"
                   }
                   disabled:opacity-50 disabled:cursor-default`}
               >
@@ -1446,7 +1446,7 @@ function ScheduleEditor({
               <button
                 type="button"
                 onClick={() => setShowSplitConfig(true)}
-                className="text-xs text-indigo-500 hover:text-indigo-700 transition underline-offset-2 hover:underline"
+                className="text-xs text-primary-500 hover:text-primary-700 transition underline-offset-2 hover:underline"
               >
                 Split into separate blocks
               </button>
@@ -1458,7 +1458,7 @@ function ScheduleEditor({
       {/* Start/End time */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Start time</label>
+          <label className="block text-xs text-neutral-500 mb-1">Start time</label>
           <select
             // type="time"
             disabled={isLocked}
@@ -1466,7 +1466,7 @@ function ScheduleEditor({
             onChange={(e) =>
               onChange({ startTime: e.target.value || undefined })
             }
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
           >
             <option value="">Select Time</option>
             {TIME_OPTIONS.map((t) => (
@@ -1477,13 +1477,13 @@ function ScheduleEditor({
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">End time</label>
+          <label className="block text-xs text-neutral-500 mb-1">End time</label>
           <select
             // type="time"
             disabled={isLocked}
             value={schedule.endTime ?? ""}
             onChange={(e) => onChange({ endTime: e.target.value || undefined })}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
           >
             <option value="">Select End Time</option>
             {TIME_OPTIONS.map((t) => (
@@ -1498,7 +1498,7 @@ function ScheduleEditor({
       {/* Date range */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Start date</label>
+          <label className="block text-xs text-neutral-500 mb-1">Start date</label>
           <input
             type="date"
             disabled={isLocked}
@@ -1506,17 +1506,17 @@ function ScheduleEditor({
             onChange={(e) =>
               onChange({ startDate: e.target.value || undefined })
             }
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">End date</label>
+          <label className="block text-xs text-neutral-500 mb-1">End date</label>
           <input
             type="date"
             disabled={isLocked}
             value={schedule.endDate ?? ""}
             onChange={(e) => onChange({ endDate: e.target.value || undefined })}
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
           />
         </div>
       </div>
@@ -1524,7 +1524,7 @@ function ScheduleEditor({
       {/* Location + Instructor */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Location</label>
+          <label className="block text-xs text-neutral-500 mb-1">Location</label>
           <input
             type="text"
             disabled={isLocked}
@@ -1533,11 +1533,11 @@ function ScheduleEditor({
               onChange({ location: e.target.value || undefined })
             }
             placeholder="Studio A"
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Instructor</label>
+          <label className="block text-xs text-neutral-500 mb-1">Instructor</label>
           <input
             type="text"
             disabled={isLocked}
@@ -1546,7 +1546,7 @@ function ScheduleEditor({
               onChange({ instructorName: e.target.value || undefined })
             }
             placeholder="e.g. Ms. Johnson"
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
           />
         </div>
       </div>
@@ -1554,7 +1554,7 @@ function ScheduleEditor({
       {/* Capacity + Reg opens + Reg closes */}
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">Capacity</label>
+          <label className="block text-xs text-neutral-500 mb-1">Capacity</label>
           <input
             type="number"
             min={1}
@@ -1565,11 +1565,11 @@ function ScheduleEditor({
                 capacity: e.target.value ? Number(e.target.value) : undefined,
               })
             }
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">
+          <label className="block text-xs text-neutral-500 mb-1">
             Registration opens
           </label>
           <input
@@ -1587,11 +1587,11 @@ function ScheduleEditor({
                   : null,
               })
             }
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">
+          <label className="block text-xs text-neutral-500 mb-1">
             Registration closes
           </label>
           <input
@@ -1609,7 +1609,7 @@ function ScheduleEditor({
                   : null,
               })
             }
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
           />
         </div>
       </div>
@@ -1617,7 +1617,7 @@ function ScheduleEditor({
       {/* Gender restriction + Urgency threshold */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-500 mb-1">
+          <label className="block text-xs text-neutral-500 mb-1">
             Gender restriction
           </label>
           <select
@@ -1631,7 +1631,7 @@ function ScheduleEditor({
                     : (e.target.value as "male" | "female"),
               })
             }
-            className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
           >
             <option value="no_restriction">No restriction</option>
             <option value="male">Male only</option>
@@ -1639,7 +1639,7 @@ function ScheduleEditor({
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500 mb-1">
+          <label className="block text-xs text-neutral-500 mb-1">
             Urgency threshold
           </label>
           <div className="flex items-center gap-1.5">
@@ -1656,34 +1656,34 @@ function ScheduleEditor({
                 })
               }
               placeholder="e.g. 5"
-              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+              className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
             />
-            <span className="text-xs text-gray-400 shrink-0">spots left</span>
+            <span className="text-xs text-neutral-400 shrink-0">spots left</span>
           </div>
         </div>
       </div>
 
       {/* Excluded dates */}
       <div className="space-y-2">
-        <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+        <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">
           Excluded dates
         </p>
         {excludedDates.length === 0 && (
-          <p className="text-xs text-gray-400 italic">No excluded dates.</p>
+          <p className="text-xs text-neutral-400 italic">No excluded dates.</p>
         )}
         <div className="flex flex-wrap gap-1.5">
           {excludedDates.map((d) => (
             <span
               key={d.date}
-              className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-700"
+              className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs text-neutral-700"
             >
               {d.date}
-              {d.reason && <span className="text-gray-400">({d.reason})</span>}
+              {d.reason && <span className="text-neutral-400">({d.reason})</span>}
               {!isLocked && (
                 <button
                   type="button"
                   onClick={() => handleRemoveExcludedDate(d.date)}
-                  className="text-gray-400 hover:text-red-500 transition"
+                  className="text-neutral-400 hover:text-red-500 transition"
                 >
                   ×
                 </button>
@@ -1698,7 +1698,7 @@ function ScheduleEditor({
                 type="date"
                 value={newExcludedDate}
                 onChange={(e) => setNewExcludedDate(e.target.value)}
-                className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600"
               />
             </div>
             <div>
@@ -1707,14 +1707,14 @@ function ScheduleEditor({
                 value={newExcludedReason}
                 onChange={(e) => setNewExcludedReason(e.target.value)}
                 placeholder="Reason (optional)"
-                className="rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
               />
             </div>
             <button
               type="button"
               onClick={handleAddExcludedDate}
               disabled={!newExcludedDate}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 disabled:opacity-40 transition"
+              className="text-xs font-medium text-primary-600 hover:text-primary-800 disabled:opacity-40 transition"
             >
               + Add
             </button>
@@ -1723,9 +1723,9 @@ function ScheduleEditor({
       </div>
 
       {/* Generated sessions preview */}
-      <div className="rounded-lg bg-indigo-50 border border-indigo-100 px-3 py-2 flex items-center gap-2">
+      <div className="rounded-lg bg-primary-50 border border-primary-100 px-3 py-2 flex items-center gap-2">
         <svg
-          className="w-4 h-4 text-indigo-400 shrink-0"
+          className="w-4 h-4 text-primary-400 shrink-0"
           fill="none"
           stroke="currentColor"
           strokeWidth={2}
@@ -1737,7 +1737,7 @@ function ScheduleEditor({
             d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
           />
         </svg>
-        <p className="text-xs text-indigo-700">
+        <p className="text-xs text-primary-700">
           {generatedCount > 0 ? (
             <>
               This schedule will generate{" "}
@@ -1752,7 +1752,7 @@ function ScheduleEditor({
 
       {/* Pricing model toggle + pricing config */}
       <div className="space-y-3">
-        <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+        <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">
           Pricing model
         </p>
 
@@ -1788,17 +1788,17 @@ function ScheduleEditor({
               className={`flex-1 rounded-xl border px-3 py-2 text-left transition
                 ${
                   pricingModel === mode.value
-                    ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
-                    : "border-gray-200 hover:border-gray-300"
+                    ? "border-primary-600 bg-primary-50 ring-1 ring-primary-600"
+                    : "border-neutral-200 hover:border-neutral-300"
                 }
                 disabled:opacity-50 disabled:cursor-default`}
             >
               <p
-                className={`text-xs font-medium ${pricingModel === mode.value ? "text-indigo-700" : "text-gray-700"}`}
+                className={`text-xs font-medium ${pricingModel === mode.value ? "text-primary-700" : "text-neutral-700"}`}
               >
                 {mode.label}
               </p>
-              <p className="text-xs text-gray-400 mt-0.5">{mode.desc}</p>
+              <p className="text-xs text-neutral-400 mt-0.5">{mode.desc}</p>
             </button>
           ))}
         </div>
@@ -1818,7 +1818,7 @@ function ScheduleEditor({
           return (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">
                   Division Base Price
                 </p>
                 {!isLocked && defaultTierFromEngine && (
@@ -1830,20 +1830,20 @@ function ScheduleEditor({
                         priceTiers: [defaultTierFromEngine],
                       })
                     }
-                    className="text-xs text-gray-400 hover:text-indigo-600 transition"
+                    className="text-xs text-neutral-400 hover:text-primary-600 transition"
                   >
                     Reset to division default
                   </button>
                 )}
               </div>
               {isUnresolved ? (
-                <p className="text-xs text-amber-600 italic">
+                <p className="text-xs text-mauve-text italic">
                   No tuition rate configured for this division. Set up rates in Payment → Tuition Rates.
                 </p>
               ) : (
                 <>
                   <div className="flex items-center gap-2 max-w-xs">
-                    <span className="text-sm text-gray-500">$</span>
+                    <span className="text-sm text-neutral-500">$</span>
                     <input
                       type="number"
                       min={0}
@@ -1852,18 +1852,18 @@ function ScheduleEditor({
                       value={existingTier ? existingTier.amount.toFixed(2) : ""}
                       onChange={(e) => handleAmountChange(e.target.value)}
                       placeholder={defaultTierFromEngine ? defaultTierFromEngine.amount.toFixed(2) : "0.00"}
-                      className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+                      className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
                     />
                   </div>
                   {defaultTierFromEngine && (
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-neutral-400">
                       Base rate: ${defaultTierFromEngine.amount.toFixed(2)}
                     </p>
                   )}
                   {existingTier &&
                     engineResult.autoPayInstallmentAmount &&
                     existingTier.amount === engineResult.semesterTotal && (
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-neutral-400">
                         Auto-pay: 5× ${engineResult.autoPayInstallmentAmount.toFixed(2)}/mo
                       </p>
                     )}
@@ -1876,11 +1876,11 @@ function ScheduleEditor({
         {/* Mode B: single drop-in price per session */}
         {pricingModel === "per_session" && (
           <div>
-            <label className="block text-xs text-gray-500 mb-1">
+            <label className="block text-xs text-neutral-500 mb-1">
               Drop-in price per session ($)
             </label>
             <div className="flex items-center gap-2 max-w-xs">
-              <span className="text-sm text-gray-500">$</span>
+              <span className="text-sm text-neutral-500">$</span>
               <input
                 type="number"
                 min={0}
@@ -1895,11 +1895,11 @@ function ScheduleEditor({
                   })
                 }
                 placeholder="0.00"
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-100 disabled:text-gray-400"
+                className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
               />
-              <span className="text-xs text-gray-400 shrink-0">per date</span>
+              <span className="text-xs text-neutral-400 shrink-0">per date</span>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-neutral-400 mt-1">
               This price is applied to each generated session. Users may enroll
               in any subset of individual dates.
             </p>
@@ -1910,39 +1910,39 @@ function ScheduleEditor({
       {/* Session options (add-ons) */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+          <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">
             Session options
           </p>
           {!isLocked && !showOptionForm && (
             <button
               type="button"
               onClick={() => setShowOptionForm(true)}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+              className="text-xs font-medium text-primary-600 hover:text-primary-800 transition"
             >
               + Add option
             </button>
           )}
         </div>
         {options.length === 0 && !showOptionForm && (
-          <p className="text-xs text-gray-400 italic">
+          <p className="text-xs text-neutral-400 italic">
             No add-ons for this schedule.
           </p>
         )}
         {options.map((opt) => (
           <div
             key={opt._clientKey}
-            className="flex items-start justify-between rounded-lg border border-gray-200 px-3 py-2 bg-white"
+            className="flex items-start justify-between rounded-lg border border-neutral-200 px-3 py-2 bg-white"
           >
             <div>
-              <p className="text-xs font-medium text-gray-700">
+              <p className="text-xs font-medium text-neutral-700">
                 {opt.name}
                 {opt.isRequired && (
-                  <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
+                  <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-mauve/10 text-mauve-text">
                     Required
                   </span>
                 )}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-neutral-500">
                 ${opt.price.toFixed(2)}
                 {opt.description ? ` · ${opt.description}` : ""}
               </p>
@@ -1959,10 +1959,10 @@ function ScheduleEditor({
           </div>
         ))}
         {showOptionForm && (
-          <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-3 space-y-2">
+          <div className="rounded-lg border border-primary-200 bg-primary-50/30 p-3 space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">
+                <label className="block text-xs text-neutral-500 mb-1">
                   Option name *
                 </label>
                 <input
@@ -1972,11 +1972,11 @@ function ScheduleEditor({
                     setDraftOption((d) => ({ ...d, name: e.target.value }))
                   }
                   placeholder="e.g. Recital Ticket"
-                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">
+                <label className="block text-xs text-neutral-500 mb-1">
                   Price ($)
                 </label>
                 <input
@@ -1987,12 +1987,12 @@ function ScheduleEditor({
                   onChange={(e) =>
                     setDraftOption((d) => ({ ...d, price: e.target.value }))
                   }
-                  className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">
+              <label className="block text-xs text-neutral-500 mb-1">
                 Description (optional)
               </label>
               <input
@@ -2002,7 +2002,7 @@ function ScheduleEditor({
                   setDraftOption((d) => ({ ...d, description: e.target.value }))
                 }
                 placeholder="e.g. One ticket included per dancer"
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
               />
             </div>
             <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -2015,9 +2015,9 @@ function ScheduleEditor({
                     isRequired: e.target.checked,
                   }))
                 }
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
               />
-              <span className="text-xs text-gray-700">
+              <span className="text-xs text-neutral-700">
                 Required (auto-added at checkout)
               </span>
             </label>
@@ -2033,7 +2033,7 @@ function ScheduleEditor({
                     isRequired: false,
                   });
                 }}
-                className="text-xs text-gray-500 hover:text-gray-700 transition px-2 py-1"
+                className="text-xs text-neutral-500 hover:text-neutral-700 transition px-2 py-1"
               >
                 Cancel
               </button>
@@ -2041,7 +2041,7 @@ function ScheduleEditor({
                 type="button"
                 onClick={handleAddOption}
                 disabled={!draftOption.name.trim()}
-                className="text-xs font-medium bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+                className="text-xs font-medium bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition disabled:opacity-50"
               >
                 Add option
               </button>
@@ -2115,8 +2115,8 @@ function SplitScheduleConfigurator({
   }
 
   return (
-    <div className="mt-1 rounded-lg border border-indigo-200 bg-white p-3 space-y-3">
-      <p className="text-xs font-semibold text-gray-700">
+    <div className="mt-1 rounded-lg border border-primary-200 bg-white p-3 space-y-3">
+      <p className="text-xs font-semibold text-neutral-700">
         Split into blocks — assign each day to a block
       </p>
 
@@ -2126,13 +2126,13 @@ function SplitScheduleConfigurator({
             DAYS_OF_WEEK.find((d) => d.value === day)?.label ?? day;
           return (
             <div key={day} className="flex items-center gap-3">
-              <span className="text-xs text-gray-700 w-16 shrink-0">
+              <span className="text-xs text-neutral-700 w-16 shrink-0">
                 {dayLabel}
               </span>
               <select
                 value={assignments[day]}
                 onChange={(e) => handleAssign(day, Number(e.target.value))}
-                className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="rounded-lg border border-neutral-300 px-2 py-1 text-xs text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-600"
               >
                 {groupLabels.map((label, i) => (
                   <option key={i} value={i + 1}>
@@ -2150,14 +2150,14 @@ function SplitScheduleConfigurator({
         <button
           type="button"
           onClick={() => setGroupCount((g) => g + 1)}
-          className="text-xs text-indigo-600 hover:text-indigo-800 transition"
+          className="text-xs text-primary-600 hover:text-primary-800 transition"
         >
           + Add block group
         </button>
       )}
 
       {!isValid && (
-        <p className="text-xs text-amber-600">
+        <p className="text-xs text-mauve-text">
           Assign days to at least 2 different blocks to split.
         </p>
       )}
@@ -2166,7 +2166,7 @@ function SplitScheduleConfigurator({
         <button
           type="button"
           onClick={onCancel}
-          className="text-xs text-gray-500 hover:text-gray-700 transition px-2 py-1"
+          className="text-xs text-neutral-500 hover:text-neutral-700 transition px-2 py-1"
         >
           Cancel
         </button>
@@ -2174,7 +2174,7 @@ function SplitScheduleConfigurator({
           type="button"
           onClick={handleConfirm}
           disabled={!isValid}
-          className="text-xs font-medium bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-default"
+          className="text-xs font-medium bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 transition disabled:opacity-40 disabled:cursor-default"
         >
           Confirm Split
         </button>
@@ -2252,19 +2252,19 @@ function AuditionWaiverPanel({ requirementId }: { requirementId: string }) {
   }
 
   return (
-    <div className="mt-2 rounded-lg border border-indigo-100 bg-indigo-50/40 px-3 py-2.5 space-y-2">
-      <p className="text-xs font-semibold text-indigo-700">
+    <div className="mt-2 rounded-lg border border-primary-100 bg-primary-50/40 px-3 py-2.5 space-y-2">
+      <p className="text-xs font-semibold text-primary-700">
         Approved Dancers (Audition Passed)
       </p>
       {loading ? (
-        <p className="text-xs text-gray-400 italic">Loading…</p>
+        <p className="text-xs text-neutral-400 italic">Loading…</p>
       ) : waivers.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">No dancers approved yet.</p>
+        <p className="text-xs text-neutral-400 italic">No dancers approved yet.</p>
       ) : (
         <ul className="space-y-1">
           {waivers.map((w) => (
             <li key={w.id} className="flex items-center justify-between text-xs">
-              <span className="text-gray-700">{w.dancer_name}</span>
+              <span className="text-neutral-700">{w.dancer_name}</span>
               <button
                 type="button"
                 disabled={isPending}
@@ -2283,20 +2283,20 @@ function AuditionWaiverPanel({ requirementId }: { requirementId: string }) {
           value={dancerIdInput}
           onChange={(e) => setDancerIdInput(e.target.value)}
           placeholder="Dancer UUID"
-          className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 rounded-lg border border-neutral-300 px-2 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
         />
         <input
           type="text"
           value={notesInput}
           onChange={(e) => setNotesInput(e.target.value)}
           placeholder="Notes (optional)"
-          className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 rounded-lg border border-neutral-300 px-2 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
         />
         <button
           type="button"
           disabled={!dancerIdInput.trim() || isPending}
           onClick={handleGrant}
-          className="shrink-0 text-xs font-medium bg-indigo-600 text-white px-3 py-1 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+          className="shrink-0 text-xs font-medium bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition disabled:opacity-50"
         >
           Mark Passed
         </button>
@@ -2344,14 +2344,14 @@ function RequirementsSection({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-gray-800">
+        <h4 className="text-sm font-semibold text-neutral-800">
           Enrollment Requirements
         </h4>
         {!isLocked && !showForm && (
           <button
             type="button"
             onClick={() => setShowForm(true)}
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition"
+            className="text-xs font-medium text-primary-600 hover:text-primary-800 transition"
           >
             + Add requirement
           </button>
@@ -2359,7 +2359,7 @@ function RequirementsSection({
       </div>
 
       {requirements.length === 0 && !showForm && (
-        <p className="text-xs text-gray-400 italic">
+        <p className="text-xs text-neutral-400 italic">
           No requirements. Competition classes typically need audition +
           concurrent technique.
         </p>
@@ -2368,24 +2368,24 @@ function RequirementsSection({
       {requirements.map((req, i) => (
         <div
           key={i}
-          className="rounded-xl border border-gray-200 px-3 py-2 bg-gray-50/50 space-y-1"
+          className="rounded-xl border border-neutral-200 px-3 py-2 bg-neutral-50/50 space-y-1"
         >
           <div className="flex items-start justify-between">
             <div className="space-y-0.5">
-              <p className="text-xs font-medium text-gray-700">
+              <p className="text-xs font-medium text-neutral-700">
                 {REQUIREMENT_TYPES.find((t) => t.value === req.requirement_type)
                   ?.label ?? req.requirement_type}
                 <span
                   className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
                     req.enforcement === "hard_block"
                       ? "bg-red-50 text-red-600"
-                      : "bg-amber-50 text-amber-600"
+                      : "bg-mauve/10 text-mauve-text"
                   }`}
                 >
                   {req.enforcement === "hard_block" ? "Hard block" : "Soft warn"}
                 </span>
                 {req.is_waivable && (
-                  <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-green-50 text-green-600">
+                  <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-mint/10 text-green-600">
                     Waivable
                   </span>
                 )}
@@ -2396,11 +2396,11 @@ function RequirementsSection({
                     </span>
                   )}
               </p>
-              <p className="text-xs text-gray-500">{req.description}</p>
+              <p className="text-xs text-neutral-500">{req.description}</p>
               {(req.requirement_type === "concurrent_enrollment" ||
                 req.requirement_type === "prerequisite_completed") &&
                 req.required_class_id && (
-                  <p className="text-xs text-indigo-600">
+                  <p className="text-xs text-primary-600">
                     {req.requirement_type === "concurrent_enrollment"
                       ? "Required concurrent class:"
                       : "Required prior class:"}{" "}
@@ -2416,7 +2416,7 @@ function RequirementsSection({
                   onClick={() =>
                     setExpandedWaiverIdx(expandedWaiverIdx === i ? null : i)
                   }
-                  className="text-xs text-indigo-600 hover:text-indigo-800 transition"
+                  className="text-xs text-primary-600 hover:text-primary-800 transition"
                 >
                   {expandedWaiverIdx === i ? "Hide" : "Manage"} approvals
                 </button>
@@ -2443,7 +2443,7 @@ function RequirementsSection({
           {/* Teacher recommendation: approved-dancer ID chips */}
           {req.requirement_type === "teacher_recommendation" && !isLocked && (
             <div className="pt-1">
-              <p className="text-xs text-gray-500 mb-1">
+              <p className="text-xs text-neutral-500 mb-1">
                 Approved dancers (bypass warning):
               </p>
               <div className="flex flex-wrap gap-1 mb-1.5">
@@ -2485,10 +2485,10 @@ function RequirementsSection({
       ))}
 
       {showForm && (
-        <div className="rounded-xl border border-indigo-200 bg-indigo-50/30 p-4 space-y-3">
+        <div className="rounded-xl border border-primary-200 bg-primary-50/30 p-4 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Type *</label>
+              <label className="block text-xs text-neutral-500 mb-1">Type *</label>
               <select
                 value={draft.requirement_type}
                 onChange={(e) =>
@@ -2496,7 +2496,7 @@ function RequirementsSection({
                     e.target.value as DraftClassRequirement["requirement_type"],
                   )
                 }
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-600"
               >
                 {REQUIREMENT_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -2506,7 +2506,7 @@ function RequirementsSection({
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">
+              <label className="block text-xs text-neutral-500 mb-1">
                 Enforcement *
               </label>
               <select
@@ -2517,7 +2517,7 @@ function RequirementsSection({
                     enforcement: e.target.value as "soft_warn" | "hard_block",
                   }))
                 }
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-600"
               >
                 <option value="hard_block">
                   Hard block (prevents enrollment)
@@ -2530,7 +2530,7 @@ function RequirementsSection({
           {/* Concurrent enrollment: class picker */}
           {draft.requirement_type === "concurrent_enrollment" && (
             <div>
-              <label className="block text-xs text-gray-500 mb-1">
+              <label className="block text-xs text-neutral-500 mb-1">
                 Required concurrent class *
               </label>
               <select
@@ -2541,7 +2541,7 @@ function RequirementsSection({
                     required_class_id: e.target.value || null,
                   }))
                 }
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-600"
               >
                 <option value="">— Select class —</option>
                 {allClasses
@@ -2553,14 +2553,14 @@ function RequirementsSection({
                     </option>
                   ))}
               </select>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-neutral-400">
                 Dancer must also enroll in this class in the same registration.
               </p>
             </div>
           )}
 
           <div>
-            <label className="block text-xs text-gray-500 mb-1">
+            <label className="block text-xs text-neutral-500 mb-1">
               Message shown to user *
             </label>
             <input
@@ -2570,14 +2570,14 @@ function RequirementsSection({
                 setDraft((d) => ({ ...d, description: e.target.value }))
               }
               placeholder="e.g. Must be concurrently enrolled in Technique 1"
-              className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
             />
           </div>
 
           {/* prerequisite_completed: required prior class picker */}
           {draft.requirement_type === "prerequisite_completed" && (
             <div>
-              <label className="block text-xs text-gray-500 mb-1">
+              <label className="block text-xs text-neutral-500 mb-1">
                 Required prior class *
               </label>
               <select
@@ -2588,7 +2588,7 @@ function RequirementsSection({
                     required_class_id: e.target.value || null,
                   }))
                 }
-                className="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-600"
               >
                 <option value="">— Select class —</option>
                 {allClasses
@@ -2600,7 +2600,7 @@ function RequirementsSection({
                     </option>
                   ))}
               </select>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-neutral-400">
                 Dancer must have a confirmed registration in this class from a prior semester.
               </p>
             </div>
@@ -2613,9 +2613,9 @@ function RequirementsSection({
               onChange={(e) =>
                 setDraft((d) => ({ ...d, is_waivable: e.target.checked }))
               }
-              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
             />
-            <span className="text-xs text-gray-700">
+            <span className="text-xs text-neutral-700">
               Admin can grant waivers for individual dancers
             </span>
           </label>
@@ -2627,7 +2627,7 @@ function RequirementsSection({
                 setShowForm(false);
                 setDraft(emptyRequirement());
               }}
-              className="text-xs text-gray-500 hover:text-gray-700 transition px-3 py-1.5"
+              className="text-xs text-neutral-500 hover:text-neutral-700 transition px-3 py-1.5"
             >
               Cancel
             </button>
@@ -2640,7 +2640,7 @@ function RequirementsSection({
                   draft.requirement_type === "prerequisite_completed") &&
                   !draft.required_class_id)
               }
-              className="text-xs font-medium bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+              className="text-xs font-medium bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700 transition disabled:opacity-50"
             >
               Add Requirement
             </button>
@@ -2667,7 +2667,7 @@ function AddApprovedDancerInput({ onAdd }: { onAdd: (dancerId: string) => void }
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="Dancer UUID"
-        className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        className="flex-1 rounded-lg border border-neutral-300 px-2 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
       />
       <button
         type="button"

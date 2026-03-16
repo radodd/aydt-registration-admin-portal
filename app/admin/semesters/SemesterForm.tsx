@@ -407,8 +407,8 @@ export default function SemesterForm({
               onClick={() => navigateToStep(index)}
               className={`text-sm px-3 py-1 rounded-lg transition-colors ${
                 index === activeStepIndex
-                  ? "font-semibold text-indigo-700 bg-indigo-50"
-                  : "text-gray-400 hover:text-gray-600 hover:bg-gray-50"
+                  ? "font-semibold text-primary-700 bg-primary-50"
+                  : "text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50"
               }`}
             >
               {index + 1}. {step.label}
@@ -421,14 +421,14 @@ export default function SemesterForm({
 
         {/* Unsaved changes toast — fixed, does not affect layout */}
         {isDirty && (
-          <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl shadow-lg animate-fade-in">
-            <span className="text-amber-700 text-sm font-medium">
+          <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-mauve/10 border border-mauve rounded-xl shadow-lg animate-fade-in">
+            <span className="text-mauve-text text-sm font-medium">
               {isSaving ? "Saving…" : "Unsaved changes"}
             </span>
             {!isSaving && (
               <button
                 onClick={() => navigateToStep(activeStepIndex)}
-                className="text-sm text-amber-700 font-semibold underline"
+                className="text-sm text-mauve-text font-semibold underline"
               >
                 Save Now
               </button>

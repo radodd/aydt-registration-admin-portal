@@ -25,7 +25,7 @@ export default function EditSemesterClient({
           href={`/preview/semester/${semester.id}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm bg-amber-50 text-amber-700 border border-amber-200 px-4 py-2 rounded-xl hover:bg-amber-100 transition-colors font-medium"
+          className="inline-flex items-center gap-2 text-sm bg-mauve/20 text-mauve-text border border-mauve px-4 py-2 rounded-xl hover:bg-mauve/20 transition-colors font-medium"
         >
           <svg
             className="w-4 h-4"

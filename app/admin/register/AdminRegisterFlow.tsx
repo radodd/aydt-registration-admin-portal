@@ -152,7 +152,7 @@ export default function AdminRegisterFlow({
           </Link>
           <Link
             href={`/admin/payments`}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-200 text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 border border-neutral-200 text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition"
           >
             Go to payment dashboard
           </Link>
@@ -254,7 +254,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
             {i < STEPS.length - 1 && (
               <div
                 className={`w-8 sm:w-16 h-px mx-2 ${
-                  isDone ? "bg-blue-400" : "bg-gray-200"
+                  isDone ? "bg-blue-400" : "bg-neutral-200"
                 }`}
               />
             )}

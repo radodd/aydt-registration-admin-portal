@@ -113,16 +113,16 @@ export default function DesignStep({
   const previewHtml = wrapEmailLayout(applyMockTokens(htmlBody));
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-8">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-8">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">Email Body</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <h2 className="text-xl font-semibold text-neutral-900">Email Body</h2>
+        <p className="text-sm text-neutral-500 mt-1">
           Design your email content using the editor below.
         </p>
       </div>
 
       {/* Sub-tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-neutral-200">
         <div className="flex gap-1">
           {tabs.map((t) => (
             <button
@@ -130,8 +130,8 @@ export default function DesignStep({
               onClick={() => setActiveTab(t.key)}
               className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === t.key
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  ? "border-primary-600 text-primary-600"
+                  : "border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300"
               }`}
             >
               {t.label}
@@ -146,16 +146,16 @@ export default function DesignStep({
           <div className="space-y-4">
             <div className="flex items-start justify-between gap-6">
               {/* Variable reference */}
-              <div className="shrink-0 bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2 min-w-52">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              <div className="shrink-0 bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-2 min-w-52">
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
                   Available variables
                 </p>
                 {VARIABLES.map((v) => (
                   <div key={v.token}>
-                    <code className="text-xs bg-white border border-gray-200 rounded px-1.5 py-0.5 text-indigo-700 font-mono">
+                    <code className="text-xs bg-white border border-neutral-200 rounded px-1.5 py-0.5 text-primary-700 font-mono">
                       {v.token}
                     </code>
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <p className="text-xs text-neutral-400 mt-0.5">
                       {v.description}
                     </p>
                   </div>
@@ -189,8 +189,8 @@ export default function DesignStep({
                 onClick={() => setPreviewMode("desktop")}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition ${
                   previewMode === "desktop"
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    ? "border-primary-600 bg-primary-50 text-primary-700"
+                    : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
                 }`}
               >
                 Desktop
@@ -199,8 +199,8 @@ export default function DesignStep({
                 onClick={() => setPreviewMode("mobile")}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition ${
                   previewMode === "mobile"
-                    ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                    : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                    ? "border-primary-600 bg-primary-50 text-primary-700"
+                    : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
                 }`}
               >
                 Mobile
@@ -208,12 +208,12 @@ export default function DesignStep({
             </div>
 
             {htmlBody ? (
-              <div className="border border-gray-200 rounded-xl overflow-hidden bg-gray-100 p-6 flex justify-center">
+              <div className="border border-neutral-200 rounded-xl overflow-hidden bg-neutral-100 p-6 flex justify-center">
                 {previewMode === "desktop" ? (
                   <iframe
                     srcDoc={previewHtml}
                     title="Email preview"
-                    className="rounded-lg border border-gray-200"
+                    className="rounded-lg border border-neutral-200"
                     style={{ width: "720px", height: "500px" }}
                     sandbox="allow-same-origin"
                   />
@@ -230,12 +230,12 @@ export default function DesignStep({
                 )}
               </div>
             ) : (
-              <div className="border border-gray-200 rounded-xl p-10 text-sm text-gray-400 text-center">
+              <div className="border border-neutral-200 rounded-xl p-10 text-sm text-neutral-400 text-center">
                 No email body yet. Add content in the Design tab.
               </div>
             )}
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-neutral-400">
               Variables replaced with mock data for preview.
             </p>
           </div>
@@ -244,9 +244,9 @@ export default function DesignStep({
         {/* Test Send tab */}
         {activeTab === "test" && (
           <div className="space-y-6 max-w-md">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-neutral-500">
               Send a test email to verify rendering. Subject is prefixed with{" "}
-              <span className="font-mono text-xs bg-gray-100 px-1 rounded">
+              <span className="font-mono text-xs bg-neutral-100 px-1 rounded">
                 [TEST]
               </span>
               .
@@ -254,16 +254,16 @@ export default function DesignStep({
 
             {/* Mode toggle */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-neutral-700">
                 Test data
               </label>
-              <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1 w-fit">
+              <div className="flex items-center gap-1 rounded-xl border border-neutral-200 bg-neutral-50 p-1 w-fit">
                 <button
                   onClick={() => setTestMode("mock")}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                     testMode === "mock"
-                      ? "bg-white border border-gray-200 shadow-sm text-gray-900"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white border border-neutral-200 shadow-sm text-neutral-900"
+                      : "text-neutral-500 hover:text-neutral-700"
                   }`}
                 >
                   Mock data
@@ -272,8 +272,8 @@ export default function DesignStep({
                   onClick={() => setTestMode("family")}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
                     testMode === "family"
-                      ? "bg-white border border-gray-200 shadow-sm text-gray-900"
-                      : "text-gray-500 hover:text-gray-700"
+                      ? "bg-white border border-neutral-200 shadow-sm text-neutral-900"
+                      : "text-neutral-500 hover:text-neutral-700"
                   }`}
                 >
                   Real family
@@ -285,7 +285,7 @@ export default function DesignStep({
             {testMode === "family" &&
               (state.recipients?.resolvedFamilies?.length ? (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
+                  <label className="text-sm font-medium text-neutral-700">
                     Family
                   </label>
                   <select
@@ -299,7 +299,7 @@ export default function DesignStep({
                       if (fam) setTestEmail(fam.primaryEmail);
                       setTestStatus("idle");
                     }}
-                    className="w-full border border-gray-300 text-slate-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full border border-neutral-300 text-slate-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
                   >
                     <option value="">Select a family…</option>
                     {state.recipients.resolvedFamilies.map((f) => (
@@ -313,7 +313,7 @@ export default function DesignStep({
                   </select>
                 </div>
               ) : (
-                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                <p className="text-sm text-mauve-text bg-mauve/10 border border-mauve rounded-xl px-4 py-3">
                   Add recipients in step 2 first to test with a real family.
                 </p>
               ))}
@@ -322,7 +322,7 @@ export default function DesignStep({
             {(testMode === "mock" ||
               (testMode === "family" && selectedFamilyId)) && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-neutral-700">
                   Send to
                 </label>
                 <input
@@ -333,7 +333,7 @@ export default function DesignStep({
                     setTestStatus("idle");
                   }}
                   placeholder="you@example.com"
-                  className="w-full border border-gray-300 text-slate-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full border border-neutral-300 text-slate-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
                 />
               </div>
             )}
@@ -345,13 +345,13 @@ export default function DesignStep({
                 testStatus === "sending" ||
                 (testMode === "family" && !selectedFamilyId)
               }
-              className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {testStatus === "sending" ? "Sending…" : "Send Test Email"}
             </button>
 
             {testStatus === "sent" && (
-              <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              <div className="text-sm text-mint-text bg-mint/10 border border-mint rounded-xl px-4 py-3">
                 Test email sent successfully.
               </div>
             )}
@@ -366,16 +366,16 @@ export default function DesignStep({
         )}
       </div>
 
-      <div className="flex justify-between pt-6 border-t border-gray-200">
+      <div className="flex justify-between pt-6 border-t border-neutral-200">
         <button
           onClick={onBack}
-          className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition"
+          className="px-5 py-2.5 rounded-xl border border-neutral-300 text-neutral-700 text-sm hover:bg-neutral-50 transition"
         >
           Back
         </button>
         <button
           onClick={onNext}
-          className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition"
+          className="px-6 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition"
         >
           Continue
         </button>

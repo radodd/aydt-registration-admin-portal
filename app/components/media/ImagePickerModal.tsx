@@ -114,30 +114,30 @@ export default function ImagePickerModal({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-800">Insert Image</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
+          <h2 className="text-base font-semibold text-neutral-800">Insert Image</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+            className="text-neutral-400 hover:text-neutral-600 text-xl leading-none"
           >
             ×
           </button>
         </div>
 
         {/* Filters */}
-        <div className="flex gap-3 px-6 py-3 border-b border-gray-100 bg-gray-50">
+        <div className="flex gap-3 px-6 py-3 border-b border-neutral-200 bg-neutral-50">
           <input
             type="text"
             placeholder="Search images…"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="flex-1 text-sm text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
+            className="flex-1 text-sm text-slate-700 placeholder:text-slate-400 border border-neutral-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary-600"
           />
           <select
             value={folder}
             onChange={(e) => handleFolderChange(e.target.value)}
-            className="text-sm text-slate-700 border border-gray-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
+            className="text-sm text-slate-700 border border-neutral-300 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-primary-600"
           >
             <option value="">All folders</option>
             {folders.map((f) => (
@@ -151,14 +151,14 @@ export default function ImagePickerModal({
         {/* Image grid */}
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <p className="text-sm text-gray-400 text-center py-16">Loading…</p>
+            <p className="text-sm text-neutral-400 text-center py-16">Loading…</p>
           ) : images.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-sm text-gray-400">No images found.</p>
+              <p className="text-sm text-neutral-400">No images found.</p>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-3 text-sm text-indigo-600 font-medium hover:underline"
+                className="mt-3 text-sm text-primary-600 font-medium hover:underline"
               >
                 Upload the first one
               </button>
@@ -172,8 +172,8 @@ export default function ImagePickerModal({
                   onClick={() => setSelected(img)}
                   className={`relative rounded-xl overflow-hidden border-2 transition aspect-square group focus:outline-none ${
                     selected?.id === img.id
-                      ? "border-indigo-500 ring-2 ring-indigo-200"
-                      : "border-gray-200 hover:border-indigo-300"
+                      ? "border-primary-600 ring-2 ring-primary-200"
+                      : "border-neutral-200 hover:border-primary-300"
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -186,7 +186,7 @@ export default function ImagePickerModal({
                     <p className="text-white text-xs truncate">{img.display_name}</p>
                   </div>
                   {selected?.id === img.id && (
-                    <div className="absolute top-1.5 right-1.5 bg-indigo-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
+                    <div className="absolute top-1.5 right-1.5 bg-primary-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
                       ✓
                     </div>
                   )}
@@ -197,7 +197,7 @@ export default function ImagePickerModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-4 px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div className="flex items-center justify-between gap-4 px-6 py-4 border-t border-neutral-200 bg-neutral-50">
           {/* Upload + layout toggle */}
           <div className="flex items-center gap-3 text-sm">
             <input
@@ -211,21 +211,21 @@ export default function ImagePickerModal({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="text-indigo-600 font-medium hover:underline disabled:opacity-50"
+              className="text-primary-600 font-medium hover:underline disabled:opacity-50"
             >
               {uploading ? "Uploading…" : "+ Upload new"}
             </button>
 
-            <span className="text-gray-300 select-none">|</span>
+            <span className="text-neutral-300 select-none">|</span>
 
-            <span className="text-gray-500">Layout:</span>
+            <span className="text-neutral-500">Layout:</span>
             <button
               type="button"
               onClick={() => setLayout("inline")}
               className={`px-2 py-0.5 rounded text-xs font-medium transition ${
                 layout === "inline"
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "text-gray-500 hover:bg-gray-100"
+                  ? "bg-primary-100 text-primary-700"
+                  : "text-neutral-500 hover:bg-neutral-100"
               }`}
             >
               Inline
@@ -235,8 +235,8 @@ export default function ImagePickerModal({
               onClick={() => setLayout("banner")}
               className={`px-2 py-0.5 rounded text-xs font-medium transition ${
                 layout === "banner"
-                  ? "bg-indigo-100 text-indigo-700"
-                  : "text-gray-500 hover:bg-gray-100"
+                  ? "bg-primary-100 text-primary-700"
+                  : "text-neutral-500 hover:bg-neutral-100"
               }`}
             >
               Banner
@@ -246,14 +246,14 @@ export default function ImagePickerModal({
           {/* Actions */}
           <div className="flex items-center gap-3">
             {selected && (
-              <p className="text-xs text-gray-400 max-w-[140px] truncate">
+              <p className="text-xs text-neutral-400 max-w-[140px] truncate">
                 {selected.display_name}
               </p>
             )}
             <button
               type="button"
               onClick={onClose}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-neutral-500 hover:text-neutral-700"
             >
               Cancel
             </button>
@@ -263,7 +263,7 @@ export default function ImagePickerModal({
               onClick={() => {
                 if (selected) onInsert(selected, layout);
               }}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
               Insert
             </button>

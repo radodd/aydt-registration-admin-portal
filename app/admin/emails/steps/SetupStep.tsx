@@ -42,10 +42,10 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-8">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-8">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">Email Setup</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <h2 className="text-xl font-semibold text-neutral-900">Email Setup</h2>
+        <p className="text-sm text-neutral-500 mt-1">
           Configure the sender details and subject line.
         </p>
       </div>
@@ -53,7 +53,7 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
       <div className="space-y-6 max-w-xl">
         {/* Subject */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-neutral-700">
             Subject <span className="text-red-500">*</span>
           </label>
           <input
@@ -64,14 +64,14 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
               syncToReducer({ subject: e.target.value });
             }}
             placeholder="Important update from AYDT"
-            className="w-full border border-gray-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full border border-neutral-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
           />
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-neutral-400">
             Variables:{" "}
-            <code className="bg-gray-100 px-1 rounded">
+            <code className="bg-neutral-100 px-1 rounded">
               {"{{parent_name}}"}
             </code>{" "}
-            <code className="bg-gray-100 px-1 rounded">
+            <code className="bg-neutral-100 px-1 rounded">
               {"{{semester_name}}"}
             </code>
           </p>
@@ -79,7 +79,7 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
 
         {/* Sender name */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-neutral-700">
             From Name <span className="text-red-500">*</span>
           </label>
           <input
@@ -90,13 +90,13 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
               syncToReducer({ senderName: e.target.value });
             }}
             placeholder="AYDT Admin"
-            className="w-full border border-gray-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full border border-neutral-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
           />
         </div>
 
         {/* Sender email */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-neutral-700">
             From Email <span className="text-red-500">*</span>
           </label>
           <input
@@ -107,15 +107,15 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
               syncToReducer({ senderEmail: e.target.value });
             }}
             placeholder="noreply@aydt.com"
-            className="w-full border border-gray-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full border border-neutral-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
           />
         </div>
 
         {/* Reply-to */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">
+          <label className="text-sm font-medium text-neutral-700">
             Reply-To Email{" "}
-            <span className="text-gray-400 font-normal">(optional)</span>
+            <span className="text-neutral-400 font-normal">(optional)</span>
           </label>
           <input
             type="email"
@@ -125,17 +125,17 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
               syncToReducer({ replyToEmail: e.target.value || undefined });
             }}
             placeholder="admin@aydt.com"
-            className="w-full border border-gray-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full border border-neutral-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
           />
         </div>
 
         {/* Signature toggle */}
-        <div className="flex items-center justify-between p-4 border border-gray-200 rounded-xl">
+        <div className="flex items-center justify-between p-4 border border-neutral-200 rounded-xl">
           <div>
-            <p className="text-sm font-medium text-gray-700">
+            <p className="text-sm font-medium text-neutral-700">
               Include admin signature
             </p>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-neutral-400 mt-0.5">
               Appends your display name and signature HTML to every email.
             </p>
           </div>
@@ -147,8 +147,8 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
               setIncludeSignature(next);
               syncToReducer({ includeSignature: next });
             }}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 ${
-              includeSignature ? "bg-indigo-600" : "bg-gray-200"
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-1 ${
+              includeSignature ? "bg-primary-600" : "bg-neutral-200"
             }`}
           >
             <span
@@ -160,13 +160,13 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
         </div>
       </div>
 
-      <div className="flex justify-end pt-6 border-t border-gray-200">
+      <div className="flex justify-end pt-6 border-t border-neutral-200">
         <button
           onClick={handleNext}
           disabled={
             !subject.trim() || !senderName.trim() || !senderEmail.trim()
           }
-          className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-6 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Continue
         </button>

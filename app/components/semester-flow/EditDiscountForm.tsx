@@ -110,7 +110,7 @@ export default function EditDiscountForm({
   return (
     <>
       <div className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm">
-        <div className="space-y-8 inset-0 z-40 bg-white border border-gray-200 rounded-2xl shadow-lg p-6 w-full max-w-lg mx-auto my-16 overflow-auto max-h-140">
+        <div className="space-y-8 inset-0 z-40 bg-white border border-neutral-200 rounded-2xl shadow-lg p-6 w-full max-w-lg mx-auto my-16 overflow-auto max-h-140">
           {/* Header */}
           <div>
             <h2 className="text-xl font-semibold text-slate-900">
@@ -120,7 +120,7 @@ export default function EditDiscountForm({
 
           {/* Discount Name */}
           <input
-            className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400"
+            className="w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 placeholder:text-slate-400"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Discount name"
@@ -128,7 +128,7 @@ export default function EditDiscountForm({
 
           {/* Discount Type */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-neutral-700">
               Discount type
             </label>
             <div className="space-y-2">
@@ -136,15 +136,15 @@ export default function EditDiscountForm({
                 (type) => (
                   <label
                     key={type}
-                    className="flex items-center gap-3 border border-gray-200 rounded-xl p-3 hover:border-gray-300 transition cursor-pointer"
+                    className="flex items-center gap-3 border border-neutral-200 rounded-xl p-3 hover:border-neutral-300 transition cursor-pointer"
                   >
                     <input
                       type="radio"
                       checked={category === type}
                       onChange={() => setCategory(type)}
-                      className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                      className="h-4 w-4 text-primary-600 border-neutral-300 focus:ring-primary-600"
                     />
-                    <span className="text-sm text-gray-800 capitalize">
+                    <span className="text-sm text-neutral-800 capitalize">
                       {type.replace("_", " ")}
                     </span>
                   </label>
@@ -155,7 +155,7 @@ export default function EditDiscountForm({
 
           {/* Eligible Sessions */}
           <div className="space-y-4">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-neutral-700">
               Eligible sessions
             </label>
             <div className="space-y-2">
@@ -164,36 +164,36 @@ export default function EditDiscountForm({
                   type="radio"
                   checked={eligibleSessionsMode === "all"}
                   onChange={() => setEligibleSessionsMode("all")}
-                  className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                  className="h-4 w-4 text-primary-600 border-neutral-300 focus:ring-primary-600"
                 />
-                <span className="text-sm text-gray-800">All sessions</span>
+                <span className="text-sm text-neutral-800">All sessions</span>
               </label>
               <label className="flex items-center gap-3">
                 <input
                   type="radio"
                   checked={eligibleSessionsMode === "selected"}
                   onChange={() => setEligibleSessionsMode("selected")}
-                  className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                  className="h-4 w-4 text-primary-600 border-neutral-300 focus:ring-primary-600"
                 />
-                <span className="text-sm text-gray-800">Selected sessions</span>
+                <span className="text-sm text-neutral-800">Selected sessions</span>
               </label>
             </div>
 
             {eligibleSessionsMode === "selected" && (
-              <div className="border border-gray-200 rounded-xl p-4 space-y-3 overflow-scroll h-52">
-                <div className="text-sm font-medium text-gray-800">
+              <div className="border border-neutral-200 rounded-xl p-4 space-y-3 overflow-scroll h-52">
+                <div className="text-sm font-medium text-neutral-800">
                   Select sessions
                 </div>
                 {sessions?.map((session) => (
                   <label
                     key={session.id}
-                    className="flex items-center gap-3 text-sm text-gray-700"
+                    className="flex items-center gap-3 text-sm text-neutral-700"
                   >
                     <input
                       type="checkbox"
                       checked={selectedSessionIds.includes(session.id)}
                       onChange={() => toggleSession(session.id)}
-                      className="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                      className="h-4 w-4 text-primary-600 border-neutral-300 focus:ring-primary-600"
                     />
                     {session.name}
                   </label>
@@ -204,14 +204,14 @@ export default function EditDiscountForm({
 
           {/* Give Discount To */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-neutral-700">
               Give discount to
             </label>
 
             {category === "multi_person" && (
               <div className="flex flex-wrap items-center gap-3">
                 <select
-                  className="rounded-xl border text-gray-500 border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="rounded-xl border text-neutral-500 border-neutral-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
                   value={giveSessionScope}
                   onChange={(e) =>
                     setGiveSessionScope(e.target.value as GiveSessionScope)
@@ -220,9 +220,9 @@ export default function EditDiscountForm({
                   <option value="one_session">1 session</option>
                   <option value="all_sessions">All sessions</option>
                 </select>
-                <span className="text-sm text-gray-600">for</span>
+                <span className="text-sm text-neutral-600">for</span>
                 <select
-                  className="rounded-xl border text-gray-500 border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="rounded-xl border text-neutral-500 border-neutral-300 px-3 py-2 text-sm focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
                   value={recipientScope}
                   onChange={(e) =>
                     setRecipientScope(e.target.value as RecipientScope)
@@ -240,7 +240,7 @@ export default function EditDiscountForm({
 
             {category === "multi_session" && (
               <select
-                className="rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                className="rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
                 value={giveSessionScope}
                 onChange={(e) =>
                   setGiveSessionScope(e.target.value as GiveSessionScope)
@@ -260,21 +260,21 @@ export default function EditDiscountForm({
           </div>
 
           {/* Rules */}
-          <div className="border border-gray-200 rounded-2xl p-6 space-y-6 bg-gray-50">
-            <h3 className="text-lg font-semibold text-gray-900">
+          <div className="border border-neutral-200 rounded-2xl p-6 space-y-6 bg-neutral-50">
+            <h3 className="text-lg font-semibold text-neutral-900">
               Discount rules
             </h3>
 
             {rules.map((rule, i) => (
               <div
                 key={i}
-                className="border border-gray-200 bg-white rounded-xl p-4 space-y-4"
+                className="border border-neutral-200 bg-white rounded-xl p-4 space-y-4"
               >
-                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-700">
+                <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-700">
                   <span>If there are</span>
                   <input
                     type="number"
-                    className="w-20 rounded-lg border border-gray-300 px-2 py-1 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-20 rounded-lg border border-neutral-300 px-2 py-1 text-slate-700 focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
                     value={rule.threshold}
                     onChange={(e) =>
                       updateRule(i, "threshold", Number(e.target.value))
@@ -286,18 +286,18 @@ export default function EditDiscountForm({
                   </span>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 text-sm text-gray-700">
+                <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-700">
                   <span>Give</span>
                   <input
                     type="number"
-                    className="w-24 rounded-lg border border-gray-300 px-2 py-1 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-24 rounded-lg border border-neutral-300 px-2 py-1 text-slate-700 focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
                     value={rule.value}
                     onChange={(e) =>
                       updateRule(i, "value", Number(e.target.value))
                     }
                   />
                   <select
-                    className="rounded-lg border border-gray-300 px-2 py-1 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="rounded-lg border border-neutral-300 px-2 py-1 text-slate-700 focus:ring-2 focus:ring-primary-600 focus:border-primary-600"
                     value={rule.valueType}
                     onChange={(e) =>
                       updateRule(
@@ -327,7 +327,7 @@ export default function EditDiscountForm({
             <button
               type="button"
               onClick={addRule}
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
+              className="text-sm font-medium text-primary-600 hover:text-primary-700 transition"
             >
               + Add another rule
             </button>
@@ -337,13 +337,13 @@ export default function EditDiscountForm({
           <div className="flex justify-end gap-3">
             <button
               onClick={onCancel}
-              className="px-4 py-2 border border-gray-300 rounded-xl text-sm text-slate-700"
+              className="px-4 py-2 border border-neutral-300 rounded-xl text-sm text-slate-700"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm"
+              className="px-6 py-2.5 rounded-xl bg-primary-600 text-white text-sm"
             >
               Save
             </button>

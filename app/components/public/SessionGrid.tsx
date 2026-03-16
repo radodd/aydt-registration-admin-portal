@@ -110,8 +110,8 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
       />
 
       {filtered.length === 0 ? (
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center">
-          <p className="text-gray-500 font-medium">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center">
+          <p className="text-neutral-500 font-medium">
             No sessions match your filters.
           </p>
           <button
@@ -119,7 +119,7 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
             onClick={() =>
               setFilters({ groupId: "", dayOfWeek: "", spotsOnly: false })
             }
-            className="mt-2 text-sm text-indigo-600 hover:text-indigo-800"
+            className="mt-2 text-sm text-primary-600 hover:text-primary-800"
           >
             Clear filters
           </button>

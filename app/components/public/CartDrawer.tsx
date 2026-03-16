@@ -34,7 +34,7 @@ export function CartDrawer() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-2xl shadow-lg hover:bg-indigo-700 transition-colors font-semibold"
+          className="flex items-center gap-2 bg-primary-600 text-white px-5 py-3 rounded-2xl shadow-lg hover:bg-primary-700 transition-colors font-semibold"
         >
           Cart ({itemCount})
         </button>
@@ -51,18 +51,18 @@ export function CartDrawer() {
 
           <div className="relative w-full max-w-sm bg-white h-full shadow-2xl flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-gray-200">
-              <h2 className="font-bold text-gray-900">Your Cart</h2>
+            <div className="flex items-center justify-between p-5 border-b border-neutral-200">
+              <h2 className="font-bold text-neutral-900">Your Cart</h2>
               <button
                 onClick={() => setOpen(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-neutral-400 hover:text-neutral-600"
               >
                 ✕
               </button>
             </div>
 
             {/* Expiry */}
-            <div className="px-5 py-2 bg-amber-50 border-b border-amber-100">
+            <div className="px-5 py-2 bg-mauve/10 border-b border-mauve/30">
               <CartExpiryTimer />
             </div>
 
@@ -79,16 +79,16 @@ export function CartDrawer() {
               {cartSessions.map((session) => (
                 <div
                   key={session.id}
-                  className="bg-gray-50 border border-gray-200 rounded-xl p-4"
+                  className="bg-neutral-50 border border-neutral-200 rounded-xl p-4"
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
-                      <p className="font-medium text-gray-900 text-sm">
+                      <p className="font-medium text-neutral-900 text-sm">
                         {session.name}
                       </p>
 
                       {/* Date + Time */}
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-neutral-500 mt-1">
                         {session.availableDays?.[0]?.dayOfWeek}{" "}
                         {session.availableDays?.[0]?.date}
                         {session.startTime &&
@@ -98,7 +98,7 @@ export function CartDrawer() {
 
                     <button
                       onClick={() => remove(session.id)}
-                      className="text-gray-300 hover:text-red-500"
+                      className="text-neutral-300 hover:text-red-500"
                     >
                       ✕
                     </button>
@@ -108,11 +108,11 @@ export function CartDrawer() {
             </div>
 
             {/* Footer */}
-            <div className="p-5 border-t border-gray-200 space-y-3">
+            <div className="p-5 border-t border-neutral-200 space-y-3">
               <Link
                 href={preview ? `/preview/semester/${semester.id}/cart` : "/cart"}
                 onClick={() => setOpen(false)}
-                className="block w-full text-center bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm"
+                className="block w-full text-center bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors text-sm"
               >
                 Review Cart & Continue
               </Link>

@@ -401,20 +401,20 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-6">
+      <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
+            <h1 className="text-2xl font-semibold text-neutral-900 tracking-tight">
               Emails
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-neutral-500 mt-1">
               Broadcast emails to families and manage subscriptions.
             </p>
           </div>
           <button
             onClick={handleNewEmail}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition"
+            className="px-5 py-2.5 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 transition"
           >
             + Compose Email
           </button>
@@ -427,7 +427,7 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
         )}
 
         {/* Tabs */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-neutral-200">
           <div className="flex gap-1 -mb-px overflow-x-auto">
             {TABS.map((t) => (
               <button
@@ -435,8 +435,8 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                 onClick={() => handleTabChange(t.key)}
                 className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                   activeTab === t.key
-                    ? "border-indigo-600 text-indigo-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-primary-600 text-primary-600"
+                    : "border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300"
                 }`}
               >
                 {t.label}
@@ -447,7 +447,7 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
 
         {/* Content */}
         {isLoading ? (
-          <div className="py-12 text-center text-sm text-gray-400">
+          <div className="py-12 text-center text-sm text-neutral-400">
             Loading…
           </div>
         ) : (
@@ -459,14 +459,14 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                 emptyLabel="No draft emails."
                 columns={["Subject", "Updated", "By", "Actions"]}
                 renderRow={(row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium max-w-xs truncate">
+                  <tr key={row.id} className="hover:bg-neutral-50">
+                    <td className="px-4 py-3 text-sm text-neutral-900 font-medium max-w-xs truncate">
                       {row.subject || "(no subject)"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">
                       {formatDate(row.updated_at)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-neutral-500">
                       {row.updated_by
                         ? `${row.updated_by.first_name} ${row.updated_by.last_name}`
                         : "—"}
@@ -479,13 +479,13 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                               `/admin/emails/${row.id}/edit?step=setup`,
                             )
                           }
-                          className="text-indigo-600 hover:text-indigo-700 font-medium"
+                          className="text-primary-600 hover:text-primary-700 font-medium"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleClone(row.id)}
-                          className="text-gray-500 hover:text-gray-700"
+                          className="text-neutral-500 hover:text-neutral-700"
                         >
                           Clone
                         </button>
@@ -509,16 +509,16 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                 emptyLabel="No scheduled emails."
                 columns={["Subject", "Recipients", "Scheduled For", "Actions"]}
                 renderRow={(row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium max-w-xs truncate">
+                  <tr key={row.id} className="hover:bg-neutral-50">
+                    <td className="px-4 py-3 text-sm text-neutral-900 font-medium max-w-xs truncate">
                       {row.subject}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-neutral-500">
                       {(
                         row.recipient_count as unknown as { count: number }[]
                       )?.[0]?.count?.toLocaleString() ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">
                       {formatDate(row.scheduled_at)}
                     </td>
                     <td className="px-4 py-3 text-sm">
@@ -528,7 +528,7 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                             onClick={() =>
                               handleRevertToDraft(row.id, "scheduled")
                             }
-                            className="text-indigo-600 hover:text-indigo-700 font-medium"
+                            className="text-primary-600 hover:text-primary-700 font-medium"
                           >
                             Revert to Draft
                           </button>
@@ -556,16 +556,16 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                 columns={["Subject", "Recipients", "Attempted", "Actions"]}
                 renderRow={(row) => (
                   <>
-                    <tr key={row.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900 font-medium max-w-xs truncate">
+                    <tr key={row.id} className="hover:bg-neutral-50">
+                      <td className="px-4 py-3 text-sm text-neutral-900 font-medium max-w-xs truncate">
                         {row.subject}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-neutral-500">
                         {(
                           row.recipient_count as unknown as { count: number }[]
                         )?.[0]?.count?.toLocaleString() ?? "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">
                         {formatDate(row.sent_at)}
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -583,14 +583,14 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                               onClick={() =>
                                 handleRevertToDraft(row.id, "failed")
                               }
-                              className="text-indigo-600 hover:text-indigo-700 font-medium"
+                              className="text-primary-600 hover:text-primary-700 font-medium"
                             >
                               Revert to Draft
                             </button>
                           )}
                           <button
                             onClick={() => handleClone(row.id)}
-                            className="text-gray-500 hover:text-gray-700"
+                            className="text-neutral-500 hover:text-neutral-700"
                           >
                             Clone
                           </button>
@@ -630,23 +630,23 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                 ]}
                 renderRow={(row) => (
                   <>
-                    <tr key={row.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900 font-medium max-w-xs truncate">
+                    <tr key={row.id} className="hover:bg-neutral-50">
+                      <td className="px-4 py-3 text-sm text-neutral-900 font-medium max-w-xs truncate">
                         {row.subject}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">
                         {formatDate(row.sent_at)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-neutral-500">
                         {row.recipient_count.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-neutral-500">
                         {row.delivered_count.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-neutral-500">
                         {pct(row.open_rate)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-neutral-500">
                         {pct(row.click_rate)}
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -658,14 +658,14 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                             {row.failed_count.toLocaleString()}
                           </button>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-neutral-400">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex gap-3">
                           <button
                             onClick={() => handleClone(row.id)}
-                            className="text-gray-500 hover:text-gray-700 font-medium"
+                            className="text-neutral-500 hover:text-neutral-700 font-medium"
                           >
                             Clone
                           </button>
@@ -673,7 +673,7 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                             <button
                               onClick={() => handleSimulateFailure(row.id)}
                               disabled={simulatingId === row.id}
-                              className="text-amber-600 hover:text-amber-700 disabled:opacity-40"
+                              className="text-mauve-text hover:text-mauve-text disabled:opacity-40"
                             >
                               {simulatingId === row.id
                                 ? "Simulating…"
@@ -706,21 +706,21 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                 emptyLabel="No templates."
                 columns={["Name", "Subject", "Created", "Actions"]}
                 renderRow={(row) => (
-                  <tr key={row.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                  <tr key={row.id} className="hover:bg-neutral-50">
+                    <td className="px-4 py-3 text-sm text-neutral-900 font-medium">
                       {row.name}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">
+                    <td className="px-4 py-3 text-sm text-neutral-500 max-w-xs truncate">
                       {row.subject}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">
                       {formatDate(row.created_at)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       <div className="flex gap-3">
                         <button
                           onClick={() => handleCloneTemplate(row.id)}
-                          className="text-indigo-600 hover:text-indigo-700 font-medium"
+                          className="text-primary-600 hover:text-primary-700 font-medium"
                         >
                           Use Template
                         </button>
@@ -744,23 +744,23 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                 emptyLabel="No unsubscribed users."
                 columns={["Email", "Name", "Unsubscribed", "Actions"]}
                 renderRow={(row) => (
-                  <tr key={row.user_id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                  <tr key={row.user_id} className="hover:bg-neutral-50">
+                    <td className="px-4 py-3 text-sm text-neutral-900">
                       {row.users?.email ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-neutral-500">
                       {row.users
                         ? `${row.users.first_name} ${row.users.last_name}`
                         : "—"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">
                       {formatDate(row.unsubscribed_at)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {isSuperAdmin && (
                         <button
                           onClick={() => handleResubscribe(row.user_id)}
-                          className="text-indigo-600 hover:text-indigo-700 font-medium"
+                          className="text-primary-600 hover:text-primary-700 font-medium"
                         >
                           Re-subscribe
                         </button>
@@ -778,11 +778,11 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                 emptyLabel="No subscribed users."
                 columns={["Email", "Name", "Status"]}
                 renderRow={(row) => (
-                  <tr key={row.user_id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                  <tr key={row.user_id} className="hover:bg-neutral-50">
+                    <td className="px-4 py-3 text-sm text-neutral-900">
                       {row.users?.email ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                    <td className="px-4 py-3 text-sm text-neutral-500">
                       {row.users
                         ? `${row.users.first_name} ${row.users.last_name}`
                         : "—"}
@@ -799,8 +799,8 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
             {activeTab === "external_subscribers" && (
               <div className="space-y-6">
                 {/* Add subscriber form */}
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-5 space-y-4">
-                  <p className="text-sm font-medium text-gray-700">
+                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-5 space-y-4">
+                  <p className="text-sm font-medium text-neutral-700">
                     Add external subscriber
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -809,7 +809,7 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                       value={newSubName}
                       onChange={(e) => setNewSubName(e.target.value)}
                       placeholder="Name"
-                      className="border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="border border-neutral-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-primary-600 focus:outline-none"
                     />
                     <input
                       type="email"
@@ -819,32 +819,32 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                         if (addSubStatus !== "idle") setAddSubStatus("idle");
                       }}
                       placeholder="Email address *"
-                      className="border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="border border-neutral-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-primary-600 focus:outline-none"
                     />
                     <input
                       type="tel"
                       value={newSubPhone}
                       onChange={(e) => setNewSubPhone(e.target.value)}
                       placeholder="Phone (optional)"
-                      className="border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="border border-neutral-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-primary-600 focus:outline-none"
                     />
                   </div>
 
                   {addSubStatus === "conflict" && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
-                      <p className="text-sm text-amber-800">
+                    <div className="bg-mauve/10 border border-mauve rounded-xl p-4 space-y-3">
+                      <p className="text-sm text-mauve-text">
                         {addSubConflictMsg}
                       </p>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleAddSubscriber(true)}
-                          className="px-4 py-2 rounded-xl bg-amber-600 text-white text-sm font-medium hover:bg-amber-700 transition"
+                          className="px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition"
                         >
                           Add anyway
                         </button>
                         <button
                           onClick={() => setAddSubStatus("idle")}
-                          className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition"
+                          className="px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 text-sm hover:bg-neutral-50 transition"
                         >
                           Cancel
                         </button>
@@ -853,7 +853,7 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                   )}
 
                   {addSubStatus === "already_exists" && (
-                    <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+                    <p className="text-sm text-mauve-text bg-mauve/10 border border-mauve rounded-xl px-4 py-2.5">
                       This email is already on the external subscriber list.
                     </p>
                   )}
@@ -864,7 +864,7 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                       disabled={
                         !newSubEmail.trim() || addSubStatus === "loading"
                       }
-                      className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="px-5 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {addSubStatus === "loading"
                         ? "Adding…"
@@ -880,7 +880,7 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                     value={extSubSearch}
                     onChange={(e) => setExtSubSearch(e.target.value)}
                     placeholder="Search by name or email…"
-                    className="w-full max-w-sm border border-gray-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full max-w-sm border border-neutral-300 rounded-xl px-3 py-2 text-sm text-slate-600 focus:ring-2 focus:ring-primary-600 focus:outline-none"
                   />
                 </div>
 
@@ -890,17 +890,17 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                   emptyLabel="No external subscribers yet."
                   columns={["Email", "Name", "Phone", "Added", "Actions"]}
                   renderRow={(row) => (
-                    <tr key={row.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">
+                    <tr key={row.id} className="hover:bg-neutral-50">
+                      <td className="px-4 py-3 text-sm text-neutral-900">
                         {row.email}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-neutral-500">
                         {row.name ?? "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-neutral-500">
                         {row.phone ?? "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-neutral-500 whitespace-nowrap">
                         {formatDate(row.created_at)}
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -919,15 +919,15 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
 
             {/* Pagination */}
             {(totalPages ?? 0) > 1 && (
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
                 <button
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="px-4 py-2 rounded-xl border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-40"
+                  className="px-4 py-2 rounded-xl border border-neutral-300 text-sm text-neutral-700 hover:bg-neutral-50 transition disabled:opacity-40"
                 >
                   Previous
                 </button>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-neutral-500">
                   Page {page + 1} of {totalPages}
                 </span>
                 <button
@@ -935,7 +935,7 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
                     setPage((p) => Math.min((totalPages ?? 1) - 1, p + 1))
                   }
                   disabled={page >= (totalPages ?? 1) - 1}
-                  className="px-4 py-2 rounded-xl border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-40"
+                  className="px-4 py-2 rounded-xl border border-neutral-300 text-sm text-neutral-700 hover:bg-neutral-50 transition disabled:opacity-40"
                 >
                   Next
                 </button>
@@ -963,7 +963,7 @@ function FailureDetailPanel({
 }) {
   if (failures.length === 0) {
     return (
-      <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-400">
+      <div className="mt-2 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-400">
         No failure details available.
       </div>
     );
@@ -998,8 +998,8 @@ function FailureDetailPanel({
           <tbody className="divide-y divide-red-50">
             {failures.map((f) => (
               <tr key={f.emailAddress}>
-                <td className="px-3 py-2 text-gray-900">{f.emailAddress}</td>
-                <td className="px-3 py-2 text-gray-500">
+                <td className="px-3 py-2 text-neutral-900">{f.emailAddress}</td>
+                <td className="px-3 py-2 text-neutral-500">
                   {f.failureReason ?? "Unknown"}
                 </td>
               </tr>
@@ -1028,28 +1028,28 @@ function EmailListTable<T>({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="border border-dashed border-gray-300 rounded-xl p-10 text-center">
-        <p className="text-sm text-gray-400">{emptyLabel}</p>
+      <div className="border border-dashed border-neutral-300 rounded-xl p-10 text-center">
+        <p className="text-sm text-neutral-400">{emptyLabel}</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div className="overflow-x-auto rounded-xl border border-neutral-200">
+      <table className="min-w-full divide-y divide-neutral-200">
+        <thead className="bg-neutral-50">
           <tr>
             {columns.map((col) => (
               <th
                 key={col}
-                className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide"
+                className="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide"
               >
                 {col}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100 bg-white">
+        <tbody className="divide-y divide-neutral-100 bg-white">
           {rows.map(renderRow)}
         </tbody>
       </table>

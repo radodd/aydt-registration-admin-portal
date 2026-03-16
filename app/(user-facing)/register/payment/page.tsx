@@ -278,17 +278,17 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">
+        <h1 className="text-2xl font-bold text-neutral-900 mb-1">
           Review & Confirm
         </h1>
-        <p className="text-gray-500 text-sm">
+        <p className="text-neutral-500 text-sm">
           Confirm your registration details below.
         </p>
       </div>
 
       {/* Cart hold countdown — warn when < 5 minutes remain */}
       {!state.isPreview && secondsRemaining > 0 && secondsRemaining < 300 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 font-medium">
+        <div className="bg-mauve/10 border border-mauve rounded-xl px-4 py-3 text-sm text-mauve-text font-medium">
           Your cart reservation expires in {Math.floor(secondsRemaining / 60)}:
           {String(secondsRemaining % 60).padStart(2, "0")}. Complete your
           registration before the hold is released.
@@ -297,22 +297,22 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
 
       {/* Preview mode banner */}
       {state.isPreview && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 font-medium">
+        <div className="bg-mauve/10 border border-mauve rounded-xl px-4 py-3 text-sm text-mauve-text font-medium">
           Preview mode — no registration will be saved.
         </div>
       )}
 
       {/* Pricing breakdown (Phase 2) */}
       {!state.isPreview && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-4">
-          <h2 className="font-semibold text-gray-900">Pricing Breakdown</h2>
+        <div className="bg-white border border-neutral-200 rounded-2xl p-5 space-y-4">
+          <h2 className="font-semibold text-neutral-900">Pricing Breakdown</h2>
 
           {quoteLoading && (
-            <p className="text-sm text-gray-400">Calculating pricing…</p>
+            <p className="text-sm text-neutral-400">Calculating pricing…</p>
           )}
 
           {quoteError && (
-            <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+            <div className="rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
               <p className="font-medium">Pricing unavailable</p>
               <p className="mt-1 text-xs">{quoteError}</p>
               <p className="mt-1 text-xs">
@@ -328,12 +328,12 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
               {quote.perDancer.map((dancer) => (
                 <div
                   key={dancer.dancerId}
-                  className="border border-gray-100 rounded-xl p-4 space-y-2"
+                  className="border border-neutral-200 rounded-xl p-4 space-y-2"
                 >
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-neutral-900">
                     {dancer.dancerName}
                   </p>
-                  <p className="text-xs text-gray-400 capitalize">
+                  <p className="text-xs text-neutral-400 capitalize">
                     {dancer.division.replace("_", " ")} ·{" "}
                     {dancer.weeklyClassCount} class
                     {dancer.weeklyClassCount !== 1 ? "es" : ""}/week
@@ -342,7 +342,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                     {dancer.lineItems.map((li, i) => (
                       <div
                         key={i}
-                        className="flex justify-between text-sm text-gray-700"
+                        className="flex justify-between text-sm text-neutral-700"
                       >
                         <span>{li.label}</span>
                         <span className={li.amount < 0 ? "text-green-600" : ""}>
@@ -360,19 +360,19 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                 quote.couponDiscount > 0) && (
                 <div className="space-y-1 px-1">
                   {quote.familyDiscountAmount > 0 && (
-                    <div className="flex justify-between text-sm text-green-700 font-medium">
+                    <div className="flex justify-between text-sm text-mint-text font-medium">
                       <span>Family Discount</span>
                       <span>−{formatCurrency(quote.familyDiscountAmount)}</span>
                     </div>
                   )}
                   {quote.couponDiscount > 0 && (
-                    <div className="flex justify-between text-sm text-green-700 font-medium">
+                    <div className="flex justify-between text-sm text-mint-text font-medium">
                       <span>{quote.appliedCouponName ?? "Promo Code"}</span>
                       <span>−{formatCurrency(quote.couponDiscount)}</span>
                     </div>
                   )}
                   {quote.autoPayAdminFeeTotal > 0 && (
-                    <div className="flex justify-between text-sm text-gray-700">
+                    <div className="flex justify-between text-sm text-neutral-700">
                       <span>Auto-pay Admin Fee</span>
                       <span>{formatCurrency(quote.autoPayAdminFeeTotal)}</span>
                     </div>
@@ -381,14 +381,14 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
               )}
 
               {/* Grand total */}
-              <div className="border-t border-gray-100 pt-3 flex justify-between font-bold text-gray-900">
+              <div className="border-t border-neutral-200 pt-3 flex justify-between font-bold text-neutral-900">
                 <span>Total</span>
                 <span>{formatCurrency(quote.grandTotal)}</span>
               </div>
 
               {/* Amount due now */}
               {quote.amountDueNow !== quote.grandTotal && (
-                <div className="flex justify-between text-sm text-indigo-700 font-medium">
+                <div className="flex justify-between text-sm text-primary-700 font-medium">
                   <span>Due today</span>
                   <span>{formatCurrency(quote.amountDueNow)}</span>
                 </div>
@@ -396,14 +396,14 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
 
               {/* Payment schedule (if multi-installment) */}
               {quote.paymentSchedule.length > 1 && (
-                <div className="rounded-xl bg-gray-50 p-4 space-y-2">
-                  <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                <div className="rounded-xl bg-neutral-50 p-4 space-y-2">
+                  <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">
                     Payment Schedule
                   </p>
                   {quote.paymentSchedule.map((inst) => (
                     <div
                       key={inst.installmentNumber}
-                      className="flex justify-between text-sm text-gray-700"
+                      className="flex justify-between text-sm text-neutral-700"
                     >
                       <span>
                         Payment {inst.installmentNumber} —{" "}
@@ -427,14 +427,14 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
 
       {/* Promo code entry */}
       {!state.isPreview && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-5 space-y-3">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-5 space-y-3">
           <button
             type="button"
             onClick={() => {
               const el = document.getElementById("promo-code-section");
               if (el) el.classList.toggle("hidden");
             }}
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
+            className="text-sm font-medium text-primary-600 hover:text-primary-700 transition"
           >
             Have a promo code?
           </button>
@@ -453,7 +453,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                   if (e.key === "Enter") setAppliedCouponCode(couponInput.trim() || null);
                 }}
                 placeholder="Enter code"
-                className="flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="flex-1 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary-600"
               />
               <button
                 type="button"
@@ -462,7 +462,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                   setAppliedCouponCode(couponInput.trim() || null);
                 }}
                 disabled={quoteLoading || !couponInput.trim()}
-                className="px-4 py-2 rounded-xl bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition"
+                className="px-4 py-2 rounded-xl bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition"
               >
                 Apply
               </button>
@@ -474,7 +474,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                     setAppliedCouponCode(null);
                     setCouponFeedback(null);
                   }}
-                  className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition"
+                  className="px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-500 hover:bg-neutral-50 transition"
                 >
                   Remove
                 </button>
@@ -497,8 +497,8 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       )}
 
       {/* Sessions summary — always shown; shows full detail once sessionMap is loaded */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-4">Sessions</h2>
+      <div className="bg-white border border-neutral-200 rounded-2xl p-5">
+        <h2 className="font-semibold text-neutral-900 mb-4">Sessions</h2>
         <div className="space-y-3">
           {sessionIds.map((id) => {
             const session = sessionMap.get(id);
@@ -511,13 +511,13 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
             return (
               <div
                 key={id}
-                className="border border-gray-100 rounded-xl px-4 py-3 space-y-0.5"
+                className="border border-neutral-200 rounded-xl px-4 py-3 space-y-0.5"
               >
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-neutral-900">
                   {session?.name ?? id}
                 </p>
                 {dateLabel && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-neutral-500">
                     {dateLabel}
                     {session?.startTime
                       ? ` · ${session.startTime}–${session.endTime}`
@@ -526,7 +526,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                   </p>
                 )}
                 {session?.instructorName && (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-neutral-400">
                     Instructor: {session.instructorName}
                   </p>
                 )}
@@ -538,8 +538,8 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
 
       {/* Participant summary */}
       {state.participants.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-2xl p-5">
-          <h2 className="font-semibold text-gray-900 mb-3">Participants</h2>
+        <div className="bg-white border border-neutral-200 rounded-2xl p-5">
+          <h2 className="font-semibold text-neutral-900 mb-3">Participants</h2>
           <div className="space-y-2">
             {state.participants.map((p) => {
               const session = sessionMap.get(p.sessionId);
@@ -549,10 +549,10 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
               return (
                 <div
                   key={p.sessionId}
-                  className="flex justify-between text-sm text-gray-700"
+                  className="flex justify-between text-sm text-neutral-700"
                 >
                   <span>{session?.name ?? p.sessionId}</span>
-                  <span className="text-gray-500 font-medium">{dancerLabel}</span>
+                  <span className="text-neutral-500 font-medium">{dancerLabel}</span>
                 </div>
               );
             })}
@@ -561,15 +561,15 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       )}
 
       {/* Payment section */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-5">
-        <h2 className="font-semibold text-gray-900 mb-3">Payment</h2>
+      <div className="bg-white border border-neutral-200 rounded-2xl p-5">
+        <h2 className="font-semibold text-neutral-900 mb-3">Payment</h2>
         {state.isPreview ? (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-neutral-500">
             In preview mode, payment is simulated. Click confirm to see the
             success screen.
           </p>
         ) : (
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-neutral-400">
             You will be redirected to a secure Elavon payment page to complete
             your payment.
           </p>
@@ -588,7 +588,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
           type="button"
           onClick={() => router.back()}
           disabled={processing}
-          className="flex-1 py-3 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium disabled:opacity-50"
+          className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors text-sm font-medium disabled:opacity-50"
         >
           ← Back
         </button>
@@ -596,7 +596,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
           type="button"
           onClick={handleConfirm}
           disabled={processing}
-          className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors text-sm disabled:opacity-60"
+          className="flex-1 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors text-sm disabled:opacity-60"
         >
           {processing
             ? "Processing…"

@@ -94,7 +94,7 @@ function StatusBadge({ active }: { active: boolean }) {
   return (
     <span
       className={`inline-flex px-3 py-1 text-xs font-medium rounded-full ${
-        active ? "bg-indigo-100 text-indigo-700" : "bg-gray-100 text-gray-600"
+        active ? "bg-primary-100 text-primary-700" : "bg-neutral-100 text-neutral-600"
       }`}
     >
       {active ? "Active" : "Inactive"}
@@ -104,14 +104,14 @@ function StatusBadge({ active }: { active: boolean }) {
 
 function RegistrationStatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    confirmed: "bg-green-100 text-green-700",
-    pending_payment: "bg-yellow-100 text-yellow-700",
-    pending: "bg-yellow-100 text-yellow-700",
+    confirmed: "bg-mint/20 text-mint-text",
+    pending_payment: "bg-mauve/20 text-mauve-text",
+    pending: "bg-mauve/20 text-mauve-text",
   };
   return (
     <span
       className={`inline-flex px-2.5 py-0.5 text-xs font-medium rounded-full capitalize ${
-        map[status] ?? "bg-gray-100 text-gray-600"
+        map[status] ?? "bg-neutral-100 text-neutral-600"
       }`}
     >
       {status.replace(/_/g, " ")}
@@ -190,10 +190,10 @@ function EmailClassModal({
         {step === "choose" && (
           <>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-neutral-900">
                 Email Class
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-neutral-500 mt-1">
                 Recipients will be pre-populated with all registrants in this
                 class.
               </p>
@@ -209,16 +209,16 @@ function EmailClassModal({
               <button
                 onClick={goToTemplatePicker}
                 disabled={templatesLoading || submitting}
-                className="w-full text-left rounded-xl border border-gray-200 px-4 py-4 hover:border-indigo-400 hover:bg-indigo-50/50 transition disabled:opacity-50 group"
+                className="w-full text-left rounded-xl border border-neutral-200 px-4 py-4 hover:border-primary-400 hover:bg-primary-50/50 transition disabled:opacity-50 group"
               >
-                <p className="font-medium text-gray-900 group-hover:text-indigo-700">
+                <p className="font-medium text-neutral-900 group-hover:text-primary-700">
                   Use an existing template
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-neutral-500 mt-0.5">
                   Choose from your saved email templates
                 </p>
                 {templatesLoading && (
-                  <p className="text-xs text-indigo-600 mt-1">
+                  <p className="text-xs text-primary-600 mt-1">
                     Loading templates…
                   </p>
                 )}
@@ -227,16 +227,16 @@ function EmailClassModal({
               <button
                 onClick={handleScratch}
                 disabled={templatesLoading || submitting}
-                className="w-full text-left rounded-xl border border-gray-200 px-4 py-4 hover:border-indigo-400 hover:bg-indigo-50/50 transition disabled:opacity-50 group"
+                className="w-full text-left rounded-xl border border-neutral-200 px-4 py-4 hover:border-primary-400 hover:bg-primary-50/50 transition disabled:opacity-50 group"
               >
-                <p className="font-medium text-gray-900 group-hover:text-indigo-700">
+                <p className="font-medium text-neutral-900 group-hover:text-primary-700">
                   Start from scratch
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-neutral-500 mt-0.5">
                   Open the full email editor with a blank canvas
                 </p>
                 {submitting && (
-                  <p className="text-xs text-indigo-600 mt-1">
+                  <p className="text-xs text-primary-600 mt-1">
                     Creating draft…
                   </p>
                 )}
@@ -246,7 +246,7 @@ function EmailClassModal({
             <div className="pt-1 flex justify-end">
               <button
                 onClick={onClose}
-                className="text-sm text-gray-500 hover:text-gray-800 transition"
+                className="text-sm text-neutral-500 hover:text-neutral-800 transition"
               >
                 Cancel
               </button>
@@ -260,12 +260,12 @@ function EmailClassModal({
             <div className="flex items-center gap-3">
               <button
                 onClick={() => { setStep("choose"); setError(null); }}
-                className="text-gray-400 hover:text-gray-700 transition"
+                className="text-neutral-400 hover:text-neutral-700 transition"
                 aria-label="Back"
               >
                 ←
               </button>
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-neutral-900">
                 Choose a Template
               </h2>
             </div>
@@ -277,7 +277,7 @@ function EmailClassModal({
             )}
 
             {templates.length === 0 ? (
-              <p className="text-sm text-gray-500 py-4 text-center">
+              <p className="text-sm text-neutral-500 py-4 text-center">
                 No saved templates found.
               </p>
             ) : (
@@ -287,16 +287,16 @@ function EmailClassModal({
                     key={t.id}
                     onClick={() => handleTemplate(t)}
                     disabled={submitting}
-                    className="w-full text-left rounded-xl border border-gray-200 px-4 py-3.5 hover:border-indigo-400 hover:bg-indigo-50/50 transition disabled:opacity-50 group"
+                    className="w-full text-left rounded-xl border border-neutral-200 px-4 py-3.5 hover:border-primary-400 hover:bg-primary-50/50 transition disabled:opacity-50 group"
                   >
-                    <p className="font-medium text-sm text-gray-900 group-hover:text-indigo-700 truncate">
+                    <p className="font-medium text-sm text-neutral-900 group-hover:text-primary-700 truncate">
                       {t.name}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                    <p className="text-xs text-neutral-400 mt-0.5 truncate">
                       Subject: {t.subject}
                     </p>
                     {submitting && (
-                      <p className="text-xs text-indigo-600 mt-1">
+                      <p className="text-xs text-primary-600 mt-1">
                         Creating draft…
                       </p>
                     )}
@@ -308,7 +308,7 @@ function EmailClassModal({
             <div className="pt-1 flex justify-end">
               <button
                 onClick={onClose}
-                className="text-sm text-gray-500 hover:text-gray-800 transition"
+                className="text-sm text-neutral-500 hover:text-neutral-800 transition"
               >
                 Cancel
               </button>
@@ -437,11 +437,11 @@ export default function ClassDetailPage() {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-6">
         <Link
           href="/admin/classes"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 transition"
         >
           ← All Classes
         </Link>
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 text-gray-500 text-sm">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-8 text-neutral-500 text-sm">
           Loading…
         </div>
       </main>
@@ -453,11 +453,11 @@ export default function ClassDetailPage() {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-6">
         <Link
           href="/admin/classes"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 transition"
         >
           ← All Classes
         </Link>
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center text-gray-500 text-sm">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center text-neutral-500 text-sm">
           Class not found.
         </div>
       </main>
@@ -478,14 +478,14 @@ export default function ClassDetailPage() {
         {/* Back */}
         <Link
           href="/admin/classes"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition"
+          className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-800 transition"
         >
           ← All Classes
         </Link>
 
         {/* Lock banner */}
         {isLocked && (
-          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          <div className="rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
             <strong>Read-only:</strong> This class belongs to a published
             semester with active registrations. Editing and archiving are
             disabled.
@@ -502,21 +502,21 @@ export default function ClassDetailPage() {
                 onChange={(e) =>
                   setEditForm((f) => ({ ...f, name: e.target.value }))
                 }
-                className="text-3xl font-semibold text-slate-600 border-b border-indigo-400 focus:outline-none bg-transparent w-full"
+                className="text-3xl font-semibold text-slate-600 border-b border-primary-400 focus:outline-none bg-transparent w-full"
               />
             ) : (
-              <h1 className="text-3xl font-semibold text-gray-900">
+              <h1 className="text-3xl font-semibold text-neutral-900">
                 {cls.name}
               </h1>
             )}
-            <p className="text-sm text-gray-500 capitalize">
+            <p className="text-sm text-neutral-500 capitalize">
               {cls.discipline.replace(/_/g, " ")} ·{" "}
               {DIVISION_LABELS[cls.division] ?? cls.division}
             </p>
             {semester && (
               <Link
                 href={`/admin/semesters/${semester.id}/edit?step=sessions`}
-                className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 transition"
+                className="inline-flex items-center gap-1 text-sm text-primary-600 hover:text-primary-800 transition"
               >
                 Semester: {semester.name} →
               </Link>
@@ -529,7 +529,7 @@ export default function ClassDetailPage() {
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setShowEmailModal(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition"
           >
             <svg
               className="h-4 w-4"
@@ -560,7 +560,7 @@ export default function ClassDetailPage() {
                   </button>
                   <button
                     onClick={() => setEditing(false)}
-                    className="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 hover:text-gray-900 transition"
+                    className="px-4 py-2 rounded-xl text-sm font-medium text-neutral-600 hover:text-neutral-900 transition"
                   >
                     Cancel
                   </button>
@@ -568,7 +568,7 @@ export default function ClassDetailPage() {
               ) : (
                 <button
                   onClick={startEditing}
-                  className="px-4 py-2 rounded-xl text-sm font-medium border border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50 transition"
+                  className="px-4 py-2 rounded-xl text-sm font-medium border border-neutral-200 text-neutral-700 hover:border-neutral-300 hover:bg-neutral-50 transition"
                 >
                   Edit Details
                 </button>
@@ -579,8 +579,8 @@ export default function ClassDetailPage() {
                 disabled={archiving}
                 className={`px-4 py-2 rounded-xl text-sm font-medium border transition disabled:opacity-50 ${
                   cls.is_active
-                    ? "border-amber-200 text-amber-700 hover:bg-amber-50"
-                    : "border-green-200 text-green-700 hover:bg-green-50"
+                    ? "border-mauve text-mauve-text hover:bg-mauve/10"
+                    : "border-mint text-mint-text hover:bg-mint/10"
                 }`}
               >
                 {archiving
@@ -606,34 +606,34 @@ export default function ClassDetailPage() {
         )}
 
         {/* Info grid */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-6">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-6">
+          <h2 className="text-sm font-semibold text-neutral-900 mb-4">
             Class Details
           </h2>
           <form ref={formRef} className="grid grid-cols-2 sm:grid-cols-3 gap-5">
             {/* Discipline — read-only */}
             <div>
-              <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+              <p className="text-xs uppercase tracking-wide text-neutral-400 mb-1">
                 Discipline
               </p>
-              <p className="text-sm font-medium text-gray-800 capitalize">
+              <p className="text-sm font-medium text-neutral-800 capitalize">
                 {cls.discipline.replace(/_/g, " ")}
               </p>
             </div>
 
             {/* Division — read-only */}
             <div>
-              <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+              <p className="text-xs uppercase tracking-wide text-neutral-400 mb-1">
                 Division
               </p>
-              <p className="text-sm font-medium text-gray-800">
+              <p className="text-sm font-medium text-neutral-800">
                 {DIVISION_LABELS[cls.division] ?? cls.division}
               </p>
             </div>
 
             {/* Min age */}
             <div>
-              <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+              <p className="text-xs uppercase tracking-wide text-neutral-400 mb-1">
                 Min Age
               </p>
               {editing ? (
@@ -646,10 +646,10 @@ export default function ClassDetailPage() {
                       min_age: e.target.value ? Number(e.target.value) : null,
                     }))
                   }
-                  className="w-full text-sm text-slate-600 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="w-full text-sm text-slate-600 border border-neutral-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-400"
                 />
               ) : (
-                <p className="text-sm font-medium text-gray-800">
+                <p className="text-sm font-medium text-neutral-800">
                   {cls.min_age ?? "—"}
                 </p>
               )}
@@ -657,7 +657,7 @@ export default function ClassDetailPage() {
 
             {/* Max age */}
             <div>
-              <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+              <p className="text-xs uppercase tracking-wide text-neutral-400 mb-1">
                 Max Age
               </p>
               {editing ? (
@@ -670,10 +670,10 @@ export default function ClassDetailPage() {
                       max_age: e.target.value ? Number(e.target.value) : null,
                     }))
                   }
-                  className="w-full text-sm text-slate-600 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="w-full text-sm text-slate-600 border border-neutral-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-400"
                 />
               ) : (
-                <p className="text-sm font-medium text-gray-800">
+                <p className="text-sm font-medium text-neutral-800">
                   {cls.max_age ?? "—"}
                 </p>
               )}
@@ -681,7 +681,7 @@ export default function ClassDetailPage() {
 
             {/* Min grade */}
             <div>
-              <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+              <p className="text-xs uppercase tracking-wide text-neutral-400 mb-1">
                 Min Grade
               </p>
               {editing ? (
@@ -696,10 +696,10 @@ export default function ClassDetailPage() {
                         : null,
                     }))
                   }
-                  className="w-full text-sm text-slate-600 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="w-full text-sm text-slate-600 border border-neutral-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-400"
                 />
               ) : (
-                <p className="text-sm font-medium text-gray-800">
+                <p className="text-sm font-medium text-neutral-800">
                   {cls.min_grade ?? "—"}
                 </p>
               )}
@@ -707,7 +707,7 @@ export default function ClassDetailPage() {
 
             {/* Max grade */}
             <div>
-              <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+              <p className="text-xs uppercase tracking-wide text-neutral-400 mb-1">
                 Max Grade
               </p>
               {editing ? (
@@ -722,10 +722,10 @@ export default function ClassDetailPage() {
                         : null,
                     }))
                   }
-                  className="w-full text-sm text-slate-600 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  className="w-full text-sm text-slate-600 border border-neutral-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-400"
                 />
               ) : (
-                <p className="text-sm font-medium text-gray-800">
+                <p className="text-sm font-medium text-neutral-800">
                   {cls.max_grade ?? "—"}
                 </p>
               )}
@@ -733,7 +733,7 @@ export default function ClassDetailPage() {
 
             {/* Description — full width */}
             <div className="col-span-2 sm:col-span-3">
-              <p className="text-xs uppercase tracking-wide text-gray-400 mb-1">
+              <p className="text-xs uppercase tracking-wide text-neutral-400 mb-1">
                 Description
               </p>
               {editing ? (
@@ -746,10 +746,10 @@ export default function ClassDetailPage() {
                     }))
                   }
                   rows={3}
-                  className="w-full text-sm text-slate-600 border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+                  className="w-full text-sm text-slate-600 border border-neutral-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none"
                 />
               ) : (
-                <p className="text-sm text-gray-800">
+                <p className="text-sm text-neutral-800">
                   {cls.description ?? "—"}
                 </p>
               )}
@@ -759,12 +759,12 @@ export default function ClassDetailPage() {
 
         {/* Spots remaining */}
         {totalCapacity > 0 && (
-          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+          <div className="bg-white border border-neutral-200 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold text-gray-900">
+              <h2 className="text-sm font-semibold text-neutral-900">
                 Enrollment
               </h2>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-neutral-500">
                 {totalEnrolled} enrolled /{" "}
                 {totalCapacity - totalEnrolled >= 0
                   ? totalCapacity - totalEnrolled
@@ -772,19 +772,19 @@ export default function ClassDetailPage() {
                 spots remaining
               </span>
             </div>
-            <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-2 w-full bg-neutral-100 rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
                   capacityPct >= 90
                     ? "bg-red-500"
                     : capacityPct >= 70
-                    ? "bg-amber-500"
-                    : "bg-indigo-500"
+                    ? "bg-mauve/100"
+                    : "bg-primary-500"
                 }`}
                 style={{ width: `${capacityPct}%` }}
               />
             </div>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-neutral-400 mt-1">
               {Math.round(capacityPct)}% filled ({totalCapacity} total spots)
             </p>
           </div>
@@ -792,20 +792,20 @@ export default function ClassDetailPage() {
 
         {/* Registrant roster */}
         <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-3">
             Registrant Roster
-            <span className="ml-2 text-sm font-normal text-gray-400">
+            <span className="ml-2 text-sm font-normal text-neutral-400">
               ({registrants.length})
             </span>
           </h2>
           {registrants.length === 0 ? (
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center text-sm text-gray-500">
+            <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-8 text-center text-sm text-neutral-500">
               No registrations yet.
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase text-xs tracking-wide">
+                <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 uppercase text-xs tracking-wide">
                   <tr>
                     <th className="px-5 py-3 text-left font-medium">Dancer</th>
                     <th className="px-5 py-3 text-left font-medium">Parent</th>
@@ -817,20 +817,20 @@ export default function ClassDetailPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-neutral-100">
                   {registrants.map((r) => (
-                    <tr key={r.id} className="hover:bg-gray-50 transition">
-                      <td className="px-5 py-3 font-medium text-gray-900">
+                    <tr key={r.id} className="hover:bg-neutral-50 transition">
+                      <td className="px-5 py-3 font-medium text-neutral-900">
                         {r.dancerName}
                       </td>
-                      <td className="px-5 py-3 text-gray-600">
+                      <td className="px-5 py-3 text-neutral-600">
                         {r.parentName ?? "—"}
                       </td>
-                      <td className="px-5 py-3 text-gray-500">
+                      <td className="px-5 py-3 text-neutral-500">
                         {r.parentEmail ? (
                           <a
                             href={`mailto:${r.parentEmail}`}
-                            className="hover:text-indigo-600 transition"
+                            className="hover:text-primary-600 transition"
                           >
                             {r.parentEmail}
                           </a>
@@ -841,10 +841,10 @@ export default function ClassDetailPage() {
                       <td className="px-5 py-3">
                         <RegistrationStatusBadge status={r.status} />
                       </td>
-                      <td className="px-5 py-3 text-gray-600">
+                      <td className="px-5 py-3 text-neutral-600">
                         {r.sessionLabel}
                       </td>
-                      <td className="px-5 py-3 text-gray-500 text-xs">
+                      <td className="px-5 py-3 text-neutral-500 text-xs">
                         {new Date(r.createdAt).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
@@ -861,17 +861,17 @@ export default function ClassDetailPage() {
 
         {/* Sessions table */}
         <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-3">
             Class Sessions
           </h2>
           {sortedSessions.length === 0 ? (
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 text-center text-sm text-gray-500">
+            <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-8 text-center text-sm text-neutral-500">
               No sessions defined for this class.
             </div>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 uppercase text-xs tracking-wide">
+                <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 uppercase text-xs tracking-wide">
                   <tr>
                     <th className="px-5 py-3 text-left font-medium">Day</th>
                     <th className="px-5 py-3 text-left font-medium">Time</th>
@@ -886,22 +886,22 @@ export default function ClassDetailPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-neutral-100">
                   {sortedSessions.map((s) => (
-                    <tr key={s.id} className="hover:bg-gray-50 transition">
-                      <td className="px-5 py-3 font-medium text-gray-900 capitalize">
+                    <tr key={s.id} className="hover:bg-neutral-50 transition">
+                      <td className="px-5 py-3 font-medium text-neutral-900 capitalize">
                         {s.day_of_week}
                       </td>
-                      <td className="px-5 py-3 text-gray-600">
+                      <td className="px-5 py-3 text-neutral-600">
                         {formatTime(s.start_time)} – {formatTime(s.end_time)}
                       </td>
-                      <td className="px-5 py-3 text-gray-600">
+                      <td className="px-5 py-3 text-neutral-600">
                         {formatDate(s.start_date)}
                       </td>
-                      <td className="px-5 py-3 text-gray-600">
+                      <td className="px-5 py-3 text-neutral-600">
                         {formatDate(s.end_date)}
                       </td>
-                      <td className="px-5 py-3 text-gray-600">
+                      <td className="px-5 py-3 text-neutral-600">
                         {s.capacity ?? "—"}
                       </td>
                     </tr>
@@ -916,7 +916,7 @@ export default function ClassDetailPage() {
         <div className="pt-2">
           <Link
             href={`/admin/semesters/${cls.semester_id}/edit?step=sessions`}
-            className="inline-flex items-center px-5 py-2.5 rounded-2xl text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition"
+            className="inline-flex items-center px-5 py-2.5 rounded-2xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition"
           >
             Edit in Semester Editor →
           </Link>

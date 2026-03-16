@@ -121,18 +121,18 @@ export default function RegistrationForm({
 
   return (
     <section>
-      <h2 className="text-2xl font-bold text-gray-900 mb-4">
+      <h2 className="text-2xl font-bold text-neutral-900 mb-4">
         Registration Forms
       </h2>
       <form
         onSubmit={handleSubmit}
-        className="border rounded-xl p-4 bg-gray-50 space-y-4"
+        className="border rounded-xl p-4 bg-neutral-50 space-y-4"
       >
         <h3 className="font-semibold text-lg">Participant Information</h3>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-gray-600">First name</label>
+            <label className="block text-sm text-neutral-600">First name</label>
             <input
               type="text"
               name="first_name"
@@ -144,7 +144,7 @@ export default function RegistrationForm({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600">Last name</label>
+            <label className="block text-sm text-neutral-600">Last name</label>
             <input
               type="text"
               name="last_name"
@@ -156,7 +156,7 @@ export default function RegistrationForm({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600">Date of Birth</label>
+            <label className="block text-sm text-neutral-600">Date of Birth</label>
             <input
               type="date"
               name="birth_date"
@@ -167,7 +167,7 @@ export default function RegistrationForm({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600">Email</label>
+            <label className="block text-sm text-neutral-600">Email</label>
             <input
               type="email"
               name="email"
@@ -178,7 +178,7 @@ export default function RegistrationForm({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600">Phone</label>
+            <label className="block text-sm text-neutral-600">Phone</label>
             <input
               type="tel"
               name="phone_number"
@@ -189,7 +189,7 @@ export default function RegistrationForm({
           </div>
 
           <div className="col-span-2">
-            <label className="block text-sm text-gray-600">Address</label>
+            <label className="block text-sm text-neutral-600">Address</label>
             <input
               type="text"
               name="address_line1"
@@ -209,7 +209,7 @@ export default function RegistrationForm({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600">City</label>
+            <label className="block text-sm text-neutral-600">City</label>
             <input
               type="text"
               name="city"
@@ -220,7 +220,7 @@ export default function RegistrationForm({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600">State</label>
+            <label className="block text-sm text-neutral-600">State</label>
             <select
               name="state"
               value={formData.state}
@@ -235,7 +235,7 @@ export default function RegistrationForm({
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600">ZIP</label>
+            <label className="block text-sm text-neutral-600">ZIP</label>
             <input
               type="text"
               name="zipcode"
@@ -256,7 +256,7 @@ export default function RegistrationForm({
         </button>
 
         {message && (
-          <p className="mt-3 text-sm text-center text-gray-700">{message}</p>
+          <p className="mt-3 text-sm text-center text-neutral-700">{message}</p>
         )}
       </form>
     </section>

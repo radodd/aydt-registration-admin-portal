@@ -58,19 +58,19 @@ export default function PDFAttachmentModal({ isOpen, onClose, onInsert }: Props)
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
-        <h3 className="text-base font-semibold text-gray-900">Insert PDF Link</h3>
+        <h3 className="text-base font-semibold text-neutral-900">Insert PDF Link</h3>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">
+            <label className="text-xs font-medium text-neutral-600 block mb-1">
               PDF File
             </label>
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-3 border border-dashed border-gray-300 rounded-lg px-3 py-3 cursor-pointer hover:bg-gray-50 transition"
+              className="flex items-center gap-3 border border-dashed border-neutral-300 rounded-lg px-3 py-3 cursor-pointer hover:bg-neutral-50 transition"
             >
-              <Paperclip size={16} className="text-gray-400 shrink-0" />
-              <span className="text-sm text-gray-500 truncate">
+              <Paperclip size={16} className="text-neutral-400 shrink-0" />
+              <span className="text-sm text-neutral-500 truncate">
                 {file ? file.name : "Choose a PDF file…"}
               </span>
             </div>
@@ -84,7 +84,7 @@ export default function PDFAttachmentModal({ isOpen, onClose, onInsert }: Props)
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-1">
+            <label className="text-xs font-medium text-neutral-600 block mb-1">
               Link label
             </label>
             <input
@@ -92,7 +92,7 @@ export default function PDFAttachmentModal({ isOpen, onClose, onInsert }: Props)
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g. Spring 2026 Schedule"
-              className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full border border-neutral-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
             />
           </div>
 
@@ -106,14 +106,14 @@ export default function PDFAttachmentModal({ isOpen, onClose, onInsert }: Props)
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-xl border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition"
+              className="flex-1 px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 text-sm hover:bg-neutral-50 transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!file || uploading}
-              className="flex-1 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              className="flex-1 px-4 py-2 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
             >
               {uploading ? "Uploading…" : "Insert"}
             </button>

@@ -386,17 +386,17 @@ export default function EmailForm({
   return (
     <div>
       {/* Lifecycle header */}
-      <div className="flex items-center justify-between gap-4 mb-6 pb-5 border-b border-gray-200">
+      <div className="flex items-center justify-between gap-4 mb-6 pb-5 border-b border-neutral-200">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={navigateToList}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors shrink-0"
+            className="text-sm text-neutral-500 hover:text-neutral-700 transition-colors shrink-0"
           >
             ← All Emails
           </button>
-          <span className="text-gray-300">|</span>
+          <span className="text-neutral-300">|</span>
           <EmailStatusBadge status={emailStatus} />
-          <span className="text-sm text-gray-500 truncate max-w-xs">
+          <span className="text-sm text-neutral-500 truncate max-w-xs">
             {state.setup?.subject || "(no subject)"}
           </span>
         </div>
@@ -412,7 +412,7 @@ export default function EmailForm({
               <button
                 onClick={handleHeaderSave}
                 disabled={headerSaving}
-                className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg border border-neutral-300 text-sm text-neutral-700 hover:bg-neutral-50 transition disabled:opacity-50"
               >
                 {headerSaving
                   ? "Saving…"
@@ -425,7 +425,7 @@ export default function EmailForm({
                 <button
                   onClick={handleHeaderSaveAsTemplate}
                   disabled={headerSaving}
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-lg border border-neutral-300 text-sm text-neutral-700 hover:bg-neutral-50 transition disabled:opacity-50"
                 >
                   Save as template
                 </button>
@@ -435,7 +435,7 @@ export default function EmailForm({
                 <button
                   onClick={handleHeaderSendNow}
                   disabled={headerSaving}
-                  className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                  className="px-3 py-1.5 rounded-lg border border-neutral-300 text-sm text-neutral-700 hover:bg-neutral-50 transition disabled:opacity-50"
                 >
                   Send Now
                 </button>
@@ -446,13 +446,13 @@ export default function EmailForm({
                   <button
                     onClick={() => setShowSchedulePicker((v) => !v)}
                     disabled={headerSaving}
-                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-50"
+                    className="px-3 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition disabled:opacity-50"
                   >
                     Schedule ▾
                   </button>
                   {showSchedulePicker && (
-                    <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4 space-y-3 w-64">
-                      <p className="text-xs font-medium text-gray-700">
+                    <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-neutral-200 rounded-xl shadow-lg p-4 space-y-3 w-64">
+                      <p className="text-xs font-medium text-neutral-700">
                         Schedule send
                       </p>
                       <input
@@ -460,12 +460,12 @@ export default function EmailForm({
                         value={headerScheduledAt}
                         min={minDatetime}
                         onChange={(e) => setHeaderScheduledAt(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        className="w-full border border-neutral-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={() => setShowSchedulePicker(false)}
-                          className="flex-1 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition"
+                          className="flex-1 py-1.5 rounded-lg border border-neutral-300 text-sm text-neutral-600 hover:bg-neutral-50 transition"
                         >
                           Cancel
                         </button>
@@ -475,7 +475,7 @@ export default function EmailForm({
                             handleHeaderSchedule();
                           }}
                           disabled={!headerScheduledAt}
-                          className="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-40"
+                          className="flex-1 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition disabled:opacity-40"
                         >
                           Confirm
                         </button>
@@ -493,7 +493,7 @@ export default function EmailForm({
               <button
                 onClick={handleHeaderRevertToDraft}
                 disabled={headerSaving}
-                className="px-3 py-1.5 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg border border-neutral-300 text-sm text-neutral-700 hover:bg-neutral-50 transition disabled:opacity-50"
               >
                 {headerSaving ? "Reverting…" : "Revert to Draft"}
               </button>
@@ -511,9 +511,9 @@ export default function EmailForm({
               key={step.key}
               onClick={() => navigateToStep(i)}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                ${isActive ? "bg-indigo-600 text-white" : ""}
-                ${isPast && !isActive ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200" : ""}
-                ${!isActive && !isPast ? "bg-gray-100 text-gray-500 hover:bg-gray-200" : ""}
+                ${isActive ? "bg-primary-600 text-white" : ""}
+                ${isPast && !isActive ? "bg-primary-100 text-primary-700 hover:bg-primary-200" : ""}
+                ${!isActive && !isPast ? "bg-neutral-100 text-neutral-500 hover:bg-neutral-200" : ""}
               `}
             >
               {i + 1}. {step.label}
@@ -531,14 +531,14 @@ export default function EmailForm({
 
       {/* Unsaved changes toast — fixed, does not affect layout */}
       {isDirty && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl shadow-lg animate-fade-in">
-          <span className="text-amber-700 text-sm font-medium">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-mauve/10 border border-mauve rounded-xl shadow-lg animate-fade-in">
+          <span className="text-mauve-text text-sm font-medium">
             {isSaving ? "Saving…" : "Unsaved changes"}
           </span>
           {!isSaving && (
             <button
               onClick={() => navigateToStep(currentStepIndex)}
-              className="text-sm text-amber-700 font-semibold underline"
+              className="text-sm text-mauve-text font-semibold underline"
             >
               Save Now
             </button>

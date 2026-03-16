@@ -76,16 +76,16 @@ export function SemesterPageContent({ semester, paymentType, initialIsOpen }: Pr
         <div className="max-w-6xl mx-auto px-6 py-10">
           {/* Hero */}
           <div className="mb-10">
-            <p className="text-sm text-indigo-600 font-medium mb-2">
+            <p className="text-sm text-primary-600 font-medium mb-2">
               {semester.startDate && semester.endDate
                 ? `${fmtDate(semester.startDate)} – ${fmtDate(semester.endDate)}`
                 : "Enrollment open"}
             </p>
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+            <h1 className="text-3xl sm:text-4xl font-bold text-neutral-900 mb-3">
               {semester.name}
             </h1>
             {semester.description && (
-              <p className="text-gray-600 text-lg leading-relaxed max-w-2xl">
+              <p className="text-neutral-600 text-lg leading-relaxed max-w-2xl">
                 {semester.description}
               </p>
             )}
@@ -93,7 +93,7 @@ export function SemesterPageContent({ semester, paymentType, initialIsOpen }: Pr
             {/* Payment plan badge */}
             {paymentType && (
               <div className="mt-4">
-                <span className="inline-block text-xs font-medium bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-full">
+                <span className="inline-block text-xs font-medium bg-primary-50 text-primary-600 px-3 py-1.5 rounded-full">
                   {paymentPlanLabel(paymentType)}
                 </span>
               </div>
@@ -107,17 +107,17 @@ export function SemesterPageContent({ semester, paymentType, initialIsOpen }: Pr
 
           {/* Session grid */}
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
+            <h2 className="text-xl font-bold text-neutral-900 mb-2">
               Available Sessions
             </h2>
-            <p className="text-gray-500 text-sm mb-6">
+            <p className="text-neutral-500 text-sm mb-6">
               Select sessions and choose your preferred days. Add to cart to
               continue.
             </p>
 
             {semester.sessions.length === 0 ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center">
-                <p className="text-gray-500">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center">
+                <p className="text-neutral-500">
                   No sessions are available for this semester yet.
                 </p>
               </div>

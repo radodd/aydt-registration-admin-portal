@@ -76,13 +76,13 @@ export default function NewSemesterPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-10">
+      <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-10">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">
+          <h1 className="text-2xl font-semibold text-neutral-900 tracking-tight">
             Create New Semester
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-neutral-500 mt-1">
             Start from scratch or duplicate an existing semester.
           </p>
         </div>
@@ -92,18 +92,18 @@ export default function NewSemesterPage() {
           <button
             onClick={handleBlank}
             disabled={loadingId !== null}
-            className="w-full text-left border border-gray-200 rounded-2xl p-6 hover:border-indigo-400 hover:bg-indigo-50/40 transition group disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full text-left border border-neutral-200 rounded-2xl p-6 hover:border-primary-400 hover:bg-primary-50/40 transition group disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <div className="flex justify-between items-center">
               <div>
-                <div className="font-medium text-gray-900 group-hover:text-indigo-700 transition">
+                <div className="font-medium text-neutral-900 group-hover:text-primary-700 transition">
                   Start Blank
                 </div>
-                <div className="text-sm text-gray-500 mt-1">
+                <div className="text-sm text-neutral-500 mt-1">
                   Create a completely new semester configuration.
                 </div>
               </div>
-              <div className="text-sm font-medium text-indigo-600">
+              <div className="text-sm font-medium text-primary-600">
                 {loadingId === "blank" ? "Creating..." : "Create →"}
               </div>
             </div>
@@ -113,7 +113,7 @@ export default function NewSemesterPage() {
         {/* Template Section */}
         <div className="space-y-4">
           <div>
-            <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+            <h2 className="text-sm font-medium text-neutral-500 uppercase tracking-wide">
               Use Existing Semester as Template
             </h2>
           </div>
@@ -124,22 +124,22 @@ export default function NewSemesterPage() {
                 key={s.id}
                 onClick={() => openCloneModal(s)}
                 disabled={loadingId !== null}
-                className="text-left border border-gray-200 rounded-2xl p-5 hover:border-indigo-400 hover:shadow-md transition group bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                className="text-left border border-neutral-200 rounded-2xl p-5 hover:border-primary-400 hover:shadow-md transition group bg-white disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <div className="font-medium text-gray-900 group-hover:text-indigo-700 transition truncate pr-2">
+                    <div className="font-medium text-neutral-900 group-hover:text-primary-700 transition truncate pr-2">
                       {s.name}
                     </div>
                     <StatusBadge status={s.status} />
                   </div>
                   {s.publish_at && (
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-neutral-400">
                       Published {new Date(s.publish_at).toLocaleDateString()}
                     </div>
                   )}
                 </div>
-                <div className="mt-4 text-sm font-medium text-indigo-600">
+                <div className="mt-4 text-sm font-medium text-primary-600">
                   {loadingId === s.id ? "Cloning..." : "Use Template →"}
                 </div>
               </button>
@@ -153,30 +153,30 @@ export default function NewSemesterPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6">
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-neutral-900">
                 Adjust Offering Dates
               </h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-sm text-neutral-500 mt-1">
                 All session dates, payment due dates, and registration windows
                 will be shifted to the target year.
               </p>
             </div>
 
             <div className="space-y-4">
-              <div className="flex items-center gap-3 rounded-xl bg-gray-50 border border-gray-200 p-4">
-                <div className="text-sm text-gray-500 shrink-0">Source</div>
-                <div className="font-medium text-gray-900 truncate">
+              <div className="flex items-center gap-3 rounded-xl bg-neutral-50 border border-neutral-200 p-4">
+                <div className="text-sm text-neutral-500 shrink-0">Source</div>
+                <div className="font-medium text-neutral-900 truncate">
                   {cloneModal.semester.name}
                 </div>
                 {cloneModal.sourceYear && (
-                  <div className="ml-auto shrink-0 text-xs font-medium text-gray-400 bg-gray-200 rounded-full px-2 py-0.5">
+                  <div className="ml-auto shrink-0 text-xs font-medium text-neutral-400 bg-neutral-200 rounded-full px-2 py-0.5">
                     {cloneModal.sourceYear}
                   </div>
                 )}
               </div>
 
               <div className="flex items-center gap-3">
-                <label className="text-sm font-medium text-gray-700 shrink-0">
+                <label className="text-sm font-medium text-neutral-700 shrink-0">
                   Target Year
                 </label>
                 <input
@@ -195,17 +195,17 @@ export default function NewSemesterPage() {
                         : m,
                     )
                   }
-                  className="w-28 rounded-lg border text-slate-600 border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-28 rounded-lg border text-slate-600 border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                 />
                 {cloneModal.sourceYear != null && (
-                  <span className="text-sm text-gray-400">
+                  <span className="text-sm text-neutral-400">
                     (shift +{cloneModal.targetYear - cloneModal.sourceYear} yr)
                   </span>
                 )}
               </div>
 
               {cloneModal.sourceYear == null && (
-                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <p className="text-xs text-mauve-text bg-mauve/10 border border-mauve rounded-lg px-3 py-2">
                   No year detected in the semester name — dates will not be
                   shifted unless you set a target year above and the source
                   semester has a detected base year.
@@ -216,13 +216,13 @@ export default function NewSemesterPage() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setCloneModal(null)}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition"
+                className="px-4 py-2 text-sm text-neutral-600 hover:text-neutral-900 transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCloneConfirm}
-                className="px-5 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+                className="px-5 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition"
               >
                 Clone &amp; Adjust →
               </button>

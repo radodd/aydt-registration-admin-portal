@@ -218,7 +218,7 @@ export default function MediaLibraryPage() {
 
       {/* Left sidebar — folder navigation */}
       <aside className="w-48 shrink-0">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide px-3 mb-2">
+        <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide px-3 mb-2">
           Folders
         </p>
         <nav className="space-y-0.5">
@@ -228,8 +228,8 @@ export default function MediaLibraryPage() {
             onClick={() => handleFolderChange("")}
             className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition ${
               folder === ""
-                ? "bg-indigo-50 text-indigo-700"
-                : "text-gray-600 hover:bg-gray-100"
+                ? "bg-primary-50 text-primary-700"
+                : "text-neutral-600 hover:bg-neutral-100"
             }`}
           >
             All Media
@@ -243,8 +243,8 @@ export default function MediaLibraryPage() {
                 onClick={() => handleFolderChange(f.name)}
                 className={`flex-1 text-left px-3 py-2 rounded-lg text-sm transition ${
                   folder === f.name
-                    ? "bg-indigo-50 text-indigo-700 font-medium"
-                    : "text-gray-600 hover:bg-gray-100"
+                    ? "bg-primary-50 text-primary-700 font-medium"
+                    : "text-neutral-600 hover:bg-neutral-100"
                 }`}
               >
                 {f.label}
@@ -252,7 +252,7 @@ export default function MediaLibraryPage() {
               <button
                 type="button"
                 onClick={() => setDeletingFolder(f.name)}
-                className="opacity-0 group-hover:opacity-100 shrink-0 text-gray-300 hover:text-red-500 text-sm leading-none px-1 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 shrink-0 text-neutral-300 hover:text-red-500 text-sm leading-none px-1 transition-opacity"
                 title={`Delete ${f.label}`}
               >
                 ×
@@ -278,7 +278,7 @@ export default function MediaLibraryPage() {
                     setNewFolderLabel("");
                   }
                 }}
-                className="w-full text-xs text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full text-xs text-slate-700 placeholder:text-slate-400 border border-neutral-300 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-primary-600"
               />
               <div className="flex gap-2">
                 <button
@@ -286,7 +286,7 @@ export default function MediaLibraryPage() {
                   disabled={savingFolder}
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => void handleAddFolder()}
-                  className="text-xs text-indigo-600 font-medium hover:underline disabled:opacity-50"
+                  className="text-xs text-primary-600 font-medium hover:underline disabled:opacity-50"
                 >
                   {savingFolder ? "Saving…" : "Save"}
                 </button>
@@ -296,7 +296,7 @@ export default function MediaLibraryPage() {
                     setAddingFolder(false);
                     setNewFolderLabel("");
                   }}
-                  className="text-xs text-gray-400 hover:text-gray-600"
+                  className="text-xs text-neutral-400 hover:text-neutral-600"
                 >
                   Cancel
                 </button>
@@ -306,7 +306,7 @@ export default function MediaLibraryPage() {
             <button
               type="button"
               onClick={() => setAddingFolder(true)}
-              className="text-xs text-gray-400 hover:text-indigo-600 transition flex items-center gap-1"
+              className="text-xs text-neutral-400 hover:text-primary-600 transition flex items-center gap-1"
             >
               <span className="text-base leading-none">+</span> New folder
             </button>
@@ -319,8 +319,8 @@ export default function MediaLibraryPage() {
         {/* Page header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Media Library</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h1 className="text-xl font-semibold text-neutral-900">Media Library</h1>
+            <p className="text-sm text-neutral-500 mt-0.5">
               Shared image library for all email templates
             </p>
           </div>
@@ -328,7 +328,7 @@ export default function MediaLibraryPage() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition"
+            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 transition"
           >
             {uploading ? "Uploading…" : "Upload Image"}
           </button>
@@ -348,20 +348,20 @@ export default function MediaLibraryPage() {
             placeholder="Search images…"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full text-sm text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full text-sm text-slate-700 placeholder:text-slate-400 border border-neutral-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary-600"
           />
         </div>
 
         {/* Grid */}
         {loading ? (
-          <p className="text-sm text-gray-400 text-center py-24">Loading…</p>
+          <p className="text-sm text-neutral-400 text-center py-24">Loading…</p>
         ) : images.length === 0 ? (
           <div className="text-center py-24">
-            <p className="text-sm text-gray-400">No images yet.</p>
+            <p className="text-sm text-neutral-400">No images yet.</p>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="mt-3 text-sm text-indigo-600 font-medium hover:underline"
+              className="mt-3 text-sm text-primary-600 font-medium hover:underline"
             >
               Upload the first one
             </button>
@@ -374,7 +374,7 @@ export default function MediaLibraryPage() {
               return (
                 <div
                   key={img.id}
-                  className="group relative rounded-xl border border-gray-200 overflow-hidden bg-gray-50"
+                  className="group relative rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50"
                 >
                   {/* Thumbnail */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -401,12 +401,12 @@ export default function MediaLibraryPage() {
                           onKeyDown={(e) => {
                             if (e.key === "Escape") setRenamingId(null);
                           }}
-                          className="flex-1 text-xs text-slate-700 placeholder:text-slate-400 border border-gray-300 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="flex-1 text-xs text-slate-700 placeholder:text-slate-400 border border-neutral-300 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary-600"
                         />
                         <button
                           type="submit"
                           onMouseDown={(e) => e.preventDefault()}
-                          className="text-xs text-indigo-600 font-medium hover:underline"
+                          className="text-xs text-primary-600 font-medium hover:underline"
                         >
                           Save
                         </button>
@@ -414,7 +414,7 @@ export default function MediaLibraryPage() {
                     ) : (
                       <div className="flex items-center justify-between gap-1">
                         <p
-                          className="text-xs text-gray-700 truncate flex-1"
+                          className="text-xs text-neutral-700 truncate flex-1"
                           title={img.display_name}
                         >
                           {img.display_name}
@@ -429,14 +429,14 @@ export default function MediaLibraryPage() {
                                 openMenuId === img.id ? null : img.id
                               )
                             }
-                            className="text-gray-400 hover:text-gray-600 text-sm leading-none px-0.5"
+                            className="text-neutral-400 hover:text-neutral-600 text-sm leading-none px-0.5"
                             title="Options"
                           >
                             ⋯
                           </button>
 
                           {openMenuId === img.id && (
-                            <div className="absolute right-0 bottom-6 z-10 bg-white border border-gray-200 rounded-lg shadow-lg text-xs w-32 py-1">
+                            <div className="absolute right-0 bottom-6 z-10 bg-white border border-neutral-200 rounded-lg shadow-lg text-xs w-32 py-1">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -444,7 +444,7 @@ export default function MediaLibraryPage() {
                                   setRenameValue(img.display_name);
                                   setOpenMenuId(null);
                                 }}
-                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
+                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-neutral-50"
                               >
                                 Rename
                               </button>
@@ -455,14 +455,14 @@ export default function MediaLibraryPage() {
                                   setSelectedMoveFolder(img.folder);
                                   setOpenMenuId(null);
                                 }}
-                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
+                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-neutral-50"
                               >
                                 Move to…
                               </button>
                               <button
                                 type="button"
                                 onClick={() => copyUrl(img.public_url)}
-                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-gray-50"
+                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-neutral-50"
                               >
                                 Copy URL
                               </button>
@@ -482,7 +482,7 @@ export default function MediaLibraryPage() {
                       </div>
                     )}
 
-                    <p className="text-xs text-gray-400 mt-0.5">
+                    <p className="text-xs text-neutral-400 mt-0.5">
                       {folderLabel}
                       {img.width && img.height ? ` · ${img.width}×${img.height}` : ""}
                       {` · ${Math.round(img.size_bytes / 1024)} KB`}
@@ -499,10 +499,10 @@ export default function MediaLibraryPage() {
       {deletingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">
+            <h3 className="text-base font-semibold text-neutral-900 mb-2">
               Delete image?
             </h3>
-            <p className="text-sm text-gray-500 mb-6">
+            <p className="text-sm text-neutral-500 mb-6">
               This will permanently remove the image from storage and the
               library. It cannot be undone.
             </p>
@@ -510,7 +510,7 @@ export default function MediaLibraryPage() {
               <button
                 type="button"
                 onClick={() => setDeletingId(null)}
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="text-sm text-neutral-500 hover:text-neutral-700"
               >
                 Cancel
               </button>
@@ -530,11 +530,11 @@ export default function MediaLibraryPage() {
       {deletingFolder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">
+            <h3 className="text-base font-semibold text-neutral-900 mb-2">
               Delete folder?
             </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              <span className="font-medium text-gray-700">
+            <p className="text-sm text-neutral-500 mb-6">
+              <span className="font-medium text-neutral-700">
                 {folders.find((f) => f.name === deletingFolder)?.label ?? deletingFolder}
               </span>{" "}
               will be removed. This only works if the folder is empty.
@@ -543,7 +543,7 @@ export default function MediaLibraryPage() {
               <button
                 type="button"
                 onClick={() => setDeletingFolder(null)}
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="text-sm text-neutral-500 hover:text-neutral-700"
               >
                 Cancel
               </button>
@@ -563,10 +563,10 @@ export default function MediaLibraryPage() {
       {movingImage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="text-base font-semibold text-gray-900 mb-1">
+            <h3 className="text-base font-semibold text-neutral-900 mb-1">
               Move to folder
             </h3>
-            <p className="text-sm text-gray-500 mb-4 truncate">
+            <p className="text-sm text-neutral-500 mb-4 truncate">
               {movingImage.display_name}
             </p>
             <div className="space-y-2 mb-6">
@@ -578,9 +578,9 @@ export default function MediaLibraryPage() {
                     value={f.name}
                     checked={selectedMoveFolder === f.name}
                     onChange={() => setSelectedMoveFolder(f.name)}
-                    className="accent-indigo-600"
+                    className="accent-primary-600"
                   />
-                  <span className="text-sm text-gray-700">{f.label}</span>
+                  <span className="text-sm text-neutral-700">{f.label}</span>
                 </label>
               ))}
             </div>
@@ -588,14 +588,14 @@ export default function MediaLibraryPage() {
               <button
                 type="button"
                 onClick={() => setMovingImage(null)}
-                className="text-sm text-gray-500 hover:text-gray-700"
+                className="text-sm text-neutral-500 hover:text-neutral-700"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => void handleMove(movingImage.id, selectedMoveFolder)}
-                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition"
+                className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition"
               >
                 Move
               </button>
@@ -606,14 +606,14 @@ export default function MediaLibraryPage() {
 
       {/* Upload warning toast */}
       {uploadWarnings.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-50 animate-fade-in bg-amber-50 border border-amber-200 rounded-xl shadow-lg p-4 max-w-sm">
+        <div className="fixed bottom-6 right-6 z-50 animate-fade-in bg-mauve/10 border border-mauve rounded-xl shadow-lg p-4 max-w-sm">
           <div className="flex items-start gap-3">
-            <span className="text-amber-500 text-base mt-0.5">⚠</span>
+            <span className="text-mauve-text text-base mt-0.5">⚠</span>
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-800 mb-1">
+              <p className="text-sm font-medium text-mauve-text mb-1">
                 Upload succeeded with warnings
               </p>
-              <ul className="text-xs text-amber-700 space-y-0.5 list-disc list-inside">
+              <ul className="text-xs text-mauve-text space-y-0.5 list-disc list-inside">
                 {uploadWarnings.map((w, i) => (
                   <li key={i}>{w}</li>
                 ))}
@@ -622,7 +622,7 @@ export default function MediaLibraryPage() {
             <button
               type="button"
               onClick={() => setUploadWarnings([])}
-              className="text-amber-400 hover:text-amber-600 text-lg leading-none"
+              className="text-mauve hover:text-mauve-text text-lg leading-none"
             >
               ×
             </button>

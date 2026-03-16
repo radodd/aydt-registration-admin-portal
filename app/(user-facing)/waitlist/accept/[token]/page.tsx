@@ -171,8 +171,8 @@ export default async function WaitlistAcceptPage({ params }: Props) {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-6">
+    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-6">
         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-green-100">
           <svg
             className="w-6 h-6 text-green-600"
@@ -190,22 +190,22 @@ export default async function WaitlistAcceptPage({ params }: Props) {
         </div>
 
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Spot reserved!</h1>
-          <p className="text-sm text-gray-500 mt-2">
+          <h1 className="text-xl font-semibold text-neutral-900">Spot reserved!</h1>
+          <p className="text-sm text-neutral-500 mt-2">
             You&apos;ve accepted your waitlist invitation for{" "}
-            <span className="font-medium text-gray-700">{session.title}</span>.
+            <span className="font-medium text-neutral-700">{session.title}</span>.
           </p>
         </div>
 
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+        <div className="bg-mauve/10 border border-mauve rounded-xl px-4 py-3 text-sm text-mauve-text">
           <p className="font-medium">Complete your registration by:</p>
           <p className="mt-1">{holdUntil}</p>
-          <p className="text-xs mt-1 text-amber-600">
+          <p className="text-xs mt-1 text-mauve-text">
             Your spot will be released if payment is not completed in time.
           </p>
         </div>
 
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-neutral-400 text-center">
           Questions? Contact us at{" "}
           <a href="mailto:info@aydt.com" className="underline">
             info@aydt.com
@@ -218,8 +218,8 @@ export default async function WaitlistAcceptPage({ params }: Props) {
 
 function ErrorPage({ title, message }: { title: string; message: string }) {
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-4">
+    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6">
+      <div className="max-w-md w-full bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-4">
         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100">
           <svg
             className="w-6 h-6 text-red-500"
@@ -235,9 +235,9 @@ function ErrorPage({ title, message }: { title: string; message: string }) {
             />
           </svg>
         </div>
-        <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
-        <p className="text-sm text-gray-500">{message}</p>
-        <p className="text-xs text-gray-400">
+        <h1 className="text-xl font-semibold text-neutral-900">{title}</h1>
+        <p className="text-sm text-neutral-500">{message}</p>
+        <p className="text-xs text-neutral-400">
           Questions? Contact us at{" "}
           <a href="mailto:info@aydt.com" className="underline">
             info@aydt.com

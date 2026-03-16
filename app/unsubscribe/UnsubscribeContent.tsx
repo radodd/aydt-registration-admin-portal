@@ -29,11 +29,11 @@ export default function UnsubscribeContent() {
 
   if (status === "invalid") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-8 text-center space-y-3">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
+        <div className="max-w-md w-full bg-white border border-neutral-200 rounded-2xl p-8 text-center space-y-3">
           <p className="text-2xl">⚠️</p>
-          <h1 className="text-lg font-semibold text-gray-900">Invalid link</h1>
-          <p className="text-sm text-gray-500">This unsubscribe link is missing required information.</p>
+          <h1 className="text-lg font-semibold text-neutral-900">Invalid link</h1>
+          <p className="text-sm text-neutral-500">This unsubscribe link is missing required information.</p>
         </div>
       </div>
     );
@@ -41,30 +41,30 @@ export default function UnsubscribeContent() {
 
   if (status === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-sm text-gray-400">Processing…</p>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <p className="text-sm text-neutral-400">Processing…</p>
       </div>
     );
   }
 
   if (status === "error") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
         <div className="max-w-md w-full bg-white border border-red-200 rounded-2xl p-8 text-center space-y-3">
           <p className="text-2xl">✗</p>
-          <h1 className="text-lg font-semibold text-gray-900">Unsubscribe failed</h1>
-          <p className="text-sm text-gray-500">{errorMessage}</p>
+          <h1 className="text-lg font-semibold text-neutral-900">Unsubscribe failed</h1>
+          <p className="text-sm text-neutral-500">{errorMessage}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white border border-gray-200 rounded-2xl p-8 text-center space-y-3">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
+      <div className="max-w-md w-full bg-white border border-neutral-200 rounded-2xl p-8 text-center space-y-3">
         <p className="text-2xl">✓</p>
-        <h1 className="text-lg font-semibold text-gray-900">You&apos;ve been unsubscribed</h1>
-        <p className="text-sm text-gray-500">
+        <h1 className="text-lg font-semibold text-neutral-900">You&apos;ve been unsubscribed</h1>
+        <p className="text-sm text-neutral-500">
           You will no longer receive broadcast emails from AYDT. If this was a
           mistake, contact your studio administrator to re-subscribe.
         </p>

@@ -71,16 +71,16 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
   }
 
   const inputClass =
-    "w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-gray-50 disabled:text-gray-400";
+    "w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:bg-neutral-50 disabled:text-neutral-400";
 
   return (
-    <section className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
+    <section className="bg-white border border-neutral-200 rounded-2xl p-8 shadow-sm">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-neutral-900">
             Parent / Guardian Info
           </h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-neutral-500 mt-0.5">
             Used to pre-fill registration forms.
           </p>
         </div>
@@ -88,7 +88,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+            className="text-sm text-primary-600 hover:text-primary-700 font-medium"
           >
             Edit
           </button>
@@ -105,7 +105,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
         {/* Name */}
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-neutral-700">
               First Name
             </label>
             <input
@@ -117,7 +117,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-neutral-700">
               Last Name
             </label>
             <input
@@ -132,7 +132,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
 
         {/* Email (read-only) */}
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-neutral-700">
             Email Address
           </label>
           <input
@@ -141,14 +141,14 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
             disabled
             className={inputClass}
           />
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-neutral-400">
             Email cannot be changed here.
           </p>
         </div>
 
         {/* Phone */}
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-neutral-700">
             Phone Number
           </label>
           <input
@@ -163,7 +163,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
 
         {/* Address */}
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-neutral-700">
             Street Address
           </label>
           <input
@@ -177,9 +177,9 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-neutral-700">
             Apt / Suite / Unit{" "}
-            <span className="text-gray-400 font-normal">(optional)</span>
+            <span className="text-neutral-400 font-normal">(optional)</span>
           </label>
           <input
             type="text"
@@ -194,7 +194,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
         {/* City / State / Zip */}
         <div className="grid sm:grid-cols-3 gap-4">
           <div className="space-y-1.5 sm:col-span-1">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-neutral-700">
               City
             </label>
             <input
@@ -206,7 +206,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
             />
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-neutral-700">
               State
             </label>
             <select
@@ -224,7 +224,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-neutral-700">
               ZIP Code
             </label>
             <input
@@ -244,7 +244,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
             <button
               type="button"
               onClick={handleCancel}
-              className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-sm font-medium"
+              className="flex-1 py-2.5 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors text-sm font-medium"
             >
               Cancel
             </button>
@@ -252,7 +252,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors text-sm disabled:opacity-60"
+              className="flex-1 py-2.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors text-sm disabled:opacity-60"
             >
               {saving ? "Saving…" : "Save Changes"}
             </button>

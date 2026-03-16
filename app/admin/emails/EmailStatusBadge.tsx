@@ -6,27 +6,27 @@ const CONFIG: Record<
 > = {
   draft: {
     label: "Draft",
-    className: "bg-gray-100 text-gray-600 border-gray-200",
+    className: "bg-neutral-100 text-neutral-600 border-neutral-200",
   },
   scheduled: {
     label: "Scheduled",
-    className: "bg-blue-50 text-blue-700 border-blue-200",
+    className: "bg-lavender/20 text-lavender-text border-lavender",
   },
   sending: {
     label: "Sending…",
-    className: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    className: "bg-primary-100 text-primary-700 border-primary-200",
   },
   sent: {
     label: "Sent",
-    className: "bg-green-50 text-green-700 border-green-200",
+    className: "bg-mint/20 text-mint-text border-mint",
   },
   failed: {
     label: "Failed",
-    className: "bg-red-50 text-red-700 border-red-200",
+    className: "bg-pale-rose/30 text-pale-rose-text border-pale-rose",
   },
   cancelled: {
     label: "Cancelled",
-    className: "bg-gray-50 text-gray-500 border-gray-200",
+    className: "bg-neutral-50 text-neutral-500 border-neutral-200",
   },
 };
 

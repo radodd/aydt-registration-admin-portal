@@ -281,8 +281,8 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
             }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
               selectedClassId === c.id
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                ? "bg-primary-600 text-white border-primary-600"
+                : "bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50"
             }`}
           >
             {c.name}
@@ -291,18 +291,18 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
       </div>
 
       {selectedClass && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
           {/* Class header */}
-          <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-6 pt-5 pb-4 border-b border-neutral-200 flex items-center justify-between">
             <div>
-              <h2 className="font-semibold text-gray-900">
+              <h2 className="font-semibold text-neutral-900">
                 {selectedClass.name}
               </h2>
               <div className="flex gap-2 mt-1">
-                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 capitalize">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-mauve/20 text-mauve-text border border-mauve capitalize">
                   {selectedClass.visibility.replace(/_/g, " ")}
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 capitalize">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 capitalize">
                   {selectedClass.discipline.replace(/_/g, " ")}
                 </span>
               </div>
@@ -310,17 +310,17 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
           </div>
 
           {/* Tabs */}
-          <div className="flex border-b border-gray-100">
+          <div className="flex border-b border-neutral-200">
             <button
               onClick={() => setActiveTab("invites")}
               className={`px-5 py-3 text-sm font-medium transition-colors ${
                 activeTab === "invites"
-                  ? "border-b-2 border-indigo-600 text-indigo-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "border-b-2 border-primary-600 text-primary-600"
+                  : "text-neutral-500 hover:text-neutral-700"
               }`}
             >
               Invites
-              <span className="ml-1.5 text-xs rounded-full bg-gray-100 text-gray-600 px-1.5 py-0.5">
+              <span className="ml-1.5 text-xs rounded-full bg-neutral-100 text-neutral-600 px-1.5 py-0.5">
                 {invites.length}
               </span>
             </button>
@@ -328,12 +328,12 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
               onClick={() => setActiveTab("sessions")}
               className={`px-5 py-3 text-sm font-medium transition-colors ${
                 activeTab === "sessions"
-                  ? "border-b-2 border-indigo-600 text-indigo-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "border-b-2 border-primary-600 text-primary-600"
+                  : "text-neutral-500 hover:text-neutral-700"
               }`}
             >
               Audition Slots
-              <span className="ml-1.5 text-xs rounded-full bg-gray-100 text-gray-600 px-1.5 py-0.5">
+              <span className="ml-1.5 text-xs rounded-full bg-neutral-100 text-neutral-600 px-1.5 py-0.5">
                 {sessions.length}
               </span>
             </button>
@@ -341,8 +341,8 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
               onClick={() => setActiveTab("activity")}
               className={`px-5 py-3 text-sm font-medium transition-colors ${
                 activeTab === "activity"
-                  ? "border-b-2 border-indigo-600 text-indigo-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "border-b-2 border-primary-600 text-primary-600"
+                  : "text-neutral-500 hover:text-neutral-700"
               }`}
             >
               Activity Log
@@ -354,19 +354,19 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
             <div className="p-6 space-y-4">
               {/* Created link banner */}
               {createdLink && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-1">
+                <div className="bg-mint/10 border border-mint rounded-xl p-4 space-y-1">
                   <p className="text-xs font-medium text-green-800">
                     Invite link created — copy and share it:
                   </p>
                   <div className="flex items-center gap-2">
-                    <code className="flex-1 text-xs bg-white border border-green-200 rounded-lg px-3 py-1.5 text-green-900 truncate">
+                    <code className="flex-1 text-xs bg-white border border-mint rounded-lg px-3 py-1.5 text-green-900 truncate">
                       {createdLink}
                     </code>
                     <button
                       onClick={() =>
                         navigator.clipboard.writeText(createdLink)
                       }
-                      className="shrink-0 text-xs text-green-700 hover:text-green-900 font-medium"
+                      className="shrink-0 text-xs text-mint-text hover:text-green-900 font-medium"
                     >
                       Copy
                     </button>
@@ -381,21 +381,21 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                     setShowInviteForm((v) => !v);
                     setCreatedLink(null);
                   }}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                  className="text-sm font-medium text-primary-600 hover:text-primary-800"
                 >
                   {showInviteForm ? "Cancel" : "+ New Invite"}
                 </button>
               </div>
 
               {showInviteForm && (
-                <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-4">
-                  <h3 className="text-sm font-medium text-gray-900">
+                <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-4 space-y-4">
+                  <h3 className="text-sm font-medium text-neutral-900">
                     Create Invitation
                   </h3>
 
                   {/* Access type */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">
                       Access Type
                     </label>
                     <select
@@ -403,13 +403,13 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                       onChange={(e) =>
                         setInviteAccessType(e.target.value as InviteAccessType)
                       }
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
+                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
                     >
                       <option value="invite_only">Personal Invite — specific dancer only</option>
                       <option value="token_link">Open Link — anyone with the URL</option>
                       <option value="hybrid">Shared Link — named dancer + anyone with the URL</option>
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-neutral-500 mt-1">
                       {ACCESS_TYPE_DESCRIPTIONS[inviteAccessType]}
                     </p>
                   </div>
@@ -417,7 +417,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                   {/* Email */}
                   {inviteAccessType !== "token_link" && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         Email Address
                       </label>
                       <input
@@ -425,7 +425,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                         value={inviteEmail}
                         onChange={(e) => setInviteEmail(e.target.value)}
                         placeholder="student@example.com"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                       />
                     </div>
                   )}
@@ -433,9 +433,9 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                   {/* Max uses (token_link only) */}
                   {inviteAccessType === "token_link" && (
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         Max Uses{" "}
-                        <span className="text-gray-400">(leave blank for unlimited)</span>
+                        <span className="text-neutral-400">(leave blank for unlimited)</span>
                       </label>
                       <input
                         type="number"
@@ -443,43 +443,43 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                         value={inviteMaxUses}
                         onChange={(e) => setInviteMaxUses(e.target.value)}
                         placeholder="e.g. 20"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                       />
                     </div>
                   )}
 
                   {/* Expiry */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">
                       Expires At{" "}
-                      <span className="text-gray-400">(optional)</span>
+                      <span className="text-neutral-400">(optional)</span>
                     </label>
                     <input
                       type="datetime-local"
                       value={inviteExpiry}
                       onChange={(e) => setInviteExpiry(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                     />
                   </div>
 
                   {/* Notes */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-neutral-700 mb-1">
                       Internal Notes{" "}
-                      <span className="text-gray-400">(optional)</span>
+                      <span className="text-neutral-400">(optional)</span>
                     </label>
                     <input
                       type="text"
                       value={inviteNotes}
                       onChange={(e) => setInviteNotes(e.target.value)}
                       placeholder="e.g. Sent to Maple Dance Studio outreach"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                     />
                   </div>
 
                   <button
                     onClick={handleCreateInvite}
-                    className="w-full rounded-xl bg-indigo-600 text-white text-sm font-medium py-2.5 hover:bg-indigo-700 transition-colors"
+                    className="w-full rounded-xl bg-primary-600 text-white text-sm font-medium py-2.5 hover:bg-primary-700 transition-colors"
                   >
                     Create Invite
                   </button>
@@ -488,16 +488,16 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
 
               {/* Invite table */}
               {isPending ? (
-                <p className="text-sm text-gray-400">Loading…</p>
+                <p className="text-sm text-neutral-400">Loading…</p>
               ) : invites.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">
+                <p className="text-sm text-neutral-400 text-center py-6">
                   No invites yet. Create one above.
                 </p>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <div className="overflow-x-auto rounded-xl border border-neutral-200">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <tr className="bg-neutral-50 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                         <th className="px-4 py-2.5">Type</th>
                         <th className="px-4 py-2.5">Email / Target</th>
                         <th className="px-4 py-2.5 text-center">Opens</th>
@@ -509,30 +509,30 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                         <th className="px-4 py-2.5"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-neutral-100">
                       {invites.map((inv) => (
-                        <tr key={inv.id} className="hover:bg-gray-50">
+                        <tr key={inv.id} className="hover:bg-neutral-50">
                           <td className="px-4 py-3 capitalize">
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700">
                               {inv.access_type.replace(/_/g, " ")}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-gray-700 max-w-40 truncate">
+                          <td className="px-4 py-3 text-neutral-700 max-w-40 truncate">
                             {inv.dancer
                               ? `${inv.dancer.first_name} ${inv.dancer.last_name}`
                               : inv.email ?? (
-                                  <span className="text-gray-400 italic">
+                                  <span className="text-neutral-400 italic">
                                     Link invite
                                   </span>
                                 )}
                           </td>
-                          <td className="px-4 py-3 text-center text-gray-700">
+                          <td className="px-4 py-3 text-center text-neutral-700">
                             {inv.event_counts?.opened ?? 0}
                           </td>
-                          <td className="px-4 py-3 text-center text-gray-700">
+                          <td className="px-4 py-3 text-center text-neutral-700">
                             {inv.event_counts?.registered ?? 0}
                           </td>
-                          <td className="px-4 py-3 text-center text-gray-700">
+                          <td className="px-4 py-3 text-center text-neutral-700">
                             {inv.max_uses === null
                               ? `${inv.use_count} / ∞`
                               : `${inv.use_count} / ${inv.max_uses}`}
@@ -540,12 +540,12 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                           <td className="px-4 py-3">
                             <InviteStatusBadge invite={inv} />
                           </td>
-                          <td className="px-4 py-3 text-gray-500 text-xs">
+                          <td className="px-4 py-3 text-neutral-500 text-xs">
                             {inv.opened_at
                               ? new Date(inv.opened_at).toLocaleDateString()
                               : "—"}
                           </td>
-                          <td className="px-4 py-3 text-gray-500 text-xs">
+                          <td className="px-4 py-3 text-neutral-500 text-xs">
                             {inv.expires_at
                               ? new Date(inv.expires_at).toLocaleDateString()
                               : "—"}
@@ -559,7 +559,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                                   setEmailSendState("idle");
                                   setEmailSendError("");
                                 }}
-                                className="text-xs text-gray-500 hover:text-gray-700"
+                                className="text-xs text-neutral-500 hover:text-neutral-700"
                                 title="Generate invitation email"
                               >
                                 Generate email
@@ -570,7 +570,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                                     `${window.location.origin}/audition/${inv.invite_token}`,
                                   )
                                 }
-                                className="text-xs text-gray-500 hover:text-gray-700"
+                                className="text-xs text-neutral-500 hover:text-neutral-700"
                                 title="Copy link"
                               >
                                 Copy link
@@ -600,56 +600,56 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowSessionForm((v) => !v)}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                  className="text-sm font-medium text-primary-600 hover:text-primary-800"
                 >
                   {showSessionForm ? "Cancel" : "+ New Audition Slot"}
                 </button>
               </div>
 
               {showSessionForm && (
-                <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 space-y-4">
-                  <h3 className="text-sm font-medium text-gray-900">
+                <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-4 space-y-4">
+                  <h3 className="text-sm font-medium text-neutral-900">
                     Create Audition Slot
                   </h3>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         Label{" "}
-                        <span className="text-gray-400">(optional)</span>
+                        <span className="text-neutral-400">(optional)</span>
                       </label>
                       <input
                         type="text"
                         value={sessionLabel}
                         onChange={(e) => setSessionLabel(e.target.value)}
                         placeholder="e.g. Monday Morning Slot"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         Start
                       </label>
                       <input
                         type="datetime-local"
                         value={sessionStartAt}
                         onChange={(e) => setSessionStartAt(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         End
                       </label>
                       <input
                         type="datetime-local"
                         value={sessionEndAt}
                         onChange={(e) => setSessionEndAt(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         Location
                       </label>
                       <input
@@ -657,13 +657,13 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                         value={sessionLocation}
                         onChange={(e) => setSessionLocation(e.target.value)}
                         placeholder="Studio A"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         Capacity{" "}
-                        <span className="text-gray-400">(blank = unlimited)</span>
+                        <span className="text-neutral-400">(blank = unlimited)</span>
                       </label>
                       <input
                         type="number"
@@ -671,13 +671,13 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                         value={sessionCapacity}
                         onChange={(e) => setSessionCapacity(e.target.value)}
                         placeholder="e.g. 15"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         Price ($){" "}
-                        <span className="text-gray-400">(blank = free)</span>
+                        <span className="text-neutral-400">(blank = free)</span>
                       </label>
                       <input
                         type="number"
@@ -686,7 +686,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                         value={sessionPrice}
                         onChange={(e) => setSessionPrice(e.target.value)}
                         placeholder="e.g. 25.00"
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                       />
                     </div>
                   </div>
@@ -694,7 +694,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                   <button
                     onClick={handleCreateSession}
                     disabled={!sessionStartAt || !sessionEndAt}
-                    className="w-full rounded-xl bg-indigo-600 text-white text-sm font-medium py-2.5 disabled:opacity-40 hover:bg-indigo-700 transition-colors"
+                    className="w-full rounded-xl bg-primary-600 text-white text-sm font-medium py-2.5 disabled:opacity-40 hover:bg-primary-700 transition-colors"
                   >
                     Create Slot
                   </button>
@@ -702,16 +702,16 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
               )}
 
               {isPending ? (
-                <p className="text-sm text-gray-400">Loading…</p>
+                <p className="text-sm text-neutral-400">Loading…</p>
               ) : sessions.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">
+                <p className="text-sm text-neutral-400 text-center py-6">
                   No audition slots yet. Create one above.
                 </p>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <div className="overflow-x-auto rounded-xl border border-neutral-200">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <tr className="bg-neutral-50 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                         <th className="px-4 py-2.5">Slot</th>
                         <th className="px-4 py-2.5">Date / Time</th>
                         <th className="px-4 py-2.5">Location</th>
@@ -720,20 +720,20 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                         <th className="px-4 py-2.5">Price</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-neutral-100">
                       {sessions.map((sess) => {
                         const start = new Date(sess.start_at);
                         const end = new Date(sess.end_at);
                         return (
-                          <tr key={sess.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-900">
+                          <tr key={sess.id} className="hover:bg-neutral-50">
+                            <td className="px-4 py-3 font-medium text-neutral-900">
                               {sess.label ??
                                 start.toLocaleDateString("en-US", {
                                   month: "short",
                                   day: "numeric",
                                 })}
                             </td>
-                            <td className="px-4 py-3 text-gray-600 text-xs">
+                            <td className="px-4 py-3 text-neutral-600 text-xs">
                               {start.toLocaleDateString("en-US", {
                                 weekday: "short",
                                 month: "short",
@@ -749,10 +749,10 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                                 minute: "2-digit",
                               })}
                             </td>
-                            <td className="px-4 py-3 text-gray-600">
+                            <td className="px-4 py-3 text-neutral-600">
                               {sess.location ?? "—"}
                             </td>
-                            <td className="px-4 py-3 text-center text-gray-600">
+                            <td className="px-4 py-3 text-center text-neutral-600">
                               {sess.capacity ?? "∞"}
                             </td>
                             <td className="px-4 py-3 text-center">
@@ -761,13 +761,13 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                                   sess.capacity !== null &&
                                   sess.bookingCount >= sess.capacity
                                     ? "text-red-600"
-                                    : "text-gray-700"
+                                    : "text-neutral-700"
                                 }`}
                               >
                                 {sess.bookingCount}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-gray-600">
+                            <td className="px-4 py-3 text-neutral-600">
                               {sess.price !== null
                                 ? `$${Number(sess.price).toFixed(2)}`
                                 : "Free"}
@@ -786,26 +786,26 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
           {activeTab === "activity" && (
             <div className="p-6 space-y-4">
               {activityLoading ? (
-                <p className="text-sm text-gray-400 text-center py-8">Loading…</p>
+                <p className="text-sm text-neutral-400 text-center py-8">Loading…</p>
               ) : activityEvents.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-8">
+                <p className="text-sm text-neutral-400 text-center py-8">
                   No activity yet. Events will appear here when invites are sent, opened, or booked.
                 </p>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-gray-200">
+                <div className="overflow-x-auto rounded-xl border border-neutral-200">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <tr className="bg-neutral-50 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">
                         <th className="px-4 py-2.5">Time</th>
                         <th className="px-4 py-2.5">Event</th>
                         <th className="px-4 py-2.5">Target</th>
                         <th className="px-4 py-2.5">IP</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-neutral-100">
                       {activityEvents.map((evt) => (
-                        <tr key={evt.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                        <tr key={evt.id} className="hover:bg-neutral-50">
+                          <td className="px-4 py-3 text-neutral-500 text-xs whitespace-nowrap">
                             {new Date(evt.created_at).toLocaleString("en-US", {
                               month: "short",
                               day: "numeric",
@@ -816,10 +816,10 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                           <td className="px-4 py-3">
                             <ActivityEventBadge type={evt.event_type} />
                           </td>
-                          <td className="px-4 py-3 text-gray-700 text-xs">
+                          <td className="px-4 py-3 text-neutral-700 text-xs">
                             {evt.invite_target}
                           </td>
-                          <td className="px-4 py-3 text-gray-400 text-xs font-mono">
+                          <td className="px-4 py-3 text-neutral-400 text-xs font-mono">
                             {evt.ip_address ?? "—"}
                           </td>
                         </tr>
@@ -839,7 +839,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg space-y-4 p-6">
             {/* Header */}
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Invitation Email</h3>
+              <h3 className="font-semibold text-neutral-900">Invitation Email</h3>
               <button
                 onClick={() => {
                   setEmailModalInvite(null);
@@ -847,7 +847,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                   setEmailSendState("idle");
                   setEmailSendError("");
                 }}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                className="text-neutral-400 hover:text-neutral-600 text-lg leading-none"
                 aria-label="Close"
               >
                 ✕
@@ -857,20 +857,20 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
             {/* Subject */}
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
                   Subject
                 </p>
                 {selectedClass?.invite_email ? (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-mint/10 text-mint-text border border-mint">
                     Class Template
                   </span>
                 ) : (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-500">
                     System Default
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-800 bg-gray-50 rounded-lg px-3 py-2">
+              <p className="text-sm text-neutral-800 bg-neutral-50 rounded-lg px-3 py-2">
                 {buildInviteEmailText(emailModalInvite).subject}
               </p>
             </div>
@@ -878,7 +878,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
             {/* Body */}
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
                   Body
                 </p>
                 {selectedClass?.invite_email ? (
@@ -886,26 +886,26 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                     href={`/admin/semesters/${semesterId}/edit?step=sessions`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-indigo-600 hover:text-indigo-800 underline"
+                    className="text-xs text-primary-600 hover:text-primary-800 underline"
                   >
                     Edit template →
                   </a>
                 ) : null}
               </div>
-              <pre className="text-sm text-gray-800 bg-gray-50 rounded-lg px-3 py-3 whitespace-pre-wrap font-sans max-h-48 overflow-y-auto">
+              <pre className="text-sm text-neutral-800 bg-neutral-50 rounded-lg px-3 py-3 whitespace-pre-wrap font-sans max-h-48 overflow-y-auto">
                 {buildInviteEmailText(emailModalInvite).body}
               </pre>
             </div>
 
             {/* Template notice */}
             {!selectedClass?.invite_email && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <p className="text-xs text-mauve-text bg-mauve/10 border border-mauve rounded-lg px-3 py-2">
                 Using system default template.{" "}
                 <a
                   href={`/admin/semesters/${semesterId}/edit?step=sessions`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="underline hover:text-amber-900"
+                  className="underline hover:text-mauve-text"
                 >
                   Configure a custom template →
                 </a>
@@ -931,7 +931,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                       ? "bg-green-600 text-white"
                       : emailSendState === "error"
                         ? "bg-red-600 text-white hover:bg-red-700"
-                        : "bg-indigo-600 text-white hover:bg-indigo-700"
+                        : "bg-primary-600 text-white hover:bg-primary-700"
                   } disabled:opacity-60`}
                 >
                   {emailSendState === "sending"
@@ -950,7 +950,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                   setEmailCopied(true);
                   setTimeout(() => setEmailCopied(false), 2000);
                 }}
-                className="px-4 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-4 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
               >
                 {emailCopied ? "Copied!" : "Copy"}
               </button>
@@ -961,7 +961,7 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                   setEmailSendState("idle");
                   setEmailSendError("");
                 }}
-                className="px-4 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-4 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
               >
                 Close
               </button>
@@ -980,16 +980,16 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
 function ActivityEventBadge({ type }: { type: string }) {
   const colors: Record<string, string> = {
     sent: "bg-blue-50 text-blue-700",
-    opened: "bg-yellow-50 text-yellow-700",
-    clicked: "bg-yellow-50 text-yellow-700",
-    registered: "bg-green-50 text-green-700",
+    opened: "bg-mauve/10 text-mauve-text",
+    clicked: "bg-mauve/10 text-mauve-text",
+    registered: "bg-mint/10 text-mint-text",
     revoked: "bg-red-50 text-red-600",
-    expired: "bg-gray-100 text-gray-500",
+    expired: "bg-neutral-100 text-neutral-500",
   };
   return (
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
-        colors[type] ?? "bg-gray-100 text-gray-600"
+        colors[type] ?? "bg-neutral-100 text-neutral-600"
       }`}
     >
       {type}
@@ -1010,12 +1010,12 @@ function InviteStatusBadge({ invite }: { invite: ClassInviteRow }) {
           : status;
 
   const colors: Record<string, string> = {
-    pending: "bg-gray-100 text-gray-600",
+    pending: "bg-neutral-100 text-neutral-600",
     sent: "bg-blue-50 text-blue-700",
-    opened: "bg-yellow-50 text-yellow-700",
-    registered: "bg-green-50 text-green-700",
-    expired: "bg-gray-100 text-gray-500",
-    exhausted: "bg-gray-100 text-gray-500",
+    opened: "bg-mauve/10 text-mauve-text",
+    registered: "bg-mint/10 text-mint-text",
+    expired: "bg-neutral-100 text-neutral-500",
+    exhausted: "bg-neutral-100 text-neutral-500",
     revoked: "bg-red-50 text-red-600",
   };
 

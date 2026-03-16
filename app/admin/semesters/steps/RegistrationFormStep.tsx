@@ -299,14 +299,14 @@ export default function RegistrationFormStep({
   /* -------------------------------------------------------------------------- */
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-8">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-neutral-900">
             Registration Form
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-neutral-500 mt-1">
             Customize the questions users must complete before registering.
           </p>
         </div>
@@ -319,7 +319,7 @@ export default function RegistrationFormStep({
 
       {/* Locked banner */}
       {isLocked && (
-        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
           This semester has active registrations. The registration form is locked.
         </div>
       )}
@@ -329,19 +329,19 @@ export default function RegistrationFormStep({
         <div className="flex gap-4 flex-wrap">
           <button
             onClick={() => openModal("question")}
-            className="px-4 py-2 rounded-xl border border-indigo-500 text-indigo-600 hover:bg-indigo-50 transition text-sm font-medium"
+            className="px-4 py-2 rounded-xl border border-primary-600 text-primary-600 hover:bg-primary-50 transition text-sm font-medium"
           >
             + Custom Question
           </button>
           <button
             onClick={() => openModal("subheader")}
-            className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition text-sm"
+            className="px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 transition text-sm"
           >
             + Subheader
           </button>
           <button
             onClick={() => openModal("text_block")}
-            className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition text-sm"
+            className="px-4 py-2 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 transition text-sm"
           >
             + Text Block
           </button>
@@ -351,7 +351,7 @@ export default function RegistrationFormStep({
       {/* Element List */}
       <div className="space-y-4">
         {elements.length === 0 && (
-          <div className="text-sm text-gray-400">
+          <div className="text-sm text-neutral-400">
             No form elements added yet.
           </div>
         )}
@@ -359,30 +359,30 @@ export default function RegistrationFormStep({
         {elements.map((el, index) => (
           <div
             key={el.id}
-            className="border border-gray-200 rounded-xl p-4 flex justify-between items-start"
+            className="border border-neutral-200 rounded-xl p-4 flex justify-between items-start"
           >
             <div className="space-y-1 min-w-0">
               {el.type === "question" && (
                 <>
-                  <div className="font-medium text-gray-900">{el.label}</div>
-                  <div className="text-xs text-gray-500">{elementSummary(el)}</div>
+                  <div className="font-medium text-neutral-900">{el.label}</div>
+                  <div className="text-xs text-neutral-500">{elementSummary(el)}</div>
                 </>
               )}
               {el.type === "subheader" && (
                 <>
-                  <div className="font-semibold text-gray-700">{el.label}</div>
+                  <div className="font-semibold text-neutral-700">{el.label}</div>
                   {el.subtitle && (
-                    <div className="text-xs text-gray-500">{el.subtitle}</div>
+                    <div className="text-xs text-neutral-500">{el.subtitle}</div>
                   )}
-                  <div className="text-xs text-gray-400">Subheader</div>
+                  <div className="text-xs text-neutral-400">Subheader</div>
                 </>
               )}
               {el.type === "text_block" && (
                 <>
-                  <div className="text-sm text-gray-600 truncate max-w-sm">
+                  <div className="text-sm text-neutral-600 truncate max-w-sm">
                     {el.label}
                   </div>
-                  <div className="text-xs text-gray-400">{elementSummary(el)}</div>
+                  <div className="text-xs text-neutral-400">{elementSummary(el)}</div>
                 </>
               )}
             </div>
@@ -392,20 +392,20 @@ export default function RegistrationFormStep({
                 <div className="flex gap-2">
                   <button
                     onClick={() => moveUp(index)}
-                    className="text-gray-400 hover:text-gray-700"
+                    className="text-neutral-400 hover:text-neutral-700"
                   >
                     ↑
                   </button>
                   <button
                     onClick={() => moveDown(index)}
-                    className="text-gray-400 hover:text-gray-700"
+                    className="text-neutral-400 hover:text-neutral-700"
                   >
                     ↓
                   </button>
                 </div>
                 <button
                   onClick={() => openModal(el.type, el)}
-                  className="text-indigo-600 hover:underline"
+                  className="text-primary-600 hover:underline"
                 >
                   Edit
                 </button>
@@ -422,10 +422,10 @@ export default function RegistrationFormStep({
       </div>
 
       {/* Footer Navigation */}
-      <div className="flex justify-between pt-6 border-t border-gray-200">
+      <div className="flex justify-between pt-6 border-t border-neutral-200">
         <button
           onClick={onBack}
-          className="px-5 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+          className="px-5 py-2 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 transition"
         >
           Back
         </button>
@@ -434,8 +434,8 @@ export default function RegistrationFormStep({
           disabled={!isValid()}
           className={`px-5 py-2 rounded-xl text-white transition ${
             isValid()
-              ? "bg-indigo-600 hover:bg-indigo-700"
-              : "bg-gray-300 cursor-not-allowed"
+              ? "bg-primary-600 hover:bg-primary-700"
+              : "bg-neutral-300 cursor-not-allowed"
           }`}
         >
           Continue

@@ -21,7 +21,7 @@ export function CartExpiryTimer() {
   return (
     <span
       className={`text-xs font-medium ${
-        isUrgent ? "text-red-600" : "text-amber-600"
+        isUrgent ? "text-red-600" : "text-mauve-text"
       }`}
     >
       Cart expires in {fmt(secondsRemaining)}

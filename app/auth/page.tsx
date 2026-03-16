@@ -47,9 +47,9 @@ function SignUpForm() {
   const loginHref = next ? `/auth/login?next=${encodeURIComponent(next)}` : "/auth/login";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
-      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-        <h1 className="text-2xl font-semibold mb-6 text-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-6">
+      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-neutral-200">
+        <h1 className="text-2xl font-semibold mb-6 text-neutral-900">
           Create an account
         </h1>
 
@@ -114,12 +114,12 @@ function SignUpForm() {
         </form>
 
         <div className="flex items-center gap-4 my-6">
-          <div className="h-px flex-1 bg-gray-300"></div>
-          <span className="text-gray-500 text-sm">Or</span>
-          <div className="h-px flex-1 bg-gray-300"></div>
+          <div className="h-px flex-1 bg-neutral-300"></div>
+          <span className="text-neutral-500 text-sm">Or</span>
+          <div className="h-px flex-1 bg-neutral-300"></div>
         </div>
 
-        <p className="text-center text-sm text-gray-600 mt-6">
+        <p className="text-center text-sm text-neutral-600 mt-6">
           Already have an account?{" "}
           <a className="text-blue-700 font-medium" href={loginHref}>
             Log in

@@ -16,7 +16,7 @@ export default function IPhoneFrame({ children }: Props) {
     <div className="relative mx-auto select-none" style={{ width: "393px" }}>
       {/* Outer shell */}
       <div
-        className="relative bg-gray-900 shadow-2xl"
+        className="relative bg-neutral-900 shadow-2xl"
         style={{
           borderRadius: "52px",
           padding: "12px",

@@ -422,18 +422,18 @@ export default function RecipientsStep({
   // ── Render ──────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-8">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-8">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">Recipients</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <h2 className="text-xl font-semibold text-neutral-900">Recipients</h2>
+        <p className="text-sm text-neutral-500 mt-1">
           Select who receives this email. One email per family. Unsubscribed users are automatically excluded.
         </p>
       </div>
 
       {/* Subscribed list */}
       <div className="space-y-2">
-        <p className="text-sm font-medium text-gray-700">Subscribed list</p>
-        <p className="text-xs text-gray-400">
+        <p className="text-sm font-medium text-neutral-700">Subscribed list</p>
+        <p className="text-xs text-neutral-400">
           Targets all portal users who are subscribed plus any external subscribers.
         </p>
         <button
@@ -450,8 +450,8 @@ export default function RecipientsStep({
           }}
           className={`px-4 py-2 rounded-xl border text-sm font-medium transition ${
             hasSubscribedList
-              ? "border-indigo-400 bg-indigo-100 text-indigo-800"
-              : "border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+              ? "border-primary-400 bg-primary-100 text-primary-800"
+              : "border-primary-300 bg-primary-50 text-primary-700 hover:bg-primary-100"
           }`}
         >
           {hasSubscribedList ? "Subscribed list added ✓" : "+ Add subscribed list"}
@@ -460,13 +460,13 @@ export default function RecipientsStep({
 
       {/* Hierarchical class selector */}
       <div className="space-y-3">
-        <p className="text-sm font-medium text-gray-700">Add by class or session</p>
+        <p className="text-sm font-medium text-neutral-700">Add by class or session</p>
         {isTreeLoading ? (
-          <p className="text-sm text-gray-400">Loading classes…</p>
+          <p className="text-sm text-neutral-400">Loading classes…</p>
         ) : semesterTree.length === 0 ? (
-          <p className="text-sm text-gray-400">No published semesters found.</p>
+          <p className="text-sm text-neutral-400">No published semesters found.</p>
         ) : (
-          <div className="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100">
+          <div className="border border-neutral-200 rounded-xl overflow-hidden divide-y divide-neutral-100">
             {semesterTree.map((sem) => {
               const semSelected = isSelected("semester", sem.id);
               const semExpanded = expandedSemesters.has(sem.id);
@@ -474,12 +474,12 @@ export default function RecipientsStep({
               return (
                 <div key={sem.id}>
                   {/* Semester row */}
-                  <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 hover:bg-gray-100 transition">
+                  <div className="flex items-center gap-3 px-4 py-3 bg-neutral-50 hover:bg-neutral-100 transition">
                     <input
                       type="checkbox"
                       checked={semSelected}
                       onChange={() => toggleSemester(sem)}
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
                     />
                     <button
                       onClick={() =>
@@ -491,8 +491,8 @@ export default function RecipientsStep({
                       }
                       className="flex-1 flex items-center justify-between text-left"
                     >
-                      <span className="text-sm font-semibold text-gray-800">{sem.name}</span>
-                      <span className="flex items-center gap-2 text-xs text-gray-400">
+                      <span className="text-sm font-semibold text-neutral-800">{sem.name}</span>
+                      <span className="flex items-center gap-2 text-xs text-neutral-400">
                         <span>{sem.enrolledFamilyCount} families</span>
                         <span>{semExpanded ? "▴" : "▾"}</span>
                       </span>
@@ -501,7 +501,7 @@ export default function RecipientsStep({
 
                   {/* Classes */}
                   {semExpanded && (
-                    <div className="divide-y divide-gray-100">
+                    <div className="divide-y divide-neutral-100">
                       {sem.classes.map((cls) => {
                         const classCovered = isClassCovered(cls.id, sem.id);
                         const classExpanded = expandedClasses.has(cls.id);
@@ -510,13 +510,13 @@ export default function RecipientsStep({
                         return (
                           <div key={cls.id}>
                             {/* Class row */}
-                            <div className="flex items-center gap-3 pl-8 pr-4 py-2.5 bg-white hover:bg-gray-50 transition">
+                            <div className="flex items-center gap-3 pl-8 pr-4 py-2.5 bg-white hover:bg-neutral-50 transition">
                               <input
                                 type="checkbox"
                                 checked={classCovered}
                                 disabled={semSelected}
                                 onChange={() => toggleClass(cls, sem)}
-                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                                className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600 disabled:opacity-50"
                               />
                               <button
                                 onClick={() =>
@@ -528,8 +528,8 @@ export default function RecipientsStep({
                                 }
                                 className="flex-1 flex items-center justify-between text-left"
                               >
-                                <span className="text-sm text-gray-700">{cls.name}</span>
-                                <span className="flex items-center gap-2 text-xs text-gray-400">
+                                <span className="text-sm text-neutral-700">{cls.name}</span>
+                                <span className="flex items-center gap-2 text-xs text-neutral-400">
                                   <span>{cls.enrolledFamilyCount} families</span>
                                   <span>{classExpanded ? "▴" : "▾"}</span>
                                 </span>
@@ -548,7 +548,7 @@ export default function RecipientsStep({
                                   className={`text-xs px-2 py-1 rounded-lg border transition ${
                                     classSel.includeInstructors
                                       ? "border-emerald-400 bg-emerald-50 text-emerald-700"
-                                      : "border-gray-200 text-gray-400 hover:text-gray-600"
+                                      : "border-neutral-200 text-neutral-400 hover:text-neutral-600"
                                   }`}
                                 >
                                   + instructor
@@ -566,19 +566,19 @@ export default function RecipientsStep({
                                   return (
                                     <div
                                       key={session.id}
-                                      className="flex items-center gap-3 pl-14 pr-4 py-2 bg-white hover:bg-gray-50 transition"
+                                      className="flex items-center gap-3 pl-14 pr-4 py-2 bg-white hover:bg-neutral-50 transition"
                                     >
                                       <input
                                         type="checkbox"
                                         checked={sessionCovered}
                                         disabled={classCovered}
                                         onChange={() => toggleSession(session, cls, sem)}
-                                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                                        className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600 disabled:opacity-50"
                                       />
-                                      <span className="text-sm text-gray-600 flex-1">
+                                      <span className="text-sm text-neutral-600 flex-1">
                                         {session.label}
                                       </span>
-                                      <span className="text-xs text-gray-400">
+                                      <span className="text-xs text-neutral-400">
                                         {session.enrolledFamilyCount} families
                                       </span>
                                     </div>
@@ -600,8 +600,8 @@ export default function RecipientsStep({
 
       {/* Add by instructor */}
       <div className="space-y-3">
-        <p className="text-sm font-medium text-gray-700">Add by instructor</p>
-        <p className="text-xs text-gray-400">
+        <p className="text-sm font-medium text-neutral-700">Add by instructor</p>
+        <p className="text-xs text-neutral-400">
           Targets all families enrolled in any class taught by this instructor.
         </p>
         <div className="relative max-w-sm">
@@ -610,12 +610,12 @@ export default function RecipientsStep({
             value={instructorSearch}
             onChange={(e) => setInstructorSearch(e.target.value)}
             placeholder="Search instructor name…"
-            className="w-full border border-gray-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full border border-neutral-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
           />
           {(instructorResults.length > 0 || isInstructorSearching) && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-10 overflow-hidden">
               {isInstructorSearching ? (
-                <div className="px-4 py-3 text-sm text-gray-400">Searching…</div>
+                <div className="px-4 py-3 text-sm text-neutral-400">Searching…</div>
               ) : (
                 instructorResults.map((name) => {
                   const alreadyAdded = selections.some(
@@ -638,11 +638,11 @@ export default function RecipientsStep({
                         setInstructorSearch("");
                         setInstructorResults([]);
                       }}
-                      className="w-full text-left px-4 py-2.5 text-slate-600 text-sm hover:bg-gray-50 flex justify-between items-center disabled:opacity-50"
+                      className="w-full text-left px-4 py-2.5 text-slate-600 text-sm hover:bg-neutral-50 flex justify-between items-center disabled:opacity-50"
                     >
                       <span>{name}</span>
                       {alreadyAdded && (
-                        <span className="text-xs text-gray-400">Added</span>
+                        <span className="text-xs text-neutral-400">Added</span>
                       )}
                     </button>
                   );
@@ -656,12 +656,12 @@ export default function RecipientsStep({
       {/* Selected criteria chips */}
       {selections.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-700">Selected groups</p>
+          <p className="text-sm font-medium text-neutral-700">Selected groups</p>
           <div className="flex flex-wrap gap-2">
             {selections.map((sel) => (
               <div
                 key={sel.localId}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-full text-sm text-indigo-800"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 border border-primary-200 rounded-full text-sm text-primary-800"
               >
                 <span>{selectionLabel(sel)}</span>
                 {sel.includeInstructors && (
@@ -671,7 +671,7 @@ export default function RecipientsStep({
                   onClick={() =>
                     dispatch({ type: "REMOVE_SELECTION", payload: sel.localId })
                   }
-                  className="text-indigo-400 hover:text-indigo-700 leading-none"
+                  className="text-primary-400 hover:text-primary-700 leading-none"
                 >
                   ×
                 </button>
@@ -683,19 +683,19 @@ export default function RecipientsStep({
 
       {/* Manual user search */}
       <div className="space-y-3">
-        <p className="text-sm font-medium text-gray-700">Add individual</p>
+        <p className="text-sm font-medium text-neutral-700">Add individual</p>
         <div className="relative max-w-sm">
           <input
             type="text"
             value={userSearch}
             onChange={(e) => setUserSearch(e.target.value)}
             placeholder="Search by name or email…"
-            className="w-full border border-gray-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full border border-neutral-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
           />
           {(userResults.length > 0 || isSearching) && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden">
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg z-10 overflow-hidden">
               {isSearching ? (
-                <div className="px-4 py-3 text-sm text-gray-400">Searching…</div>
+                <div className="px-4 py-3 text-sm text-neutral-400">Searching…</div>
               ) : (
                 userResults.map((u) => {
                   const isAlreadyAdded =
@@ -707,19 +707,19 @@ export default function RecipientsStep({
                       key={`${u.source}-${u.id}`}
                       onClick={() => !isAlreadyAdded && addManualUser(u)}
                       disabled={isAlreadyAdded}
-                      className="w-full text-left px-4 py-2.5 text-slate-600 text-sm hover:bg-gray-50 flex justify-between items-center disabled:opacity-50"
+                      className="w-full text-left px-4 py-2.5 text-slate-600 text-sm hover:bg-neutral-50 flex justify-between items-center disabled:opacity-50"
                     >
                       <span>
                         {u.first_name} {u.last_name}
-                        <span className="text-gray-400 ml-2">{u.email}</span>
+                        <span className="text-neutral-400 ml-2">{u.email}</span>
                         {u.source === "subscriber" && (
-                          <span className="ml-2 text-xs text-indigo-500 font-medium">
+                          <span className="ml-2 text-xs text-primary-500 font-medium">
                             Subscriber
                           </span>
                         )}
                       </span>
                       {isAlreadyAdded && (
-                        <span className="text-xs text-gray-400">Added</span>
+                        <span className="text-xs text-neutral-400">Added</span>
                       )}
                     </button>
                   );
@@ -737,12 +737,12 @@ export default function RecipientsStep({
               return (
                 <div
                   key={key}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 border border-gray-200 rounded-full text-sm text-gray-700"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 border border-neutral-200 rounded-full text-sm text-neutral-700"
                 >
                   <span>
                     {u.firstName} {u.lastName}
                     {u.subscriberId && (
-                      <span className="ml-1 text-xs text-indigo-500 font-medium">
+                      <span className="ml-1 text-xs text-primary-500 font-medium">
                         Subscriber
                       </span>
                     )}
@@ -754,7 +754,7 @@ export default function RecipientsStep({
                         payload: u.subscriberId ?? u.userId ?? "",
                       })
                     }
-                    className="text-gray-400 hover:text-gray-700 leading-none"
+                    className="text-neutral-400 hover:text-neutral-700 leading-none"
                   >
                     ×
                   </button>
@@ -769,33 +769,33 @@ export default function RecipientsStep({
       {(selections.length > 0 || manualAdditions.length > 0) && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-700">
+            <p className="text-sm font-medium text-neutral-700">
               Recipient review
               {!isReviewLoading && resolvedFamilies.length > 0 && (
-                <span className="ml-2 text-gray-400 font-normal">
+                <span className="ml-2 text-neutral-400 font-normal">
                   ({resolvedFamilies.length} {resolvedFamilies.length === 1 ? "family" : "families"})
                 </span>
               )}
             </p>
             {isReviewLoading && (
-              <span className="text-xs text-gray-400">Calculating…</span>
+              <span className="text-xs text-neutral-400">Calculating…</span>
             )}
           </div>
 
           {!isReviewLoading && resolvedFamilies.length === 0 && (
-            <p className="text-sm text-gray-400 italic">
+            <p className="text-sm text-neutral-400 italic">
               No eligible recipients matched. Check selections and subscription status.
             </p>
           )}
 
           {resolvedFamilies.length > 0 && (
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <div className="grid grid-cols-[1fr_1fr_auto] text-xs font-medium text-gray-500 bg-gray-50 px-4 py-2 border-b border-gray-100">
+            <div className="border border-neutral-200 rounded-xl overflow-hidden">
+              <div className="grid grid-cols-[1fr_1fr_auto] text-xs font-medium text-neutral-500 bg-neutral-50 px-4 py-2 border-b border-neutral-200">
                 <span>Email / Parent</span>
                 <span>Dancer(s) & Classes</span>
                 <span />
               </div>
-              <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
+              <div className="divide-y divide-neutral-100 max-h-96 overflow-y-auto">
                 {resolvedFamilies.map((family: FamilyRecipient) => (
                   <FamilyRow
                     key={family.familyId}
@@ -814,7 +814,7 @@ export default function RecipientsStep({
           )}
 
           {excludedFamilyIds.length > 0 && (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-neutral-400">
               {excludedFamilyIds.length} {excludedFamilyIds.length === 1 ? "family" : "families"} manually removed.{" "}
               <button
                 onClick={() => {
@@ -822,7 +822,7 @@ export default function RecipientsStep({
                     dispatch({ type: "TOGGLE_FAMILY_EXCLUSION", payload: fid });
                   }
                 }}
-                className="underline hover:text-gray-600"
+                className="underline hover:text-neutral-600"
               >
                 Restore all
               </button>
@@ -832,30 +832,30 @@ export default function RecipientsStep({
       )}
 
       {/* Count summary */}
-      <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl">
-        <p className="text-sm text-gray-600">
+      <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-xl">
+        <p className="text-sm text-neutral-600">
           Estimated recipients:{" "}
           {isReviewLoading ? (
-            <span className="text-gray-400">Calculating…</span>
+            <span className="text-neutral-400">Calculating…</span>
           ) : (
-            <span className="font-semibold text-gray-900">{resolvedCount ?? 0} families</span>
+            <span className="font-semibold text-neutral-900">{resolvedCount ?? 0} families</span>
           )}
         </p>
-        <p className="text-xs text-gray-400 mt-1">
+        <p className="text-xs text-neutral-400 mt-1">
           One email per family. Unsubscribed users are automatically excluded. Recipient list is finalized at send/schedule time.
         </p>
       </div>
 
-      <div className="flex justify-between pt-6 border-t border-gray-200">
+      <div className="flex justify-between pt-6 border-t border-neutral-200">
         <button
           onClick={onBack}
-          className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition"
+          className="px-5 py-2.5 rounded-xl border border-neutral-300 text-neutral-700 text-sm hover:bg-neutral-50 transition"
         >
           Back
         </button>
         <button
           onClick={onNext}
-          className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition"
+          className="px-6 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition"
         >
           Continue
         </button>
@@ -885,21 +885,21 @@ function FamilyRow({
   return (
     <div
       className={`grid grid-cols-[1fr_1fr_auto] items-start px-4 py-3 gap-3 transition ${
-        isExcluded ? "opacity-40 bg-red-50" : "hover:bg-gray-50"
+        isExcluded ? "opacity-40 bg-red-50" : "hover:bg-neutral-50"
       }`}
     >
       <div>
-        <p className="text-sm text-gray-800 font-medium">
+        <p className="text-sm text-neutral-800 font-medium">
           {family.primaryParentFirstName} {family.primaryParentLastName}
           {family.isInstructor && (
             <span className="ml-1.5 text-xs text-emerald-600 font-normal">instructor</span>
           )}
         </p>
-        <p className="text-xs text-gray-400 truncate max-w-xs">{family.primaryEmail}</p>
+        <p className="text-xs text-neutral-400 truncate max-w-xs">{family.primaryEmail}</p>
       </div>
 
-      <div className="text-xs text-gray-500 leading-relaxed">
-        {dancerSummary || <span className="text-gray-300 italic">No enrollment context</span>}
+      <div className="text-xs text-neutral-500 leading-relaxed">
+        {dancerSummary || <span className="text-neutral-300 italic">No enrollment context</span>}
       </div>
 
       <button
@@ -907,8 +907,8 @@ function FamilyRow({
         title={isExcluded ? "Restore this family" : "Remove this family"}
         className={`text-sm leading-none transition ${
           isExcluded
-            ? "text-indigo-500 hover:text-indigo-700"
-            : "text-gray-300 hover:text-red-500"
+            ? "text-primary-500 hover:text-primary-700"
+            : "text-neutral-300 hover:text-red-500"
         }`}
       >
         {isExcluded ? "↩" : "×"}

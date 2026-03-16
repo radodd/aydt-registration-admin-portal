@@ -47,12 +47,12 @@ export default function DetailsStep({
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-8">
+      <div className="bg-white border border-neutral-200 shadow-sm rounded-2xl p-8">
         <div className="mb-6">
-          <h2 className="text-2xl font-semibold tracking-tight text-gray-900">
+          <h2 className="text-2xl font-semibold tracking-tight text-neutral-900">
             Semester Details
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-neutral-500 mt-1">
             Configure general semester settings and enrollment behavior.
           </p>
         </div>
@@ -62,7 +62,7 @@ export default function DetailsStep({
           <div className="space-y-2">
             <label
               htmlFor="semester-name"
-              className="text-sm font-medium text-gray-700"
+              className="text-sm font-medium text-neutral-700"
             >
               Semester name
             </label>
@@ -72,27 +72,27 @@ export default function DetailsStep({
               placeholder="Fall 2026"
               value={form.name}
               onChange={(e) => updateField("name", e.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+              className="w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-neutral-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600 transition"
             />
           </div>
 
           {/* Attendance Tracking */}
-          <div className="flex items-start gap-3 rounded-xl border border-gray-200 p-4">
+          <div className="flex items-start gap-3 rounded-xl border border-neutral-200 p-4">
             <input
               id="tracking-mode"
               type="checkbox"
               checked={form.trackingMode}
               onChange={(e) => updateField("trackingMode", e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="mt-1 h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
             />
             <div className="space-y-1">
               <label
                 htmlFor="tracking-mode"
-                className="text-sm font-medium text-gray-800"
+                className="text-sm font-medium text-neutral-800"
               >
                 Enable attendance tracking
               </label>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-neutral-500">
                 Track student attendance for reporting and compliance.
               </p>
             </div>
@@ -102,7 +102,7 @@ export default function DetailsStep({
           <div className="pt-4 flex justify-end">
             <button
               onClick={handleDetailsNext}
-              className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
+              className="inline-flex items-center justify-center rounded-xl bg-primary-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition"
             >
               Next
             </button>

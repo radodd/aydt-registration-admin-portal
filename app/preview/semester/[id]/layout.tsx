@@ -48,18 +48,18 @@ export default async function PreviewLayout({ params, children }: Props) {
   /* Render                                                                   */
   /* ---------------------------------------------------------------------- */
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-neutral-50">
       <PreviewBanner semesterId={id} />
 
       {/* Push content below the fixed banner (~40px) */}
       <div className="pt-10">
         {/* Minimal nav shell for preview */}
-        <header className="bg-white border-b border-gray-200">
+        <header className="bg-white border-b border-neutral-200">
           <nav className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-            <span className="text-lg font-bold text-gray-900 tracking-tight">
+            <span className="text-lg font-bold text-neutral-900 tracking-tight">
               American Youth Dance Theater
             </span>
-            <span className="text-xs text-amber-600 font-semibold bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+            <span className="text-xs text-mauve-text font-semibold bg-mauve/10 px-3 py-1 rounded-full border border-mauve">
               Admin Preview
             </span>
           </nav>

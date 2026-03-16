@@ -89,7 +89,7 @@ export default function QuestionsStep({
   if (visibleElements.filter((el) => el.type === "question").length === 0) {
     return (
       <div className="space-y-6">
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+        <div className="bg-white border border-neutral-200 rounded-xl p-8 text-center">
           <p className="text-slate-500 text-sm">
             No additional questions for this semester.
           </p>
@@ -116,8 +116,8 @@ export default function QuestionsStep({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-5">
-        <div className="pb-3 border-b border-gray-100">
+      <div className="bg-white border border-neutral-200 rounded-xl p-5 space-y-5">
+        <div className="pb-3 border-b border-neutral-200">
           <p className="text-sm text-slate-500">
             Answering on behalf of <span className="font-medium text-slate-700">{dancerName}</span>
           </p>
@@ -190,7 +190,7 @@ function FormElement({
   const inputId = `q-${el.id}`;
   const strVal = typeof value === "string" ? value : "";
   const baseInputClass = `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-    error ? "border-red-300" : "border-gray-200"
+    error ? "border-red-300" : "border-neutral-200"
   }`;
 
   return (
@@ -240,7 +240,7 @@ function FormElement({
                       e.target.checked ? [...prev, opt] : prev.filter((v) => v !== opt)
                     );
                   }}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm text-slate-700">{opt}</span>
               </label>

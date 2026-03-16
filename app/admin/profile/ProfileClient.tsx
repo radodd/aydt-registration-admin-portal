@@ -57,56 +57,56 @@ export default function ProfileClient({ initialConfig, currentSignatureHtml }: P
   return (
     <div className="space-y-6">
       {/* Signature section */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-6">
+      <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Email Signature</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-lg font-semibold text-neutral-900">Email Signature</h2>
+          <p className="text-sm text-neutral-500 mt-1">
             Appended to emails when &ldquo;Include admin signature&rdquo; is enabled.
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 max-w-lg">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Display name</label>
+            <label className="text-sm font-medium text-neutral-700">Display name</label>
             <input
               type="text"
               value={config.name}
               onChange={(e) => update("name", e.target.value)}
               placeholder="Sarah Johnson"
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 text-sm text-slate-600 focus:ring-2 focus:ring-primary-600 focus:outline-none"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Title</label>
+            <label className="text-sm font-medium text-neutral-700">Title</label>
             <input
               type="text"
               value={config.title}
               onChange={(e) => update("title", e.target.value)}
               placeholder="Studio Director"
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 text-sm text-slate-600 focus:ring-2 focus:ring-primary-600 focus:outline-none"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Phone</label>
+            <label className="text-sm font-medium text-neutral-700">Phone</label>
             <input
               type="tel"
               value={config.phone}
               onChange={(e) => update("phone", e.target.value)}
               placeholder="(555) 123-4567"
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 text-sm text-slate-600 focus:ring-2 focus:ring-primary-600 focus:outline-none"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-700">Website</label>
+            <label className="text-sm font-medium text-neutral-700">Website</label>
             <input
               type="text"
               value={config.website}
               onChange={(e) => update("website", e.target.value)}
               placeholder="aydt.com"
-              className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-slate-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full border border-neutral-300 rounded-xl px-4 py-2.5 text-sm text-slate-600 focus:ring-2 focus:ring-primary-600 focus:outline-none"
             />
           </div>
         </div>
@@ -114,9 +114,9 @@ export default function ProfileClient({ initialConfig, currentSignatureHtml }: P
         {/* Live preview */}
         {hasContent && (
           <div className="space-y-2">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Preview</p>
-            <div className="bg-gray-50 border border-gray-200 rounded-xl px-5 py-4">
-              <p className="text-xs text-gray-400 mb-3">
+            <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Preview</p>
+            <div className="bg-neutral-50 border border-neutral-200 rounded-xl px-5 py-4">
+              <p className="text-xs text-neutral-400 mb-3">
                 Hi [Parent Name], ...your email body here...
               </p>
               <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
@@ -124,11 +124,11 @@ export default function ProfileClient({ initialConfig, currentSignatureHtml }: P
           </div>
         )}
 
-        <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
+        <div className="flex items-center gap-3 pt-2 border-t border-neutral-200">
           <button
             onClick={handleSave}
             disabled={isPending}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-5 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {isPending ? "Saving…" : "Save signature"}
           </button>

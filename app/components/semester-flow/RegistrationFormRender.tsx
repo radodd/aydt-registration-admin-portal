@@ -14,14 +14,14 @@ type Props = {
 /* -------------------------------------------------------------------------- */
 
 function buildTextClasses(fmt: TextBlockFormatting | undefined): string {
-  if (!fmt) return "text-sm text-gray-600 leading-relaxed";
+  if (!fmt) return "text-sm text-neutral-600 leading-relaxed";
 
   const colorClass =
     fmt.color === "indigo"
-      ? "text-indigo-600"
+      ? "text-primary-600"
       : fmt.color === "gray"
-        ? "text-gray-500"
-        : "text-gray-900";
+        ? "text-neutral-500"
+        : "text-neutral-900";
 
   return [
     fmt.style === "header" ? "text-lg font-semibold" : "text-sm",
@@ -142,9 +142,9 @@ export default function RegistrationFormRenderer({
   /* -------------------------------------------------------------------------- */
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-6">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-6">
       {applicableElements.length === 0 && (
-        <div className="text-sm text-gray-400">
+        <div className="text-sm text-neutral-400">
           No registration questions configured.
         </div>
       )}
@@ -153,11 +153,11 @@ export default function RegistrationFormRenderer({
         if (el.type === "subheader") {
           return (
             <div key={el.id} className="pt-4">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-neutral-900">
                 {el.label}
               </h3>
               {el.subtitle && (
-                <p className="text-sm text-gray-500 mt-0.5">{el.subtitle}</p>
+                <p className="text-sm text-neutral-500 mt-0.5">{el.subtitle}</p>
               )}
             </div>
           );
@@ -169,7 +169,7 @@ export default function RegistrationFormRenderer({
             return (
               <div
                 key={el.id}
-                className="prose prose-sm max-w-none text-gray-700"
+                className="prose prose-sm max-w-none text-neutral-700"
                 dangerouslySetInnerHTML={{ __html: el.htmlContent }}
               />
             );
@@ -184,7 +184,7 @@ export default function RegistrationFormRenderer({
         // Question
         return (
           <div key={el.id} className="space-y-2">
-            <label className="block text-sm font-medium text-gray-800">
+            <label className="block text-sm font-medium text-neutral-800">
               {el.label}
               {el.required && <span className="text-red-500 ml-1">*</span>}
             </label>
@@ -196,7 +196,7 @@ export default function RegistrationFormRenderer({
                 value={responses[el.id] ?? ""}
                 onChange={(e) => updateResponse(el.id, e.target.value)}
                 className={`w-full border rounded-xl px-4 py-2 text-sm ${
-                  isFieldInvalid(el) ? "border-red-400" : "border-gray-300"
+                  isFieldInvalid(el) ? "border-red-400" : "border-neutral-300"
                 }`}
               />
             )}
@@ -207,7 +207,7 @@ export default function RegistrationFormRenderer({
                 value={responses[el.id] ?? ""}
                 onChange={(e) => updateResponse(el.id, e.target.value)}
                 className={`w-full border rounded-xl px-4 py-2 text-sm ${
-                  isFieldInvalid(el) ? "border-red-400" : "border-gray-300"
+                  isFieldInvalid(el) ? "border-red-400" : "border-neutral-300"
                 }`}
                 rows={4}
               />
@@ -220,7 +220,7 @@ export default function RegistrationFormRenderer({
                 value={responses[el.id] ?? ""}
                 onChange={(e) => updateResponse(el.id, e.target.value)}
                 className={`w-full border rounded-xl px-4 py-2 text-sm ${
-                  isFieldInvalid(el) ? "border-red-400" : "border-gray-300"
+                  isFieldInvalid(el) ? "border-red-400" : "border-neutral-300"
                 }`}
               />
             )}
@@ -263,7 +263,7 @@ export default function RegistrationFormRenderer({
                 onChange={(e) => updateResponse(el.id, e.target.value)}
                 placeholder="(555) 123-4567"
                 className={`w-full border rounded-xl px-4 py-2 text-sm ${
-                  isFieldInvalid(el) ? "border-red-400" : "border-gray-300"
+                  isFieldInvalid(el) ? "border-red-400" : "border-neutral-300"
                 }`}
               />
             )}

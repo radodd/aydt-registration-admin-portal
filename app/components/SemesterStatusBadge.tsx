@@ -1,18 +1,7 @@
-export function StatusBadge({ status }: { status: string }) {
-  const styles = {
-    draft: "bg-gray-100 text-gray-700 border-gray-200",
-    published: "bg-green-100 text-green-700 border-green-200",
-    archived: "bg-red-100 text-red-700 border-red-200",
-    scheduled: "bg-slate-400 text-slate-100 border-slate-500",
-  };
+import { Badge, BadgeStatus } from "@/app/components/ui";
 
-  return (
-    <span
-      className={`px-3 py-1 text-xs font-medium rounded-full border ${
-        styles[status as keyof typeof styles]
-      }`}
-    >
-      {status}
-    </span>
-  );
+/** @deprecated Import <Badge status={...}> from @/app/components/ui directly */
+export function StatusBadge({ status }: { status: string }) {
+  const label = status.charAt(0).toUpperCase() + status.slice(1);
+  return <Badge status={status as BadgeStatus}>{label}</Badge>;
 }

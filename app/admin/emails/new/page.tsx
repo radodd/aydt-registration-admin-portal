@@ -28,7 +28,7 @@ export default function NewEmailPage() {
 
   return (
     <div className="flex items-center justify-center min-h-64">
-      <p className="text-sm text-gray-500">Creating draft…</p>
+      <p className="text-sm text-neutral-500">Creating draft…</p>
     </div>
   );
 }

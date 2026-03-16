@@ -26,7 +26,7 @@ export function SessionAddButton({ session }: Props) {
     return (
       <button
         disabled
-        className="text-xs bg-gray-200 text-gray-500 px-3 py-1.5 rounded-lg cursor-not-allowed"
+        className="text-xs bg-neutral-200 text-neutral-500 px-3 py-1.5 rounded-lg cursor-not-allowed"
       >
         Full
       </button>
@@ -38,7 +38,7 @@ export function SessionAddButton({ session }: Props) {
     return (
       <button
         onClick={() => add(session.id)} // or separate waitlist handler
-        className="text-xs bg-yellow-50 text-yellow-700 px-3 py-1.5 rounded-lg"
+        className="text-xs bg-mauve/10 text-mauve-text px-3 py-1.5 rounded-lg"
       >
         Join Waitlist
       </button>
@@ -50,7 +50,7 @@ export function SessionAddButton({ session }: Props) {
     return (
       <button
         onClick={handleRemove}
-        className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg"
+        className="text-xs bg-primary-100 text-primary-700 px-3 py-1.5 rounded-lg"
       >
         In Cart ✓
       </button>
@@ -61,7 +61,7 @@ export function SessionAddButton({ session }: Props) {
   return (
     <button
       onClick={handleAdd}
-      className="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700"
+      className="text-xs bg-primary-600 text-white px-3 py-1.5 rounded-lg hover:bg-primary-700"
     >
       Add
     </button>

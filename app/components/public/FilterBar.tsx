@@ -68,7 +68,7 @@ export function FilterBar({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2 text-sm text-gray-600 bg-white border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-2 text-sm text-neutral-600 bg-white border border-neutral-200 px-4 py-2 rounded-xl hover:bg-neutral-50 transition-colors"
         >
           <svg
             className="w-4 h-4"
@@ -85,7 +85,7 @@ export function FilterBar({
           </svg>
           Filters
           {activeCount > 0 && (
-            <span className="bg-indigo-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+            <span className="bg-primary-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
               {activeCount}
             </span>
           )}
@@ -94,7 +94,7 @@ export function FilterBar({
           <button
             type="button"
             onClick={reset}
-            className="text-sm text-gray-400 hover:text-gray-600"
+            className="text-sm text-neutral-400 hover:text-neutral-600"
           >
             Clear all
           </button>
@@ -110,7 +110,7 @@ export function FilterBar({
           <select
             value={filters.groupId}
             onChange={(e) => onChange({ ...filters, groupId: e.target.value })}
-            className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+            className="text-sm border border-neutral-200 rounded-xl px-3 py-2 bg-white text-neutral-700 focus:ring-2 focus:ring-primary-400 focus:outline-none"
           >
             <option value="">All Groups</option>
             {groups.map((g) => (
@@ -127,7 +127,7 @@ export function FilterBar({
           onChange={(e) =>
             onChange({ ...filters, dayOfWeek: e.target.value })
           }
-          className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white text-gray-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+          className="text-sm border border-neutral-200 rounded-xl px-3 py-2 bg-white text-neutral-700 focus:ring-2 focus:ring-primary-400 focus:outline-none"
         >
           <option value="">Any Day</option>
           {DAYS_OF_WEEK.map((d) => (
@@ -138,14 +138,14 @@ export function FilterBar({
         </select>
 
         {/* Available spots toggle */}
-        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-gray-700">
+        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-neutral-700">
           <input
             type="checkbox"
             checked={filters.spotsOnly}
             onChange={(e) =>
               onChange({ ...filters, spotsOnly: e.target.checked })
             }
-            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-400"
+            className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
           />
           Available spots only
         </label>
@@ -155,7 +155,7 @@ export function FilterBar({
           <button
             type="button"
             onClick={reset}
-            className="hidden sm:block text-sm text-gray-400 hover:text-gray-600"
+            className="hidden sm:block text-sm text-neutral-400 hover:text-neutral-600"
           >
             Clear all
           </button>

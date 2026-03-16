@@ -54,7 +54,7 @@ export function DayPicker({
 
   if (days.length === 0) {
     return (
-      <p className="text-sm text-gray-400 italic">
+      <p className="text-sm text-neutral-400 italic">
         No individual days available — full session enrollment.
       </p>
     );
@@ -70,11 +70,11 @@ export function DayPicker({
           type="button"
           onClick={allSelected ? clearAll : selectAll}
           disabled={disabled}
-          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-40"
+          className="text-xs text-primary-600 hover:text-primary-800 font-medium disabled:opacity-40"
         >
           {allSelected ? "Deselect all" : "Select all"}
         </button>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-neutral-400">
           {selectedIds.length} / {days.length} selected
         </span>
       </div>
@@ -94,8 +94,8 @@ export function DayPicker({
                 disabled:opacity-50 disabled:cursor-not-allowed
                 ${
                   isSelected
-                    ? "bg-indigo-600 border-indigo-600 text-white"
-                    : "bg-white border-gray-200 text-gray-700 hover:border-indigo-400 hover:bg-indigo-50"
+                    ? "bg-primary-600 border-primary-600 text-white"
+                    : "bg-white border-neutral-200 text-neutral-700 hover:border-primary-400 hover:bg-primary-50"
                 }
               `}
             >
@@ -103,7 +103,7 @@ export function DayPicker({
               {(day.startTime || day.endTime) && (
                 <span
                   className={`block mt-0.5 ${
-                    isSelected ? "text-indigo-100" : "text-gray-400"
+                    isSelected ? "text-primary-100" : "text-neutral-400"
                   }`}
                 >
                   {formatTime(day.startTime)}

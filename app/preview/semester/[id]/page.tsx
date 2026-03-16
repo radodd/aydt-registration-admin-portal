@@ -37,20 +37,20 @@ export default async function PreviewSemesterPage({ params }: Props) {
           {/* Hero */}
           <div className="mb-10">
             <div className="flex items-center gap-3 mb-3">
-              <p className="text-sm text-indigo-600 font-medium">
+              <p className="text-sm text-primary-600 font-medium">
                 {semester.startDate && semester.endDate
                   ? `${fmtDate(semester.startDate)} – ${fmtDate(semester.endDate)}`
                   : "Dates TBD"}
               </p>
-              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-medium capitalize">
+              <span className="text-xs bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded font-medium capitalize">
                 {semester.status}
               </span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+            <h1 className="text-3xl sm:text-4xl font-bold text-neutral-900 mb-3">
               {semester.name}
             </h1>
             {semester.description && (
-              <p className="text-gray-600 text-lg leading-relaxed max-w-2xl">
+              <p className="text-neutral-600 text-lg leading-relaxed max-w-2xl">
                 {semester.description}
               </p>
             )}
@@ -58,17 +58,17 @@ export default async function PreviewSemesterPage({ params }: Props) {
 
           {/* Session grid (same component as live) */}
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
+            <h2 className="text-xl font-bold text-neutral-900 mb-2">
               Available Sessions
             </h2>
-            <p className="text-gray-500 text-sm mb-6">
+            <p className="text-neutral-500 text-sm mb-6">
               This is a preview — sessions shown below reflect the current draft
               state.
             </p>
 
             {semester.sessions.length === 0 ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center">
-                <p className="text-gray-500">
+              <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center">
+                <p className="text-neutral-500">
                   No sessions have been added to this semester yet.
                 </p>
               </div>

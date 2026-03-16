@@ -139,7 +139,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
       /* ---------------------------------------------------------------------- */
       case "details":
         return safeDetails ? (
-          <div className="border border-gray-200 rounded-xl p-4 text-sm space-y-3">
+          <div className="border border-neutral-200 rounded-xl p-4 text-sm space-y-3">
             <Row label="Name" value={safeDetails.name} />
             <Row
               label="Attendance Tracking"
@@ -180,18 +180,18 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
               return (
                 <div
                   key={cardKey}
-                  className="border border-gray-200 rounded-xl overflow-hidden"
+                  className="border border-neutral-200 rounded-xl overflow-hidden"
                 >
                   {/* Card header — always visible, clickable to toggle */}
                   <button
                     type="button"
                     onClick={() => toggleClass(cardKey)}
-                    className="w-full text-left px-4 py-3.5 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors"
+                    className="w-full text-left px-4 py-3.5 flex items-center justify-between gap-3 hover:bg-neutral-50 transition-colors"
                   >
                     <div className="flex-1 min-w-0 space-y-1.5">
                       {/* Name + competition badge */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-gray-900">
+                        <span className="font-semibold text-neutral-900">
                           {cls.displayName || cls.name}
                         </span>
                         {cls.isCompetitionTrack && (
@@ -200,7 +200,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                       </div>
 
                       {/* Discipline · Division */}
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-neutral-500">
                         {cls.discipline ? toTitleCase(cls.discipline) : ""}
                         {cls.division ? ` · ${toTitleCase(cls.division)}` : ""}
                       </div>
@@ -216,7 +216,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                         {cls.enrollmentType === "audition" && (
                           <Badge label="Audition Required" color="indigo" />
                         )}
-                        <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full">
+                        <span className="text-xs font-medium bg-neutral-100 text-neutral-600 px-2.5 py-0.5 rounded-full">
                           {sessionCount} session{sessionCount !== 1 ? "s" : ""}
                         </span>
                       </div>
@@ -227,17 +227,17 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
 
                   {/* Expanded body */}
                   {isOpen && (
-                    <div className="border-t border-gray-100 px-4 py-4 space-y-4 bg-gray-50/50">
+                    <div className="border-t border-neutral-200 px-4 py-4 space-y-4 bg-neutral-50/50">
                       {/* Description */}
                       {cls.description && (
-                        <p className="text-sm text-gray-500 italic">
+                        <p className="text-sm text-neutral-500 italic">
                           {cls.description}
                         </p>
                       )}
 
                       {/* Age / grade range */}
                       {(cls.minAge != null || cls.maxAge != null) && (
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-neutral-600">
                           Ages{" "}
                           {cls.minAge != null ? cls.minAge : "—"}
                           {" – "}
@@ -245,7 +245,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                         </div>
                       )}
                       {(cls.minGrade != null || cls.maxGrade != null) && (
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-neutral-600">
                           Grades{" "}
                           {cls.minGrade != null ? cls.minGrade : "—"}
                           {" – "}
@@ -255,7 +255,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
 
                       {/* Registration note */}
                       {cls.registrationNote && (
-                        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        <div className="text-sm text-mauve-text bg-mauve/10 border border-mauve rounded-lg px-3 py-2">
                           {cls.registrationNote}
                         </div>
                       )}
@@ -263,7 +263,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                       {/* Per-schedule blocks */}
                       {(cls.schedules ?? []).length > 0 && (
                         <div className="space-y-3">
-                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide">
                             Schedule Offerings
                           </p>
                           {(cls.schedules ?? []).map((cs, i) => {
@@ -274,10 +274,10 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                             return (
                               <div
                                 key={cs.id ?? i}
-                                className="bg-white border border-gray-200 rounded-xl p-4 space-y-2 text-sm"
+                                className="bg-white border border-neutral-200 rounded-xl p-4 space-y-2 text-sm"
                               >
                                 {/* Days + time */}
-                                <div className="font-medium text-gray-900">
+                                <div className="font-medium text-neutral-900">
                                   {days}
                                   {cs.startTime
                                     ? ` · ${fmtTime(cs.startTime)}`
@@ -285,11 +285,11 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                                   {cs.endTime ? ` – ${fmtTime(cs.endTime)}` : ""}
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-gray-600">
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-neutral-600">
                                   {/* Dates */}
                                   {cs.startDate && (
                                     <div>
-                                      <span className="text-gray-400">
+                                      <span className="text-neutral-400">
                                         Start:{" "}
                                       </span>
                                       {fmtDate(cs.startDate)}
@@ -297,7 +297,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                                   )}
                                   {cs.endDate && (
                                     <div>
-                                      <span className="text-gray-400">
+                                      <span className="text-neutral-400">
                                         End:{" "}
                                       </span>
                                       {fmtDate(cs.endDate)}
@@ -307,7 +307,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                                   {/* Location */}
                                   {cs.location && (
                                     <div className="col-span-2">
-                                      <span className="text-gray-400">
+                                      <span className="text-neutral-400">
                                         Studio:{" "}
                                       </span>
                                       {cs.location}
@@ -317,7 +317,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                                   {/* Instructor */}
                                   {cs.instructorName && (
                                     <div className="col-span-2">
-                                      <span className="text-gray-400">
+                                      <span className="text-neutral-400">
                                         Instructor:{" "}
                                       </span>
                                       {cs.instructorName}
@@ -327,12 +327,12 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                                   {/* Capacity */}
                                   {cs.capacity != null && (
                                     <div>
-                                      <span className="text-gray-400">
+                                      <span className="text-neutral-400">
                                         Capacity:{" "}
                                       </span>
                                       {cs.capacity}
                                       {cs.urgencyThreshold != null && (
-                                        <span className="text-gray-400 ml-1">
+                                        <span className="text-neutral-400 ml-1">
                                           (warn at {cs.urgencyThreshold})
                                         </span>
                                       )}
@@ -342,7 +342,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                                   {/* Registration open */}
                                   {cs.registrationOpenAt && (
                                     <div>
-                                      <span className="text-gray-400">
+                                      <span className="text-neutral-400">
                                         Opens:{" "}
                                       </span>
                                       {fmtDate(cs.registrationOpenAt)}
@@ -352,7 +352,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                                   {/* Registration close */}
                                   {cs.registrationCloseAt && (
                                     <div>
-                                      <span className="text-gray-400">
+                                      <span className="text-neutral-400">
                                         Closes:{" "}
                                       </span>
                                       {fmtDate(cs.registrationCloseAt)}
@@ -421,12 +421,12 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
               return (
                 <div
                   key={group.id}
-                  className="border border-gray-200 rounded-xl p-4 space-y-3"
+                  className="border border-neutral-200 rounded-xl p-4 space-y-3"
                 >
-                  <div className="font-semibold text-gray-900">{group.name}</div>
+                  <div className="font-semibold text-neutral-900">{group.name}</div>
 
                   {group.sessionIds.length === 0 ? (
-                    <p className="text-sm text-gray-400 italic">
+                    <p className="text-sm text-neutral-400 italic">
                       No classes assigned to this group.
                     </p>
                   ) : (
@@ -434,14 +434,14 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                       {resolvedLabels.map((label, i) => (
                         <li
                           key={i}
-                          className="flex items-center gap-2 text-sm text-gray-700"
+                          className="flex items-center gap-2 text-sm text-neutral-700"
                         >
-                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary-400 flex-shrink-0" />
                           {label}
                         </li>
                       ))}
                       {unresolvedCount > 0 && (
-                        <li className="text-xs text-gray-400 pl-3.5">
+                        <li className="text-xs text-neutral-400 pl-3.5">
                           + {unresolvedCount} unresolved offering
                           {unresolvedCount !== 1 ? "s" : ""}
                         </li>
@@ -461,10 +461,10 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
       /* ---------------------------------------------------------------------- */
       case "payment":
         return safePayment ? (
-          <div className="border border-gray-200 rounded-xl p-4 text-sm space-y-3">
+          <div className="border border-neutral-200 rounded-xl p-4 text-sm space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-500">Type</span>
-              <span className="font-medium bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs capitalize">
+              <span className="text-neutral-500">Type</span>
+              <span className="font-medium bg-primary-50 text-primary-700 px-2.5 py-0.5 rounded-full text-xs capitalize">
                 {safePayment.type.replaceAll("_", " ")}
               </span>
             </div>
@@ -507,18 +507,18 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
               return (
                 <div
                   key={d.id}
-                  className="border border-gray-200 rounded-2xl p-5 space-y-4"
+                  className="border border-neutral-200 rounded-2xl p-5 space-y-4"
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="text-base font-semibold text-gray-900">
+                      <div className="text-base font-semibold text-neutral-900">
                         {d.name}
                       </div>
-                      <div className="text-sm text-gray-500 capitalize">
+                      <div className="text-sm text-neutral-500 capitalize">
                         {d.category.replaceAll("_", " ")}
                       </div>
                     </div>
-                    <span className="text-xs px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 font-medium">
+                    <span className="text-xs px-3 py-1 rounded-full bg-primary-50 text-primary-700 font-medium">
                       {d.eligible_sessions_mode === "all"
                         ? "All sessions"
                         : "Selected sessions"}
@@ -527,10 +527,10 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
 
                   {(d.discount_rules?.length ?? 0) > 0 && (
                     <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-700">
+                      <div className="text-sm font-medium text-neutral-700">
                         Rules
                       </div>
-                      <div className="space-y-1 text-sm text-gray-600">
+                      <div className="space-y-1 text-sm text-neutral-600">
                         {d.discount_rules!.map((rule, i) => {
                           const unit =
                             rule.threshold_unit === "person"
@@ -552,14 +552,14 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
 
                   {selectedSessionIds.length > 0 && (
                     <div className="space-y-2">
-                      <div className="text-sm font-medium text-gray-700">
+                      <div className="text-sm font-medium text-neutral-700">
                         Applies To
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {selectedSessionIds.map((sid, i) => (
                           <span
                             key={i}
-                            className="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-700"
+                            className="text-xs px-3 py-1 rounded-full bg-neutral-100 text-neutral-700"
                           >
                             {scheduleMap.get(sid) ?? sid}
                           </span>
@@ -569,7 +569,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                   )}
 
                   {d.recipient_scope && (
-                    <div className="text-sm text-gray-500 capitalize">
+                    <div className="text-sm text-neutral-500 capitalize">
                       Recipient: {d.recipient_scope.replaceAll("_", " ")}
                     </div>
                   )}
@@ -608,22 +608,22 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
         return (
           <div className="space-y-4 text-sm">
             {email?.subject && (
-              <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <div className="border border-neutral-200 rounded-xl p-4 space-y-3">
                 <Row label="Subject" value={email.subject} />
                 {email.fromName && <Row label="From Name" value={email.fromName} />}
                 {email.fromEmail && <Row label="From Email" value={email.fromEmail} />}
               </div>
             )}
             {email?.htmlBody && (
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
+              <div className="border border-neutral-200 rounded-xl overflow-hidden">
+                <div className="px-4 py-2 bg-neutral-50 border-b border-neutral-200 text-xs text-neutral-500">
                   Email body preview
                 </div>
                 <div className="p-4">
                   <iframe
                     srcDoc={email.htmlBody}
                     title="Email preview"
-                    className="w-full rounded border border-gray-100"
+                    className="w-full rounded border border-neutral-200"
                     style={{ height: "320px" }}
                     sandbox="allow-same-origin"
                   />
@@ -646,14 +646,14 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
         }
         return (
           <div className="space-y-4 text-sm">
-            <div className="border border-gray-200 rounded-xl p-4 space-y-3">
+            <div className="border border-neutral-200 rounded-xl p-4 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-500">Status</span>
+                <span className="text-neutral-500">Status</span>
                 <span
                   className={`font-medium px-2 py-0.5 rounded-full text-xs ${
                     waitlist.enabled
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-500"
+                      ? "bg-mint/20 text-mint-text"
+                      : "bg-neutral-100 text-neutral-500"
                   }`}
                 >
                   {waitlist.enabled ? "Enabled" : "Disabled"}
@@ -678,7 +678,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
             {waitlist.enabled &&
               safeClasses.flatMap((c) => c.schedules ?? []).length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
                     Per-Schedule Status
                   </p>
                   {safeClasses.flatMap((cls) =>
@@ -696,14 +696,14 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                       return (
                         <div
                           key={csId}
-                          className="flex justify-between items-center border border-gray-200 rounded-xl px-4 py-2.5"
+                          className="flex justify-between items-center border border-neutral-200 rounded-xl px-4 py-2.5"
                         >
                           <div>
-                            <span className="font-medium text-gray-900">
+                            <span className="font-medium text-neutral-900">
                               {label}
                             </span>
                             {cs.registrationCloseAt && (
-                              <span className="text-xs text-gray-400 ml-2">
+                              <span className="text-xs text-neutral-400 ml-2">
                                 · closes{" "}
                                 {new Date(
                                   cs.registrationCloseAt,
@@ -717,8 +717,8 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                           <span
                             className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                               sessionEnabled
-                                ? "bg-green-100 text-green-700"
-                                : "bg-gray-100 text-gray-500"
+                                ? "bg-mint/20 text-mint-text"
+                                : "bg-neutral-100 text-neutral-500"
                             }`}
                           >
                             {sessionEnabled ? "On" : "Off"}
@@ -731,8 +731,8 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
               )}
 
             {waitlist.invitationEmail?.subject && (
-              <div className="border border-gray-200 rounded-xl p-4 space-y-2">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+              <div className="border border-neutral-200 rounded-xl p-4 space-y-2">
+                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
                   Invitation Email
                 </p>
                 <Row label="Subject" value={waitlist.invitationEmail.subject} />
@@ -750,7 +750,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
   return (
     <div>
       {/* Tab bar */}
-      <div className="border-b border-gray-200 px-6">
+      <div className="border-b border-neutral-200 px-6">
         <div className="flex gap-1 overflow-x-auto">
           {TABS.map((tab) => (
             <button
@@ -758,8 +758,8 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
               onClick={() => setActiveTab(tab.key)}
               className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.key
-                  ? "border-indigo-600 text-indigo-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  ? "border-primary-600 text-primary-600"
+                  : "border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300"
               }`}
             >
               {tab.label}
@@ -784,15 +784,15 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between">
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium text-gray-900">{value}</span>
+      <span className="text-neutral-500">{label}</span>
+      <span className="font-medium text-neutral-900">{value}</span>
     </div>
   );
 }
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="border border-gray-200 rounded-xl p-6 text-sm text-gray-400">
+    <div className="border border-neutral-200 rounded-xl p-6 text-sm text-neutral-400">
       {message}
     </div>
   );
@@ -802,10 +802,10 @@ type BadgeColor = "indigo" | "green" | "gray" | "amber";
 
 function Badge({ label, color }: { label: string; color: BadgeColor }) {
   const styles: Record<BadgeColor, string> = {
-    indigo: "bg-indigo-50 text-indigo-700",
-    green: "bg-green-100 text-green-700",
-    gray: "bg-gray-100 text-gray-600",
-    amber: "bg-amber-50 text-amber-700",
+    indigo:  "bg-primary-100 text-primary-700",
+    green: "bg-mint/20 text-mint-text",
+    gray: "bg-neutral-100 text-neutral-600",
+    amber: "bg-mauve/20 text-mauve-text",
   };
   return (
     <span
@@ -820,7 +820,7 @@ function ExpandIcon({ open }: { open: boolean }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      className={`h-4 w-4 text-gray-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+      className={`h-4 w-4 text-neutral-400 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

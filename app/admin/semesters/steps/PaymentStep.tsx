@@ -367,26 +367,26 @@ export default function PaymentStep({
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-6">
+      <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-6">
         {/* Header */}
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">
+          <h2 className="text-2xl font-semibold text-neutral-900 tracking-tight">
             Payment & Pricing
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-neutral-500 mt-1">
             Configure payment plans, tuition rates, special programs, and fee
             constants for this semester.
           </p>
         </div>
 
         {isLocked && (
-          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          <div className="rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
             This semester has active registrations. Payment settings are locked.
           </div>
         )}
 
         {/* Sub-step Tabs */}
-        <div className="border-b border-gray-200">
+        <div className="border-b border-neutral-200">
           <div className="flex gap-1 overflow-x-auto">
             {SUB_STEPS.map((s) => (
               <button
@@ -394,8 +394,8 @@ export default function PaymentStep({
                 onClick={() => setActiveSubStep(s.key)}
                 className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition ${
                   activeSubStep === s.key
-                    ? "border-indigo-600 text-indigo-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700"
+                    ? "border-primary-600 text-primary-600"
+                    : "border-transparent text-neutral-500 hover:text-neutral-700"
                 }`}
               >
                 {s.label}
@@ -410,7 +410,7 @@ export default function PaymentStep({
         {activeSubStep === "plans" && (
           <fieldset disabled={isLocked} className="space-y-6">
             <div className="space-y-3">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-neutral-700">
                 Payment type
               </label>
               <div className="grid grid-cols-2 gap-3">
@@ -445,16 +445,16 @@ export default function PaymentStep({
                     onClick={() => updateField("type", option.value)}
                     className={`text-left border rounded-xl px-4 py-3 transition focus:outline-none disabled:opacity-50 ${
                       form.type === option.value
-                        ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500"
-                        : "border-gray-200 hover:border-gray-300 bg-white"
+                        ? "border-primary-600 bg-primary-50 ring-1 ring-primary-600"
+                        : "border-neutral-200 hover:border-neutral-300 bg-white"
                     }`}
                   >
                     <p
-                      className={`text-sm font-medium ${form.type === option.value ? "text-indigo-700" : "text-gray-900"}`}
+                      className={`text-sm font-medium ${form.type === option.value ? "text-primary-700" : "text-neutral-900"}`}
                     >
                       {option.label}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-neutral-500 mt-0.5">
                       {option.desc}
                     </p>
                   </button>
@@ -466,7 +466,7 @@ export default function PaymentStep({
               <div className="space-y-2">
                 <label
                   htmlFor="installment-count"
-                  className="text-sm font-medium text-gray-700"
+                  className="text-sm font-medium text-neutral-700"
                 >
                   Number of installments
                 </label>
@@ -482,7 +482,7 @@ export default function PaymentStep({
                       e.target.value as PaymentFormState["installmentCount"],
                     )
                   }
-                  className="w-40 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  className="w-40 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-neutral-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600 transition"
                 />
               </div>
             )}
@@ -490,7 +490,7 @@ export default function PaymentStep({
               <div className="space-y-2">
                 <label
                   htmlFor="due-date"
-                  className="text-sm font-medium text-gray-700"
+                  className="text-sm font-medium text-neutral-700"
                 >
                   First payment due date
                 </label>
@@ -504,7 +504,7 @@ export default function PaymentStep({
                       e.target.value as PaymentFormState["dueDate"],
                     )
                   }
-                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  className="w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600 transition"
                 />
               </div>
             )}
@@ -516,7 +516,7 @@ export default function PaymentStep({
         {/* ------------------------------------------------------------------ */}
         {activeSubStep === "tuition" && (
           <div className="space-y-6">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-neutral-500">
               Division-based tuition using a progressive discount model. The
               base tuition applies to the first class; each additional class
               receives a progressively larger discount. Set the pre-calculated{" "}
@@ -527,8 +527,8 @@ export default function PaymentStep({
             {/* Existing bands */}
             {bands.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
-                  <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
+                <table className="w-full text-sm border border-neutral-200 rounded-xl overflow-hidden">
+                  <thead className="bg-neutral-50 text-neutral-600 text-xs uppercase tracking-wide">
                     <tr>
                       <th className="px-3 py-3 text-left whitespace-nowrap">Division</th>
                       <th className="px-3 py-3 text-left whitespace-nowrap">Classes/Wk</th>
@@ -540,7 +540,7 @@ export default function PaymentStep({
                       {!isLocked && <th className="px-3 py-3" />}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-neutral-100">
                     {bands.map((band) => (
                       <tr key={band._clientKey}>
                         <td className="px-3 py-2">
@@ -554,7 +554,7 @@ export default function PaymentStep({
                               onChange={(e) =>
                                 updateBand(band._clientKey, "division", e.target.value)
                               }
-                              className="rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              className="rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
                             >
                               {DIVISIONS.map((d) => (
                                 <option key={d.value} value={d.value}>
@@ -575,7 +575,7 @@ export default function PaymentStep({
                               onChange={(e) =>
                                 updateBand(band._clientKey, "weekly_class_count", Number(e.target.value))
                               }
-                              className="w-14 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              className="w-14 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
                             />
                           )}
                         </td>
@@ -584,7 +584,7 @@ export default function PaymentStep({
                             `$${band.base_tuition.toFixed(2)}`
                           ) : (
                             <div className="relative">
-                              <span className="absolute left-2 top-1.5 text-gray-400 text-xs">$</span>
+                              <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
                               <input
                                 type="number"
                                 min={0}
@@ -593,7 +593,7 @@ export default function PaymentStep({
                                 onChange={(e) =>
                                   updateBand(band._clientKey, "base_tuition", Number(e.target.value))
                                 }
-                                className="w-24 pl-4 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                className="w-24 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
                               />
                             </div>
                           )}
@@ -612,7 +612,7 @@ export default function PaymentStep({
                                 onChange={(e) =>
                                   updateBand(band._clientKey, "progressive_discount_percent", Number(e.target.value))
                                 }
-                                className="w-16 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                className="w-16 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
                               />
                             </div>
                           )}
@@ -622,7 +622,7 @@ export default function PaymentStep({
                             band.semester_total != null ? `$${band.semester_total.toFixed(2)}` : "—"
                           ) : (
                             <div className="relative">
-                              <span className="absolute left-2 top-1.5 text-gray-400 text-xs">$</span>
+                              <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
                               <input
                                 type="number"
                                 min={0}
@@ -636,7 +636,7 @@ export default function PaymentStep({
                                     e.target.value ? Number(e.target.value) : undefined,
                                   )
                                 }
-                                className="w-24 pl-4 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                className="w-24 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
                               />
                             </div>
                           )}
@@ -649,7 +649,7 @@ export default function PaymentStep({
                           ) : (
                             <div className="space-y-0.5">
                               <div className="relative">
-                                <span className="absolute left-2 top-1.5 text-gray-400 text-xs">$</span>
+                                <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
                                 <input
                                   type="number"
                                   min={0}
@@ -663,11 +663,11 @@ export default function PaymentStep({
                                       e.target.value ? Number(e.target.value) : undefined,
                                     )
                                   }
-                                  className="w-24 pl-4 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  className="w-24 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
                                 />
                               </div>
                               {band.autopay_installment_amount && band.semester_total ? (
-                                <p className="text-xs text-gray-400 pl-1">
+                                <p className="text-xs text-neutral-400 pl-1">
                                   5× = ${(band.autopay_installment_amount * 5).toFixed(2)}
                                 </p>
                               ) : null}
@@ -685,7 +685,7 @@ export default function PaymentStep({
                               onChange={(e) =>
                                 updateBand(band._clientKey, "notes", e.target.value)
                               }
-                              className="w-32 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              className="w-32 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
                             />
                           )}
                         </td>
@@ -705,8 +705,8 @@ export default function PaymentStep({
                 </table>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
-                <p className="text-sm text-gray-500">
+              <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center">
+                <p className="text-sm text-neutral-500">
                   No rate bands configured yet. Add rows below.
                 </p>
               </div>
@@ -714,13 +714,13 @@ export default function PaymentStep({
 
             {/* Add new band row */}
             {!isLocked && (
-              <div className="rounded-xl border border-gray-200 p-4 space-y-4">
-                <h4 className="text-sm font-medium text-gray-700">
+              <div className="rounded-xl border border-neutral-200 p-4 space-y-4">
+                <h4 className="text-sm font-medium text-neutral-700">
                   Add Rate Band
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Division</label>
+                    <label className="text-xs text-neutral-500">Division</label>
                     <select
                       value={newBand.division}
                       onChange={(e) =>
@@ -729,7 +729,7 @@ export default function PaymentStep({
                           division: e.target.value as DraftTuitionRateBand["division"],
                         }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     >
                       {DIVISIONS.map((d) => (
                         <option key={d.value} value={d.value}>
@@ -739,7 +739,7 @@ export default function PaymentStep({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Classes/Week</label>
+                    <label className="text-xs text-neutral-500">Classes/Week</label>
                     <input
                       type="number"
                       min={1}
@@ -750,11 +750,11 @@ export default function PaymentStep({
                           weekly_class_count: Number(e.target.value),
                         }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Base Tuition ($)</label>
+                    <label className="text-xs text-neutral-500">Base Tuition ($)</label>
                     <input
                       type="number"
                       min={0}
@@ -767,11 +767,11 @@ export default function PaymentStep({
                           base_tuition: Number(e.target.value),
                         }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Discount % (nth class)</label>
+                    <label className="text-xs text-neutral-500">Discount % (nth class)</label>
                     <input
                       type="number"
                       min={0}
@@ -785,11 +785,11 @@ export default function PaymentStep({
                           progressive_discount_percent: Number(e.target.value),
                         }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Semester Total ($)</label>
+                    <label className="text-xs text-neutral-500">Semester Total ($)</label>
                     <input
                       type="number"
                       min={0}
@@ -802,11 +802,11 @@ export default function PaymentStep({
                           semester_total: e.target.value ? Number(e.target.value) : undefined,
                         }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Auto-Pay /mo ($)</label>
+                    <label className="text-xs text-neutral-500">Auto-Pay /mo ($)</label>
                     <input
                       type="number"
                       min={0}
@@ -821,16 +821,16 @@ export default function PaymentStep({
                             : undefined,
                         }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     />
                     {newBand.autopay_installment_amount && (
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-neutral-400">
                         5× = ${(newBand.autopay_installment_amount * 5).toFixed(2)}
                       </p>
                     )}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Notes (optional)</label>
+                    <label className="text-xs text-neutral-500">Notes (optional)</label>
                     <input
                       type="text"
                       placeholder="e.g. includes costume deposit"
@@ -838,13 +838,13 @@ export default function PaymentStep({
                       onChange={(e) =>
                         setNewBand((prev) => ({ ...prev, notes: e.target.value }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     />
                   </div>
                 </div>
                 <button
                   onClick={addBand}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 transition"
+                  className="px-4 py-2 rounded-xl bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 transition"
                 >
                   + Add Row
                 </button>
@@ -859,7 +859,7 @@ export default function PaymentStep({
         {activeSubStep === "programs" && (
           <div className="space-y-6">
             <div className="flex items-start justify-between gap-4">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-neutral-500">
                 Fixed-tuition programs that bypass division-based progressive
                 discount calculations. These amounts are used exactly as entered —
                 no additional discounts apply.
@@ -868,20 +868,20 @@ export default function PaymentStep({
                 <button
                   type="button"
                   onClick={autoPopulatePrograms}
-                  className="shrink-0 px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition"
+                  className="shrink-0 px-3 py-1.5 rounded-lg border border-primary-200 bg-primary-50 text-xs font-medium text-primary-700 hover:bg-primary-100 transition"
                 >
                   Auto-populate from classes
                 </button>
               )}
             </div>
             {autoPopulateMsg && (
-              <p className="text-xs text-indigo-600">{autoPopulateMsg}</p>
+              <p className="text-xs text-primary-600">{autoPopulateMsg}</p>
             )}
 
             {programs.length > 0 ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm border border-gray-200 rounded-xl overflow-hidden">
-                  <thead className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wide">
+                <table className="w-full text-sm border border-neutral-200 rounded-xl overflow-hidden">
+                  <thead className="bg-neutral-50 text-neutral-600 text-xs uppercase tracking-wide">
                     <tr>
                       <th className="px-4 py-3 text-left">Program</th>
                       <th className="px-4 py-3 text-left">Semester Total</th>
@@ -892,7 +892,7 @@ export default function PaymentStep({
                       {!isLocked && <th className="px-4 py-3" />}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-neutral-100">
                     {programs.map((prog) => (
                       <tr key={prog._clientKey}>
                         <td className="px-4 py-2">
@@ -910,7 +910,7 @@ export default function PaymentStep({
                                   programLabel: selected?.label ?? e.target.value,
                                 });
                               }}
-                              className="rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              className="rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
                             >
                               {SPECIAL_PROGRAM_KEYS.map((k) => (
                                 <option key={k.value} value={k.value}>
@@ -925,7 +925,7 @@ export default function PaymentStep({
                             `$${prog.semesterTotal.toFixed(2)}`
                           ) : (
                             <div className="relative">
-                              <span className="absolute left-2 top-1.5 text-gray-400 text-xs">$</span>
+                              <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
                               <input
                                 type="number"
                                 min={0}
@@ -936,7 +936,7 @@ export default function PaymentStep({
                                     semesterTotal: Number(e.target.value),
                                   })
                                 }
-                                className="w-28 pl-4 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                className="w-28 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
                               />
                             </div>
                           )}
@@ -949,7 +949,7 @@ export default function PaymentStep({
                           ) : (
                             <div className="space-y-0.5">
                               <div className="relative">
-                                <span className="absolute left-2 top-1.5 text-gray-400 text-xs">$</span>
+                                <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
                                 <input
                                   type="number"
                                   min={0}
@@ -963,12 +963,12 @@ export default function PaymentStep({
                                         : null,
                                     })
                                   }
-                                  className="w-24 pl-4 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  className="w-24 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
                                 />
                               </div>
                               {prog.autoPayInstallmentAmount &&
                               prog.autoPayInstallmentCount ? (
-                                <p className="text-xs text-gray-400 pl-1">
+                                <p className="text-xs text-neutral-400 pl-1">
                                   {prog.autoPayInstallmentCount}× = $
                                   {(
                                     prog.autoPayInstallmentAmount *
@@ -995,7 +995,7 @@ export default function PaymentStep({
                                     : null,
                                 })
                               }
-                              className="w-16 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              className="w-16 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
                             />
                           )}
                         </td>
@@ -1009,7 +1009,7 @@ export default function PaymentStep({
                           ) : (
                             <div className="space-y-0.5">
                               <div className="relative">
-                                <span className="absolute left-2 top-1.5 text-gray-400 text-xs">$</span>
+                                <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
                                 <input
                                   type="number"
                                   min={0}
@@ -1023,10 +1023,10 @@ export default function PaymentStep({
                                         : null,
                                     })
                                   }
-                                  className="w-24 pl-4 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  className="w-24 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
                                 />
                               </div>
-                              <p className="text-xs text-gray-400 pl-1">
+                              <p className="text-xs text-neutral-400 pl-1">
                                 0 = exempt; blank = global
                               </p>
                             </div>
@@ -1043,7 +1043,7 @@ export default function PaymentStep({
                               onChange={(e) =>
                                 updateProgram(prog._clientKey, { notes: e.target.value })
                               }
-                              className="w-36 rounded-lg border border-gray-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              className="w-36 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
                             />
                           )}
                         </td>
@@ -1063,8 +1063,8 @@ export default function PaymentStep({
                 </table>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
-                <p className="text-sm text-gray-500">
+              <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center">
+                <p className="text-sm text-neutral-500">
                   No special program rates configured yet. Add programs below.
                 </p>
               </div>
@@ -1072,13 +1072,13 @@ export default function PaymentStep({
 
             {/* Add new program */}
             {!isLocked && (
-              <div className="rounded-xl border border-gray-200 p-4 space-y-4">
-                <h4 className="text-sm font-medium text-gray-700">
+              <div className="rounded-xl border border-neutral-200 p-4 space-y-4">
+                <h4 className="text-sm font-medium text-neutral-700">
                   Add Special Program
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="space-y-1 sm:col-span-2">
-                    <label className="text-xs text-gray-500">Program</label>
+                    <label className="text-xs text-neutral-500">Program</label>
                     <select
                       value={newProgram.programKey}
                       onChange={(e) => {
@@ -1091,7 +1091,7 @@ export default function PaymentStep({
                           programLabel: selected?.label ?? e.target.value,
                         }));
                       }}
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     >
                       {SPECIAL_PROGRAM_KEYS.map((k) => (
                         <option key={k.value} value={k.value}>
@@ -1101,7 +1101,7 @@ export default function PaymentStep({
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Semester Total ($)</label>
+                    <label className="text-xs text-neutral-500">Semester Total ($)</label>
                     <input
                       type="number"
                       min={0}
@@ -1114,11 +1114,11 @@ export default function PaymentStep({
                           semesterTotal: Number(e.target.value),
                         }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Auto-Pay /mo ($)</label>
+                    <label className="text-xs text-neutral-500">Auto-Pay /mo ($)</label>
                     <input
                       type="number"
                       min={0}
@@ -1133,11 +1133,11 @@ export default function PaymentStep({
                             : null,
                         }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     />
                     {newProgram.autoPayInstallmentAmount &&
                     newProgram.autoPayInstallmentCount ? (
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-neutral-400">
                         {newProgram.autoPayInstallmentCount}× = $
                         {(
                           newProgram.autoPayInstallmentAmount *
@@ -1147,7 +1147,7 @@ export default function PaymentStep({
                     ) : null}
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-gray-500">Installments</label>
+                    <label className="text-xs text-neutral-500">Installments</label>
                     <input
                       type="number"
                       min={1}
@@ -1161,11 +1161,11 @@ export default function PaymentStep({
                             : null,
                         }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     />
                   </div>
                   <div className="space-y-1 sm:col-span-3">
-                    <label className="text-xs text-gray-500">Notes (optional)</label>
+                    <label className="text-xs text-neutral-500">Notes (optional)</label>
                     <input
                       type="text"
                       placeholder="e.g. 9-class session, no recital"
@@ -1173,13 +1173,13 @@ export default function PaymentStep({
                       onChange={(e) =>
                         setNewProgram((prev) => ({ ...prev, notes: e.target.value }))
                       }
-                      className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
                     />
                   </div>
                 </div>
                 <button
                   onClick={addProgram}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 transition"
+                  className="px-4 py-2 rounded-xl bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 transition"
                 >
                   + Add Program
                 </button>
@@ -1193,18 +1193,18 @@ export default function PaymentStep({
         {/* ------------------------------------------------------------------ */}
         {activeSubStep === "fees" && (
           <fieldset disabled={isLocked} className="space-y-6">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-neutral-500">
               These fee constants apply to all registrations in this semester.
               Changes here affect pricing calculations for all families.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-neutral-700">
                   Registration fee per child
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
                     $
                   </span>
                   <input
@@ -1219,20 +1219,20 @@ export default function PaymentStep({
                       )
                     }
                     disabled={isLocked}
-                    className="w-full pl-7 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                    className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
                   />
                 </div>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-neutral-400">
                   One-time fee per dancer per semester (default $40).
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-neutral-700">
                   Family discount (once per family)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
                     $
                   </span>
                   <input
@@ -1247,20 +1247,20 @@ export default function PaymentStep({
                       )
                     }
                     disabled={isLocked}
-                    className="w-full pl-7 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                    className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
                   />
                 </div>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-neutral-400">
                   Flat discount applied once per family per semester (default $50).
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-neutral-700">
                   Auto-pay admin fee (per month)
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
                     $
                   </span>
                   <input
@@ -1275,16 +1275,16 @@ export default function PaymentStep({
                       )
                     }
                     disabled={isLocked}
-                    className="w-full pl-7 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                    className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
                   />
                 </div>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-neutral-400">
                   Added per installment for auto-pay plans (default $5/month).
                 </p>
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-neutral-700">
                   Auto-pay installment count
                 </label>
                 <input
@@ -1298,19 +1298,19 @@ export default function PaymentStep({
                     )
                   }
                   disabled={isLocked}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                  className="w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
                 />
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-neutral-400">
                   Number of monthly payments for auto-pay plan (default 5).
                 </p>
               </div>
             </div>
 
-            <div className="border-t border-gray-100 pt-6">
-              <p className="text-sm font-medium text-gray-700 mb-1">
+            <div className="border-t border-neutral-200 pt-6">
+              <p className="text-sm font-medium text-neutral-700 mb-1">
                 Fee-Exempt Class Types
               </p>
-              <p className="text-xs text-gray-400 mb-3">
+              <p className="text-xs text-neutral-400 mb-3">
                 Classes with these disciplines or division types are exempt from costume fees and the registration fee.
               </p>
               <div className="flex flex-wrap gap-3 mb-6">
@@ -1327,25 +1327,25 @@ export default function PaymentStep({
                           : current.filter((k) => k !== opt.value);
                         updateFeeConfig("costume_fee_exempt_keys", next);
                       }}
-                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                      className="rounded border-neutral-300 text-primary-600 focus:ring-primary-600 disabled:opacity-50"
                     />
-                    <span className="text-sm text-gray-700">{opt.label}</span>
+                    <span className="text-sm text-neutral-700">{opt.label}</span>
                   </label>
                 ))}
               </div>
-              <p className="text-sm font-medium text-gray-700 mb-1">
+              <p className="text-sm font-medium text-neutral-700 mb-1">
                 Junior Division Fees
               </p>
-              <p className="text-xs text-gray-400 mb-4">
+              <p className="text-xs text-neutral-400 mb-4">
                 Applied to standard junior classes (non-exempt types above).
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
+                  <label className="text-sm font-medium text-neutral-700">
                     Recital Costume Fee (per class, junior)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
                       $
                     </span>
                     <input
@@ -1360,10 +1360,10 @@ export default function PaymentStep({
                         )
                       }
                       disabled={isLocked}
-                      className="w-full pl-7 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                      className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
                     />
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-neutral-400">
                     Per-class recital costume fee for junior dancers; multiplied by weekly
                     class count (default $55).
                   </p>
@@ -1371,20 +1371,20 @@ export default function PaymentStep({
               </div>
             </div>
 
-            <div className="border-t border-gray-100 pt-6">
-              <p className="text-sm font-medium text-gray-700 mb-1">
+            <div className="border-t border-neutral-200 pt-6">
+              <p className="text-sm font-medium text-neutral-700 mb-1">
                 Senior Division Fees
               </p>
-              <p className="text-xs text-gray-400 mb-4">
+              <p className="text-xs text-neutral-400 mb-4">
                 Applied to standard senior classes (non-exempt types above).
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
+                  <label className="text-sm font-medium text-neutral-700">
                     Video fee (per senior registrant)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
                       $
                     </span>
                     <input
@@ -1399,20 +1399,20 @@ export default function PaymentStep({
                         )
                       }
                       disabled={isLocked}
-                      className="w-full pl-7 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                      className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
                     />
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-neutral-400">
                     Flat fee charged once per senior dancer per semester (default $15).
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">
+                  <label className="text-sm font-medium text-neutral-700">
                     Recital Costume Fee (per class, senior)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
                       $
                     </span>
                     <input
@@ -1427,10 +1427,10 @@ export default function PaymentStep({
                         )
                       }
                       disabled={isLocked}
-                      className="w-full pl-7 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                      className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
                     />
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-neutral-400">
                     Per-class recital costume fee for senior dancers; multiplied by weekly
                     class count (default $65).
                   </p>
@@ -1441,17 +1441,17 @@ export default function PaymentStep({
         )}
 
         {/* Navigation */}
-        <div className="flex justify-between pt-4 border-t border-gray-100">
+        <div className="flex justify-between pt-4 border-t border-neutral-200">
           <button
             onClick={onBack}
-            className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+            className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
           >
             Back
           </button>
 
           <button
             onClick={handleSubmit}
-            className="px-6 py-2.5 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
+            className="px-6 py-2.5 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition"
           >
             Next
           </button>

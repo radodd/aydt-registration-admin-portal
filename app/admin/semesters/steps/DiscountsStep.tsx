@@ -234,33 +234,33 @@ export default function DiscountsStep({
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-6">
+      <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-6">
         {/* Header */}
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">
+          <h2 className="text-2xl font-semibold text-neutral-900 tracking-tight">
             Discounts & Coupons
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-neutral-500 mt-1">
             Configure automatic discounts and promo codes for this semester.
           </p>
         </div>
 
         {isLocked && (
-          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          <div className="rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
             This semester has active registrations. Discounts and coupons are locked.
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl w-fit">
           {(["discounts", "coupons"] as TabId[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition capitalize ${
                 activeTab === tab
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white text-neutral-900 shadow-sm"
+                  : "text-neutral-500 hover:text-neutral-700"
               }`}
             >
               {tab === "discounts" ? "Discounts" : "Promo Codes"}
@@ -274,7 +274,7 @@ export default function DiscountsStep({
             {!isLocked && (
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
+                className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700 transition"
               >
                 + Create New Discount
               </button>
@@ -308,8 +308,8 @@ export default function DiscountsStep({
             )}
 
             {allDiscounts.length === 0 && (
-              <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
-                <p className="text-sm text-gray-500">No discounts available</p>
+              <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center">
+                <p className="text-sm text-neutral-500">No discounts available</p>
               </div>
             )}
 
@@ -324,8 +324,8 @@ export default function DiscountsStep({
                   onClick={() => !isLocked && toggleSelection(discount.id)}
                   className={`flex items-start gap-3 border rounded-xl p-4 transition cursor-pointer ${
                     selected
-                      ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-400"
-                      : "border-gray-200 hover:border-gray-300 bg-white"
+                      ? "border-primary-400 bg-primary-50 ring-1 ring-primary-400"
+                      : "border-neutral-200 hover:border-neutral-300 bg-white"
                   } ${isLocked ? "cursor-default opacity-60" : ""}`}
                 >
                   <input
@@ -335,25 +335,25 @@ export default function DiscountsStep({
                     onChange={() => !isLocked && toggleSelection(discount.id)}
                     disabled={isLocked}
                     onClick={(e) => e.stopPropagation()}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50 shrink-0"
+                    className="mt-1 h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600 disabled:opacity-50 shrink-0"
                   />
                   <div className="flex-1 min-w-0">
                     <label
                       htmlFor={`discount-${discount.id}`}
-                      className={`text-sm font-medium cursor-pointer ${selected ? "text-indigo-800" : "text-gray-800"}`}
+                      className={`text-sm font-medium cursor-pointer ${selected ? "text-primary-800" : "text-neutral-800"}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       {discount.name}
                     </label>
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full capitalize">
+                      <span className="text-xs bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded-full capitalize">
                         {categoryLabel}
                       </span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-neutral-400">
                         {rulesCount} rule{rulesCount !== 1 ? "s" : ""}
                       </span>
                       {discount.eligible_sessions_mode === "selected" && (
-                        <span className="text-xs text-amber-600">
+                        <span className="text-xs text-mauve-text">
                           Selected sessions only
                         </span>
                       )}
@@ -366,7 +366,7 @@ export default function DiscountsStep({
                     >
                       <button
                         onClick={() => setEditingDiscount(discount)}
-                        className="text-xs font-medium text-gray-400 hover:text-indigo-600 transition px-2 py-1 rounded-lg hover:bg-indigo-50"
+                        className="text-xs font-medium text-neutral-400 hover:text-primary-600 transition px-2 py-1 rounded-lg hover:bg-primary-50"
                       >
                         Edit
                       </button>
@@ -381,7 +381,7 @@ export default function DiscountsStep({
                           await deleteDiscount(discount.id);
                           await refreshDiscounts();
                         }}
-                        className="text-xs font-medium text-gray-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"
+                        className="text-xs font-medium text-neutral-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"
                       >
                         Delete
                       </button>
@@ -399,7 +399,7 @@ export default function DiscountsStep({
             {!isLocked && (
               <button
                 onClick={openCreateCoupon}
-                className="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-700 transition"
+                className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700 transition"
               >
                 + Create New Promo Code
               </button>
@@ -409,7 +409,7 @@ export default function DiscountsStep({
             {showCouponForm && (
               <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl shadow-xl p-8 max-w-lg w-full space-y-5">
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className="text-lg font-semibold text-neutral-900">
                     {editingCoupon ? "Edit Promo Code" : "New Promo Code"}
                   </h3>
 
@@ -422,7 +422,7 @@ export default function DiscountsStep({
                   <div className="space-y-4">
                     {/* Name */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         Name
                       </label>
                       <input
@@ -432,15 +432,15 @@ export default function DiscountsStep({
                           setCouponDraft((d) => ({ ...d, name: e.target.value }))
                         }
                         placeholder="e.g. Fall Early Registration"
-                        className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                       />
                     </div>
 
                     {/* Code */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         Promo Code{" "}
-                        <span className="text-gray-400 font-normal">
+                        <span className="text-neutral-400 font-normal">
                           (leave blank for auto-apply by date)
                         </span>
                       </label>
@@ -454,14 +454,14 @@ export default function DiscountsStep({
                           }))
                         }
                         placeholder="e.g. FALL2026"
-                        className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary-600"
                       />
                     </div>
 
                     {/* Value + Type */}
                     <div className="flex gap-3">
                       <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-neutral-700 mb-1">
                           Discount Amount
                         </label>
                         <input
@@ -475,11 +475,11 @@ export default function DiscountsStep({
                               value: parseFloat(e.target.value) || 0,
                             }))
                           }
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                         />
                       </div>
                       <div className="w-32">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-neutral-700 mb-1">
                           Type
                         </label>
                         <select
@@ -490,7 +490,7 @@ export default function DiscountsStep({
                               valueType: e.target.value as "flat" | "percent",
                             }))
                           }
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                         >
                           <option value="flat">$ Off</option>
                           <option value="percent">% Off</option>
@@ -501,9 +501,9 @@ export default function DiscountsStep({
                     {/* Valid From / Until */}
                     <div className="flex gap-3">
                       <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-neutral-700 mb-1">
                           Valid From{" "}
-                          <span className="text-gray-400 font-normal">
+                          <span className="text-neutral-400 font-normal">
                             (optional)
                           </span>
                         </label>
@@ -518,13 +518,13 @@ export default function DiscountsStep({
                                 : null,
                             }))
                           }
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                         />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-neutral-700 mb-1">
                           Expires{" "}
-                          <span className="text-gray-400 font-normal">
+                          <span className="text-neutral-400 font-normal">
                             (optional)
                           </span>
                         </label>
@@ -539,7 +539,7 @@ export default function DiscountsStep({
                                 : null,
                             }))
                           }
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                         />
                       </div>
                     </div>
@@ -547,9 +547,9 @@ export default function DiscountsStep({
                     {/* Max Uses / Per Family */}
                     <div className="flex gap-3">
                       <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-neutral-700 mb-1">
                           Max Total Uses{" "}
-                          <span className="text-gray-400 font-normal">
+                          <span className="text-neutral-400 font-normal">
                             (optional)
                           </span>
                         </label>
@@ -567,11 +567,11 @@ export default function DiscountsStep({
                             }))
                           }
                           placeholder="Unlimited"
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                         />
                       </div>
                       <div className="w-36">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                        <label className="block text-xs font-medium text-neutral-700 mb-1">
                           Max Per Family
                         </label>
                         <input
@@ -585,7 +585,7 @@ export default function DiscountsStep({
                               maxPerFamily: parseInt(e.target.value, 10) || 1,
                             }))
                           }
-                          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                         />
                       </div>
                     </div>
@@ -601,9 +601,9 @@ export default function DiscountsStep({
                             stackable: e.target.checked,
                           }))
                         }
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
                       />
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-neutral-700">
                         Can stack with multi-class discounts
                       </span>
                     </label>
@@ -619,16 +619,16 @@ export default function DiscountsStep({
                             appliesToMostExpensiveOnly: e.target.checked,
                           }))
                         }
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
                       />
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-neutral-700">
                         Apply to most expensive eligible item only
                       </span>
                     </label>
 
                     {/* Eligible line item types */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                      <label className="block text-xs font-medium text-neutral-700 mb-2">
                         Discount applies to
                       </label>
                       <div className="flex flex-wrap gap-4">
@@ -645,7 +645,7 @@ export default function DiscountsStep({
                           return (
                             <label
                               key={type}
-                              className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                              className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer"
                             >
                               <input
                                 type="checkbox"
@@ -663,7 +663,7 @@ export default function DiscountsStep({
                                         ),
                                   }))
                                 }
-                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
                               />
                               {label}
                             </label>
@@ -674,7 +674,7 @@ export default function DiscountsStep({
 
                     {/* Session eligibility */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-neutral-700 mb-1">
                         Applies To
                       </label>
                       <select
@@ -689,7 +689,7 @@ export default function DiscountsStep({
                               e.target.value === "all" ? [] : d.sessionIds,
                           }))
                         }
-                        className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
                       >
                         <option value="all">All classes</option>
                         <option value="selected">Specific classes only</option>
@@ -697,11 +697,11 @@ export default function DiscountsStep({
 
                       {couponDraft.eligibleSessionsMode === "selected" &&
                         sessionOptions.length > 0 && (
-                          <div className="mt-2 space-y-1 max-h-40 overflow-y-auto border border-gray-200 rounded-xl p-2">
+                          <div className="mt-2 space-y-1 max-h-40 overflow-y-auto border border-neutral-200 rounded-xl p-2">
                             {sessionOptions.map((s) => (
                               <label
                                 key={s.id}
-                                className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                                className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer"
                               >
                                 <input
                                   type="checkbox"
@@ -718,7 +718,7 @@ export default function DiscountsStep({
                                           ),
                                     }))
                                   }
-                                  className="h-4 w-4 rounded border-gray-300 text-indigo-600"
+                                  className="h-4 w-4 rounded border-neutral-300 text-primary-600"
                                 />
                                 {s.name}
                               </label>
@@ -738,23 +738,23 @@ export default function DiscountsStep({
                             isActive: e.target.checked,
                           }))
                         }
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
                       />
-                      <span className="text-sm text-gray-700">Active</span>
+                      <span className="text-sm text-neutral-700">Active</span>
                     </label>
                   </div>
 
                   <div className="flex justify-end gap-2 pt-2">
                     <button
                       onClick={() => setShowCouponForm(false)}
-                      className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                      className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={saveCoupon}
                       disabled={couponSaving}
-                      className="px-5 py-2 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 transition"
+                      className="px-5 py-2 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 disabled:opacity-60 transition"
                     >
                       {couponSaving ? "Saving…" : "Save"}
                     </button>
@@ -765,8 +765,8 @@ export default function DiscountsStep({
 
             {/* Coupon list */}
             {coupons.length === 0 && (
-              <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center">
-                <p className="text-sm text-gray-500">No promo codes yet</p>
+              <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center">
+                <p className="text-sm text-neutral-500">No promo codes yet</p>
               </div>
             )}
 
@@ -786,23 +786,23 @@ export default function DiscountsStep({
                   key={coupon._clientKey}
                   className={`border rounded-xl bg-white ${
                     coupon.isActive
-                      ? "border-gray-200"
-                      : "border-gray-200 opacity-50"
+                      ? "border-neutral-200"
+                      : "border-neutral-200 opacity-50"
                   } ${isLocked ? "opacity-60" : ""}`}
                 >
                   <div className="flex items-start gap-3 p-4">
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-gray-900">
+                        <span className="text-sm font-medium text-neutral-900">
                           {coupon.name}
                         </span>
                         {coupon.code && (
-                          <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-0.5 rounded">
+                          <span className="text-xs font-mono bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded">
                             {coupon.code}
                           </span>
                         )}
                         {!coupon.code && (
-                          <span className="text-xs text-gray-400 italic">
+                          <span className="text-xs text-neutral-400 italic">
                             auto-apply
                           </span>
                         )}
@@ -810,7 +810,7 @@ export default function DiscountsStep({
                           <span className="text-xs text-red-500">Inactive</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 flex-wrap text-xs text-gray-500">
+                      <div className="flex items-center gap-3 flex-wrap text-xs text-neutral-500">
                         <span>{valueText}</span>
                         <span>{usageText}</span>
                         {coupon.validUntil && (
@@ -829,7 +829,7 @@ export default function DiscountsStep({
                       {coupon.id && (
                         <button
                           onClick={() => toggleHistory(coupon.id!)}
-                          className="text-xs font-medium text-gray-400 hover:text-gray-600 transition px-2 py-1 rounded-lg hover:bg-gray-50"
+                          className="text-xs font-medium text-neutral-400 hover:text-neutral-600 transition px-2 py-1 rounded-lg hover:bg-neutral-50"
                         >
                           {expandedHistoryId === coupon.id
                             ? "Hide history"
@@ -840,13 +840,13 @@ export default function DiscountsStep({
                         <>
                           <button
                             onClick={() => openEditCoupon(coupon)}
-                            className="text-xs font-medium text-gray-400 hover:text-indigo-600 transition px-2 py-1 rounded-lg hover:bg-indigo-50"
+                            className="text-xs font-medium text-neutral-400 hover:text-primary-600 transition px-2 py-1 rounded-lg hover:bg-primary-50"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDeleteCoupon(coupon)}
-                            className="text-xs font-medium text-gray-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"
+                            className="text-xs font-medium text-neutral-400 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"
                           >
                             Delete
                           </button>
@@ -857,21 +857,21 @@ export default function DiscountsStep({
 
                   {/* Redemption history panel */}
                   {expandedHistoryId === coupon.id && coupon.id && (
-                    <div className="border-t border-gray-100 px-4 pb-4 pt-3">
+                    <div className="border-t border-neutral-200 px-4 pb-4 pt-3">
                       {historyCache[coupon.id]?.loading && (
-                        <p className="text-xs text-gray-400">Loading…</p>
+                        <p className="text-xs text-neutral-400">Loading…</p>
                       )}
                       {!historyCache[coupon.id]?.loading &&
                         (historyCache[coupon.id]?.records.length ?? 0) === 0 && (
-                          <p className="text-xs text-gray-400">No redemptions yet.</p>
+                          <p className="text-xs text-neutral-400">No redemptions yet.</p>
                         )}
                       {(historyCache[coupon.id]?.records ?? []).map((r) => (
                         <div
                           key={r.id}
-                          className="flex justify-between items-center text-xs text-gray-600 py-1 border-b border-gray-50 last:border-0"
+                          className="flex justify-between items-center text-xs text-neutral-600 py-1 border-b border-neutral-100 last:border-0"
                         >
                           <span>{r.familyName ?? r.familyId}</span>
-                          <span className="text-gray-400">
+                          <span className="text-neutral-400">
                             {new Date(r.redeemedAt).toLocaleDateString()}
                           </span>
                         </div>
@@ -888,13 +888,13 @@ export default function DiscountsStep({
         <div className="flex justify-between pt-4">
           <button
             onClick={onBack}
-            className="px-4 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+            className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
           >
             Back
           </button>
           <button
             onClick={handleSubmit}
-            className="px-6 py-2.5 rounded-xl bg-indigo-600 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition"
+            className="px-6 py-2.5 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition"
           >
             Next
           </button>

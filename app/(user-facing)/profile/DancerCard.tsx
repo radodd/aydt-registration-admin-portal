@@ -50,17 +50,17 @@ export function DancerCard({ dancer }: DancerCardProps) {
   }
 
   const inputClass =
-    "w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-gray-50 disabled:text-gray-400";
+    "w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:bg-neutral-50 disabled:text-neutral-400";
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+    <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">
+          <h3 className="text-base font-semibold text-neutral-900">
             {dancer.first_name} {dancer.last_name}
           </h3>
           {dancer.birth_date && (
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-neutral-500 mt-0.5">
               DOB: {new Date(dancer.birth_date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
             </p>
           )}
@@ -69,7 +69,7 @@ export function DancerCard({ dancer }: DancerCardProps) {
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+            className="text-xs text-primary-600 hover:text-primary-700 font-medium"
           >
             Edit
           </button>
@@ -86,7 +86,7 @@ export function DancerCard({ dancer }: DancerCardProps) {
         <div className="space-y-4">
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-700">
+              <label className="block text-xs font-medium text-neutral-700">
                 First Name
               </label>
               <input
@@ -97,7 +97,7 @@ export function DancerCard({ dancer }: DancerCardProps) {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs font-medium text-gray-700">
+              <label className="block text-xs font-medium text-neutral-700">
                 Last Name
               </label>
               <input
@@ -110,7 +110,7 @@ export function DancerCard({ dancer }: DancerCardProps) {
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-gray-700">
+            <label className="block text-xs font-medium text-neutral-700">
               Date of Birth
             </label>
             <input
@@ -125,7 +125,7 @@ export function DancerCard({ dancer }: DancerCardProps) {
             <button
               type="button"
               onClick={handleCancel}
-              className="flex-1 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors text-xs font-medium"
+              className="flex-1 py-2 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors text-xs font-medium"
             >
               Cancel
             </button>
@@ -133,7 +133,7 @@ export function DancerCard({ dancer }: DancerCardProps) {
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 py-2 rounded-xl bg-indigo-600 text-white font-semibold hover:bg-indigo-700 transition-colors text-xs disabled:opacity-60"
+              className="flex-1 py-2 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors text-xs disabled:opacity-60"
             >
               {saving ? "Saving…" : "Save"}
             </button>

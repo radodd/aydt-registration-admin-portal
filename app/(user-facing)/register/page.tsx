@@ -82,7 +82,7 @@ function EmailForm({ semesterId }: { semesterId: string }) {
   if (authChecking) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -92,10 +92,10 @@ function EmailForm({ semesterId }: { semesterId: string }) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">
+        <h1 className="text-2xl font-bold text-neutral-900 mb-1">
           Let&apos;s get started
         </h1>
-        <p className="text-gray-500 text-sm">
+        <p className="text-neutral-500 text-sm">
           Enter your email to create an account or sign in.
         </p>
       </div>
@@ -103,7 +103,7 @@ function EmailForm({ semesterId }: { semesterId: string }) {
       <div>
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-gray-700 mb-1.5"
+          className="block text-sm font-medium text-neutral-700 mb-1.5"
         >
           Email address
         </label>
@@ -113,7 +113,7 @@ function EmailForm({ semesterId }: { semesterId: string }) {
           autoComplete="email"
           placeholder="you@example.com"
           {...register("email")}
-          className="w-full border border-gray-300 rounded-xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+          className="w-full border border-neutral-300 rounded-xl px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
         />
         {errors.email && (
           <p className="mt-1.5 text-sm text-red-600">{errors.email.message}</p>
@@ -129,14 +129,14 @@ function EmailForm({ semesterId }: { semesterId: string }) {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-60"
+        className="w-full bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors disabled:opacity-60"
       >
         {isSubmitting ? "Checking…" : "Continue"}
       </button>
 
-      <p className="text-xs text-gray-400 text-center">
+      <p className="text-xs text-neutral-400 text-center">
         Already have an account?{" "}
-        <a href={signInHref} className="text-indigo-600 hover:underline">
+        <a href={signInHref} className="text-primary-600 hover:underline">
           Sign in
         </a>
       </p>
@@ -155,8 +155,8 @@ function RegisterPageInner() {
   if (!semesterId) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500 mb-4">No semester selected.</p>
-        <a href="/" className="text-indigo-600 hover:underline text-sm">
+        <p className="text-neutral-500 mb-4">No semester selected.</p>
+        <a href="/" className="text-primary-600 hover:underline text-sm">
           Browse semesters
         </a>
       </div>

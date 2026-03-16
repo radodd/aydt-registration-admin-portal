@@ -73,27 +73,27 @@ export function BatchConfirmationGuard({
     return (
       <div className="max-w-2xl mx-auto px-6 py-20 text-center">
         <div className="text-5xl mb-6">📬</div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-3">
+        <h1 className="text-2xl font-bold text-neutral-900 mb-3">
           Payment received — your registration is being confirmed
         </h1>
-        <p className="text-gray-500 text-base mb-2">
+        <p className="text-neutral-500 text-base mb-2">
           This is taking a little longer than usual. Your registration will be
           confirmed shortly and you&apos;ll receive a confirmation email.
         </p>
-        <p className="text-gray-400 text-sm mb-10">
+        <p className="text-neutral-400 text-sm mb-10">
           If you don&apos;t receive an email within 10 minutes, please contact
           AYDT support.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <Link
             href="/family"
-            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm"
+            className="bg-primary-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors text-sm"
           >
             View My Registrations
           </Link>
           <Link
             href="/"
-            className="border border-gray-200 text-gray-600 px-6 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm"
+            className="border border-neutral-200 text-neutral-600 px-6 py-3 rounded-xl font-medium hover:bg-neutral-50 transition-colors text-sm"
           >
             Back to Home
           </Link>
@@ -106,12 +106,12 @@ export function BatchConfirmationGuard({
   return (
     <div className="max-w-2xl mx-auto px-6 py-20 text-center">
       <div className="flex justify-center mb-6">
-        <div className="h-12 w-12 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin" />
+        <div className="h-12 w-12 rounded-full border-4 border-primary-200 border-t-primary-600 animate-spin" />
       </div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-3">
+      <h1 className="text-2xl font-bold text-neutral-900 mb-3">
         Confirming your registration…
       </h1>
-      <p className="text-gray-500 text-base">
+      <p className="text-neutral-500 text-base">
         Your payment was received. Please wait while we confirm your
         registration.
       </p>
@@ -129,20 +129,20 @@ function SuccessContent({
   return (
     <div className="max-w-2xl mx-auto px-6 py-20 text-center">
       {isPreview && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 font-medium mb-8">
+        <div className="bg-mauve/10 border border-mauve rounded-xl px-4 py-3 text-sm text-mauve-text font-medium mb-8">
           Preview mode — this is a simulated confirmation.
         </div>
       )}
 
       <div className="text-5xl mb-6">🎉</div>
 
-      <h1 className="text-3xl font-bold text-gray-900 mb-3">
+      <h1 className="text-3xl font-bold text-neutral-900 mb-3">
         You&apos;re registered!
       </h1>
-      <p className="text-gray-500 text-lg mb-2">
+      <p className="text-neutral-500 text-lg mb-2">
         Your registration has been confirmed.
       </p>
-      <p className="text-gray-400 text-sm mb-10">
+      <p className="text-neutral-400 text-sm mb-10">
         A confirmation email has been sent to your inbox. Please check your spam
         folder if you don&apos;t see it within a few minutes.
       </p>
@@ -150,13 +150,13 @@ function SuccessContent({
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
         <Link
           href="/family"
-          className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-indigo-700 transition-colors text-sm"
+          className="bg-primary-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors text-sm"
         >
           View My Registrations
         </Link>
         <Link
           href="/"
-          className="border border-gray-200 text-gray-600 px-6 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm"
+          className="border border-neutral-200 text-neutral-600 px-6 py-3 rounded-xl font-medium hover:bg-neutral-50 transition-colors text-sm"
         >
           Back to Home
         </Link>

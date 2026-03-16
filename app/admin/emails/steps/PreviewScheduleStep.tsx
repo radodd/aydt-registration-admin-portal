@@ -82,49 +82,49 @@ export default function PreviewScheduleStep({
     .slice(0, 16);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 space-y-8">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-8">
       <div>
-        <h2 className="text-xl font-semibold text-gray-900">
+        <h2 className="text-xl font-semibold text-neutral-900">
           Preview &amp; Schedule
         </h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-neutral-500 mt-1">
           Review your email and choose when to send it.
         </p>
       </div>
 
       {/* Summary bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4">
+          <p className="text-xs text-neutral-500 font-medium uppercase tracking-wide">
             Subject
           </p>
-          <p className="text-sm text-gray-900 mt-1 font-medium truncate">
+          <p className="text-sm text-neutral-900 mt-1 font-medium truncate">
             {subject}
           </p>
         </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4">
+          <p className="text-xs text-neutral-500 font-medium uppercase tracking-wide">
             From
           </p>
-          <p className="text-sm text-gray-900 mt-1 font-medium truncate">
+          <p className="text-sm text-neutral-900 mt-1 font-medium truncate">
             {state.setup?.senderName
               ? `${state.setup.senderName} <${state.setup.senderEmail}>`
               : state.setup?.senderEmail ?? "—"}
           </p>
         </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4">
+          <p className="text-xs text-neutral-500 font-medium uppercase tracking-wide">
             Recipients
           </p>
-          <p className="text-sm text-gray-900 mt-1 font-semibold">
+          <p className="text-sm text-neutral-900 mt-1 font-semibold">
             {recipientCount.toLocaleString()}
           </p>
         </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4">
+          <p className="text-xs text-neutral-500 font-medium uppercase tracking-wide">
             Groups
           </p>
-          <p className="text-sm text-gray-900 mt-1 font-medium">
+          <p className="text-sm text-neutral-900 mt-1 font-medium">
             {(state.recipients?.selections?.length ?? 0) +
               (state.recipients?.manualAdditions?.length ?? 0)}{" "}
             selected
@@ -135,14 +135,14 @@ export default function PreviewScheduleStep({
       {/* Preview */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-gray-700">Email Preview</p>
+          <p className="text-sm font-medium text-neutral-700">Email Preview</p>
           <div className="flex gap-2">
             <button
               onClick={() => setPreviewMode("desktop")}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
                 previewMode === "desktop"
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  ? "border-primary-600 bg-primary-50 text-primary-700"
+                  : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
               }`}
             >
               Desktop
@@ -151,8 +151,8 @@ export default function PreviewScheduleStep({
               onClick={() => setPreviewMode("mobile")}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition ${
                 previewMode === "mobile"
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                  ? "border-primary-600 bg-primary-50 text-primary-700"
+                  : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
               }`}
             >
               Mobile
@@ -161,12 +161,12 @@ export default function PreviewScheduleStep({
         </div>
 
         {htmlBody ? (
-          <div className="border border-gray-200 rounded-xl overflow-hidden bg-gray-100 p-6 flex justify-center">
+          <div className="border border-neutral-200 rounded-xl overflow-hidden bg-neutral-100 p-6 flex justify-center">
             {previewMode === "desktop" ? (
               <iframe
                 srcDoc={previewHtml}
                 title="Email preview"
-                className="rounded-lg border border-gray-200 bg-white"
+                className="rounded-lg border border-neutral-200 bg-white"
                 style={{ width: "600px", height: "520px" }}
                 sandbox="allow-same-origin"
               />
@@ -183,7 +183,7 @@ export default function PreviewScheduleStep({
             )}
           </div>
         ) : (
-          <div className="border border-gray-200 rounded-xl p-10 text-sm text-gray-400 text-center">
+          <div className="border border-neutral-200 rounded-xl p-10 text-sm text-neutral-400 text-center">
             No email body. Go back to the Design step to add content.
           </div>
         )}
@@ -191,8 +191,8 @@ export default function PreviewScheduleStep({
 
       {/* Send / Schedule section */}
       {isSuperAdmin ? (
-        <div className="space-y-5 border-t border-gray-200 pt-6">
-          <p className="text-sm font-medium text-gray-700">Send options</p>
+        <div className="space-y-5 border-t border-neutral-200 pt-6">
+          <p className="text-sm font-medium text-neutral-700">Send options</p>
 
           <div className="flex gap-4 flex-wrap">
             <label className="flex items-center gap-2.5 cursor-pointer">
@@ -202,9 +202,9 @@ export default function PreviewScheduleStep({
                 value="now"
                 checked={sendMode === "now"}
                 onChange={() => setSendMode("now")}
-                className="accent-indigo-600"
+                className="accent-primary-600"
               />
-              <span className="text-sm text-gray-700">Send now</span>
+              <span className="text-sm text-neutral-700">Send now</span>
             </label>
             <label className="flex items-center gap-2.5 cursor-pointer">
               <input
@@ -213,15 +213,15 @@ export default function PreviewScheduleStep({
                 value="scheduled"
                 checked={sendMode === "scheduled"}
                 onChange={() => setSendMode("scheduled")}
-                className="accent-indigo-600"
+                className="accent-primary-600"
               />
-              <span className="text-sm text-gray-700">Schedule for later</span>
+              <span className="text-sm text-neutral-700">Schedule for later</span>
             </label>
           </div>
 
           {sendMode === "scheduled" && (
             <div className="space-y-2 max-w-xs">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-neutral-700">
                 Send date &amp; time
               </label>
               <input
@@ -229,9 +229,9 @@ export default function PreviewScheduleStep({
                 value={scheduledAt}
                 min={minDatetime}
                 onChange={(e) => setScheduledAt(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full border border-neutral-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
               />
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-neutral-400">
                 Times are in your local timezone.
               </p>
             </div>
@@ -244,7 +244,7 @@ export default function PreviewScheduleStep({
           )}
 
           {actionStatus === "success" && (
-            <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
+            <div className="px-4 py-3 bg-mint/10 border border-mint rounded-xl text-sm text-mint-text">
               {sendMode === "now"
                 ? "Email is being sent. Redirecting…"
                 : "Email scheduled successfully. Redirecting…"}
@@ -252,26 +252,26 @@ export default function PreviewScheduleStep({
           )}
 
           {recipientCount === 0 && (
-            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
+            <div className="px-4 py-3 bg-mauve/10 border border-mauve rounded-xl text-sm text-mauve-text">
               No recipients selected. Go back to the Recipients step to add
               some.
             </div>
           )}
         </div>
       ) : (
-        <div className="border-t border-gray-200 pt-6">
-          <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600">
+        <div className="border-t border-neutral-200 pt-6">
+          <div className="px-4 py-3 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-600">
             Only Super Admins can send or schedule emails. Save your draft and
             ask a Super Admin to review and send.
           </div>
         </div>
       )}
 
-      <div className="flex justify-between pt-2 border-t border-gray-200">
+      <div className="flex justify-between pt-2 border-t border-neutral-200">
         <button
           onClick={onBack}
           disabled={actionStatus === "loading" || actionStatus === "success"}
-          className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition disabled:opacity-40"
+          className="px-5 py-2.5 rounded-xl border border-neutral-300 text-neutral-700 text-sm hover:bg-neutral-50 transition disabled:opacity-40"
         >
           Back
         </button>
@@ -285,7 +285,7 @@ export default function PreviewScheduleStep({
               recipientCount === 0 ||
               (sendMode === "scheduled" && !scheduledAt)
             }
-            className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-6 py-2.5 rounded-xl bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {actionStatus === "loading"
               ? "Processing…"

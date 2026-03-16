@@ -76,17 +76,17 @@ export function SmsOptInCard({ user }: Props) {
   }
 
   return (
-    <section className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm space-y-4">
+    <section className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-gray-900">SMS Notifications</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h2 className="text-base font-semibold text-neutral-900">SMS Notifications</h2>
+          <p className="text-sm text-neutral-500 mt-0.5">
             Receive urgent alerts for class cancellations, waitlist openings, and overdue payments.
           </p>
         </div>
         {alreadyVerified && (
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-mint-text bg-mint/10 border border-mint rounded-full px-3 py-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-mint/100 inline-block" />
             SMS Active
           </span>
         )}
@@ -100,10 +100,10 @@ export function SmsOptInCard({ user }: Props) {
 
       {/* Already opted in */}
       {alreadyVerified && state === "idle" && (
-        <div className="text-sm text-gray-600 space-y-2">
+        <div className="text-sm text-neutral-600 space-y-2">
           <p>
             SMS notifications are active for{" "}
-            <span className="font-medium text-gray-900">{user.phone_number}</span>.
+            <span className="font-medium text-neutral-900">{user.phone_number}</span>.
           </p>
           <button
             onClick={handleOptOut}
@@ -119,7 +119,7 @@ export function SmsOptInCard({ user }: Props) {
       {!alreadyVerified && state === "idle" && (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Mobile phone number
             </label>
             <input
@@ -127,7 +127,7 @@ export function SmsOptInCard({ user }: Props) {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="(212) 555-1234"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
             />
           </div>
 
@@ -136,9 +136,9 @@ export function SmsOptInCard({ user }: Props) {
               type="checkbox"
               checked={consent}
               onChange={(e) => setConsent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-gray-900"
+              className="mt-0.5 h-4 w-4 rounded border-neutral-300 accent-gray-900"
             />
-            <span className="text-sm text-gray-600 leading-snug">
+            <span className="text-sm text-neutral-600 leading-snug">
               I agree to receive SMS notifications from AYDT about registration updates,
               waitlist invitations, and payment reminders. Message and data rates may apply.
               Reply STOP to opt out.
@@ -148,7 +148,7 @@ export function SmsOptInCard({ user }: Props) {
           <button
             onClick={handleSendCode}
             disabled={isPending || !phone.trim()}
-            className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            className="w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
             {isPending ? "Sending code…" : "Send Verification Code"}
           </button>
@@ -158,13 +158,13 @@ export function SmsOptInCard({ user }: Props) {
       {/* Code entry state */}
       {state === "code_sent" && (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-neutral-600">
             A 6-digit code was sent to{" "}
-            <span className="font-medium text-gray-900">{phone}</span>.
+            <span className="font-medium text-neutral-900">{phone}</span>.
           </p>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-neutral-700 mb-1">
               Verification code
             </label>
             <input
@@ -174,14 +174,14 @@ export function SmsOptInCard({ user }: Props) {
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
               placeholder="123456"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-gray-900"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-gray-900"
             />
           </div>
 
           <button
             onClick={handleVerify}
             disabled={isPending || code.length < 6}
-            className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            className="w-full rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
             {isPending ? "Verifying…" : "Verify"}
           </button>
@@ -189,7 +189,7 @@ export function SmsOptInCard({ user }: Props) {
           <button
             onClick={handleResend}
             disabled={isPending}
-            className="w-full text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+            className="w-full text-sm text-neutral-500 hover:text-neutral-700 disabled:opacity-50"
           >
             Resend code
           </button>
@@ -198,7 +198,7 @@ export function SmsOptInCard({ user }: Props) {
 
       {/* Success state */}
       {state === "verified" && (
-        <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+        <div className="rounded-lg bg-mint/10 border border-mint px-4 py-3 text-sm text-green-800">
           Phone verified. You will now receive SMS notifications for urgent updates.
         </div>
       )}

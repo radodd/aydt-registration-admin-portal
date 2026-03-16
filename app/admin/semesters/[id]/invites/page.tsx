@@ -35,38 +35,38 @@ export default async function InvitesPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-5xl p-6 space-y-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-gray-500">
+      <div className="flex items-center gap-2 text-sm text-neutral-500">
         <Link
           href={`/admin/semesters/${semesterId}`}
-          className="hover:text-gray-700 transition-colors"
+          className="hover:text-neutral-700 transition-colors"
         >
           {semester.name}
         </Link>
         <span>/</span>
-        <span className="text-gray-900 font-medium">Competition Invites</span>
+        <span className="text-neutral-900 font-medium">Competition Invites</span>
       </div>
 
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">
+        <h1 className="text-2xl font-semibold text-neutral-900">
           Competition Invites
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-neutral-500">
           Manage audition sessions and invitations for restricted competition
           classes.
         </p>
       </div>
 
       {classes && classes.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
-          <p className="text-sm text-gray-500">
+        <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-10 text-center">
+          <p className="text-sm text-neutral-500">
             No competition track classes found in this semester.
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-neutral-400">
             Add a <strong>Competition Track</strong> in the Sessions step to manage invites and audition slots here.
           </p>
           <Link
             href={`/admin/semesters/${semesterId}/edit?step=sessions`}
-            className="mt-3 inline-block text-xs text-indigo-600 hover:text-indigo-800 underline"
+            className="mt-3 inline-block text-xs text-primary-600 hover:text-primary-800 underline"
           >
             Go to Sessions step →
           </Link>

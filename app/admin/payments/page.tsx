@@ -55,19 +55,19 @@ function formatDate(dateStr: string): string {
 }
 
 const BATCH_STATUS_BADGE: Record<string, string> = {
-  pending_payment: "bg-yellow-100 text-yellow-700",
-  confirmed: "bg-green-100 text-green-700",
-  failed: "bg-red-100 text-red-700",
-  refunded: "bg-gray-100 text-gray-600",
-  partial: "bg-blue-100 text-blue-700",
+  pending_payment: "bg-mauve/20 text-mauve-text",
+  confirmed: "bg-mint/20 text-mint-text",
+  failed: "bg-pale-rose/30 text-pale-rose-text",
+  refunded: "bg-neutral-100 text-neutral-600",
+  partial: "bg-lavender/20 text-lavender-text",
 };
 
 const INSTALLMENT_BADGE: Record<string, string> = {
-  scheduled: "bg-gray-100 text-gray-600",
-  paid: "bg-green-100 text-green-700",
-  overdue: "bg-red-100 text-red-700",
-  waived: "bg-blue-100 text-blue-700",
-  processing: "bg-yellow-100 text-yellow-700",
+  scheduled: "bg-neutral-100 text-neutral-600",
+  paid: "bg-mint/20 text-mint-text",
+  overdue: "bg-pale-rose/30 text-pale-rose-text",
+  waived: "bg-lavender/20 text-lavender-text",
+  processing: "bg-mauve/20 text-mauve-text",
 };
 
 /* -------------------------------------------------------------------------- */
@@ -126,7 +126,7 @@ export default function PaymentsAdmin() {
   if (loading) {
     return (
       <main className="max-w-7xl mx-auto px-6 py-10">
-        <div className="bg-white border border-gray-200 rounded-2xl p-8 text-gray-500">
+        <div className="bg-white border border-neutral-200 rounded-2xl p-8 text-neutral-500">
           Loading payments…
         </div>
       </main>
@@ -138,8 +138,8 @@ export default function PaymentsAdmin() {
       {/* Header */}
       <header className="flex items-start justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-semibold text-gray-900">Payments</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-3xl font-semibold text-neutral-900">Payments</h1>
+          <p className="text-sm text-neutral-500 mt-1">
             Registration batches and payment installment status.
           </p>
         </div>
@@ -160,8 +160,8 @@ export default function PaymentsAdmin() {
               onClick={() => setStatusFilter(s)}
               className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
                 statusFilter === s
-                  ? "bg-gray-900 text-white"
-                  : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                  ? "bg-neutral-900 text-white"
+                  : "bg-white border border-neutral-200 text-neutral-600 hover:bg-neutral-50"
               }`}
             >
               {s === "all" ? "All" : s.replace(/_/g, " ")}
@@ -175,7 +175,7 @@ export default function PaymentsAdmin() {
 
       {/* Batch list */}
       {filteredBatches.length === 0 ? (
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center text-gray-500">
+        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center text-neutral-500">
           No registration batches found.
         </div>
       ) : (
@@ -195,22 +195,22 @@ export default function PaymentsAdmin() {
               <div
                 key={batch.id}
                 className={`bg-white border rounded-2xl shadow-sm p-6 space-y-5 ${
-                  batchOverdue ? "border-red-200" : "border-gray-200"
+                  batchOverdue ? "border-red-200" : "border-neutral-200"
                 }`}
               >
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div>
-                    <p className="font-semibold text-gray-900">
+                    <p className="font-semibold text-neutral-900">
                       {parent
                         ? `${parent.first_name} ${parent.last_name}`
                         : "Unknown parent"}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-neutral-500">
                       {parent?.email ?? "—"} ·{" "}
                       {semester?.name ?? "Unknown semester"}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-neutral-400 mt-1">
                       Submitted{" "}
                       {new Date(batch.created_at).toLocaleDateString("en-US", {
                         month: "short",
@@ -225,13 +225,13 @@ export default function PaymentsAdmin() {
                     <span
                       className={`px-3 py-1 text-xs font-medium rounded-full ${
                         BATCH_STATUS_BADGE[batch.status] ??
-                        "bg-gray-100 text-gray-600"
+                        "bg-neutral-100 text-neutral-600"
                       }`}
                     >
                       {batch.status.replace(/_/g, " ")}
                     </span>
                     {batch.grand_total != null && (
-                      <span className="font-bold text-gray-900 text-lg">
+                      <span className="font-bold text-neutral-900 text-lg">
                         {formatCurrency(batch.grand_total)}
                       </span>
                     )}
@@ -239,34 +239,34 @@ export default function PaymentsAdmin() {
                 </div>
 
                 {/* Pricing summary */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm bg-gray-50 rounded-xl p-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm bg-neutral-50 rounded-xl p-4">
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">Plan</p>
-                    <p className="font-medium text-gray-800 capitalize">
+                    <p className="text-xs text-neutral-400 mb-1">Plan</p>
+                    <p className="font-medium text-neutral-800 capitalize">
                       {(batch.payment_plan_type ?? "—").replace(/_/g, " ")}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">Tuition</p>
-                    <p className="font-medium text-gray-800">
+                    <p className="text-xs text-neutral-400 mb-1">Tuition</p>
+                    <p className="font-medium text-neutral-800">
                       {batch.tuition_total != null
                         ? formatCurrency(batch.tuition_total)
                         : "—"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">
+                    <p className="text-xs text-neutral-400 mb-1">
                       Family Discount
                     </p>
-                    <p className="font-medium text-green-700">
+                    <p className="font-medium text-mint-text">
                       {batch.family_discount_amount > 0
                         ? `−${formatCurrency(batch.family_discount_amount)}`
                         : "—"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-1">Due Today</p>
-                    <p className="font-medium text-indigo-700">
+                    <p className="text-xs text-neutral-400 mb-1">Due Today</p>
+                    <p className="font-medium text-primary-700">
                       {batch.amount_due_now != null
                         ? formatCurrency(batch.amount_due_now)
                         : "—"}
@@ -277,7 +277,7 @@ export default function PaymentsAdmin() {
                 {/* Installment schedule */}
                 {installments.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">
                       Payment Schedule
                     </p>
                     {installments.map((inst) => (
@@ -286,25 +286,25 @@ export default function PaymentsAdmin() {
                         className={`flex items-center justify-between rounded-xl px-4 py-3 border ${
                           inst.status === "overdue"
                             ? "bg-red-50 border-red-100"
-                            : "bg-gray-50 border-gray-100"
+                            : "bg-neutral-50 border-neutral-200"
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <span
                             className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                               INSTALLMENT_BADGE[inst.status] ??
-                              "bg-gray-100 text-gray-600"
+                              "bg-neutral-100 text-neutral-600"
                             }`}
                           >
                             {inst.status}
                           </span>
-                          <span className="text-sm text-gray-700">
+                          <span className="text-sm text-neutral-700">
                             Payment {inst.installment_number} —{" "}
                             {formatDate(inst.due_date)}
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium text-gray-900">
+                          <span className="text-sm font-medium text-neutral-900">
                             {formatCurrency(inst.amount_due)}
                           </span>
                           {(inst.status === "scheduled" ||
@@ -319,7 +319,7 @@ export default function PaymentsAdmin() {
                             </button>
                           )}
                           {inst.status === "paid" && inst.paid_at && (
-                            <span className="text-xs text-gray-400">
+                            <span className="text-xs text-neutral-400">
                               Paid{" "}
                               {new Date(inst.paid_at).toLocaleDateString(
                                 "en-US",
