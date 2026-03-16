@@ -35,7 +35,7 @@ export async function createEPGPaymentSession(
   // 2. Verify batch exists and is still awaiting payment
   const { data: batch, error: batchErr } = await supabase
     .from("registration_batches")
-    .select("id, status")
+    .select("id, status, payment_plan_type")
     .eq("id", batchId)
     .single();
 
@@ -96,6 +96,10 @@ export async function createEPGPaymentSession(
   }
 
   // 6. Create EPG PaymentSession
+  // doCapture: false for installment plans so EPG returns a hostedCard token
+  // in the session result, enabling card storage for future installments.
+  // Ref: docs/elavon/api_stored_cards.md § "How to Get a Hosted Card Token"
+  const isInstallmentPlan = batch.payment_plan_type === "installments";
   let session;
   try {
     session = await epgCreateSession({
@@ -104,6 +108,7 @@ export async function createEPGPaymentSession(
       cancelUrl,
       customReference: batchId,
       doThreeDSecure: true,
+      doCapture: !isInstallmentPlan,
     });
   } catch (err) {
     console.error("[EPG] createEpgPaymentSession failed:", {

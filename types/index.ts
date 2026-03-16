@@ -116,6 +116,28 @@ export interface Family {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Account Credits Domain                                                      */
+/* -------------------------------------------------------------------------- */
+
+export interface FamilyAccountCredit {
+  id: string;
+  family_id: string;
+  amount: number;
+  reason: string | null;
+  issued_by_admin_id: string | null;
+  source_batch_id: string | null;
+  used_in_batch_id: string | null;
+  used_at: string | null;
+  created_at: string;
+  is_active: boolean;
+}
+
+export interface FamilyAccountCreditWithAdmin extends FamilyAccountCredit {
+  issued_by_admin: { first_name: string; last_name: string } | null;
+  families?: { family_name: string | null } | null;
+}
+
+/* -------------------------------------------------------------------------- */
 /* Class + ClassSession Domain  (Phase 1 — replaces Session)                  */
 /* -------------------------------------------------------------------------- */
 
@@ -1513,6 +1535,46 @@ export interface Payment {
   raw_transaction: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/* EPG Shopper + Stored Payment Types                                          */
+/* -------------------------------------------------------------------------- */
+
+/** A row in the `shoppers` table. */
+export interface Shopper {
+  id: string;
+  user_id: string | null;
+  epg_shopper_id: string;
+  epg_shopper_href: string;
+  full_name: string | null;
+  email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type StoredPaymentMethodType = "card" | "ach";
+
+/** A row in the `stored_payment_methods` table. */
+export interface StoredPaymentMethod {
+  id: string;
+  shopper_id: string;
+  type: StoredPaymentMethodType;
+  epg_stored_id: string;
+  epg_stored_href: string;
+  // Card fields (null for ACH)
+  masked_number: string | null;
+  card_scheme: string | null;
+  card_last4: string | null;
+  expiration_month: number | null;
+  expiration_year: number | null;
+  // ACH fields (null for card)
+  ach_account_type: string | null;
+  ach_last4: string | null;
+  account_name: string | null;
+  // Shared
+  is_default: boolean;
+  created_at: string;
 }
 
 /* -------------------------------------------------------------------------- */
