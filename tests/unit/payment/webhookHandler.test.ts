@@ -87,6 +87,7 @@ const MOCK_PAYMENT_ROW = {
 
 const MOCK_BATCH_ROW = {
   id: BATCH_ID,
+  status: "pending",
   semester_id: SEM_ID,
   parent_id: PARENT_ID,
   grand_total: 100,
@@ -415,7 +416,8 @@ describe("POST /api/webhooks/epg", () => {
         .map((args, i) => ({ table: args[0], chain: mockFrom.mock.results[i].value }))
         .filter(({ table }) => table === "registration_batches");
 
-      expect(batchChainCalls).toHaveLength(1);
+      // Two calls: one SELECT (step 9a status check) + one UPDATE (inside confirmBatch)
+      expect(batchChainCalls).toHaveLength(2);
       const batchChain = batchChainCalls[0].chain;
       // The second .eq() call should be .eq("status", "pending") — not "pending_payment"
       const eqCalls = (batchChain.eq as ReturnType<typeof vi.fn>).mock.calls;
