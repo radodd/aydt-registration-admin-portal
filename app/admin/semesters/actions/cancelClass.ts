@@ -21,10 +21,15 @@ interface FamilyEntry {
  * @param reason     Admin-provided reason shown in notifications
  * @returns          Count of families notified, or an error string
  */
+export interface EnrolledFamily {
+  family_id: string;
+  family_name: string;
+}
+
 export async function cancelClass(
   sessionId: string,
   reason: string
-): Promise<{ notified?: number; error?: string }> {
+): Promise<{ notified?: number; enrolledFamilies?: EnrolledFamily[]; className?: string; error?: string }> {
   try {
     await requireAdmin();
   } catch {
@@ -90,7 +95,7 @@ export async function cancelClass(
   const { data: registrations, error: regError } = await supabase
     .from("registrations")
     .select(
-      "id, session_id, status, registration_batch_id, registration_batches!registrations_registration_batch_id_fkey(parent_id, users!registration_batches_parent_id_fkey(id, first_name, email, phone_number, sms_opt_in, sms_verified))"
+      "id, session_id, status, registration_batch_id, registration_batches!registrations_registration_batch_id_fkey(family_id, parent_id, users!registration_batches_parent_id_fkey(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified))"
     )
     .in("session_id", siblingSessions)
     .not("status", "in", '("declined","cancelled")')
@@ -109,8 +114,9 @@ export async function cancelClass(
     });
   }
 
-  // 4. Deduplicate by user ID
+  // 4. Deduplicate by user ID; also track unique families for credit issuance
   const familyMap = new Map<string, FamilyEntry>();
+  const enrolledFamilyMap = new Map<string, EnrolledFamily>();
 
   for (const reg of registrations ?? []) {
     const batch = Array.isArray(reg.registration_batches)
@@ -131,6 +137,15 @@ export async function cancelClass(
       smsOptIn: parent.sms_opt_in ?? false,
       smsVerified: parent.sms_verified ?? false,
     });
+
+    // Collect unique families for bulk credit issuance
+    const batchFamilyId = (batch as any).family_id as string | null;
+    if (batchFamilyId && !enrolledFamilyMap.has(batchFamilyId)) {
+      enrolledFamilyMap.set(batchFamilyId, {
+        family_id: batchFamilyId,
+        family_name: `${parent.last_name} Family`,
+      });
+    }
   }
 
   // 5. Notify each family
@@ -160,7 +175,11 @@ export async function cancelClass(
     notified++;
   }
 
-  return { notified };
+  return {
+    notified,
+    enrolledFamilies: Array.from(enrolledFamilyMap.values()),
+    className,
+  };
 }
 
 function buildCancellationEmailHtml(opts: {

@@ -1,5 +1,34 @@
-import { Discount, HydratedDiscount, SemesterDiscount } from "@/types";
+import { Discount, HydratedDiscount, SemesterDiscount, type FamilyAccountCreditWithAdmin } from "@/types";
 import { createClient } from "@/utils/supabase/client";
+
+const CREDIT_SELECT = `
+  id, family_id, amount, reason, is_active,
+  created_at, used_at, source_batch_id, used_in_batch_id,
+  issued_by_admin:users!family_account_credits_issued_by_admin_id_fkey(first_name, last_name)
+`;
+
+/** All credits for a single family, newest first. */
+export async function getFamilyCredits(familyId: string): Promise<FamilyAccountCreditWithAdmin[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("family_account_credits")
+    .select(CREDIT_SELECT)
+    .eq("family_id", familyId)
+    .order("created_at", { ascending: false });
+  if (error) console.error("getFamilyCredits:", error.message);
+  return (data ?? []) as FamilyAccountCreditWithAdmin[];
+}
+
+/** All credits across all families, newest first. Includes family name. */
+export async function getAllCredits(): Promise<FamilyAccountCreditWithAdmin[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("family_account_credits")
+    .select(`${CREDIT_SELECT}, families(family_name)`)
+    .order("created_at", { ascending: false });
+  if (error) console.error("getAllCredits:", error.message);
+  return (data ?? []) as FamilyAccountCreditWithAdmin[];
+}
 
 export async function getFamilies() {
   const supabase = createClient();
