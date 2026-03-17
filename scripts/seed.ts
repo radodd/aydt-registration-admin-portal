@@ -1575,14 +1575,15 @@ async function seedWaitlist(sessions: SessionRow[], dancers: DancerRow[]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 9.  BROADCAST EMAILS (5 lifecycle states)
+// 9.  BROADCAST EMAILS — full coverage for every dashboard tab
+//     Drafts (8) · Scheduled (2) · Sent (3) · Failed (1) · Templates (5)
 // ─────────────────────────────────────────────────────────────────────────────
 async function seedEmails(users: UserRow[]) {
-  console.log(
-    "📧  Seeding 5 broadcast emails (draft → scheduled → sending → sent → cancelled)…",
-  );
+  console.log("📧  Seeding emails: drafts, scheduled, sent (w/ analytics), failed, templates…");
 
   const spring2026Sem = SEMS.find((s) => s.name === "Spring 2026")!;
+  const summer2026Sem = SEMS.find((s) => s.name === "Summer 2026") ?? spring2026Sem;
+  const fall2026Sem   = SEMS.find((s) => s.name === "Fall 2026")   ?? spring2026Sem;
 
   const BASE = {
     body_json: {},
@@ -1594,155 +1595,313 @@ async function seedEmails(users: UserRow[]) {
     sender_email: "hello@aydt.com",
   };
 
-  const emailDefs = [
-    {
-      id: uid(),
-      status: "draft",
-      subject: "Spring 2026 Registration is Now Open!",
-      body_html:
-        "<h1>Registration is Open!</h1><p>We're thrilled to announce that Spring 2026 registration is now open. Spots fill up fast — enroll your dancer today!</p>",
-    },
-    {
-      id: uid(),
-      status: "scheduled",
-      subject: "Upcoming Spring Recital — Save the Date!",
-      scheduled_at: new Date("2026-04-20T10:00:00Z").toISOString(),
-      body_html:
-        "<h1>Save the Date!</h1><p>Our Spring 2026 Recital will be held on <strong>May 15, 2026</strong> at the Downtown Performing Arts Center. More details to follow!</p>",
-    },
-    {
-      id: uid(),
-      status: "sending",
-      subject: "Studio Schedule Changes — March 9–15",
-      body_html:
-        "<h1>Schedule Update</h1><p>Please note: Ballet Foundations will meet in <strong>Studio A</strong> the week of March 9–15 due to floor maintenance in Studio B.</p>",
-    },
-    {
-      id: uid(),
-      status: "sent",
-      subject: "Welcome to the Fall 2025 Season at AYDT!",
-      sent_at: new Date("2025-08-20T09:00:00Z").toISOString(),
-      body_html:
-        "<h1>Welcome Back!</h1><p>We are so excited to kick off the Fall 2025 season. Classes begin <strong>September 8th</strong> — we can't wait to see your dancers on the floor!</p>",
-    },
-    {
-      id: uid(),
-      status: "cancelled",
-      subject: "Holiday Closure — December 23–27",
-      body_html:
-        "<h1>Holiday Closure</h1><p>AYDT will be closed December 23–27 for the holiday break. Happy holidays from our whole team!</p>",
-    },
-  ];
+  // ── helpers ──────────────────────────────────────────────────────────────
 
-  await ins(
-    "emails",
-    emailDefs.map((e) => ({ ...BASE, ...e })),
-  );
-
-  // Activity logs
-  const logs: Record<string, unknown>[] = [];
-
-  // Every email gets a "created" log
-  for (const e of emailDefs) {
-    logs.push({
-      id: uid(),
-      email_id: e.id,
-      action: "created",
-      admin_id: ETHAN_ID,
-      metadata: {},
+  /**
+   * Build N email_recipients rows for an email.
+   * The first `users.length` rows use real seeded users; remaining rows use
+   * generated fake email addresses (no user_id) for realistic volume.
+   */
+  function makeRecipients(emailId: string, count: number): Record<string, unknown>[] {
+    return Array.from({ length: count }, (_, i) => {
+      const u = users[i % users.length]!;
+      const useReal = i < users.length;
+      const firstName = useReal ? u.first_name : faker.person.firstName();
+      const lastName  = useReal ? u.last_name  : faker.person.lastName();
+      const email     = useReal
+        ? u.email
+        : `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@example.com`;
+      return {
+        id:            uid(),
+        email_id:      emailId,
+        user_id:       useReal ? u.id : null,
+        email_address: email,
+        first_name:    firstName,
+        last_name:     lastName,
+        dancer_context: [],
+      };
     });
   }
 
-  const [draftEmail, scheduledEmail, sendingEmail, sentEmail, cancelledEmail] =
-    emailDefs as (typeof emailDefs)[number][];
+  /**
+   * Build email_deliveries for a sent email.
+   * First `openCount` rows get opened_at; first `clickCount` rows also get clicked_at.
+   * Last row bounces if count > 10.
+   */
+  function makeDeliveries(
+    emailId: string,
+    recipients: Record<string, unknown>[],
+    openCount: number,
+    clickCount: number,
+    sentAt: string,
+  ): Record<string, unknown>[] {
+    const sentMs = new Date(sentAt).getTime();
+    return recipients.map((r, i) => {
+      const bounced   = i === recipients.length - 1 && recipients.length > 10;
+      const opened    = !bounced && i < openCount;
+      const clicked   = !bounced && i < clickCount;
+      const delivMs   = sentMs + 5 * 60_000;
+      const openedMs  = opened  ? sentMs + faker.number.int({ min: 30, max: 180 }) * 60_000 : null;
+      const clickedMs = clicked && openedMs ? openedMs + faker.number.int({ min: 2, max: 30 }) * 60_000 : null;
+      return {
+        id:                uid(),
+        email_id:          emailId,
+        user_id:           r.user_id as string | null,
+        subscriber_id:     null,
+        email_address:     r.email_address as string,
+        resend_message_id: bounced ? null : `re_${faker.string.alphanumeric(20)}`,
+        status:            bounced ? "bounced" : "delivered",
+        delivered_at:      bounced ? null : new Date(delivMs).toISOString(),
+        bounced_at:        bounced ? new Date(sentMs + 3 * 60_000).toISOString() : null,
+        failure_reason:    null,
+        opened_at:         openedMs  ? new Date(openedMs).toISOString()  : null,
+        clicked_at:        clickedMs ? new Date(clickedMs).toISOString() : null,
+      };
+    });
+  }
 
-  // Scheduled
-  logs.push({
-    id: uid(),
-    email_id: scheduledEmail!.id,
-    action: "scheduled",
-    admin_id: ETHAN_ID,
-    metadata: { scheduled_at: scheduledEmail!.scheduled_at },
-  });
+  // ── 1. DRAFTS (8 total — 6 named, 2 unsaved) ─────────────────────────────
 
-  // Sending
-  logs.push({
-    id: uid(),
-    email_id: sendingEmail!.id,
-    action: "sent",
-    admin_id: ETHAN_ID,
-    metadata: { note: "send job initiated" },
-  });
-
-  // Sent
-  logs.push({
-    id: uid(),
-    email_id: sentEmail!.id,
-    action: "sent",
-    admin_id: ETHAN_ID,
-    metadata: { recipient_count: users.length },
-  });
-
-  // Cancelled (scheduled → cancelled)
-  logs.push(
+  const draftDefs = [
     {
-      id: uid(),
-      email_id: cancelledEmail!.id,
-      action: "scheduled",
-      admin_id: ETHAN_ID,
-      metadata: { scheduled_at: "2025-12-15T10:00:00Z" },
+      id: uid(), subject: "Spring 2026 Registration is Now Open!",
+      body_html: "<h1>Registration is Open!</h1><p>Spring 2026 registration is now live. Spots fill fast — enroll your dancer today!</p>",
+      created_at: "2026-03-13T14:14:00Z", updated_at: "2026-03-13T15:14:00Z",
     },
     {
-      id: uid(),
-      email_id: cancelledEmail!.id,
-      action: "cancelled",
-      admin_id: ETHAN_ID,
-      metadata: { reason: "Holiday closure communication no longer needed" },
+      id: uid(), subject: "Comp Invite — Spring 2026",
+      body_html: "<h1>Competition Track Invitation</h1><p>Your dancer has been selected for the Spring 2026 Competition Track. Please confirm your spot by March 25th.</p>",
+      created_at: "2026-03-13T14:14:00Z", updated_at: "2026-03-13T15:14:00Z",
     },
-  );
+    {
+      id: uid(), subject: "Summer 2026 Enrollment Preview",
+      body_html: "<h1>Summer is Coming!</h1><p>Get a sneak peek at our Summer 2026 class schedule. Priority enrollment for current students opens April 1st.</p>",
+      created_at: "2026-03-12T10:00:00Z", updated_at: "2026-03-12T10:00:00Z",
+    },
+    {
+      id: uid(), subject: "Ballet Showcase — Ticket Information",
+      body_html: "<h1>Tickets on Sale</h1><p>Tickets for the Spring 2026 Ballet Showcase are now on sale. Each family may purchase up to 4 tickets per dancer.</p>",
+      created_at: "2026-03-10T14:00:00Z", updated_at: "2026-03-10T14:00:00Z",
+    },
+    {
+      id: uid(), subject: "Studio Closure — Spring Break",
+      body_html: "<h1>Spring Break Closure</h1><p>AYDT will be closed April 14–20 for Spring Break. Classes resume April 21st. Enjoy the break!</p>",
+      created_at: "2026-03-08T11:00:00Z", updated_at: "2026-03-08T11:00:00Z",
+    },
+    {
+      id: uid(), subject: "End-of-Year Recital Details",
+      body_html: "<h1>Recital Information</h1><p>Mark your calendars! The 2026 End-of-Year Recital is June 14th at the Downtown Performing Arts Center.</p>",
+      created_at: "2026-03-05T09:00:00Z", updated_at: "2026-03-16T09:00:00Z",
+    },
+    // 2 unsaved drafts (no subject)
+    { id: uid(), subject: "", body_html: "", created_at: "2026-03-13T12:30:00Z", updated_at: "2026-03-13T13:37:00Z" },
+    { id: uid(), subject: "", body_html: "", created_at: "2026-03-13T12:37:00Z", updated_at: "2026-03-13T13:37:00Z" },
+  ];
 
-  await ins("email_activity_logs", logs);
+  await ins("emails", draftDefs.map((e) => ({ ...BASE, status: "draft", ...e })));
 
-  // Recipients + deliveries for the sent email
-  const recipients = users.map((u) => ({
-    id: uid(),
-    email_id: sentEmail!.id,
-    user_id: u.id,
-    email_address: u.email,
-    first_name: u.first_name,
-    last_name: u.last_name,
-  }));
-  await ins("email_recipients", recipients);
-
-  const deliveries = users.map((u, i) => ({
-    id: uid(),
-    email_id: sentEmail!.id,
-    user_id: u.id,
-    email_address: u.email,
-    resend_message_id: `re_${faker.string.alphanumeric(20)}`,
-    status: i === 0 ? "bounced" : "delivered",
-    delivered_at:
-      i === 0 ? null : new Date("2025-08-20T09:05:00Z").toISOString(),
-    bounced_at: i === 0 ? new Date("2025-08-20T09:03:00Z").toISOString() : null,
-    opened_at: i > 1 ? new Date("2025-08-20T11:00:00Z").toISOString() : null,
-    clicked_at: i > 3 ? new Date("2025-08-20T11:15:00Z").toISOString() : null,
-  }));
-  await ins("email_deliveries", deliveries);
-
-  // Recipient selection for the scheduled email (target: Spring 2026 semester)
+  // Recipient selections for the 2 named drafts
   await ins("email_recipient_selections", [
+    { id: uid(), email_id: draftDefs[0]!.id, selection_type: "semester", semester_id: spring2026Sem.id, is_excluded: false },
+    { id: uid(), email_id: draftDefs[1]!.id, selection_type: "semester", semester_id: spring2026Sem.id, is_excluded: false },
+  ]);
+
+  // ── 2. SCHEDULED (2) ─────────────────────────────────────────────────────
+
+  const scheduledDefs = [
+    {
+      id: uid(), subject: "Summer 2026 — Early Registration",
+      body_html: "<h1>Early Registration Open</h1><p>Summer 2026 priority enrollment is now open for Spring 2026 families. Secure your spot before April 1st.</p>",
+      scheduled_at: "2026-03-20T09:00:00Z",
+      created_at: "2026-03-15T10:00:00Z", updated_at: "2026-03-15T11:00:00Z",
+      semId: summer2026Sem.id,
+    },
+    {
+      id: uid(), subject: "Fall 2026 Save the Date",
+      body_html: "<h1>Fall 2026 Save the Date!</h1><p>Fall 2026 enrollment opens May 1st. Watch your inbox for class announcements and early-bird pricing!</p>",
+      scheduled_at: "2026-04-01T09:00:00Z",
+      created_at: "2026-03-14T09:00:00Z", updated_at: "2026-03-14T09:30:00Z",
+      semId: fall2026Sem.id,
+    },
+  ];
+
+  await ins("emails", scheduledDefs.map(({ semId: _s, ...e }) => ({ ...BASE, status: "scheduled", ...e })));
+
+  await ins("email_recipient_selections", scheduledDefs.map((e) => ({
+    id: uid(), email_id: e.id, selection_type: "semester", semester_id: e.semId, is_excluded: false,
+  })));
+
+  // Add fake recipients for scheduled emails so the right-panel count is non-zero
+  const scheduledRecipients: Record<string, unknown>[] = [
+    ...makeRecipients(scheduledDefs[0]!.id, 30),
+    ...makeRecipients(scheduledDefs[1]!.id, 36),
+  ];
+  await ins("email_recipients", scheduledRecipients);
+
+  // ── 3. SENT (3) — with email_recipients + email_deliveries for analytics ──
+
+  type SentDef = {
+    id: string; subject: string; body_html: string;
+    sent_at: string; created_at: string; updated_at: string;
+    recipientCount: number; openCount: number; clickCount: number;
+  };
+
+  const sentDefs: SentDef[] = [
     {
       id: uid(),
-      email_id: scheduledEmail!.id,
-      selection_type: "semester",
-      semester_id: spring2026Sem.id,
-      is_excluded: false,
+      subject:    "Spring 2026 registration is now open!",
+      body_html:  "<h1>Spring 2026 is Here!</h1><p>Hi {{parent.firstName}}, Spring 2026 registration is officially open. Log in to enroll {{dancers.0.dancerName}} before spots fill up!</p>",
+      sent_at:    "2026-01-10T09:00:00Z",
+      created_at: "2026-01-08T14:00:00Z", updated_at: "2026-01-10T09:00:00Z",
+      recipientCount: 100, openCount: 68, clickCount: 14,
+    },
+    {
+      id: uid(),
+      subject:    "Reminder: balance due Feb 1",
+      body_html:  "<h1>Balance Due Feb 1</h1><p>Hi {{parent.firstName}}, this is a friendly reminder that your Spring 2026 balance is due February 1st. Log in to make a payment.</p>",
+      sent_at:    "2026-01-28T09:00:00Z",
+      created_at: "2026-01-25T10:00:00Z", updated_at: "2026-01-28T09:00:00Z",
+      recipientCount: 83, openCount: 45, clickCount: 7,
+    },
+    {
+      id: uid(),
+      subject:    "Welcome to AYDT — Spring 2026",
+      body_html:  "<h1>Welcome to AYDT!</h1><p>Hi {{parent.firstName}}, welcome to the AYDT family! Your Spring 2026 enrollment for {{dancers.0.dancerName}} is confirmed. See you on the first day!</p>",
+      sent_at:    "2026-01-26T08:00:00Z",
+      created_at: "2026-01-24T09:00:00Z", updated_at: "2026-01-26T08:00:00Z",
+      recipientCount: 88, openCount: 72, clickCount: 19,
+    },
+  ];
+
+  await ins("emails", sentDefs.map(({ recipientCount: _r, openCount: _o, clickCount: _c, ...e }) => ({
+    ...BASE, status: "sent", ...e,
+  })));
+
+  const sentRecipients: Record<string, unknown>[] = [];
+  const sentDeliveries: Record<string, unknown>[] = [];
+  for (const def of sentDefs) {
+    const recs = makeRecipients(def.id, def.recipientCount);
+    const dels = makeDeliveries(def.id, recs, def.openCount, def.clickCount, def.sent_at);
+    sentRecipients.push(...recs);
+    sentDeliveries.push(...dels);
+  }
+  await ins("email_recipients", sentRecipients);
+  await ins("email_deliveries", sentDeliveries);
+
+  // ── 4. FAILED (1) — all deliveries failed ────────────────────────────────
+
+  const failedId = uid();
+  await ins("emails", [{
+    ...BASE, status: "failed",
+    id:         failedId,
+    subject:    "Balance reminder — March",
+    body_html:  "<h1>March Balance Reminder</h1><p>Hi {{parent.firstName}}, a friendly reminder that your March balance is now due. Please log in to make a payment.</p>",
+    created_at: "2026-03-11T10:00:00Z",
+    updated_at: "2026-03-12T09:00:00Z",
+  }]);
+
+  const failedRecs = makeRecipients(failedId, 40);
+  await ins("email_recipients", failedRecs);
+  await ins("email_deliveries", failedRecs.map((r) => ({
+    id:                uid(),
+    email_id:          failedId,
+    user_id:           r.user_id as string | null,
+    subscriber_id:     null,
+    email_address:     r.email_address as string,
+    resend_message_id: null,
+    status:            "failed",
+    delivered_at:      null,
+    bounced_at:        null,
+    failure_reason:    "Resend API error: Webhook timeout",
+    opened_at:         null,
+    clicked_at:        null,
+  })));
+
+  // ── 5. EMAIL TEMPLATES (5) ────────────────────────────────────────────────
+
+  await ins("email_templates", [
+    {
+      id: uid(), name: "Registration open",
+      subject:  "{{semester.name}} Registration is Now Open!",
+      body_html: "<h1>Registration is Open!</h1><p>Hi {{parent.firstName}}, {{semester.name}} registration is live. Enroll {{dancers.0.dancerName}} today before spots fill up!</p>",
+      body_json: {}, created_by_admin_id: ETHAN_ID, updated_by_admin_id: ETHAN_ID,
+      created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
+    },
+    {
+      id: uid(), name: "Balance reminder",
+      subject:  "Your balance is due — please review",
+      body_html: "<h1>Balance Due</h1><p>Hi {{parent.firstName}}, your account has an outstanding balance. Please log in to review and pay at your earliest convenience.</p>",
+      body_json: {}, created_by_admin_id: ETHAN_ID, updated_by_admin_id: ETHAN_ID,
+      created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
+    },
+    {
+      id: uid(), name: "Comp invite",
+      subject:  "You're invited — Competition Track",
+      body_html: "<h1>Competition Track Invitation</h1><p>Hi {{parent.firstName}}, congratulations! {{dancers.0.dancerName}} has been selected for the Competition Track. Please confirm acceptance by clicking below.</p>",
+      body_json: {}, created_by_admin_id: ETHAN_ID, updated_by_admin_id: ETHAN_ID,
+      created_at: "2026-02-01T00:00:00Z", updated_at: "2026-03-01T00:00:00Z",
+    },
+    {
+      id: uid(), name: "Waitlist invite",
+      subject:  "Your waitlist spot is available — 48 hours to accept",
+      body_html: "<h1>Spot Available!</h1><p>Hi {{parent.firstName}}, a spot has opened in the class {{dancers.0.dancerName}} is waitlisted for. You have 48 hours to accept before the offer expires.</p>",
+      body_json: {}, created_by_admin_id: ETHAN_ID, updated_by_admin_id: ETHAN_ID,
+      created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
+    },
+    {
+      id: uid(), name: "Welcome email",
+      subject:  "Welcome to AYDT — here are your class details",
+      body_html: "<h1>Welcome to AYDT!</h1><p>Hi {{parent.firstName}}, welcome to the AYDT family! Here are the enrollment details for {{dancers.0.dancerName}}. We look forward to seeing you in class!</p>",
+      body_json: {}, created_by_admin_id: ETHAN_ID, updated_by_admin_id: ETHAN_ID,
+      created_at: "2026-02-15T00:00:00Z", updated_at: "2026-02-15T00:00:00Z",
     },
   ]);
 
-  void draftEmail; // referenced above; intentional no-op to silence linter
+  // ── 6. ACTIVITY LOGS ──────────────────────────────────────────────────────
 
-  console.log("  ✓ 5 emails: draft, scheduled, sending, sent, cancelled\n");
+  const logs: Record<string, unknown>[] = [];
+
+  for (const e of draftDefs) {
+    logs.push({ id: uid(), email_id: e.id, action: "created", admin_id: ETHAN_ID, metadata: {} });
+  }
+  for (const e of scheduledDefs) {
+    logs.push({ id: uid(), email_id: e.id, action: "created",   admin_id: ETHAN_ID, metadata: {} });
+    logs.push({ id: uid(), email_id: e.id, action: "scheduled", admin_id: ETHAN_ID, metadata: { scheduled_at: e.scheduled_at } });
+  }
+  for (const e of sentDefs) {
+    logs.push({ id: uid(), email_id: e.id, action: "created", admin_id: ETHAN_ID, metadata: {} });
+    logs.push({ id: uid(), email_id: e.id, action: "sent",    admin_id: ETHAN_ID, metadata: { recipient_count: e.recipientCount } });
+  }
+  logs.push({ id: uid(), email_id: failedId, action: "created", admin_id: ETHAN_ID, metadata: {} });
+  logs.push({ id: uid(), email_id: failedId, action: "sent",    admin_id: ETHAN_ID, metadata: { note: "send job initiated" } });
+
+  await ins("email_activity_logs", logs);
+
+  // ── 7. EXTERNAL EMAIL SUBSCRIBERS (3) ────────────────────────────────────
+
+  await ins("email_subscribers", [
+    { id: uid(), email: "parent.external@example.com", name: "Sandra Kim",   phone: null,           created_at: "2026-01-15T00:00:00Z", created_by: ETHAN_ID },
+    { id: uid(), email: "dance.friend@example.com",    name: "Marcus Webb",  phone: "+18085550001",  created_at: "2026-02-10T00:00:00Z", created_by: ETHAN_ID },
+    { id: uid(), email: "studio.partner@example.com",  name: "The Arts Hub", phone: null,           created_at: "2026-03-01T00:00:00Z", created_by: ETHAN_ID },
+  ]);
+
+  // ── 8. UNSUBSCRIBE 2 PARENT USERS ────────────────────────────────────────
+
+  if (users.length >= 2) {
+    const last  = users[users.length - 1]!;
+    const prev  = users[users.length - 2]!;
+    await sb.from("email_subscriptions").update({ is_subscribed: false, unsubscribed_at: "2026-02-15T12:00:00Z" }).eq("user_id", last.id);
+    await sb.from("email_subscriptions").update({ is_subscribed: false, unsubscribed_at: "2026-03-01T08:00:00Z" }).eq("user_id", prev.id);
+  }
+
+  const totalRecs = scheduledRecipients.length + sentRecipients.length + failedRecs.length;
+  const totalDels = sentDeliveries.length + failedRecs.length;
+  console.log(
+    `  ✓ 8 drafts · 2 scheduled · 3 sent · 1 failed\n` +
+    `  ✓ 5 email templates\n` +
+    `  ✓ ${totalRecs} recipient rows · ${totalDels} delivery rows\n` +
+    `  ✓ open rates ~68% / ~54% / ~82% — click rates ~14% / ~8% / ~22%\n`
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
