@@ -1744,3 +1744,84 @@ export type InviteTokenValidation =
       valid: false;
       reason: "not_found" | "expired" | "exhausted" | "revoked";
     };
+
+/* -------------------------------------------------------------------------- */
+/* Family Detail Domain                                                        */
+/* -------------------------------------------------------------------------- */
+
+export interface FamilyDetailParent {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number: string | null;
+  is_primary_parent: boolean;
+  role: string;
+  status: string;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  zipcode: string | null;
+  storedPaymentMethods: StoredPaymentMethod[];
+}
+
+export interface FamilyDetailRegistration {
+  id: string;
+  status: string;
+  class_sessions: {
+    id: string;
+    day_of_week: string;
+    start_time: string | null;
+    end_time: string | null;
+    classes: { name: string; division: string | null } | null;
+  } | null;
+}
+
+export interface FamilyDetailDancer {
+  id: string;
+  first_name: string;
+  last_name: string;
+  gender: string | null;
+  birth_date: string | null;
+  grade: string | null;
+  is_self: boolean;
+  registrations: FamilyDetailRegistration[];
+}
+
+export interface FamilyDetailInstallment {
+  id: string;
+  installment_number: number;
+  amount_due: number;
+  due_date: string;
+  status: string;
+  paid_at: string | null;
+}
+
+export interface FamilyDetailBatch {
+  id: string;
+  status: string;
+  payment_plan_type: string | null;
+  grand_total: number | null;
+  created_at: string;
+  confirmed_at: string | null;
+  semester: { name: string } | null;
+  parent: { first_name: string; last_name: string } | null;
+  installments: FamilyDetailInstallment[];
+  amountPaid: number;
+}
+
+export interface FamilyDetail {
+  id: string;
+  family_name: string | null;
+  created_at: string;
+  users: FamilyDetailParent[];
+  dancers: FamilyDetailDancer[];
+  registration_batches: FamilyDetailBatch[];
+  credits: FamilyAccountCreditWithAdmin[];
+  creditBalance: number;
+}
+
+export type FocusTarget =
+  | { type: "parent"; id: string }
+  | { type: "dancer"; id: string };
