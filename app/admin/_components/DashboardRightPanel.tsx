@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { Zap, Bell, CalendarDays } from "lucide-react";
+import { EmailsRightPanel } from "./EmailsRightPanel";
 
 type TodaySession = {
   id: string;
@@ -30,7 +31,7 @@ const QUICK_ACTIONS = [
   { label: "Issue family credit", href: "/admin/credits" },
 ];
 
-export function DashboardRightPanel() {
+function DefaultPanel() {
   const [expanded, setExpanded] = useState(false);
   const [todaySessions, setTodaySessions] = useState<TodaySession[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
@@ -256,4 +257,9 @@ export function DashboardRightPanel() {
       </div>
     </aside>
   );
+}
+
+export function DashboardRightPanel({ emailsMode = false }: { emailsMode?: boolean }) {
+  if (emailsMode) return <EmailsRightPanel />;
+  return <DefaultPanel />;
 }
