@@ -8,7 +8,7 @@
 -- ON DELETE SET NULL: preserve stored payment records even if auth user is deleted.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE shoppers (
+CREATE TABLE IF NOT EXISTS shoppers (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id           uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   epg_shopper_id    text NOT NULL UNIQUE,
@@ -19,7 +19,7 @@ CREATE TABLE shoppers (
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX shoppers_user_id_idx ON shoppers(user_id);
+CREATE INDEX IF NOT EXISTS shoppers_user_id_idx ON shoppers(user_id);
 
 -- ---------------------------------------------------------------------------
 -- stored_payment_methods
@@ -27,7 +27,7 @@ CREATE INDEX shoppers_user_id_idx ON shoppers(user_id);
 -- type discriminates between 'card' and 'ach'; the other type's columns are null.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE stored_payment_methods (
+CREATE TABLE IF NOT EXISTS stored_payment_methods (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shopper_id        uuid NOT NULL REFERENCES shoppers(id) ON DELETE CASCADE,
   type              text NOT NULL CHECK (type IN ('card', 'ach')),
@@ -48,7 +48,7 @@ CREATE TABLE stored_payment_methods (
   created_at        timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX stored_payment_methods_shopper_id_idx ON stored_payment_methods(shopper_id);
+CREATE INDEX IF NOT EXISTS stored_payment_methods_shopper_id_idx ON stored_payment_methods(shopper_id);
 
 -- ---------------------------------------------------------------------------
 -- registration_batches — add stored payment method FK
@@ -57,9 +57,9 @@ CREATE INDEX stored_payment_methods_shopper_id_idx ON stored_payment_methods(sho
 -- ---------------------------------------------------------------------------
 
 ALTER TABLE registration_batches
-  ADD COLUMN stored_payment_method_id uuid REFERENCES stored_payment_methods(id) ON DELETE SET NULL;
+  ADD COLUMN IF NOT EXISTS stored_payment_method_id uuid REFERENCES stored_payment_methods(id) ON DELETE SET NULL;
 
-CREATE INDEX registration_batches_stored_payment_method_id_idx
+CREATE INDEX IF NOT EXISTS registration_batches_stored_payment_method_id_idx
   ON registration_batches(stored_payment_method_id)
   WHERE stored_payment_method_id IS NOT NULL;
 
@@ -69,40 +69,60 @@ CREATE INDEX registration_batches_stored_payment_method_id_idx
 
 ALTER TABLE shoppers ENABLE ROW LEVEL SECURITY;
 
--- Admins can do anything
-CREATE POLICY shoppers_admin_all ON shoppers
-  TO authenticated
-  USING (public.is_admin_or_super())
-  WITH CHECK (public.is_admin_or_super());
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'shoppers_admin_all' AND tablename = 'shoppers' AND schemaname = 'public') THEN
+    CREATE POLICY shoppers_admin_all ON shoppers
+      TO authenticated
+      USING (public.is_admin_or_super())
+      WITH CHECK (public.is_admin_or_super());
+  END IF;
+END $$;
 
--- Service role bypasses RLS (used by webhook handler)
-CREATE POLICY shoppers_service_role ON shoppers
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'shoppers_service_role' AND tablename = 'shoppers' AND schemaname = 'public') THEN
+    CREATE POLICY shoppers_service_role ON shoppers
+      TO service_role
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END $$;
 
--- Parents can read their own shopper record
-CREATE POLICY shoppers_parent_read ON shoppers
-  FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'shoppers_parent_read' AND tablename = 'shoppers' AND schemaname = 'public') THEN
+    CREATE POLICY shoppers_parent_read ON shoppers
+      FOR SELECT TO authenticated
+      USING (user_id = auth.uid());
+  END IF;
+END $$;
 
 ALTER TABLE stored_payment_methods ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY stored_payment_methods_admin_all ON stored_payment_methods
-  TO authenticated
-  USING (public.is_admin_or_super())
-  WITH CHECK (public.is_admin_or_super());
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'stored_payment_methods_admin_all' AND tablename = 'stored_payment_methods' AND schemaname = 'public') THEN
+    CREATE POLICY stored_payment_methods_admin_all ON stored_payment_methods
+      TO authenticated
+      USING (public.is_admin_or_super())
+      WITH CHECK (public.is_admin_or_super());
+  END IF;
+END $$;
 
-CREATE POLICY stored_payment_methods_service_role ON stored_payment_methods
-  TO service_role
-  USING (true)
-  WITH CHECK (true);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'stored_payment_methods_service_role' AND tablename = 'stored_payment_methods' AND schemaname = 'public') THEN
+    CREATE POLICY stored_payment_methods_service_role ON stored_payment_methods
+      TO service_role
+      USING (true)
+      WITH CHECK (true);
+  END IF;
+END $$;
 
--- Parents can read their own stored methods via their shopper
-CREATE POLICY stored_payment_methods_parent_read ON stored_payment_methods
-  FOR SELECT TO authenticated
-  USING (
-    shopper_id IN (
-      SELECT id FROM shoppers WHERE user_id = auth.uid()
-    )
-  );
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'stored_payment_methods_parent_read' AND tablename = 'stored_payment_methods' AND schemaname = 'public') THEN
+    CREATE POLICY stored_payment_methods_parent_read ON stored_payment_methods
+      FOR SELECT TO authenticated
+      USING (
+        shopper_id IN (
+          SELECT id FROM shoppers WHERE user_id = auth.uid()
+        )
+      );
+  END IF;
+END $$;
