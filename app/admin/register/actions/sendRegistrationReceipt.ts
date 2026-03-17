@@ -22,7 +22,7 @@ function cap(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-type Session = {
+type ScheduleRow = {
   id: string;
   day_of_week: string | null;
   start_time: string | null;
@@ -34,7 +34,7 @@ function buildReceiptHtml(params: {
   parentFirstName: string;
   dancerName: string;
   semesterName: string;
-  sessions: Session[];
+  sessions: ScheduleRow[];
   quote: PricingQuote | null;
   adjustments: AdminAdjustment[];
   effectiveTotal: number;
@@ -184,7 +184,7 @@ export async function sendRegistrationReceipt(params: {
   dancerName: string;
   semesterId: string;
   semesterName: string;
-  sessionIds: string[];
+  scheduleIds: string[];
   quote: PricingQuote | null;
   adjustments: AdminAdjustment[];
   effectiveTotal: number;
@@ -199,7 +199,7 @@ export async function sendRegistrationReceipt(params: {
     supabase,
     dancerName,
     semesterName,
-    sessionIds,
+    scheduleIds,
     quote,
     adjustments,
     effectiveTotal,
@@ -253,21 +253,26 @@ export async function sendRegistrationReceipt(params: {
       return;
     }
 
-    // Fetch session details
-    const { data: sessionRows } = await supabase
-      .from("class_sessions")
-      .select("id, day_of_week, start_time, end_time, classes(name)")
-      .in("id", sessionIds);
+    // Fetch schedule details (one row per enrolled class)
+    const { data: scheduleRows } = await supabase
+      .from("class_schedules")
+      .select("id, days_of_week, start_time, end_time, classes(name)")
+      .in("id", scheduleIds);
 
-    const sessions: Session[] = ((sessionRows ?? []) as any[]).map((s) => ({
-      id: s.id,
-      day_of_week: s.day_of_week ?? null,
-      start_time: s.start_time ?? null,
-      end_time: s.end_time ?? null,
-      classes: s.classes
-        ? { name: Array.isArray(s.classes) ? s.classes[0]?.name : s.classes.name }
-        : null,
-    }));
+    const sessions: ScheduleRow[] = ((scheduleRows ?? []) as any[]).map((s) => {
+      const daysArr: number[] = s.days_of_week ?? [];
+      const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+      const dayOfWeek = daysArr.length > 0 ? daysArr.map((d) => dayNames[d] ?? "").join("/") : null;
+      return {
+        id: s.id,
+        day_of_week: dayOfWeek,
+        start_time: s.start_time ?? null,
+        end_time: s.end_time ?? null,
+        classes: s.classes
+          ? { name: Array.isArray(s.classes) ? s.classes[0]?.name : (s.classes as any).name }
+          : null,
+      };
+    });
 
     const html = buildReceiptHtml({
       parentFirstName,

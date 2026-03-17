@@ -5,6 +5,7 @@ import { requireAdmin } from "@/utils/requireAdmin";
 
 export type AdminSessionInfo = {
   sessionId: string;
+  scheduleId: string;
   classId: string;
   className: string;
   discipline: string;
@@ -44,28 +45,35 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
   const { data: classes, error } = await supabase
     .from("classes")
     .select(
-      "id, name, division, discipline, min_age, max_age, class_sessions(id, day_of_week, start_time, end_time, start_date, end_date, location, instructor_name, capacity)"
+      "id, name, division, discipline, min_age, max_age, class_sessions(id, schedule_id, day_of_week, start_time, end_time, start_date, end_date, location, instructor_name, capacity)"
     )
     .eq("semester_id", semesterId)
     .order("name");
 
   if (error || !classes) return [];
 
-  // Collect session IDs for enrollment count
-  const allSessionIds = (classes as any[]).flatMap((c) =>
-    ((c.class_sessions as any[]) ?? []).map((s: any) => s.id)
-  );
+  // Collect unique schedule IDs for enrollment count
+  const allScheduleIds = [
+    ...new Set(
+      (classes as any[]).flatMap((c) =>
+        ((c.class_sessions as any[]) ?? [])
+          .map((s: any) => s.schedule_id as string)
+          .filter(Boolean)
+      )
+    ),
+  ];
 
+  // Count enrollments at the schedule level (new class-based registration model)
   const enrollmentCounts: Record<string, number> = {};
-  if (allSessionIds.length > 0) {
-    const { data: regRows } = await supabase
-      .from("registrations")
-      .select("session_id")
-      .in("session_id", allSessionIds)
+  if (allScheduleIds.length > 0) {
+    const { data: enrollRows } = await supabase
+      .from("schedule_enrollments")
+      .select("schedule_id")
+      .in("schedule_id", allScheduleIds)
       .neq("status", "cancelled");
 
-    for (const r of regRows ?? []) {
-      const sid = (r as any).session_id as string;
+    for (const r of enrollRows ?? []) {
+      const sid = (r as any).schedule_id as string;
       enrollmentCounts[sid] = (enrollmentCounts[sid] ?? 0) + 1;
     }
   }
@@ -73,6 +81,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
   return (classes as any[]).map((c) => {
     const sessions: AdminSessionInfo[] = ((c.class_sessions as any[]) ?? []).map((s) => ({
       sessionId: s.id as string,
+      scheduleId: (s.schedule_id ?? "") as string,
       classId: c.id as string,
       className: c.name as string,
       discipline: c.discipline as string,
@@ -85,7 +94,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
       location: s.location ?? null,
       instructorName: s.instructor_name ?? null,
       capacity: s.capacity ?? null,
-      enrolled: enrollmentCounts[s.id] ?? 0,
+      enrolled: enrollmentCounts[s.schedule_id] ?? 0,
     }));
 
     // Aggregate location and date range from sessions

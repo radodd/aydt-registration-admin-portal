@@ -4,10 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle, ExternalLink } from "lucide-react";
 import DancerStep, { type DancerStepResult } from "./steps/DancerStep";
-import ClassesStep, { type ClassesStepResult } from "./steps/ClassesStep";
+import ClassesStep, { type ClassesStepResult, type ClassInfo } from "./steps/ClassesStep";
 import QuestionsStep from "./steps/QuestionsStep";
 import CheckoutStep from "./steps/CheckoutStep";
-import type { AdminSessionInfo } from "./actions/fetchSemesterClasses";
 import type { NewDancerInput } from "./actions/createAdminRegistration";
 
 type Props = {
@@ -33,8 +32,8 @@ type State = {
   // Classes
   semesterId: string;
   semesterName: string;
-  sessionIds: string[];
-  sessionInfos: AdminSessionInfo[];
+  scheduleIds: string[];
+  classInfos: ClassInfo[];
   priceOverride: number | null;
   // Form answers
   formData: Record<string, unknown>;
@@ -62,8 +61,8 @@ export default function AdminRegisterFlow({
     newDancer: null,
     semesterId: initialSemesterId,
     semesterName: initialSemesterName,
-    sessionIds: [],
-    sessionInfos: [],
+    scheduleIds: [],
+    classInfos: [],
     priceOverride: null,
     formData: {},
   });
@@ -99,8 +98,8 @@ export default function AdminRegisterFlow({
       step: 3,
       semesterId: result.semesterId,
       semesterName: result.semesterName,
-      sessionIds: result.sessionIds,
-      sessionInfos: result.sessionInfos,
+      scheduleIds: result.scheduleIds,
+      classInfos: result.classInfos,
       priceOverride: result.priceOverride ?? null,
     }));
   }
@@ -124,8 +123,8 @@ export default function AdminRegisterFlow({
       newDancer: null,
       semesterId: initialSemesterId,
       semesterName: initialSemesterName,
-      sessionIds: [],
-      sessionInfos: [],
+      scheduleIds: [],
+      classInfos: [],
       priceOverride: null,
       formData: {},
     });
@@ -183,7 +182,7 @@ export default function AdminRegisterFlow({
           isNewDancer={state.isNewDancer}
           initialSemesterId={state.semesterId}
           initialSemesterName={state.semesterName}
-          initialSessionIds={state.sessionIds}
+          initialScheduleIds={state.scheduleIds}
           onNext={handleClassesNext}
           onBack={() => setState((s) => ({ ...s, step: 1 }))}
         />
@@ -193,7 +192,7 @@ export default function AdminRegisterFlow({
         <QuestionsStep
           semesterId={state.semesterId}
           semesterName={state.semesterName}
-          sessionIds={state.sessionIds}
+          sessionIds={[]}
           dancerName={state.dancerName}
           initialFormData={state.formData}
           onNext={handleQuestionsNext}
@@ -211,8 +210,8 @@ export default function AdminRegisterFlow({
           newDancer={state.newDancer}
           semesterId={state.semesterId}
           semesterName={state.semesterName}
-          sessionIds={state.sessionIds}
-          sessionInfos={state.sessionInfos}
+          scheduleIds={state.scheduleIds}
+          classInfos={state.classInfos}
           initialPriceOverride={state.priceOverride}
           formData={state.formData}
           onBack={() => setState((s) => ({ ...s, step: 3 }))}

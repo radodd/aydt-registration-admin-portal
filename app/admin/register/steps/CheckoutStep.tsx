@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import { ChevronLeft, Check, Tag, AlertCircle, Pencil, X, Plus } from "lucide-react";
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
-import type { PricingQuote, AdminAdjustment } from "@/types";
+import type { PricingQuote, AdminAdjustment, FamilyAccountCredit } from "@/types";
+import { createClient } from "@/utils/supabase/client";
 import {
   createAdminRegistration,
   type NewDancerInput,
 } from "../actions/createAdminRegistration";
-import type { AdminSessionInfo } from "../actions/fetchSemesterClasses";
+import type { ClassInfo } from "./ClassesStep";
 
 type Props = {
   // Dancer
@@ -21,8 +22,8 @@ type Props = {
   // Classes
   semesterId: string;
   semesterName: string;
-  sessionIds: string[];
-  sessionInfos: AdminSessionInfo[];
+  scheduleIds: string[];
+  classInfos: ClassInfo[];
   // Pre-configured price override from ClassesStep
   initialPriceOverride?: number | null;
   // Form answers
@@ -62,8 +63,8 @@ export default function CheckoutStep({
   newDancer,
   semesterId,
   semesterName,
-  sessionIds,
-  sessionInfos,
+  scheduleIds,
+  classInfos,
   initialPriceOverride,
   formData,
   onBack,
@@ -106,6 +107,10 @@ export default function CheckoutStep({
   const [payerName, setPayerName] = useState("");
   const [notes, setNotes] = useState("");
 
+  // Account credits
+  const [availableCredits, setAvailableCredits] = useState<FamilyAccountCredit[]>([]);
+  const [applyCredit, setApplyCredit] = useState(false);
+
   // Submission
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -115,7 +120,10 @@ export default function CheckoutStep({
     : (quote?.grandTotal ?? 0);
 
   const adjustmentsSum = adjustments.reduce((sum, a) => sum + a.amount, 0);
-  const effectiveTotal = Math.max(0, grandTotal - adjustmentsSum);
+  const creditTotal = applyCredit
+    ? availableCredits.reduce((sum, c) => sum + c.amount, 0)
+    : 0;
+  const effectiveTotal = Math.max(0, grandTotal - adjustmentsSum - creditTotal);
 
   // Fetch pricing on mount
   const fetchPricing = async (coupon?: string) => {
@@ -128,7 +136,7 @@ export default function CheckoutStep({
           {
             dancerId: dancerId ?? NIL_UUID,
             dancerName: isNewDancer ? dancerName : undefined,
-            sessionIds,
+            scheduleIds,
           },
         ],
         paymentPlanType: toBackendPlan(paymentPlanType),
@@ -150,7 +158,24 @@ export default function CheckoutStep({
 
   useEffect(() => {
     fetchPricing();
-  }, [semesterId, familyId, dancerId, sessionIds.join(","), paymentPlanType]);
+  }, [semesterId, familyId, dancerId, scheduleIds.join(","), paymentPlanType]);
+
+  // Fetch available account credits when family changes
+  useEffect(() => {
+    setApplyCredit(false);
+    setAvailableCredits([]);
+    if (!familyId) return;
+    const supabase = createClient();
+    supabase
+      .from("family_account_credits")
+      .select("*")
+      .eq("family_id", familyId)
+      .is("used_in_batch_id", null)
+      .eq("is_active", true)
+      .then(({ data }) => {
+        if (data) setAvailableCredits(data as FamilyAccountCredit[]);
+      });
+  }, [familyId]);
 
   // Re-seed amount when adjustments change (only if not monthly and no manual input)
   useEffect(() => {
@@ -181,7 +206,7 @@ export default function CheckoutStep({
           {
             dancerId: dancerId ?? NIL_UUID,
             dancerName: isNewDancer ? dancerName : undefined,
-            sessionIds,
+            scheduleIds,
           },
         ],
         paymentPlanType: toBackendPlan(paymentPlanType),
@@ -249,10 +274,16 @@ export default function CheckoutStep({
     setSubmitting(true);
     setSubmitError("");
 
+    // Include account credits as an admin adjustment so they appear on the receipt
+    const creditAdjustments: AdminAdjustment[] = applyCredit && creditTotal > 0
+      ? [{ type: "credit", label: "Account Credit", amount: creditTotal }]
+      : [];
+    const allAdjustments = [...adjustments, ...creditAdjustments];
+
     const result = await createAdminRegistration({
       semesterId,
       semesterName,
-      sessionIds,
+      scheduleIds,
       dancerId: isNewDancer ? null : (dancerId ?? null),
       dancerName,
       familyId: isNewDancer ? null : (familyId ?? null),
@@ -271,7 +302,10 @@ export default function CheckoutStep({
       formData,
       couponCode: appliedCoupon || undefined,
       priceOverride: overrideActive ? grandTotal : undefined,
-      adjustments: adjustments.length > 0 ? adjustments : undefined,
+      adjustments: allAdjustments.length > 0 ? allAdjustments : undefined,
+      creditIdsToApply: applyCredit && availableCredits.length > 0
+        ? availableCredits.map((c) => c.id)
+        : undefined,
       paymentPlanType,
       paymentMethod,
       amountCollected: amount,
@@ -570,12 +604,12 @@ export default function CheckoutStep({
             <p className="text-xs text-slate-400">{semesterName}</p>
           </div>
           <ul className="space-y-2 pt-1 border-t border-neutral-200">
-            {sessionInfos.map((s) => (
-              <li key={s.sessionId} className="text-sm text-slate-600">
-                <p className="font-medium">{s.className}</p>
+            {classInfos.map((c) => (
+              <li key={c.classId} className="text-sm text-slate-600">
+                <p className="font-medium">{c.className}</p>
                 <p className="text-xs text-slate-400">
-                  {s.dayOfWeek ? cap(s.dayOfWeek) : ""}
-                  {s.startTime && ` · ${fmt12(s.startTime)}–${fmt12(s.endTime)}`}
+                  {c.dayOfWeek ? cap(c.dayOfWeek) : ""}
+                  {c.startTime && ` · ${fmt12(c.startTime)}–${fmt12(c.endTime)}`}
                 </p>
               </li>
             ))}
@@ -658,6 +692,12 @@ export default function CheckoutStep({
                   <span className="text-green-600 shrink-0">-{fmt$$(adj.amount)}</span>
                 </div>
               ))}
+              {applyCredit && creditTotal > 0 && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500 truncate">Account Credit</span>
+                  <span className="text-green-600 shrink-0">-{fmt$$(creditTotal)}</span>
+                </div>
+              )}
               <div className="flex justify-between gap-4 pt-2 border-t border-neutral-200 font-semibold">
                 <span className="text-slate-700">Total Due</span>
                 <span className="text-slate-800">{fmt$$(effectiveTotal)}</span>
@@ -711,6 +751,38 @@ export default function CheckoutStep({
             </div>
           )}
         </div>
+
+        {/* Account credits */}
+        {availableCredits.length > 0 && (
+          <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-2">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+              Account Credit
+            </p>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={applyCredit}
+                onChange={(e) => {
+                  setApplyCredit(e.target.checked);
+                  if (paymentPlanType !== "monthly") {
+                    const newEff = Math.max(
+                      0,
+                      grandTotal - adjustmentsSum - (e.target.checked ? creditTotal : 0)
+                    );
+                    setAmountInput(newEff.toFixed(2));
+                  }
+                }}
+                className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-slate-700">
+                Apply account credit{" "}
+                <span className="font-medium text-green-600">
+                  ({fmt$$(availableCredits.reduce((s, c) => s + c.amount, 0))})
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
 
         {/* Balance due summary */}
         <div className="bg-slate-50 border border-neutral-200 rounded-xl p-4">

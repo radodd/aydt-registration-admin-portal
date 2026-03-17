@@ -133,7 +133,7 @@ export async function computePricingQuote(
     );
 
   const familyDancerCount = input.enrollments.filter(
-    (e) => e.sessionIds.length > 0,
+    (e) => (e.scheduleIds?.length ?? 0) > 0 || (e.sessionIds?.length ?? 0) > 0,
   ).length;
 
   /* ---------------------------------------------------------------------- */
@@ -144,22 +144,12 @@ export async function computePricingQuote(
   for (const {
     dancerId,
     dancerName: dancerNameOverride,
+    scheduleIds,
     sessionIds,
   } of input.enrollments) {
-    if (sessionIds.length === 0) continue;
-
-    // Fetch the class + schedule_date for each session
-    const { data: sessionRows, error: sessionError } = await supabase
-      .from("class_sessions")
-      .select(
-        "id, schedule_date, day_of_week, classes(id, name, division, discipline, is_competition_track, tuition_override_amount)",
-      )
-      .in("id", sessionIds);
-
-    if (sessionError) throw new Error(sessionError.message);
-    if (!sessionRows || sessionRows.length === 0) {
-      throw new Error(`No sessions found for dancer ${dancerId}`);
-    }
+    const hasSchedules = (scheduleIds?.length ?? 0) > 0;
+    const hasSessions = (sessionIds?.length ?? 0) > 0;
+    if (!hasSchedules && !hasSessions) continue;
 
     // Fetch dancer name (use override for new dancers not yet in DB)
     let dancerName = dancerNameOverride ?? "";
@@ -172,6 +162,238 @@ export async function computePricingQuote(
       dancerName = dancerRow
         ? `${dancerRow.first_name} ${dancerRow.last_name}`
         : dancerId;
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* Schedule-based path (class is the registrable unit)                     */
+    /* ---------------------------------------------------------------------- */
+    if (hasSchedules) {
+      const { data: scheduleRows, error: scheduleError } = await supabase
+        .from("class_schedules")
+        .select(
+          "id, days_of_week, classes(id, name, division, discipline, is_competition_track, tuition_override_amount)",
+        )
+        .in("id", scheduleIds!);
+
+      if (scheduleError) throw new Error(scheduleError.message);
+      if (!scheduleRows || scheduleRows.length === 0) {
+        throw new Error(`No schedules found for dancer ${dancerId}`);
+      }
+
+      type ScheduleClassInfo = {
+        id: string;
+        name: string;
+        division: string;
+        discipline: string;
+        is_competition_track: boolean;
+        tuition_override_amount: number | null;
+      };
+
+      const classesForDancer = scheduleRows.map((s) => {
+        const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+        return cls as ScheduleClassInfo | null;
+      });
+
+      const divisions = [
+        ...new Set(
+          classesForDancer
+            .filter(Boolean)
+            .map((c) => c!.division)
+            .filter((d) => d !== "competition"),
+        ),
+      ];
+      const division = resolveDivision(divisions);
+
+      // weeklyClassCount = total distinct calendar days across all enrolled schedules
+      const allDays = new Set<number>();
+      for (const s of scheduleRows) {
+        const daysArr: number[] = (s as any).days_of_week ?? [];
+        for (const d of daysArr) allDays.add(d);
+      }
+      const weeklyClassCount = allDays.size || scheduleRows.length;
+
+      const isFeeExemptClass = (cls: {
+        discipline: string;
+        division: string;
+      }): boolean => {
+        const keys = feeConfig.costume_fee_exempt_keys;
+        return (
+          keys.includes(cls.discipline) ||
+          (keys.includes("competition") && cls.division === "competition")
+        );
+      };
+
+      const standardClasses = classesForDancer.filter(
+        (c) => c !== null && !isFeeExemptClass(c),
+      );
+
+      // standardWeeklyCount: distinct days occupied by standard (non-exempt) classes
+      const standardDays = new Set<number>();
+      for (const s of scheduleRows) {
+        const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+        if (cls && !isFeeExemptClass(cls as ScheduleClassInfo)) {
+          const daysArr: number[] = (s as any).days_of_week ?? [];
+          for (const d of daysArr) standardDays.add(d);
+        }
+      }
+      const standardWeeklyCount = standardDays.size || standardClasses.length;
+
+      const lineItems: LineItem[] = [];
+      let tuition = 0;
+      let recitalFee = 0;
+
+      // Class-level overrides (flat tuition bypass) vs rate-band lookup
+      const overrideSchedules = scheduleRows.filter((s) => {
+        const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+        return (cls as ScheduleClassInfo | null)?.tuition_override_amount != null;
+      });
+      const rateBandSchedules = scheduleRows.filter((s) => {
+        const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+        return (cls as ScheduleClassInfo | null)?.tuition_override_amount == null;
+      });
+
+      // Override path: one line item per unique class with an override
+      if (overrideSchedules.length > 0) {
+        const seenClasses = new Set<string>();
+        for (const s of overrideSchedules) {
+          const cls = (Array.isArray(s.classes) ? s.classes[0] : s.classes) as ScheduleClassInfo | null;
+          if (!cls || seenClasses.has(cls.id)) continue;
+          seenClasses.add(cls.id);
+          const overrideAmount = round2(Number(cls.tuition_override_amount));
+          tuition += overrideAmount;
+          lineItems.push({
+            type: "tuition",
+            label: `Tuition — ${cls.name} (custom rate)`,
+            amount: overrideAmount,
+          });
+        }
+      }
+
+      // Rate-band path: one lookup for all non-override schedules
+      if (rateBandSchedules.length > 0) {
+        const bandDays = new Set<number>();
+        for (const s of rateBandSchedules) {
+          const daysArr: number[] = (s as any).days_of_week ?? [];
+          for (const d of daysArr) bandDays.add(d);
+        }
+        const bandCount = bandDays.size || rateBandSchedules.length;
+
+        const { data: rateBand, error: bandError } = await supabase
+          .from("tuition_rate_bands")
+          .select("base_tuition")
+          .eq("semester_id", input.semesterId)
+          .eq("division", division)
+          .eq("weekly_class_count", bandCount)
+          .maybeSingle();
+
+        if (bandError) throw new Error(bandError.message);
+        if (!rateBand) {
+          throw new Error(
+            `No tuition rate configured for division="${division}", ` +
+              `weekly_class_count=${bandCount} in semester ${input.semesterId}. ` +
+              `Please configure tuition rate bands in the semester's Payment step.`,
+          );
+        }
+
+        const bandTotal = Number(rateBand.base_tuition);
+        tuition += bandTotal;
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
+          amount: round2(bandTotal),
+        });
+      }
+
+      // Costume / video fees (same logic as session path)
+      let recitalCostumeFeePerClass = 0;
+      if (division === "senior") {
+        recitalCostumeFeePerClass = feeConfig.senior_costume_fee_per_class;
+      } else if (division === "junior") {
+        recitalCostumeFeePerClass = feeConfig.junior_costume_fee_per_class;
+      }
+      const recitalCostumeFee = round2(recitalCostumeFeePerClass * standardWeeklyCount);
+
+      let videoFee = 0;
+      if (standardWeeklyCount > 0) {
+        if (division === "senior") {
+          videoFee = feeConfig.senior_video_fee_per_registrant;
+          tuition += videoFee;
+          tuition += recitalCostumeFee;
+          recitalFee += recitalCostumeFee;
+          lineItems.push(
+            { type: "video_fee", label: "Video Fee (Senior)", amount: videoFee, description: "One-time video fee per senior registrant" },
+            { type: "costume_fee", label: `Recital Costume Fee (${standardWeeklyCount} class${standardWeeklyCount !== 1 ? "es" : ""})`, amount: recitalCostumeFee, description: `$${feeConfig.senior_costume_fee_per_class} per class` },
+          );
+        } else if (division === "junior") {
+          tuition += recitalCostumeFee;
+          recitalFee += recitalCostumeFee;
+          lineItems.push({
+            type: "costume_fee",
+            label: `Recital Costume Fee (${standardWeeklyCount} class${standardWeeklyCount !== 1 ? "es" : ""})`,
+            amount: recitalCostumeFee,
+            description: `$${feeConfig.junior_costume_fee_per_class} per class`,
+          });
+        }
+      }
+
+      // Session/class discount rules (pass empty sessionIds for schedule path)
+      let sessionDiscountTotal = 0;
+      const percentRules = getApplicableRules(activeDiscounts, [], familyDancerCount, weeklyClassCount, "percent");
+      for (const rule of percentRules) {
+        const reduction = round2(tuition * (rule.value / 100));
+        tuition = round2(tuition - reduction);
+        sessionDiscountTotal = round2(sessionDiscountTotal - reduction);
+        lineItems.push({ type: "session_discount", label: `Discount: ${rule.discountName}`, amount: -reduction, description: `${rule.value}% off tuition` });
+      }
+      const flatRules = getApplicableRules(activeDiscounts, [], familyDancerCount, weeklyClassCount, "flat");
+      for (const rule of flatRules) {
+        const reduction = Math.min(rule.value, tuition);
+        tuition = round2(tuition - reduction);
+        sessionDiscountTotal = round2(sessionDiscountTotal - reduction);
+        lineItems.push({ type: "session_discount", label: `Discount: ${rule.discountName}`, amount: -reduction });
+      }
+
+      const allClassesAreExempt =
+        classesForDancer.length > 0 &&
+        classesForDancer.every((c) => c !== null && isFeeExemptClass(c));
+      const registrationFee = allClassesAreExempt ? 0 : feeConfig.registration_fee_per_child;
+      if (registrationFee > 0) {
+        lineItems.push({ type: "registration_fee", label: "Registration Fee", amount: registrationFee });
+      }
+
+      perDancer.push({
+        dancerId,
+        dancerName,
+        division,
+        weeklyClassCount,
+        tuition: round2(tuition),
+        recitalFee: round2(recitalFee),
+        videoFee: round2(videoFee),
+        costumeFee: round2(recitalCostumeFee),
+        sessionDiscountTotal: round2(sessionDiscountTotal),
+        registrationFee,
+        lineItems,
+      });
+
+      continue; // skip the session-based path below
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* Session-based path (legacy / drop-in mode)                              */
+    /* ---------------------------------------------------------------------- */
+    const resolvedSessionIds = sessionIds!;
+
+    // Fetch the class + schedule_date for each session
+    const { data: sessionRows, error: sessionError } = await supabase
+      .from("class_sessions")
+      .select(
+        "id, schedule_date, day_of_week, classes(id, name, division, discipline, is_competition_track, tuition_override_amount)",
+      )
+      .in("id", resolvedSessionIds);
+
+    if (sessionError) throw new Error(sessionError.message);
+    if (!sessionRows || sessionRows.length === 0) {
+      throw new Error(`No sessions found for dancer ${dancerId}`);
     }
 
     // Resolve division from enrolled classes
@@ -213,7 +435,7 @@ export async function computePricingQuote(
       );
       weeklyClassCount = classDayPairs.size;
     } else {
-      weeklyClassCount = sessionIds.length;
+      weeklyClassCount = resolvedSessionIds.length;
     }
 
     // Classify each class as "standard" or "fee-exempt".
@@ -264,7 +486,7 @@ export async function computePricingQuote(
     const { data: priceRowsData, error: priceRowsError } = await supabase
       .from("class_session_price_rows")
       .select("class_session_id, amount")
-      .in("class_session_id", sessionIds)
+      .in("class_session_id", resolvedSessionIds)
       .eq("is_default", true);
 
     if (priceRowsError) throw new Error(priceRowsError.message);
@@ -287,8 +509,8 @@ export async function computePricingQuote(
       if (cls) sessionClassMap.set(row.id, cls as SessionClassInfo);
     }
 
-    const perSessionIds = sessionIds.filter((id) => priceRowMap.has(id));
-    const remainingIds = sessionIds.filter((id) => !priceRowMap.has(id));
+    const perSessionIds = resolvedSessionIds.filter((id) => priceRowMap.has(id));
+    const remainingIds = resolvedSessionIds.filter((id) => !priceRowMap.has(id));
 
     // Among remaining, split by whether the class has a flat override.
     const overrideIds = remainingIds.filter((id) => {
@@ -589,7 +811,7 @@ export async function computePricingQuote(
   /* Evaluated after all other discounts; stackable flag controls whether    */
   /* it applies when threshold-based discounts are already active.           */
   /* ---------------------------------------------------------------------- */
-  const allEnrolledSessionIds = input.enrollments.flatMap((e) => e.sessionIds);
+  const allEnrolledSessionIds = input.enrollments.flatMap((e) => e.sessionIds ?? []);
   const hasThresholdDiscounts = perDancer.some(
     (d) => d.sessionDiscountTotal < 0,
   );

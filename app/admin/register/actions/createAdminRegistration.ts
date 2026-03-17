@@ -18,7 +18,7 @@ export type NewDancerInput = {
 export type AdminRegInput = {
   semesterId: string;
   semesterName: string;
-  sessionIds: string[];
+  scheduleIds: string[];
   // Existing dancer
   dancerId?: string | null;
   dancerName: string;
@@ -32,6 +32,7 @@ export type AdminRegInput = {
   couponCode?: string;
   priceOverride?: number | null;
   adjustments?: AdminAdjustment[];
+  creditIdsToApply?: string[];
   paymentPlanType?: "pay_in_full" | "monthly";
   paymentMethod: string;
   amountCollected: number;
@@ -143,7 +144,7 @@ export async function createAdminRegistration(
       quote = await computePricingQuote({
         semesterId: input.semesterId,
         familyId: familyId ?? undefined,
-        enrollments: [{ dancerId, sessionIds: input.sessionIds }],
+        enrollments: [{ dancerId, scheduleIds: input.scheduleIds }],
         paymentPlanType: input.paymentPlanType === "monthly" ? "auto_pay_monthly" : "pay_in_full",
         couponCode: input.couponCode || undefined,
       });
@@ -176,26 +177,26 @@ export async function createAdminRegistration(
     payment_plan_type: input.paymentPlanType ?? "pay_in_full",
     amount_due_now: effectiveTotal,
     admin_adjustments: input.adjustments?.length ? input.adjustments : null,
+    form_data: Object.keys(input.formData).length > 0 ? input.formData : null,
     status: "confirmed",
     confirmed_at: new Date().toISOString(),
     payment_reference_id: "admin",
-    cart_snapshot: input.sessionIds.map((sid) => ({ dancerId, sessionId: sid })),
+    cart_snapshot: input.scheduleIds.map((sid) => ({ dancerId, scheduleId: sid })),
   });
 
   if (batchErr) return { success: false, error: batchErr.message };
 
-  // Insert one registration per session — status confirmed
-  const regRows = input.sessionIds.map((sid) => ({
+  // Insert one schedule_enrollment per class — class is the registrable unit
+  const enrollRows = input.scheduleIds.map((sid) => ({
+    schedule_id: sid,
+    batch_id: batchId,
     dancer_id: dancerId,
-    session_id: sid,
+    price_snapshot: 0, // financial record lives on registration_batches
     status: "confirmed",
-    total_amount: 0,
-    registration_batch_id: batchId,
-    form_data: input.formData,
   }));
 
-  const { error: regErr } = await supabase.from("registrations").insert(regRows);
-  if (regErr) return { success: false, error: regErr.message };
+  const { error: enrollErr } = await supabase.from("schedule_enrollments").insert(enrollRows);
+  if (enrollErr) return { success: false, error: enrollErr.message };
 
   // Record coupon redemption if applicable
   if (quote?.appliedCouponId && familyId) {
@@ -210,6 +211,17 @@ export async function createAdminRegistration(
         if (error) console.warn("[createAdminRegistration] Coupon redemption failed:", error.message);
       });
     await supabase.rpc("increment_coupon_uses", { p_coupon_id: quote.appliedCouponId });
+  }
+
+  // Mark account credits as used
+  if (input.creditIdsToApply?.length) {
+    await supabase
+      .from("family_account_credits")
+      .update({ used_in_batch_id: batchId, used_at: new Date().toISOString() })
+      .in("id", input.creditIdsToApply)
+      .then(({ error }) => {
+        if (error) console.warn("[createAdminRegistration] Credit marking failed:", error.message);
+      });
   }
 
   // Insert installment — paid if amount collected covers effective total
@@ -245,7 +257,7 @@ export async function createAdminRegistration(
     dancerName: resolvedDancerName,
     semesterId: input.semesterId,
     semesterName: input.semesterName,
-    sessionIds: input.sessionIds,
+    scheduleIds: input.scheduleIds,
     quote,
     adjustments: input.adjustments ?? [],
     effectiveTotal,

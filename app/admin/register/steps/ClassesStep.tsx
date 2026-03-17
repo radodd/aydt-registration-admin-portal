@@ -17,11 +17,21 @@ type FeeRowState = {
   amountStr: string; // string for controlled input; parsed on use
 };
 
+export type ClassInfo = {
+  classId: string;
+  scheduleId: string;
+  className: string;
+  discipline: string;
+  dayOfWeek: string | null;
+  startTime: string | null;
+  endTime: string | null;
+};
+
 export type ClassesStepResult = {
   semesterId: string;
   semesterName: string;
-  sessionIds: string[];
-  sessionInfos: AdminSessionInfo[];
+  scheduleIds: string[];
+  classInfos: ClassInfo[];
   priceOverride?: number;
 };
 
@@ -32,7 +42,7 @@ type Props = {
   isNewDancer: boolean;
   initialSemesterId: string;
   initialSemesterName: string;
-  initialSessionIds: string[];
+  initialScheduleIds: string[];
   onNext: (result: ClassesStepResult) => void;
   onBack: () => void;
 };
@@ -67,7 +77,7 @@ export default function ClassesStep({
   isNewDancer,
   initialSemesterId,
   initialSemesterName,
-  initialSessionIds,
+  initialScheduleIds,
   onNext,
   onBack,
 }: Props) {
@@ -105,11 +115,11 @@ export default function ClassesStep({
     setLoading(true);
     fetchSemesterClasses(semesterId).then((data) => {
       setClasses(data);
-      // Restore selections from initialSessionIds
-      if (initialSessionIds.length > 0) {
+      // Restore selections from initialScheduleIds
+      if (initialScheduleIds.length > 0) {
         const restoredClassIds = new Set<string>();
         data.forEach((cls) => {
-          if (cls.sessions.some((s) => initialSessionIds.includes(s.sessionId))) {
+          if (cls.sessions.some((s) => initialScheduleIds.includes(s.scheduleId))) {
             restoredClassIds.add(cls.classId);
           }
         });
@@ -121,8 +131,8 @@ export default function ClassesStep({
 
   // Compute pricing preview whenever class selection changes
   useEffect(() => {
-    const sessionIds = getSelectedSessionIds();
-    if (sessionIds.length === 0 || !semesterId) {
+    const scheduleIds = getSelectedScheduleIds();
+    if (scheduleIds.length === 0 || !semesterId) {
       setQuote(null);
       setFeeRows([]);
       return;
@@ -135,7 +145,7 @@ export default function ClassesStep({
         {
           dancerId: dancerId ?? NIL_UUID,
           dancerName: isNewDancer ? dancerName : undefined,
-          sessionIds,
+          scheduleIds,
         },
       ],
       paymentPlanType: "pay_in_full",
@@ -157,14 +167,16 @@ export default function ClassesStep({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClassIds, semesterId, dancerId, familyId]);
 
-  function getSelectedSessionIds(): string[] {
-    const ids: string[] = [];
+  function getSelectedScheduleIds(): string[] {
+    const ids = new Set<string>();
     for (const cls of classes) {
       if (selectedClassIds.has(cls.classId)) {
-        cls.sessions.forEach((s) => ids.push(s.sessionId));
+        cls.sessions.forEach((s) => {
+          if (s.scheduleId) ids.add(s.scheduleId);
+        });
       }
     }
-    return ids;
+    return [...ids];
   }
 
   function toggleClass(classId: string) {
@@ -206,18 +218,31 @@ export default function ClassesStep({
 
   function handleNext() {
     if (!semesterId || selectedClassIds.size === 0) return;
-    const sessionIds = getSelectedSessionIds();
-    const sessionInfos = classes
+    const scheduleIds = getSelectedScheduleIds();
+
+    // Build one ClassInfo per selected class (use first session as representative for day/time)
+    const classInfos: ClassInfo[] = classes
       .filter((c) => selectedClassIds.has(c.classId))
-      .flatMap((c) => c.sessions);
+      .map((c) => {
+        const rep = c.sessions[0];
+        return {
+          classId: c.classId,
+          scheduleId: rep?.scheduleId ?? "",
+          className: c.name,
+          discipline: c.discipline,
+          dayOfWeek: rep?.dayOfWeek ?? null,
+          startTime: rep?.startTime ?? null,
+          endTime: rep?.endTime ?? null,
+        };
+      });
 
     const customTotal = computeCustomTotal();
 
     onNext({
       semesterId,
       semesterName,
-      sessionIds,
-      sessionInfos,
+      scheduleIds,
+      classInfos,
       priceOverride: customTotal ?? undefined,
     });
   }
