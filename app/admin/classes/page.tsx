@@ -152,7 +152,6 @@ function EmailClassesModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5">
-
         {/* Step: choose mode */}
         {step === "choose" && (
           <>
@@ -382,14 +381,15 @@ export default function AdminClassesPage() {
   function toggleRow(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
 
   const selectedClasses = useMemo(
     () => classes.filter((c) => selected.has(c.id)),
-    [classes, selected]
+    [classes, selected],
   );
 
   return (
@@ -421,13 +421,6 @@ export default function AdminClassesPage() {
             Manage Semesters
           </Link>
         </header>
-
-        {/* Notice */}
-        <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
-          <strong>Phase 1 update:</strong> Classes are now managed within each
-          semester editor (Classes &amp; Sessions step). The global session pool
-          has been replaced by semester-owned classes with per-day time slots.
-        </div>
 
         {/* Search */}
         <div className="flex items-center gap-3">
@@ -525,9 +518,7 @@ export default function AdminClassesPage() {
                     <tr
                       key={cls.id}
                       className={`transition cursor-pointer ${
-                        isSelected
-                          ? "bg-primary-50"
-                          : "hover:bg-neutral-50"
+                        isSelected ? "bg-primary-50" : "hover:bg-neutral-50"
                       }`}
                       onClick={() => router.push(`/admin/classes/${cls.id}`)}
                     >
