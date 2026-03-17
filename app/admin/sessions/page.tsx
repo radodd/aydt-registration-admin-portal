@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { SessionsTable } from "./SessionsTable";
+import { SessionsRightPanel } from "@/app/admin/_components/SessionsRightPanel";
 
 export default async function AdminSessionsPage() {
   const supabase = await createClient();
@@ -79,19 +80,22 @@ export default async function AdminSessionsPage() {
   uniqueDays.sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900">Class Sessions</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          All active classes across semesters. Cancelling a class will notify all enrolled families by email and SMS.
-        </p>
-      </div>
+    <div className="flex gap-0 -mx-8 -my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
+      <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Class Sessions</h1>
+          <p className="text-sm text-neutral-500 mt-1">
+            All active classes across semesters. Cancelling a class will notify all enrolled families by email and SMS.
+          </p>
+        </div>
 
-      <SessionsTable
-        sessions={uniqueClassInstances as any}
-        registrationCounts={countMap}
-        filterOptions={{ semesters: uniqueSemesters, disciplines: uniqueDisciplines, days: uniqueDays }}
-      />
+        <SessionsTable
+          sessions={uniqueClassInstances as any}
+          registrationCounts={countMap}
+          filterOptions={{ semesters: uniqueSemesters, disciplines: uniqueDisciplines, days: uniqueDays }}
+        />
+      </div>
+      <SessionsRightPanel />
     </div>
   );
 }

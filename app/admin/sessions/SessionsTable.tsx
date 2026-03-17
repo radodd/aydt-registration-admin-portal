@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition, useMemo } from "react";
-import { cancelClass } from "@/app/admin/semesters/actions/cancelClass";
+import { cancelClass, type EnrolledFamily } from "@/app/admin/semesters/actions/cancelClass";
+import { issueBulkCredits } from "@/app/admin/credits/actions/issueBulkCredits";
 
 interface SessionRow {
   id: string;
@@ -59,6 +60,16 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Bulk credit modal — shown after cancellation when families are enrolled
+  const [bulkCreditData, setBulkCreditData] = useState<{
+    enrolledFamilies: EnrolledFamily[];
+    className: string;
+  } | null>(null);
+  const [bulkCreditAmount, setBulkCreditAmount] = useState("");
+  const [bulkCreditReason, setBulkCreditReason] = useState("");
+  const [bulkCreditError, setBulkCreditError] = useState("");
+  const [bulkCreditSubmitting, setBulkCreditSubmitting] = useState(false);
 
   // Filter state
   const [filterClass, setFilterClass] = useState("");
@@ -158,7 +169,45 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
       );
       closeModal();
       setTimeout(() => setToast(null), 5000);
+
+      // Offer bulk credit issuance if there were enrolled families
+      if (result.enrolledFamilies && result.enrolledFamilies.length > 0) {
+        setBulkCreditData({
+          enrolledFamilies: result.enrolledFamilies,
+          className: result.className ?? "the cancelled class",
+        });
+        setBulkCreditAmount("");
+        setBulkCreditReason(`Cancelled class: ${result.className ?? "class"}`);
+        setBulkCreditError("");
+      }
     });
+  }
+
+  async function handleBulkCredit() {
+    if (!bulkCreditData) return;
+    const amount = parseFloat(bulkCreditAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setBulkCreditError("Please enter a valid amount greater than $0.");
+      return;
+    }
+    setBulkCreditSubmitting(true);
+    setBulkCreditError("");
+    const result = await issueBulkCredits(
+      bulkCreditData.enrolledFamilies.map((f) => ({
+        familyId: f.family_id,
+        amount,
+        reason: bulkCreditReason || undefined,
+      }))
+    );
+    setBulkCreditSubmitting(false);
+    if (result.error) {
+      setBulkCreditError(result.error);
+      return;
+    }
+    const n = result.count ?? bulkCreditData.enrolledFamilies.length;
+    setBulkCreditData(null);
+    setToast(`Credits issued to ${n} famil${n === 1 ? "y" : "ies"}.`);
+    setTimeout(() => setToast(null), 5000);
   }
 
   const cancellingSession = rows.find((s) => s.id === cancellingId) ?? null;
@@ -175,6 +224,66 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
 
   return (
     <>
+      {/* Bulk Credit Modal — shown after class cancellation */}
+      {bulkCreditData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5">
+            <h2 className="text-lg font-semibold text-neutral-900">Issue Credits to Affected Families</h2>
+            <p className="text-sm text-neutral-500">
+              Issue an account credit to all{" "}
+              <strong>{bulkCreditData.enrolledFamilies.length} affected {bulkCreditData.enrolledFamilies.length === 1 ? "family" : "families"}</strong>.
+              Credits can be applied toward any future registration.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Credit amount per family <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  value={bulkCreditAmount}
+                  onChange={(e) => { setBulkCreditAmount(e.target.value); setBulkCreditError(""); }}
+                  className="w-full pl-7 pr-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Reason <span className="text-neutral-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={bulkCreditReason}
+                onChange={(e) => setBulkCreditReason(e.target.value)}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            {bulkCreditError && <p className="text-sm text-red-600">{bulkCreditError}</p>}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setBulkCreditData(null)}
+                disabled={bulkCreditSubmitting}
+                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleBulkCredit}
+                disabled={bulkCreditSubmitting || !bulkCreditAmount}
+                className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {bulkCreditSubmitting ? "Issuing…" : `Issue Credits`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 right-6 z-50 bg-green-700 text-white text-sm px-4 py-3 rounded-lg shadow-lg">

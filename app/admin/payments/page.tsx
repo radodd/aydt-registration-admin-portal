@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { markInstallmentPaid } from "./actions/markInstallmentPaid";
+import { issueAccountCredit } from "@/app/admin/credits/actions/issueAccountCredit";
+import { PaymentsRightPanel } from "@/app/admin/_components/PaymentsRightPanel";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                       */
@@ -80,6 +82,14 @@ export default function PaymentsAdmin() {
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  // Issue credit modal state
+  const [creditBatch, setCreditBatch] = useState<{ id: string; familyId: string | null; parentName: string } | null>(null);
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditReason, setCreditReason] = useState("");
+  const [creditError, setCreditError] = useState("");
+  const [creditSubmitting, setCreditSubmitting] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
   async function loadBatches() {
     const supabase = createClient();
     const { data } = await supabase
@@ -115,6 +125,50 @@ export default function PaymentsAdmin() {
       ? batches
       : batches.filter((b) => b.status === statusFilter);
 
+  function openCreditModal(batch: BatchRow) {
+    const parent = batch.users as any;
+    const name = parent ? `${parent.first_name} ${parent.last_name}` : "Unknown";
+    setCreditBatch({ id: batch.id, familyId: batch.family_id, parentName: name });
+    setCreditAmount("");
+    setCreditReason("");
+    setCreditError("");
+  }
+
+  function closeCreditModal() {
+    setCreditBatch(null);
+    setCreditAmount("");
+    setCreditReason("");
+    setCreditError("");
+  }
+
+  async function handleIssueCredit() {
+    if (!creditBatch?.familyId) {
+      setCreditError("No family associated with this batch.");
+      return;
+    }
+    const amount = parseFloat(creditAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setCreditError("Please enter a valid amount greater than $0.");
+      return;
+    }
+    setCreditSubmitting(true);
+    setCreditError("");
+    const result = await issueAccountCredit({
+      familyId: creditBatch.familyId,
+      amount,
+      reason: creditReason || undefined,
+      sourceBatchId: creditBatch.id,
+    });
+    setCreditSubmitting(false);
+    if (result.error) {
+      setCreditError(result.error);
+      return;
+    }
+    closeCreditModal();
+    setToast(`Credit of ${formatCurrency(amount)} issued to ${creditBatch.parentName}.`);
+    setTimeout(() => setToast(null), 5000);
+  }
+
   const overdueCount = batches.reduce(
     (sum, b) =>
       sum +
@@ -125,16 +179,86 @@ export default function PaymentsAdmin() {
 
   if (loading) {
     return (
-      <main className="max-w-7xl mx-auto px-6 py-10">
-        <div className="bg-white border border-neutral-200 rounded-2xl p-8 text-neutral-500">
-          Loading payments…
-        </div>
-      </main>
+      <div className="flex gap-0 -mx-8 -my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
+        <main className="flex-1 px-8 py-10">
+          <div className="bg-white border border-neutral-200 rounded-2xl p-8 text-neutral-500">
+            Loading payments…
+          </div>
+        </main>
+        <PaymentsRightPanel />
+      </div>
     );
   }
 
   return (
-    <main className="max-w-7xl mx-auto px-6 py-10 space-y-8">
+    <div className="flex gap-0 -mx-8 -my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
+    <main className="flex-1 overflow-y-auto px-8 py-8 space-y-8">
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-green-700 text-white text-sm px-4 py-3 rounded-lg shadow-lg">
+          {toast}
+        </div>
+      )}
+
+      {/* Issue Credit Modal */}
+      {creditBatch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5">
+            <h2 className="text-lg font-semibold text-neutral-900">Issue Account Credit</h2>
+            <p className="text-sm text-neutral-500">
+              Credit will be added to <strong>{creditBatch.parentName}</strong>&apos;s family account and can be applied toward any future registration.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Credit amount <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  value={creditAmount}
+                  onChange={(e) => { setCreditAmount(e.target.value); setCreditError(""); }}
+                  className="w-full pl-7 pr-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Reason <span className="text-neutral-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Missed class — no makeup available"
+                value={creditReason}
+                onChange={(e) => setCreditReason(e.target.value)}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            {creditError && <p className="text-sm text-red-600">{creditError}</p>}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={closeCreditModal}
+                disabled={creditSubmitting}
+                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleIssueCredit}
+                disabled={creditSubmitting || !creditAmount}
+                className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {creditSubmitting ? "Issuing…" : "Issue Credit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex items-start justify-between gap-6">
         <div>
@@ -235,6 +359,13 @@ export default function PaymentsAdmin() {
                         {formatCurrency(batch.grand_total)}
                       </span>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => openCreditModal(batch)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                    >
+                      Issue Credit
+                    </button>
                   </div>
                 </div>
 
@@ -338,5 +469,7 @@ export default function PaymentsAdmin() {
         </div>
       )}
     </main>
+    <PaymentsRightPanel />
+    </div>
   );
 }

@@ -427,7 +427,16 @@ export interface PricingInput {
     dancerId: string;
     /** Display name override — used for new dancers not yet in DB. */
     dancerName?: string;
-    sessionIds: string[];
+    /**
+     * Class-level enrollment path (preferred): pass schedule IDs.
+     * The pricing engine fetches class/division from class_schedules.
+     */
+    scheduleIds?: string[];
+    /**
+     * Legacy session-level path: pass individual class_session IDs.
+     * Used for backward compat and drop-in pricing mode.
+     */
+    sessionIds?: string[];
   }>;
   paymentPlanType: "pay_in_full" | "deposit_50pct" | "auto_pay_monthly";
   /** Optional promo code entered by the parent at checkout. */

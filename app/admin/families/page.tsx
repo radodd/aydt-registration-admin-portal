@@ -4,6 +4,11 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { Family } from "@/types";
 import { getFamilies } from "@/queries/admin";
+import { createClient } from "@/utils/supabase/client";
+import { issueAccountCredit } from "@/app/admin/credits/actions/issueAccountCredit";
+import { getFamilyCredits } from "@/queries/admin";
+import { CreditDetailRow } from "@/app/admin/credits/page";
+import type { FamilyAccountCreditWithAdmin } from "@/types";
 import { createFamily, type CreateFamilyInput } from "./actions/createFamily";
 import { addParent, type AddParentInput } from "./actions/addParent";
 import { updateParent, type UpdateParentInput } from "./actions/updateParent";
@@ -33,15 +38,53 @@ export default function FamiliesAdmin() {
   const [modalError, setModalError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Credit balances keyed by family_id (sum of unused active credits)
+  const [creditBalances, setCreditBalances] = useState<Record<string, number>>({});
+  // Issue credit modal state
+  const [creditModal, setCreditModal] = useState<{ familyId: string; familyName: string } | null>(null);
+  // View credits modal state
+  const [viewCreditsModal, setViewCreditsModal] = useState<{ familyId: string; familyName: string } | null>(null);
+  const [viewCreditsData, setViewCreditsData] = useState<FamilyAccountCreditWithAdmin[]>([]);
+  const [viewCreditsLoading, setViewCreditsLoading] = useState(false);
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditReason, setCreditReason] = useState("");
+  const [creditError, setCreditError] = useState("");
+  const [creditSubmitting, setCreditSubmitting] = useState(false);
+  const [creditToast, setCreditToast] = useState<string | null>(null);
+
+  const loadCreditBalances = async (familyIds: string[]) => {
+    if (!familyIds.length) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("family_account_credits")
+      .select("family_id, amount")
+      .in("family_id", familyIds)
+      .is("used_in_batch_id", null)
+      .eq("is_active", true);
+    if (!data) return;
+    const balances: Record<string, number> = {};
+    for (const row of data) {
+      balances[row.family_id] = (balances[row.family_id] ?? 0) + Number(row.amount);
+    }
+    setCreditBalances(balances);
+  };
+
   const reload = async () => {
     const data = await getFamilies();
-    setFamilies((data as Family[]) ?? []);
+    const families = (data as Family[]) ?? [];
+    setFamilies(families);
+    await loadCreditBalances(families.map((f) => f.id));
   };
 
   useEffect(() => {
     getFamilies()
-      .then((data) => setFamilies((data as Family[]) ?? []))
+      .then((data) => {
+        const families = (data as Family[]) ?? [];
+        setFamilies(families);
+        loadCreditBalances(families.map((f) => f.id));
+      })
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const closeModal = () => {
@@ -121,6 +164,61 @@ export default function FamiliesAdmin() {
       closeModal();
     });
 
+  /* ── Credit handlers ──────────────────────────────────────────────────── */
+
+  async function openViewCreditsModal(familyId: string, familyName: string) {
+    setViewCreditsModal({ familyId, familyName });
+    setViewCreditsData([]);
+    setViewCreditsLoading(true);
+    const data = await getFamilyCredits(familyId);
+    setViewCreditsData(data);
+    setViewCreditsLoading(false);
+  }
+
+  function openCreditModal(familyId: string, familyName: string) {
+    setCreditModal({ familyId, familyName });
+    setCreditAmount("");
+    setCreditReason("");
+    setCreditError("");
+  }
+
+  function closeCreditModal() {
+    setCreditModal(null);
+    setCreditAmount("");
+    setCreditReason("");
+    setCreditError("");
+  }
+
+  async function handleIssueCredit() {
+    if (!creditModal) return;
+    const amount = parseFloat(creditAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setCreditError("Please enter a valid amount greater than $0.");
+      return;
+    }
+    setCreditSubmitting(true);
+    setCreditError("");
+    const result = await issueAccountCredit({
+      familyId: creditModal.familyId,
+      amount,
+      reason: creditReason || undefined,
+    });
+    setCreditSubmitting(false);
+    if (result.error) {
+      setCreditError(result.error);
+      return;
+    }
+    // Update local balance
+    setCreditBalances((prev) => ({
+      ...prev,
+      [creditModal.familyId]: (prev[creditModal.familyId] ?? 0) + amount,
+    }));
+    const formattedAmount = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amount);
+    setCreditToast(`Credit of ${formattedAmount} issued to ${creditModal.familyName}.`);
+    setTimeout(() => setCreditToast(null), 5000);
+    closeCreditModal();
+  }
+
   /* ── Render ───────────────────────────────────────────────────────────── */
 
   if (loading) {
@@ -135,6 +233,112 @@ export default function FamiliesAdmin() {
 
   return (
     <main className="max-w-7xl mx-auto px-6 py-10 space-y-10">
+      {/* Toast */}
+      {creditToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-green-700 text-white text-sm px-4 py-3 rounded-lg shadow-lg">
+          {creditToast}
+        </div>
+      )}
+
+      {/* Issue Credit Modal */}
+      {creditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5">
+            <h2 className="text-lg font-semibold text-neutral-900">Issue Account Credit</h2>
+            <p className="text-sm text-neutral-500">
+              Credit will be added to <strong>{creditModal.familyName}</strong>&apos;s account and can be applied toward any future registration for any family member.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Credit amount <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  value={creditAmount}
+                  onChange={(e) => { setCreditAmount(e.target.value); setCreditError(""); }}
+                  className="w-full pl-7 pr-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Reason <span className="text-neutral-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Missed class — no makeup available"
+                value={creditReason}
+                onChange={(e) => setCreditReason(e.target.value)}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            {creditError && <p className="text-sm text-red-600">{creditError}</p>}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={closeCreditModal}
+                disabled={creditSubmitting}
+                className="flex-1 rounded-lg border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleIssueCredit}
+                disabled={creditSubmitting || !creditAmount}
+                className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {creditSubmitting ? "Issuing…" : "Issue Credit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Credits Modal */}
+      {viewCreditsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 space-y-5 max-h-[80vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between shrink-0">
+              <div>
+                <h2 className="text-lg font-semibold text-neutral-900">Account Credits</h2>
+                <p className="text-sm text-neutral-500 mt-0.5">{viewCreditsModal.familyName}</p>
+              </div>
+              <button
+                onClick={() => setViewCreditsModal(null)}
+                className="text-sm text-neutral-400 hover:text-neutral-600 border border-neutral-200 px-3 py-1.5 rounded-lg hover:bg-neutral-50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 shrink-0">
+              Credit History
+            </p>
+
+            {/* Scrollable list */}
+            <div className="overflow-y-auto flex-1 space-y-2">
+              {viewCreditsLoading ? (
+                <p className="text-sm text-neutral-400 py-6 text-center">Loading…</p>
+              ) : viewCreditsData.length === 0 ? (
+                <div className="bg-neutral-50 border border-neutral-200 rounded-xl px-4 py-6 text-sm text-neutral-400 text-center">
+                  No credits issued for this family.
+                </div>
+              ) : (
+                viewCreditsData.map((credit) => (
+                  <CreditDetailRow key={credit.id} credit={credit} />
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex items-center justify-between">
         <div>
@@ -170,14 +374,35 @@ export default function FamiliesAdmin() {
                 className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-6"
               >
                 {/* Family Header */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
                   <h2 className="text-xl font-semibold text-neutral-900">
                     {family.family_name}
                   </h2>
-                  <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-neutral-100 text-neutral-600">
-                    {family.dancers.length} Dancer
-                    {family.dancers.length !== 1 ? "s" : ""}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(creditBalances[family.id] ?? 0) > 0 && (
+                      <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(creditBalances[family.id])} credit
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => openViewCreditsModal(family.id, family.family_name ?? "This family")}
+                      className="text-xs text-neutral-600 hover:text-neutral-900 font-medium border border-neutral-200 px-2.5 py-1 rounded-lg hover:bg-neutral-50 transition-colors"
+                    >
+                      View Credits
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openCreditModal(family.id, family.family_name ?? "This family")}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+                    >
+                      Issue Credit
+                    </button>
+                    <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-neutral-100 text-neutral-600">
+                      {family.dancers.length} Dancer
+                      {family.dancers.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Parents */}

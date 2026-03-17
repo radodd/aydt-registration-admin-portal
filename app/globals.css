@@ -207,7 +207,7 @@
     color: var(--admin-text);
   }
   .admin-sidebar {
-    width: var(--admin-sidebar-width);
+    /* width is controlled by inline style for animation */
     background: var(--admin-sidebar-bg);
     border-right: 1px solid var(--admin-sidebar-border);
     @apply fixed top-0 left-0 h-full flex flex-col z-30;
