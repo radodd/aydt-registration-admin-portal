@@ -342,6 +342,8 @@ async function clearDatabase() {
     ["registrations"],
     ["waitlist_entries"],
     ["registration_batches"],
+    ["stored_payment_methods"],
+    ["shoppers"],
     ["registration_days"],
     ["requirement_waivers"],
     ["concurrent_enrollment_options"],
@@ -3055,6 +3057,82 @@ async function seedAYDTClassCatalog() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// N.  STORED PAYMENT METHODS (shoppers + credit cards)
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedStoredPaymentMethods(users: UserRow[]) {
+  console.log("💳  Seeding shoppers + stored credit cards for 6 parents…");
+
+  const CARD_POOL: {
+    scheme: string;
+    masked: string;
+    last4: string;
+  }[] = [
+    { scheme: "VISA",       masked: "4111 **** **** 1111", last4: "1111" },
+    { scheme: "VISA",       masked: "4532 **** **** 7894", last4: "7894" },
+    { scheme: "MASTERCARD", masked: "5425 **** **** 3456", last4: "3456" },
+    { scheme: "MASTERCARD", masked: "5105 **** **** 5100", last4: "5100" },
+    { scheme: "AMEX",       masked: "3714 ****** *9999",   last4: "9999" },
+    { scheme: "DISCOVER",   masked: "6011 **** **** 0004", last4: "0004" },
+  ];
+
+  // Future expiry options (year 2027–2029)
+  const EXPIRIES: { month: number; year: number }[] = [
+    { month: 3,  year: 2027 },
+    { month: 8,  year: 2027 },
+    { month: 11, year: 2027 },
+    { month: 2,  year: 2028 },
+    { month: 6,  year: 2028 },
+    { month: 9,  year: 2029 },
+  ];
+
+  const shopperRows: Record<string, unknown>[] = [];
+  const cardRows: Record<string, unknown>[] = [];
+
+  for (const [i, parent] of users.entries()) {
+    const shopperId = uid();
+    const epgShopperId = `SHP-${faker.string.alphanumeric(10).toUpperCase()}`;
+
+    shopperRows.push({
+      id: shopperId,
+      user_id: parent.id,
+      epg_shopper_id: epgShopperId,
+      epg_shopper_href: `https://api.elavon.com/api/2/shoppers/${epgShopperId}`,
+      full_name: `${parent.first_name} ${parent.last_name}`,
+      email: parent.email,
+    });
+
+    // Give most parents 1 card; every other parent gets a second card
+    const cardCount = i % 2 === 0 ? 2 : 1;
+    for (let c = 0; c < cardCount; c++) {
+      const card = CARD_POOL[(i + c) % CARD_POOL.length]!;
+      const expiry = EXPIRIES[(i + c) % EXPIRIES.length]!;
+      const epgStoredId = `SPM-${faker.string.alphanumeric(12).toUpperCase()}`;
+
+      cardRows.push({
+        id: uid(),
+        shopper_id: shopperId,
+        type: "card",
+        epg_stored_id: epgStoredId,
+        epg_stored_href: `https://api.elavon.com/api/2/stored-cards/${epgStoredId}`,
+        masked_number: card.masked,
+        card_scheme: card.scheme,
+        card_last4: card.last4,
+        expiration_month: expiry.month,
+        expiration_year: expiry.year,
+        is_default: c === 0, // first card is default
+      });
+    }
+  }
+
+  await ins("shoppers", shopperRows);
+  await ins("stored_payment_methods", cardRows);
+
+  console.log(
+    `  ✓ ${shopperRows.length} shoppers, ${cardRows.length} stored cards\n`,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN
 // ─────────────────────────────────────────────────────────────────────────────
 async function main() {
@@ -3066,6 +3144,7 @@ async function main() {
   await seedAdmin();
 
   const { families, users, dancers } = await seedFamilies();
+  await seedStoredPaymentMethods(users);
   await seedSemesters();
   await seedSpecialProgramTuition();
   await seedDiscounts();
@@ -3097,6 +3176,7 @@ async function main() {
   console.log("  Emails      : 5 (draft, scheduled, sending, sent, cancelled)");
   console.log("  Waitlist    : 9 entries across 2 Spring 2026 sessions");
   console.log("  Coupons     : LWF (20% tuition) + PLANT50 ($50 promo) + early-reg auto-apply per semester");
+  console.log("  Cards       : 6 shoppers + 9 stored credit cards (VISA/MC/AMEX/DISCOVER)");
 }
 
 main().catch((err) => {
