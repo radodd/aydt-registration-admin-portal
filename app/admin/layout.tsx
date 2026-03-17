@@ -13,10 +13,8 @@ import {
   Users,
   Home,
   CreditCard,
-  BadgeDollarSign,
   UserCircle,
   LogOut,
-  ShieldCheck,
   LayoutDashboard,
 } from "lucide-react";
 import { TopBar } from "./_components/TopBar";
@@ -36,7 +34,6 @@ const NAV_GROUPS = [
     items: [
       { href: "/admin/dancers",   label: "Dancers",    icon: Users },
       { href: "/admin/families",  label: "Families",   icon: Home },
-      { href: "/admin/users",     label: "Users",      icon: ShieldCheck },
     ],
   },
   {
@@ -50,7 +47,6 @@ const NAV_GROUPS = [
     label: "Content",
     items: [
       { href: "/admin/media",     label: "Media",      icon: ImageIcon },
-      { href: "/admin/credits",   label: "Credits",    icon: BadgeDollarSign },
     ],
   },
 ];
