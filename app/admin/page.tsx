@@ -7,7 +7,7 @@ import { DashboardRightPanel } from "./_components/DashboardRightPanel";
 import { EmailsTabSection } from "./_components/EmailsTabSection";
 import { Badge } from "@/app/components/ui";
 import type { BadgeStatus } from "@/app/components/ui";
-import { Search, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal } from "lucide-react";
+import { Search, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Plus } from "lucide-react";
 import { archiveSemester } from "./semesters/actions/archiveSemester";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
@@ -276,9 +276,27 @@ function OverviewTab({
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [openRegMenuId, setOpenRegMenuId] = useState<string | null>(null);
+  const [semView, setSemView] = useState<"active" | "past">("active");
+  const [archivedSemesters, setArchivedSemesters] = useState<SemesterRow[]>([]);
+  const [archivedLoading, setArchivedLoading] = useState(false);
+
+  useEffect(() => {
+    if (semView !== "past") return;
+    setArchivedLoading(true);
+    createClient()
+      .from("semesters")
+      .select("id, name, status, publish_at, created_at")
+      .eq("status", "archived")
+      .order("created_at", { ascending: false })
+      .then(({ data: rows }) => {
+        setArchivedSemesters((rows ?? []).map((s) => ({ ...s })));
+        setArchivedLoading(false);
+      });
+  }, [semView]);
 
   const displayed = useMemo(() => {
-    let list = [...activeSemesters];
+    const source = semView === "active" ? activeSemesters : archivedSemesters;
+    let list = [...source];
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((s) => s.name.toLowerCase().includes(q));
@@ -291,7 +309,7 @@ function OverviewTab({
       });
     }
     return list;
-  }, [activeSemesters, search, statusSort]);
+  }, [activeSemesters, archivedSemesters, semView, search, statusSort]);
 
   function cycleStatusSort() {
     setStatusSort((prev) =>
@@ -332,7 +350,43 @@ function OverviewTab({
 
       {/* Active semesters */}
       <div className="admin-card overflow-hidden">
-        <SectionHeader title="Active semesters" linkLabel="All semesters" linkHref="/admin/semesters" />
+        <div
+          className="flex items-center justify-between px-5 py-3 border-b"
+          style={{ borderColor: "var(--admin-border-sub)" }}
+        >
+          <p className="text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>
+            Semesters
+          </p>
+          <div className="flex items-center gap-2">
+            {/* Active / Past toggle */}
+            <div className="inline-flex rounded-md overflow-hidden" style={{ border: "1px solid var(--admin-border)" }}>
+              {(["active", "past"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setSemView(v)}
+                  className="px-3 py-1 text-[11.5px] font-medium transition-colors"
+                  style={{
+                    background: semView === v ? "var(--admin-sidebar-active)" : "var(--admin-surface-sub)",
+                    color: semView === v ? "#fff" : "var(--admin-text-muted)",
+                    borderRight: v === "active" ? "1px solid var(--admin-border)" : "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {v === "active" ? "Active" : "Past"}
+                </button>
+              ))}
+            </div>
+            {/* Create semester */}
+            <Link
+              href="/admin/semesters/new"
+              className="flex items-center gap-1 px-2.5 py-1 rounded text-[11.5px] font-medium"
+              style={{ background: "var(--admin-sidebar-active)", color: "#fff" }}
+            >
+              <Plus size={12} />
+              Create
+            </Link>
+          </div>
+        </div>
 
         {/* Search bar */}
         <div className="px-5 py-2.5 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
@@ -389,11 +443,23 @@ function OverviewTab({
           <span className="w-10" />
         </div>
 
-        {displayed.length === 0 ? (
+        {archivedLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div
+              className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: "var(--admin-sidebar-active)", borderTopColor: "transparent" }}
+            />
+          </div>
+        ) : displayed.length === 0 ? (
           <p className="px-5 py-6 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
-            {search ? `No semesters matching "${search}"` : "No active semesters"}
+            {search
+              ? `No semesters matching "${search}"`
+              : semView === "active"
+              ? "No active semesters"
+              : "No archived semesters"}
           </p>
         ) : (
+          <div className="overflow-y-auto" style={{ maxHeight: "272px" }}>
           <ul>
             {displayed.map((s, i) => (
               <li
@@ -464,7 +530,7 @@ function OverviewTab({
                         Edit
                       </Link>
                       <Link
-                        href={`/admin/semesters/${s.id}`}
+                        href={`/admin/classes?semester=${s.id}`}
                         onClick={() => setOpenMenuId(null)}
                         className="flex items-center px-3.5 py-2 text-[12px] transition-colors"
                         style={{ color: "var(--admin-text)", background: "transparent", display: "flex" }}
@@ -524,6 +590,7 @@ function OverviewTab({
               </li>
             ))}
           </ul>
+          </div>
         )}
       </div>
 

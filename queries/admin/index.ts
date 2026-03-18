@@ -178,6 +178,7 @@ export async function getUsers() {
 
 export interface Registrant {
   id: string;
+  dancerId: string | null;
   dancerName: string;
   parentEmail: string | null;
   parentName: string | null;
@@ -185,6 +186,7 @@ export interface Registrant {
   sessionLabel: string;
   enrollmentType: "per_session" | "full_schedule";
   createdAt: string;
+  sessionId: string | null;
 }
 
 export async function getClassWithSemester(classId: string) {
@@ -242,6 +244,7 @@ export async function getClassRegistrants(
         : "";
       results.push({
         id: r.id,
+        dancerId: dancer?.id ?? null,
         dancerName: dancer
           ? `${dancer.first_name} ${dancer.last_name}`
           : "Unknown",
@@ -255,6 +258,7 @@ export async function getClassRegistrants(
           : "—",
         enrollmentType: "per_session",
         createdAt: r.created_at,
+        sessionId: r.session_id,
       });
     }
   }
@@ -319,6 +323,7 @@ export async function getClassRegistrants(
         .join("/");
       results.push({
         id: e.id,
+        dancerId: dancer?.id ?? null,
         dancerName: dancer
           ? `${dancer.first_name} ${dancer.last_name}`
           : "Unknown",
@@ -332,6 +337,7 @@ export async function getClassRegistrants(
           : "—",
         enrollmentType: "full_schedule",
         createdAt: e.created_at,
+        sessionId: null,
       });
     }
   }
