@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -75,14 +75,26 @@ export function TopBar() {
 
       <div className="flex items-center gap-2">
         <NotificationBell />
-        <Link
-          href="/admin/register"
-          className="admin-btn-primary inline-flex items-center gap-1.5"
-          style={{ fontSize: "13px", padding: "7px 14px" }}
-        >
-          <Plus size={14} />
-          Register dancer
-        </Link>
+        {pathname === "/admin/media" ? (
+          <button
+            type="button"
+            onClick={() => document.dispatchEvent(new CustomEvent("media:open-upload"))}
+            className="admin-btn-primary inline-flex items-center gap-1.5"
+            style={{ fontSize: "13px", padding: "7px 14px" }}
+          >
+            <Upload size={14} />
+            Upload image
+          </button>
+        ) : (
+          <Link
+            href="/admin/register"
+            className="admin-btn-primary inline-flex items-center gap-1.5"
+            style={{ fontSize: "13px", padding: "7px 14px" }}
+          >
+            <Plus size={14} />
+            Register dancer
+          </Link>
+        )}
       </div>
     </div>
   );

@@ -5,10 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import {
-  CalendarDays,
   GraduationCap,
-  Clock,
-  Mail,
   ImageIcon,
   Users,
   Home,
@@ -24,9 +21,7 @@ const NAV_GROUPS = [
   {
     label: "Studio",
     items: [
-      { href: "/admin/semesters", label: "Semesters",  icon: CalendarDays },
       { href: "/admin/classes",   label: "Classes",    icon: GraduationCap },
-      { href: "/admin/sessions",  label: "Sessions",   icon: Clock },
     ],
   },
   {
@@ -40,7 +35,6 @@ const NAV_GROUPS = [
     label: "Finance & Comms",
     items: [
       { href: "/admin/payments",  label: "Payments",   icon: CreditCard },
-      { href: "/admin/emails",    label: "Emails",     icon: Mail },
     ],
   },
   {

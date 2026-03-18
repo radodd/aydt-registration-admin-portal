@@ -2,16 +2,19 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Bell } from "lucide-react";
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
 type AlertItem = {
   type: "draft" | "overdue" | "registration";
   message: string;
   dotColor: string;
+  href: string;
 };
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
+  const [hasSeen, setHasSeen] = useState(false);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
@@ -31,6 +34,7 @@ export function NotificationBell() {
           type: "draft",
           message: `${draftCount} draft semester${draftCount !== 1 ? "s" : ""} pending review`,
           dotColor: "#3A3080",
+          href: "/admin/semesters",
         });
       }
 
@@ -44,6 +48,7 @@ export function NotificationBell() {
           type: "overdue",
           message: `${overdueCount} overdue payment${overdueCount !== 1 ? "s" : ""}`,
           dotColor: "#7A4E08",
+          href: "/admin/payments",
         });
       }
 
@@ -59,6 +64,7 @@ export function NotificationBell() {
           type: "registration",
           message: `${recentCount} new registration${recentCount !== 1 ? "s" : ""} in last 24h`,
           dotColor: "#0A5A50",
+          href: "/admin/classes",
         });
       }
 
@@ -82,7 +88,11 @@ export function NotificationBell() {
   return (
     <div ref={ref} className="relative">
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          const next = !open;
+          setOpen(next);
+          if (next) setHasSeen(true);
+        }}
         className="relative flex items-center justify-center rounded-lg transition-colors"
         style={{
           width: "34px",
@@ -93,7 +103,7 @@ export function NotificationBell() {
         }}
       >
         <Bell size={15} />
-        {!loading && alerts.length > 0 && (
+        {!loading && alerts.length > 0 && !hasSeen && (
           <span
             className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full"
             style={{ background: "#C0392B" }}
@@ -145,7 +155,15 @@ export function NotificationBell() {
           ) : (
             <div className="py-1">
               {alerts.map((a, i) => (
-                <div key={i} className="flex items-start gap-3 px-4 py-2.5">
+                <Link
+                  key={i}
+                  href={a.href}
+                  onClick={() => setOpen(false)}
+                  className="flex items-start gap-3 px-4 py-2.5 transition-colors"
+                  style={{ color: "inherit" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
                   <div
                     className="w-1.5 h-1.5 rounded-full shrink-0 mt-[5px]"
                     style={{ background: a.dotColor }}
@@ -159,7 +177,7 @@ export function NotificationBell() {
                   >
                     {a.message}
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           )}

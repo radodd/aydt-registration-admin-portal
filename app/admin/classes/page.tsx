@@ -10,6 +10,7 @@ import {
 } from "@/queries/admin";
 import { archiveClass } from "./actions/archiveClass";
 import { cancelClass } from "@/app/admin/semesters/actions/cancelClass";
+import { cancelEntireClass } from "./actions/cancelEntireClass";
 import { updateClassMeta, type ClassMetaUpdate } from "./actions/updateClassMeta";
 import { initEmailForClass } from "./actions/initEmailForClass";
 import { listTemplates } from "@/app/admin/emails/actions/listTemplates";
@@ -404,6 +405,100 @@ function EditClassModal({
   );
 }
 
+// ─── Cancel Class Modal ───────────────────────────────────────────────────────
+
+function CancelClassModal({
+  cls,
+  registrantCount,
+  onClose,
+  onCancelled,
+}: {
+  cls: ClassDetail;
+  registrantCount: number;
+  onClose: () => void;
+  onCancelled: (notified: number) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function handleConfirm() {
+    if (!reason.trim()) {
+      setError("Please enter a cancellation reason.");
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await cancelEntireClass(cls.id, reason.trim());
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      onCancelled(result.notified ?? 0);
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-neutral-900">Cancel Class</h2>
+          <p className="text-sm text-neutral-500 mt-1">
+            <strong>{cls.name}</strong> will be marked inactive.
+            {registrantCount > 0 && (
+              <>
+                {" "}
+                <strong>{registrantCount}</strong> enrolled famil
+                {registrantCount === 1 ? "y" : "ies"} will be notified via{" "}
+                <strong>email and SMS</strong>.
+              </>
+            )}
+          </p>
+        </div>
+
+        {error && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs uppercase tracking-wide text-neutral-400 mb-1">
+            Reason <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => {
+              setReason(e.target.value);
+              setError(null);
+            }}
+            rows={3}
+            placeholder="e.g. Instructor unavailable, low enrollment…"
+            className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300 resize-none text-slate-700"
+          />
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <button
+            onClick={onClose}
+            disabled={pending}
+            className="text-sm text-neutral-500 hover:text-neutral-800 transition disabled:opacity-50"
+          >
+            Dismiss
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={pending}
+            className="px-5 py-2 rounded-xl text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-50"
+          >
+            {pending ? "Cancelling…" : "Cancel Class"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Class List Row ───────────────────────────────────────────────────────────
 
 function ClassListRow({
@@ -522,6 +617,7 @@ function ClassDetailPanel({
   onEmail,
   onEdit,
   onArchive,
+  onCancelClass,
   archiving,
   archiveError,
 }: {
@@ -530,6 +626,7 @@ function ClassDetailPanel({
   onEmail: () => void;
   onEdit: () => void;
   onArchive: () => void;
+  onCancelClass: () => void;
   archiving: boolean;
   archiveError: string | null;
 }) {
@@ -809,6 +906,16 @@ function ClassDetailPanel({
           >
             Edit in Semester →
           </Link>
+        )}
+
+        {detail.is_active && (
+          <button
+            onClick={onCancelClass}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition hover:bg-red-50"
+            style={{ border: "0.5px solid rgba(193, 75, 59, 0.4)", color: "#C14B3B" }}
+          >
+            Cancel Class
+          </button>
         )}
       </div>
 
@@ -1193,6 +1300,8 @@ function ClassesPageContent() {
 
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCancelClassModal, setShowCancelClassModal] = useState(false);
+  const [cancelClassToast, setCancelClassToast] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
 
@@ -1311,6 +1420,17 @@ function ClassesPageContent() {
     setShowEditModal(false);
   }
 
+  function handleClassCancelled(notified: number) {
+    setShowCancelClassModal(false);
+    setDetail((prev) => (prev ? { ...prev, is_active: false } : prev));
+    setClasses((prev) =>
+      prev.map((c) => (c.id === detail?.id ? { ...c, is_active: false } : c))
+    );
+    const msg = `Class cancelled. ${notified} famil${notified === 1 ? "y" : "ies"} notified via email & SMS.`;
+    setCancelClassToast(msg);
+    setTimeout(() => setCancelClassToast(null), 5000);
+  }
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return classes.filter((cls) => {
@@ -1346,6 +1466,24 @@ function ClassesPageContent() {
           onClose={() => setShowEditModal(false)}
           onSaved={handleEditSaved}
         />
+      )}
+      {showCancelClassModal && detail && (
+        <CancelClassModal
+          cls={detail}
+          registrantCount={registrants.filter(
+            (r) => r.status !== "declined" && r.status !== "cancelled"
+          ).length}
+          onClose={() => setShowCancelClassModal(false)}
+          onCancelled={handleClassCancelled}
+        />
+      )}
+      {cancelClassToast && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white"
+          style={{ background: "#201D18" }}
+        >
+          {cancelClassToast}
+        </div>
       )}
 
       {/* Master-detail layout — breaks out of layout padding */}
@@ -1523,6 +1661,7 @@ function ClassesPageContent() {
               onEmail={() => setShowEmailModal(true)}
               onEdit={() => setShowEditModal(true)}
               onArchive={handleArchive}
+              onCancelClass={() => setShowCancelClassModal(true)}
               archiving={archiving}
               archiveError={archiveError}
             />

@@ -1149,6 +1149,7 @@ export type DetailsStepProps = {
   state: SemesterDraft;
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
+  onRegisterSubmit?: (fn: () => void) => void;
 };
 
 export type DetailsFormState = {

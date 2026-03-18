@@ -18,6 +18,10 @@ import {
 } from "./actions/semesterLifecycle";
 import { persistSemesterDraft } from "./actions/persistSemesterDraft";
 import RegistrationFormStep from "./steps/RegistrationFormStep";
+import Link from "next/link";
+import { ChevronLeft, Eye } from "lucide-react";
+import { Badge } from "@/app/components/ui";
+import type { BadgeStatus } from "@/app/components/ui";
 
 function semesterReducer(
   state: SemesterDraft,
@@ -137,15 +141,15 @@ function semesterReducer(
 /* -------------------------------------------------------------------------- */
 
 const STEPS = [
-  { key: "details", label: "Details" },
-  { key: "sessions", label: "Classes & Offerings" },
-  { key: "sessionGroups", label: "Class Groups" },
-  { key: "payment", label: "Payment" },
-  { key: "discounts", label: "Discounts" },
-  { key: "registrationForm", label: "Registration Form" },
-  { key: "confirmationEmail", label: "Confirmation Email" },
-  { key: "waitlist", label: "Waitlist" },
-  { key: "review", label: "Review" },
+  { key: "details",           label: "Details" },
+  { key: "sessions",          label: "Classes & offerings" },
+  { key: "sessionGroups",     label: "Class groups" },
+  { key: "payment",           label: "Payment" },
+  { key: "discounts",         label: "Discounts" },
+  { key: "registrationForm",  label: "Registration form" },
+  { key: "confirmationEmail", label: "Confirmation email" },
+  { key: "waitlist",          label: "Waitlist" },
+  { key: "review",            label: "Review & publish" },
 ] as const;
 
 type StepKey = (typeof STEPS)[number]["key"];
@@ -159,6 +163,7 @@ type SemesterFormProps = {
   basePath: string;
   initialState?: SemesterDraft;
   isLocked?: boolean;
+  semesterStatus?: string;
 };
 
 export default function SemesterForm({
@@ -166,6 +171,7 @@ export default function SemesterForm({
   basePath,
   initialState,
   isLocked = false,
+  semesterStatus,
 }: SemesterFormProps) {
   const [state, dispatch] = useReducer(
     semesterReducer,
@@ -202,6 +208,7 @@ export default function SemesterForm({
   );
   const isDirty = JSON.stringify(state) !== persistedSnapshotRef.current;
   const [isSaving, setIsSaving] = useState(false);
+  const [showExitModal, setShowExitModal] = useState(false);
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -245,6 +252,70 @@ export default function SemesterForm({
     navigateToStep(activeStepIndex - 1);
   }
 
+  /* ------------------------- Step Submit Handler ------------------------- */
+
+  // Each step can register its own submit handler (validation + dispatch + navigate).
+  // If none is registered for the current step, the footer Next button falls back
+  // to calling nextStep() directly.
+  const stepSubmitRef = useRef<(() => void) | undefined>();
+
+  useEffect(() => {
+    stepSubmitRef.current = undefined;
+  }, [activeStepKey]);
+
+  function registerStepSubmit(fn: () => void) {
+    stepSubmitRef.current = fn;
+  }
+
+  function handleFooterNext() {
+    if (stepSubmitRef.current) {
+      stepSubmitRef.current();
+    } else {
+      nextStep();
+    }
+  }
+
+  /* ----------------------- Manual Save (top bar) ------------------------- */
+
+  async function handleSaveDraft() {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const current = stateRef.current;
+      const { semesterId } = await persistSemesterDraft(current);
+      if (!current.id) dispatch({ type: "SET_ID", payload: semesterId });
+      persistedSnapshotRef.current = JSON.stringify({
+        ...current,
+        id: current.id ?? semesterId,
+      });
+    } catch {
+      // silent
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  /* ------------------------- Exit with Save ------------------------------ */
+
+  async function handleExitConfirm() {
+    setShowExitModal(false);
+    setIsSaving(true);
+    try {
+      const current = stateRef.current;
+      const { semesterId } = await persistSemesterDraft(current);
+      if (!current.id) dispatch({ type: "SET_ID", payload: semesterId });
+      persistedSnapshotRef.current = JSON.stringify({
+        ...current,
+        id: current.id ?? semesterId,
+      });
+    } catch {
+      // silent — navigate regardless
+    } finally {
+      setIsSaving(false);
+    }
+    router.push("/admin/semesters");
+  }
+
   /* ------------------------- Dev Test Data Fill -------------------------- */
 
   async function fillTestData() {
@@ -268,7 +339,12 @@ export default function SemesterForm({
 
   const stepRenderers: Record<StepKey, JSX.Element> = {
     details: (
-      <DetailsStep state={state} dispatch={dispatchAndSync} onNext={nextStep} />
+      <DetailsStep
+        state={state}
+        dispatch={dispatchAndSync}
+        onNext={nextStep}
+        onRegisterSubmit={registerStepSubmit}
+      />
     ),
     sessions: (
       <SessionsStep
@@ -375,67 +451,271 @@ export default function SemesterForm({
     ),
   };
 
+  /* ------------------------------ Status --------------------------------- */
+
+  const statusLabel = semesterStatus
+    ? semesterStatus.charAt(0).toUpperCase() + semesterStatus.slice(1)
+    : mode === "create"
+    ? "Draft"
+    : "Draft";
+
+  const statusBadge: BadgeStatus =
+    (semesterStatus as BadgeStatus) ?? "draft";
+
+  const semesterTitle =
+    state.details?.name ||
+    (mode === "create" ? "New Semester" : "Edit Semester");
+
+  /* ------------------------------ Render --------------------------------- */
+
   return (
-    <>
-      <div className="relative mx-auto max-w-5xl p-6 text-slate-700">
-        <h1 className="mb-4 text-2xl font-semibold">
-          {mode === "create" ? "Create New" : "Edit"} Semester
-        </h1>
+    // Break out of admin layout's px-8 py-8 and take over the full viewport
+    // (left: 52px accounts for the collapsed admin sidebar)
+    <div
+      className="fixed inset-0 flex"
+      style={{ zIndex: 40 }}
+    >
+      {/* ── Left wizard sidebar ─────────────────────────────────────── */}
+      <aside
+        className="shrink-0 flex flex-col overflow-y-auto"
+        style={{
+          width: "var(--admin-sidebar-width)",
+          background: "var(--admin-sidebar-bg)",
+          borderRight: "1px solid var(--admin-sidebar-border)",
+        }}
+      >
+        <div className="flex flex-col gap-0.5 px-2 py-6">
+          {STEPS.map((step, index) => {
+            const isActive = index === activeStepIndex;
+            return (
+              <button
+                key={step.key}
+                onClick={() => navigateToStep(index)}
+                className="flex items-center gap-2 px-2 py-2 rounded-lg text-left w-full transition-colors hover:bg-white/5"
+              >
+                <span
+                  className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
+                  style={
+                    isActive
+                      ? { background: "var(--admin-sidebar-active)", color: "#fff" }
+                      : { background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.35)" }
+                  }
+                >
+                  {index + 1}
+                </span>
+                <span
+                  className="text-sm font-medium leading-tight transition-colors"
+                  style={
+                    isActive
+                      ? { color: "#fff" }
+                      : { color: "var(--admin-sidebar-text)", opacity: 0.7 }
+                  }
+                >
+                  {step.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
 
-        {/* DEV: Fill Test Data */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="mb-4 flex items-center gap-3 rounded-lg border border-dashed border-purple-300 bg-purple-50 px-3 py-2">
-            <span className="font-mono text-xs font-semibold text-purple-400">DEV</span>
-            <button
-              type="button"
-              onClick={fillTestData}
-              className="text-sm font-medium text-purple-700 underline hover:text-purple-900"
+      {/* ── Right: main content ─────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+        {/* Top bar */}
+        <div
+          className="shrink-0 flex items-center justify-between px-6"
+          style={{
+            height: 52,
+            background: "var(--admin-surface)",
+            borderBottom: "1px solid var(--admin-border)",
+          }}
+        >
+          <button
+            onClick={() => setShowExitModal(true)}
+            className="flex items-center gap-1 text-sm transition-colors hover:opacity-80"
+            style={{ color: "var(--admin-text-faint)" }}
+          >
+            <ChevronLeft size={15} strokeWidth={2} />
+            Semesters
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span
+              className="text-sm font-semibold"
+              style={{ color: "var(--admin-text)" }}
             >
-              Fill Test Data
-            </button>
-            <span className="text-xs text-purple-400">
-              Populates all 9 steps with a complete test semester fixture
+              {semesterTitle}
             </span>
+            <Badge status={statusBadge}>{statusLabel}</Badge>
           </div>
-        )}
 
-        {/* Step Indicator */}
-        <div className="mb-8 flex flex-wrap gap-2">
-          {STEPS.map((step, index) => (
-            <button
-              key={step.key}
-              onClick={() => navigateToStep(index)}
-              className={`text-sm px-3 py-1 rounded-lg transition-colors ${
-                index === activeStepIndex
-                  ? "font-semibold text-primary-700 bg-primary-50"
-                  : "text-neutral-400 hover:text-neutral-600 hover:bg-neutral-50"
-              }`}
+          <div className="flex items-center gap-2">
+            <Link
+              href={state.id ? `/preview/semester/${state.id}` : "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm rounded-lg px-3 py-1.5 transition-colors hover:bg-neutral-50"
+              style={{
+                border: "1px solid var(--admin-border)",
+                color: "var(--admin-text-faint)",
+              }}
+              onClick={(e) => !state.id && e.preventDefault()}
             >
-              {index + 1}. {step.label}
+              <Eye size={13} strokeWidth={2} />
+              Preview semester
+            </Link>
+
+            <button
+              onClick={handleSaveDraft}
+              disabled={isSaving}
+              className="relative inline-flex items-center justify-center text-sm font-medium text-white rounded-lg px-4 py-1.5 transition-colors hover:opacity-90 disabled:opacity-60"
+              style={{ background: "var(--admin-sidebar-active)" }}
+            >
+              <span className={isSaving ? "invisible" : ""}>Save draft</span>
+              {isSaving && (
+                <span className="absolute inset-0 flex items-center justify-center">Saving…</span>
+              )}
             </button>
-          ))}
+          </div>
         </div>
 
-        {/* Step Content */}
-        {stepRenderers[activeStepKey]}
+        {/* Content area */}
+        <div
+          className="flex-1 overflow-y-auto p-8"
+          style={{ background: "var(--admin-page-bg)" }}
+        >
+          {/* Step indicator */}
+          <p
+            className="text-[11px] font-semibold uppercase tracking-widest mb-5"
+            style={{ color: "var(--admin-text-faint)" }}
+          >
+            Step {activeStepIndex + 1} of {STEPS.length}
+          </p>
 
-        {/* Unsaved changes toast — fixed, does not affect layout */}
-        {isDirty && (
-          <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-mauve/10 border border-mauve rounded-xl shadow-lg animate-fade-in">
-            <span className="text-mauve-text text-sm font-medium">
-              {isSaving ? "Saving…" : "Unsaved changes"}
-            </span>
-            {!isSaving && (
+          {/* DEV: Fill test data */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="mb-6 flex items-center gap-3 rounded-lg border border-dashed border-blue-200 bg-blue-50 px-3 py-2">
+              <span className="inline-flex items-center bg-blue-600 text-white text-[10px] font-bold rounded px-1.5 py-0.5 uppercase tracking-wide">
+                DEV
+              </span>
               <button
-                onClick={() => navigateToStep(activeStepIndex)}
-                className="text-sm text-mauve-text font-semibold underline"
+                type="button"
+                onClick={fillTestData}
+                className="text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors"
               >
-                Save Now
+                Fill test data
+              </button>
+              <span className="text-xs text-blue-500">
+                Populates all {STEPS.length} steps with a complete test semester fixture
+              </span>
+            </div>
+          )}
+
+          {/* Step content */}
+          {stepRenderers[activeStepKey]}
+        </div>
+
+        {/* Footer navigation */}
+        <div
+          className="shrink-0 flex items-center justify-between px-6 py-4"
+          style={{
+            background: "var(--admin-surface)",
+            borderTop: "1px solid var(--admin-border)",
+          }}
+        >
+          <span
+            className="text-sm"
+            style={{ color: "var(--admin-text-faint)" }}
+          >
+            Step {activeStepIndex + 1} of {STEPS.length} —{" "}
+            {STEPS[activeStepIndex].label}
+          </span>
+
+          <div className="flex items-center gap-3">
+            {activeStepIndex > 0 && (
+              <button
+                onClick={previousStep}
+                className="text-sm rounded-lg px-4 py-2 transition-colors hover:bg-neutral-50"
+                style={{
+                  border: "1px solid var(--admin-border)",
+                  color: "var(--admin-text-faint)",
+                }}
+              >
+                ← Back
+              </button>
+            )}
+
+            {activeStepIndex < STEPS.length - 1 && (
+              <button
+                onClick={handleFooterNext}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-white rounded-xl px-5 py-2.5 transition-colors hover:opacity-90 disabled:opacity-60"
+                style={{ background: "var(--admin-sidebar-active)" }}
+              >
+                Next — {STEPS[activeStepIndex + 1].label} →
               </button>
             )}
           </div>
-        )}
+        </div>
       </div>
-    </>
+
+      {/* ── Exit confirmation modal ──────────────────────────────────── */}
+      {showExitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div
+            className="w-full max-w-md rounded-2xl p-8 space-y-5 shadow-xl"
+            style={{ background: "var(--admin-surface)" }}
+          >
+            <div>
+              <h2
+                className="text-lg font-semibold"
+                style={{ color: "var(--admin-text)" }}
+              >
+                {mode === "create" ? "Save and exit?" : "Save changes and exit?"}
+              </h2>
+              <p
+                className="text-sm mt-1.5"
+                style={{ color: "var(--admin-text-muted)" }}
+              >
+                {mode === "create"
+                  ? "Your progress will be saved as a draft. You can continue setting up this semester any time from the Semesters list."
+                  : "Your changes will be saved as a draft. This semester will not be published until you complete and publish the edit flow."}
+              </p>
+            </div>
+
+            <div
+              className="rounded-xl px-4 py-3 text-sm"
+              style={{
+                background: "var(--admin-surface-sub)",
+                color: "var(--admin-text-muted)",
+                border: "0.5px solid var(--admin-border)",
+              }}
+            >
+              The semester will remain in <strong>Draft</strong> status until
+              you publish it from the Review &amp; publish step.
+            </div>
+
+            <div className="flex justify-end gap-3 pt-1">
+              <button
+                onClick={() => setShowExitModal(false)}
+                className="px-4 py-2 text-sm rounded-lg transition-colors hover:bg-neutral-100"
+                style={{ color: "var(--admin-text-muted)" }}
+              >
+                Keep editing
+              </button>
+              <button
+                onClick={handleExitConfirm}
+                disabled={isSaving}
+                className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-colors hover:opacity-90 disabled:opacity-60"
+                style={{ background: "var(--admin-sidebar-active)" }}
+              >
+                {isSaving ? "Saving…" : "Save draft & exit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

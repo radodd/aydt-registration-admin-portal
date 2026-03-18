@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { Resend } from "resend";
 import { sendSms } from "@/utils/sendSms";
 import { requireAdmin } from "@/utils/requireAdmin";
+import { wrapEmailLayout } from "@/utils/prepareEmailHtml";
 
 interface FamilyEntry {
   userId: string;
@@ -188,34 +189,17 @@ function buildCancellationEmailHtml(opts: {
   reason: string;
   parentFirstName: string;
 }): string {
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-    <body style="margin:0;padding:0;background-color:#f3f4f6;font-family:sans-serif;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f3f4f6">
-        <tr>
-          <td align="center" style="padding:32px 16px;">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;">
-              <tr>
-                <td style="padding:32px;">
-                  <p style="margin:0 0 16px;">Hi ${opts.parentFirstName},</p>
-                  <p style="margin:0 0 16px;">
-                    We regret to inform you that <strong>${opts.className}</strong>
-                    ${opts.semesterName ? `(${opts.semesterName})` : ""} has been <strong>cancelled</strong>.
-                  </p>
-                  <p style="margin:0 0 16px;"><strong>Reason:</strong> ${opts.reason}</p>
-                  <p style="margin:0 0 16px;">
-                    Please contact us if you have questions or would like to explore alternative classes.
-                  </p>
-                  <p style="margin:0;">— The AYDT Team</p>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </body>
-    </html>
+  const content = `
+    <p style="margin:0 0 16px;">Hi ${opts.parentFirstName},</p>
+    <p style="margin:0 0 16px;">
+      We regret to inform you that <strong>${opts.className}</strong>
+      ${opts.semesterName ? `(${opts.semesterName})` : ""} has been <strong>cancelled</strong>.
+    </p>
+    <p style="margin:0 0 16px;"><strong>Reason:</strong> ${opts.reason}</p>
+    <p style="margin:0 0 16px;">
+      Please contact us if you have questions or would like to explore alternative classes.
+    </p>
+    <p style="margin:0;">— The AYDT Team</p>
   `;
+  return wrapEmailLayout(content);
 }

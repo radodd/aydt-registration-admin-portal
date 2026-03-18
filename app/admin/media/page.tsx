@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { type MediaFolderRow, type MediaImage } from "@/types";
+import { Search, LayoutGrid, List, Upload, Folder } from "lucide-react";
 
 export default function MediaLibraryPage() {
-  const [images, setImages] = useState<MediaImage[]>([]);
+  const [allImages, setAllImages] = useState<MediaImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [folder, setFolder] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Folder management
   const [folders, setFolders] = useState<MediaFolderRow[]>([]);
@@ -36,7 +39,28 @@ export default function MediaLibraryPage() {
   const [uploadWarnings, setUploadWarnings] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Client-side filtered view
+  const images = useMemo(() => {
+    let filtered = allImages;
+    if (folder) filtered = filtered.filter((img) => img.folder === folder);
+    if (search) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter((img) =>
+        img.display_name.toLowerCase().includes(q)
+      );
+    }
+    return filtered;
+  }, [allImages, folder, search]);
+
+  // Counts per folder derived from full image list
+  const folderCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allImages.forEach((img) => {
+      counts[img.folder] = (counts[img.folder] || 0) + 1;
+    });
+    return counts;
+  }, [allImages]);
 
   const fetchFolders = useCallback(async () => {
     try {
@@ -48,17 +72,14 @@ export default function MediaLibraryPage() {
     }
   }, []);
 
-  const fetchImages = useCallback(async (q: string, f: string) => {
+  const fetchImages = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (q) params.set("search", q);
-    if (f) params.set("folder", f);
     try {
-      const res = await fetch(`/api/media?${params}`);
+      const res = await fetch("/api/media");
       const json = await res.json();
-      setImages((json.images as MediaImage[]) ?? []);
+      setAllImages((json.images as MediaImage[]) ?? []);
     } catch {
-      setImages([]);
+      setAllImages([]);
     } finally {
       setLoading(false);
     }
@@ -66,7 +87,7 @@ export default function MediaLibraryPage() {
 
   useEffect(() => {
     void fetchFolders();
-    fetchImages("", "");
+    void fetchImages();
   }, [fetchFolders, fetchImages]);
 
   // Auto-dismiss warnings after 6s
@@ -81,22 +102,14 @@ export default function MediaLibraryPage() {
     if (addingFolder) newFolderInputRef.current?.focus();
   }, [addingFolder]);
 
-  const handleSearchChange = (value: string) => {
-    setSearch(value);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => fetchImages(value, folder), 300);
-  };
+  // Listen for upload trigger from TopBar
+  useEffect(() => {
+    const handler = () => fileInputRef.current?.click();
+    document.addEventListener("media:open-upload", handler);
+    return () => document.removeEventListener("media:open-upload", handler);
+  }, []);
 
-  const handleFolderChange = (value: string) => {
-    setFolder(value);
-    fetchImages(search, value);
-  };
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
+  const uploadFile = async (file: File) => {
     setUploading(true);
     try {
       const form = new FormData();
@@ -109,12 +122,42 @@ export default function MediaLibraryPage() {
       if ((json.warnings as string[] | undefined)?.length) {
         setUploadWarnings(json.warnings as string[]);
       }
-      await fetchImages(search, folder);
+      await fetchImages();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    await uploadFile(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/gif", "image/webp"].includes(file.type)) {
+      alert("Please upload a PNG, JPG, GIF, or WebP image.");
+      return;
+    }
+    await uploadFile(file);
   };
 
   const handleRenameSubmit = async (id: string) => {
@@ -130,10 +173,8 @@ export default function MediaLibraryPage() {
         body: JSON.stringify({ display_name: trimmed }),
       });
       if (!res.ok) throw new Error("Rename failed");
-      setImages((prev) =>
-        prev.map((img) =>
-          img.id === id ? { ...img, display_name: trimmed } : img
-        )
+      setAllImages((prev) =>
+        prev.map((img) => (img.id === id ? { ...img, display_name: trimmed } : img))
       );
     } catch {
       alert("Rename failed. Please try again.");
@@ -146,7 +187,7 @@ export default function MediaLibraryPage() {
     try {
       const res = await fetch(`/api/media/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
-      setImages((prev) => prev.filter((img) => img.id !== id));
+      setAllImages((prev) => prev.filter((img) => img.id !== id));
     } catch {
       alert("Delete failed. Please try again.");
     } finally {
@@ -162,7 +203,9 @@ export default function MediaLibraryPage() {
         body: JSON.stringify({ folder: targetFolder }),
       });
       if (!res.ok) throw new Error("Move failed");
-      await fetchImages(search, folder);
+      setAllImages((prev) =>
+        prev.map((img) => (img.id === id ? { ...img, folder: targetFolder } : img))
+      );
     } catch {
       alert("Move failed. Please try again.");
     } finally {
@@ -200,8 +243,7 @@ export default function MediaLibraryPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error((json.error as string) ?? "Failed to delete folder");
-      // If we're viewing the deleted folder, go back to All Media
-      if (folder === name) handleFolderChange("");
+      if (folder === name) setFolder("");
       await fetchFolders();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Failed to delete folder");
@@ -213,52 +255,127 @@ export default function MediaLibraryPage() {
     setOpenMenuId(null);
   };
 
+  const activeFolderLabel = folder
+    ? (folders.find((f) => f.name === folder)?.label ?? folder)
+    : "All Media";
+
+  const imageMenuItems = (img: MediaImage) => (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setRenamingId(img.id);
+          setRenameValue(img.display_name);
+          setOpenMenuId(null);
+        }}
+        className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-neutral-50"
+      >
+        Rename
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setMovingImage(img);
+          setSelectedMoveFolder(img.folder);
+          setOpenMenuId(null);
+        }}
+        className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-neutral-50"
+      >
+        Move to…
+      </button>
+      <button
+        type="button"
+        onClick={() => copyUrl(img.public_url)}
+        className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-neutral-50"
+      >
+        Copy URL
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setDeletingId(img.id);
+          setOpenMenuId(null);
+        }}
+        className="w-full text-left px-3 py-1.5 text-red-600 hover:bg-red-50"
+      >
+        Delete
+      </button>
+    </>
+  );
+
   return (
-    <div className="flex gap-6 px-6 py-8 max-w-6xl mx-auto">
+    <div className="flex gap-6">
 
       {/* Left sidebar — folder navigation */}
-      <aside className="w-48 shrink-0">
-        <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide px-3 mb-2">
+      <aside className="w-48 shrink-0 bg-white rounded-2xl border border-neutral-100 p-4 self-start">
+        <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-widest px-3 mb-2">
           Folders
         </p>
         <nav className="space-y-0.5">
-          {/* All Media — pseudo-folder, never deletable */}
+          {/* All Media */}
           <button
             type="button"
-            onClick={() => handleFolderChange("")}
-            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition ${
+            onClick={() => setFolder("")}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition flex items-center justify-between gap-1 ${
               folder === ""
                 ? "bg-primary-50 text-primary-700"
-                : "text-neutral-600 hover:bg-neutral-100"
+                : "text-neutral-600 hover:bg-neutral-50"
             }`}
           >
-            All Media
+            <span className="flex items-center gap-2 truncate">
+              <Folder size={14} className="shrink-0" />
+              All Media
+            </span>
+            <span
+              className={`text-xs tabular-nums rounded-full px-1.5 py-0.5 shrink-0 ${
+                folder === ""
+                  ? "bg-primary-100 text-primary-700"
+                  : "bg-neutral-100 text-neutral-500"
+              }`}
+            >
+              {allImages.length}
+            </span>
           </button>
 
           {/* Dynamic folders */}
-          {folders.map((f) => (
-            <div key={f.name} className="group flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => handleFolderChange(f.name)}
-                className={`flex-1 text-left px-3 py-2 rounded-lg text-sm transition ${
-                  folder === f.name
-                    ? "bg-primary-50 text-primary-700 font-medium"
-                    : "text-neutral-600 hover:bg-neutral-100"
-                }`}
-              >
-                {f.label}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeletingFolder(f.name)}
-                className="opacity-0 group-hover:opacity-100 shrink-0 text-neutral-300 hover:text-red-500 text-sm leading-none px-1 transition-opacity"
-                title={`Delete ${f.label}`}
-              >
-                ×
-              </button>
-            </div>
-          ))}
+          {folders.map((f) => {
+            const count = folderCounts[f.name] ?? 0;
+            return (
+              <div key={f.name} className="group flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setFolder(f.name)}
+                  className={`flex-1 min-w-0 text-left px-3 py-2 rounded-lg text-sm transition flex items-center justify-between gap-1 ${
+                    folder === f.name
+                      ? "bg-primary-50 text-primary-700 font-medium"
+                      : "text-neutral-600 hover:bg-neutral-50"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 min-w-0 truncate">
+                    <Folder size={14} className="shrink-0" />
+                    <span className="truncate">{f.label}</span>
+                  </span>
+                  <span
+                    className={`text-xs tabular-nums rounded-full px-1.5 py-0.5 shrink-0 ${
+                      folder === f.name
+                        ? "bg-primary-100 text-primary-700"
+                        : "bg-neutral-100 text-neutral-500"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletingFolder(f.name)}
+                  className="opacity-0 group-hover:opacity-100 shrink-0 text-neutral-300 hover:text-red-500 text-sm leading-none px-1 transition-opacity"
+                  title={`Delete ${f.label}`}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
         </nav>
 
         {/* Add folder */}
@@ -316,47 +433,62 @@ export default function MediaLibraryPage() {
 
       {/* Main content */}
       <div className="flex-1 min-w-0">
-        {/* Page header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-xl font-semibold text-neutral-900">Media Library</h1>
-            <p className="text-sm text-neutral-500 mt-0.5">
-              Shared image library for all email templates
-            </p>
+        {/* Search + view toggle */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="relative flex-1">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+            />
+            <input
+              type="text"
+              placeholder="Search images…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full text-sm text-slate-700 placeholder:text-slate-400 border border-neutral-300 rounded-lg pl-9 pr-3 py-2 outline-none focus:ring-2 focus:ring-primary-600"
+            />
           </div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 transition"
-          >
-            {uploading ? "Uploading…" : "Upload Image"}
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            className="hidden"
-            onChange={handleUpload}
-          />
+          <div className="flex items-center border border-neutral-200 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setViewMode("grid")}
+              className={`px-2.5 py-2 transition ${
+                viewMode === "grid"
+                  ? "bg-neutral-100 text-neutral-700"
+                  : "text-neutral-400 hover:text-neutral-600"
+              }`}
+              title="Grid view"
+            >
+              <LayoutGrid size={15} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`px-2.5 py-2 transition ${
+                viewMode === "list"
+                  ? "bg-neutral-100 text-neutral-700"
+                  : "text-neutral-400 hover:text-neutral-600"
+              }`}
+              title="List view"
+            >
+              <List size={15} />
+            </button>
+          </div>
         </div>
 
-        {/* Search bar */}
-        <div className="mb-5">
-          <input
-            type="text"
-            placeholder="Search images…"
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full text-sm text-slate-700 placeholder:text-slate-400 border border-neutral-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary-600"
-          />
+        {/* Folder heading + count */}
+        <div className="flex items-baseline gap-2 mb-4">
+          <h2 className="text-sm font-semibold text-neutral-700">{activeFolderLabel}</h2>
+          <span className="text-xs text-neutral-400">
+            {images.length} image{images.length !== 1 ? "s" : ""}
+          </span>
         </div>
 
-        {/* Grid */}
+        {/* Image grid or list */}
         {loading ? (
           <p className="text-sm text-neutral-400 text-center py-24">Loading…</p>
         ) : images.length === 0 ? (
-          <div className="text-center py-24">
+          <div className="text-center py-20">
             <p className="text-sm text-neutral-400">No images yet.</p>
             <button
               type="button"
@@ -366,7 +498,7 @@ export default function MediaLibraryPage() {
               Upload the first one
             </button>
           </div>
-        ) : (
+        ) : viewMode === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {images.map((img) => {
               const folderLabel =
@@ -374,15 +506,39 @@ export default function MediaLibraryPage() {
               return (
                 <div
                   key={img.id}
-                  className="group relative rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50"
+                  className="group relative rounded-xl border border-neutral-200 overflow-hidden bg-neutral-50 hover:shadow-md hover:border-neutral-300 transition-all duration-200"
                 >
-                  {/* Thumbnail */}
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`${img.public_url}?width=300&quality=70`}
-                    alt={img.display_name}
-                    className="w-full aspect-square object-cover"
-                  />
+                  {/* Thumbnail with hover scale + overlay */}
+                  <div className="relative overflow-hidden">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`${img.public_url}?width=300&quality=70`}
+                      alt={img.display_name}
+                      className="w-full aspect-square object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200 pointer-events-none" />
+
+                    {/* Menu button — top right of image */}
+                    <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenMenuId(openMenuId === img.id ? null : img.id)
+                          }
+                          className="w-7 h-7 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-full shadow-sm text-neutral-600 hover:bg-white hover:text-neutral-900 transition-colors"
+                          title="Options"
+                        >
+                          ⋯
+                        </button>
+                        {openMenuId === img.id && (
+                          <div className="absolute right-0 top-8 z-10 bg-white border border-neutral-200 rounded-lg shadow-lg text-xs w-32 py-1">
+                            {imageMenuItems(img)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Metadata footer */}
                   <div className="px-2 py-1.5">
@@ -401,7 +557,7 @@ export default function MediaLibraryPage() {
                           onKeyDown={(e) => {
                             if (e.key === "Escape") setRenamingId(null);
                           }}
-                          className="flex-1 text-xs text-slate-700 placeholder:text-slate-400 border border-neutral-300 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary-600"
+                          className="flex-1 text-xs text-slate-700 border border-neutral-300 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-primary-600"
                         />
                         <button
                           type="submit"
@@ -412,76 +568,13 @@ export default function MediaLibraryPage() {
                         </button>
                       </form>
                     ) : (
-                      <div className="flex items-center justify-between gap-1">
-                        <p
-                          className="text-xs text-neutral-700 truncate flex-1"
-                          title={img.display_name}
-                        >
-                          {img.display_name}
-                        </p>
-
-                        {/* Actions menu */}
-                        <div className="relative">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setOpenMenuId(
-                                openMenuId === img.id ? null : img.id
-                              )
-                            }
-                            className="text-neutral-400 hover:text-neutral-600 text-sm leading-none px-0.5"
-                            title="Options"
-                          >
-                            ⋯
-                          </button>
-
-                          {openMenuId === img.id && (
-                            <div className="absolute right-0 bottom-6 z-10 bg-white border border-neutral-200 rounded-lg shadow-lg text-xs w-32 py-1">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setRenamingId(img.id);
-                                  setRenameValue(img.display_name);
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-neutral-50"
-                              >
-                                Rename
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setMovingImage(img);
-                                  setSelectedMoveFolder(img.folder);
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-neutral-50"
-                              >
-                                Move to…
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => copyUrl(img.public_url)}
-                                className="w-full text-left px-3 py-1.5 text-slate-700 hover:bg-neutral-50"
-                              >
-                                Copy URL
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDeletingId(img.id);
-                                  setOpenMenuId(null);
-                                }}
-                                className="w-full text-left px-3 py-1.5 text-red-600 hover:bg-red-50"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      <p
+                        className="text-xs text-neutral-700 truncate"
+                        title={img.display_name}
+                      >
+                        {img.display_name}
+                      </p>
                     )}
-
                     <p className="text-xs text-neutral-400 mt-0.5">
                       {folderLabel}
                       {img.width && img.height ? ` · ${img.width}×${img.height}` : ""}
@@ -492,8 +585,128 @@ export default function MediaLibraryPage() {
               );
             })}
           </div>
+        ) : (
+          <div className="border border-neutral-200 rounded-xl overflow-hidden">
+            {images.map((img, idx) => {
+              const folderLabel =
+                folders.find((f) => f.name === img.folder)?.label ?? img.folder;
+              return (
+                <div
+                  key={img.id}
+                  className={`flex items-center gap-3 px-4 py-2.5 hover:bg-neutral-50 transition ${
+                    idx !== images.length - 1 ? "border-b border-neutral-100" : ""
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`${img.public_url}?width=80&quality=70`}
+                    alt={img.display_name}
+                    className="w-10 h-10 object-cover rounded-lg border border-neutral-200 shrink-0"
+                  />
+                  {renamingId === img.id ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleRenameSubmit(img.id);
+                      }}
+                      className="flex gap-1 flex-1"
+                    >
+                      <input
+                        autoFocus
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") setRenamingId(null);
+                        }}
+                        className="flex-1 text-xs text-slate-700 border border-neutral-300 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-primary-600"
+                      />
+                      <button
+                        type="submit"
+                        onMouseDown={(e) => e.preventDefault()}
+                        className="text-xs text-primary-600 font-medium hover:underline"
+                      >
+                        Save
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-sm text-neutral-700 truncate"
+                          title={img.display_name}
+                        >
+                          {img.display_name}
+                        </p>
+                        <p className="text-xs text-neutral-400">
+                          {folderLabel}
+                          {img.width && img.height ? ` · ${img.width}×${img.height}` : ""}
+                          {` · ${Math.round(img.size_bytes / 1024)} KB`}
+                        </p>
+                      </div>
+                      <div className="relative shrink-0">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenMenuId(openMenuId === img.id ? null : img.id)
+                          }
+                          className="text-neutral-400 hover:text-neutral-600 text-sm px-1"
+                          title="Options"
+                        >
+                          ⋯
+                        </button>
+                        {openMenuId === img.id && (
+                          <div className="absolute right-0 top-6 z-10 bg-white border border-neutral-200 rounded-lg shadow-lg text-xs w-32 py-1">
+                            {imageMenuItems(img)}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
+
+        {/* Drop zone */}
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`mt-6 border-2 border-dashed rounded-xl p-10 text-center transition cursor-pointer ${
+            isDragOver
+              ? "border-primary-400 bg-primary-50"
+              : "border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50/50"
+          }`}
+        >
+          <Upload
+            size={20}
+            className={`mx-auto mb-3 ${
+              isDragOver ? "text-primary-500" : "text-neutral-300"
+            }`}
+          />
+          <p
+            className={`text-sm font-medium ${
+              isDragOver ? "text-primary-700" : "text-neutral-500"
+            }`}
+          >
+            {uploading ? "Uploading…" : isDragOver ? "Drop to upload" : "Drop images here to upload"}
+          </p>
+          <p className="text-xs text-neutral-400 mt-1">
+            PNG, JPG, GIF, WebP — max 10 MB each
+          </p>
+        </div>
       </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        className="hidden"
+        onChange={handleUpload}
+      />
 
       {/* Delete image confirmation dialog */}
       {deletingId && (
@@ -503,8 +716,8 @@ export default function MediaLibraryPage() {
               Delete image?
             </h3>
             <p className="text-sm text-neutral-500 mb-6">
-              This will permanently remove the image from storage and the
-              library. It cannot be undone.
+              This will permanently remove the image from storage and the library. It
+              cannot be undone.
             </p>
             <div className="flex justify-end gap-3">
               <button
@@ -516,7 +729,7 @@ export default function MediaLibraryPage() {
               </button>
               <button
                 type="button"
-                onClick={() => handleDelete(deletingId)}
+                onClick={() => void handleDelete(deletingId)}
                 className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition"
               >
                 Delete
