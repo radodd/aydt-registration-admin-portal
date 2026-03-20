@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { PublicSemester } from "@/types/public";
 import { SemesterDataProvider } from "@/app/providers/SemesterDataProvider";
 import { CartProvider } from "@/app/providers/CartProvider";
+import { useCart } from "@/app/providers/CartProvider";
 import { SessionGrid } from "@/app/components/public/SessionGrid";
 import { CartDrawer } from "@/app/components/public/CartDrawer";
 import { CartExpiryTimer } from "@/app/components/public/CartExpiryTimer";
@@ -16,47 +17,138 @@ interface Props {
   initialIsOpen: boolean;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Inner shell — can call useCart() since it renders inside CartProvider       */
+/* -------------------------------------------------------------------------- */
+
+interface ShellProps {
+  semester: PublicSemester;
+  paymentType?: Props["paymentType"];
+}
+
+function SemesterShell({ semester, paymentType }: ShellProps) {
+  const { itemCount } = useCart();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const prevCount = useRef(0);
+
+  // Auto-open drawer when items are ADDED; auto-close when cart empties
+  useEffect(() => {
+    if (itemCount > prevCount.current) setDrawerOpen(true);
+    if (itemCount === 0) setDrawerOpen(false);
+    prevCount.current = itemCount;
+  }, [itemCount]);
+
+  const dateRange =
+    semester.startDate && semester.endDate
+      ? `${fmtDate(semester.startDate)} – ${fmtDate(semester.endDate)}`
+      : null;
+
+  return (
+    <div>
+      {/* ── Hero ──────────────────────────────────────────── */}
+      <div className="sem-hero">
+        <div className="sem-hero-inner">
+          {dateRange && (
+            <div className="sem-hero-eyebrow">{dateRange}</div>
+          )}
+          <h1 className="sem-hero-title">{semester.name}</h1>
+          {semester.description && (
+            <p className="sem-hero-desc">{semester.description}</p>
+          )}
+          <div className="sem-hero-pills">
+            {paymentType === "installments" && (
+              <span className="sem-hero-pill" style={{
+                background: "rgba(122,74,114,0.22)",
+                color: "var(--plum-200)",
+                border: "1px solid rgba(192,144,184,0.22)",
+              }}>
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+                  <rect x="2" y="4" width="5" height="8" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+                  <rect x="9" y="2" width="5" height="12" rx="1" stroke="currentColor" strokeWidth="1.4"/>
+                </svg>
+                Installment plan available
+              </span>
+            )}
+            {(paymentType === "deposit_flat" || paymentType === "deposit_percent") && (
+              <span className="sem-hero-pill" style={{
+                background: "rgba(122,74,114,0.22)",
+                color: "var(--plum-200)",
+                border: "1px solid rgba(192,144,184,0.22)",
+              }}>
+                Deposit + balance option
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Cart expiry (shown inline above session list) ── */}
+      <div style={{ background: "var(--pub-surface)", borderBottom: "1px solid var(--pub-border)", padding: "0 40px" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+          <CartExpiryTimer />
+        </div>
+      </div>
+
+      {/* ── Shifting content wrapper + drawer ─────────────── */}
+      <div style={{ display: "flex", position: "relative" }}>
+        {/* Session grid — shifts left when drawer is open */}
+        <div style={{
+          flex: 1,
+          minWidth: 0,
+          paddingRight: drawerOpen ? 395 : 0,
+          transition: "padding-right 0.25s ease",
+        }}>
+          <div className="sem-main">
+            <div className="sem-section-head">
+              <div>
+                <div className="sem-section-title">Available Classes</div>
+                <div className="sem-section-desc">
+                  Select a class to see available session times. Add sessions to your cart to continue.
+                </div>
+              </div>
+            </div>
+
+            {semester.sessions.length === 0 ? (
+              <div className="sem-empty">
+                <p style={{ color: "var(--pub-text-muted)", fontWeight: 500 }}>
+                  No sessions are available for this semester yet.
+                </p>
+              </div>
+            ) : (
+              <SessionGrid
+                sessions={semester.sessions}
+                groups={semester.sessionGroups}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Side-panel drawer */}
+        <CartDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Page component                                                              */
+/* -------------------------------------------------------------------------- */
+
 export function SemesterPageContent({ semester, paymentType, initialIsOpen }: Props) {
   const [open, setOpen] = useState(initialIsOpen);
 
-  // Safety-net timeout: if the page is still open when the scheduled time
-  // arrives, swap to the class catalog. The countdown's onOpen handles the
-  // normal case; this covers the tab-left-open scenario.
-  // We do NOT call setOpen(true) immediately if msUntilOpen <= 0 —
-  // initialIsOpen (server-computed) is the authority for past times.
   useEffect(() => {
-    console.log("[SemesterPageContent] mount", {
-      registrationOpenAt: semester.registrationOpenAt,
-      clientNow: new Date().toISOString(),
-      initialIsOpen,
-      open,
-    });
-
     if (open || !semester.registrationOpenAt) return;
 
     const msUntilOpen =
       new Date(semester.registrationOpenAt).getTime() - Date.now();
 
-    console.log("[SemesterPageContent] msUntilOpen:", msUntilOpen);
+    if (msUntilOpen <= 0) return;
 
-    if (msUntilOpen <= 0) {
-      console.log("[SemesterPageContent] open time already past — waiting for countdown onOpen()");
-      return;
-    }
-
-    // setTimeout uses a 32-bit signed integer internally — delays > ~24.8 days
-    // (2^31 - 1 ms) overflow and fire immediately. For long waits, skip the
-    // safety-net and rely solely on the countdown interval in PreRegistrationLanding.
     const MAX_TIMEOUT_MS = 2_147_483_647;
-    if (msUntilOpen > MAX_TIMEOUT_MS) {
-      console.log("[SemesterPageContent] delay too large for setTimeout — countdown interval will handle it");
-      return;
-    }
+    if (msUntilOpen > MAX_TIMEOUT_MS) return;
 
-    const id = setTimeout(() => {
-      console.log("[SemesterPageContent] safety-net timeout fired → opening");
-      setOpen(true);
-    }, msUntilOpen);
+    const id = setTimeout(() => setOpen(true), msUntilOpen);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -73,72 +165,11 @@ export function SemesterPageContent({ semester, paymentType, initialIsOpen }: Pr
   return (
     <SemesterDataProvider semester={semester} mode="live">
       <CartProvider semesterId={semester.id}>
-        <div className="max-w-6xl mx-auto px-6 py-10">
-          {/* Hero */}
-          <div className="mb-10">
-            <p className="text-sm text-primary-600 font-medium mb-2">
-              {semester.startDate && semester.endDate
-                ? `${fmtDate(semester.startDate)} – ${fmtDate(semester.endDate)}`
-                : "Enrollment open"}
-            </p>
-            <h1 className="text-3xl sm:text-4xl font-bold text-neutral-900 mb-3">
-              {semester.name}
-            </h1>
-            {semester.description && (
-              <p className="text-neutral-600 text-lg leading-relaxed max-w-2xl">
-                {semester.description}
-              </p>
-            )}
-
-            {/* Payment plan badge */}
-            {paymentType && (
-              <div className="mt-4">
-                <span className="inline-block text-xs font-medium bg-primary-50 text-primary-600 px-3 py-1.5 rounded-full">
-                  {paymentPlanLabel(paymentType)}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Cart expiry */}
-          <div className="mb-4">
-            <CartExpiryTimer />
-          </div>
-
-          {/* Session grid */}
-          <div>
-            <h2 className="text-xl font-bold text-neutral-900 mb-2">
-              Available Sessions
-            </h2>
-            <p className="text-neutral-500 text-sm mb-6">
-              Select sessions and choose your preferred days. Add to cart to
-              continue.
-            </p>
-
-            {semester.sessions.length === 0 ? (
-              <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center">
-                <p className="text-neutral-500">
-                  No sessions are available for this semester yet.
-                </p>
-              </div>
-            ) : (
-              <SessionGrid
-                sessions={semester.sessions}
-                groups={semester.sessionGroups}
-              />
-            )}
-          </div>
-        </div>
-
-        <CartDrawer />
+        <SemesterShell semester={semester} paymentType={paymentType} />
       </CartProvider>
     </SemesterDataProvider>
   );
 }
-
-/* -------------------------------------------------------------------------- */
-/* Utilities                                                                   */
-/* -------------------------------------------------------------------------- */
 
 function fmtDate(d: string): string {
   return new Date(d + "T00:00:00").toLocaleDateString("en-US", {
@@ -146,18 +177,4 @@ function fmtDate(d: string): string {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function paymentPlanLabel(
-  type: "pay_in_full" | "deposit_flat" | "deposit_percent" | "installments",
-): string {
-  switch (type) {
-    case "pay_in_full":
-      return "Pay in full";
-    case "deposit_flat":
-    case "deposit_percent":
-      return "Deposit + balance";
-    case "installments":
-      return "Installment plan available";
-  }
 }

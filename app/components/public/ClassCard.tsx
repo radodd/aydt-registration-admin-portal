@@ -1,109 +1,456 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
 import { useCart } from "@/app/providers/CartProvider";
-import { SessionAddButton } from "./SessionAddButton";
+import type { PublicSession } from "@/types/public";
 import { GroupedClass } from "./SessionGrid";
 
-export function ClassCard({ group }: { group: GroupedClass }) {
-  const { sessionIds } = useCart();
-  const cartCount = group.sessions.filter((s) =>
-    sessionIds.includes(s.id),
-  ).length;
+/* -------------------------------------------------------------------------- */
+/* Discipline → accent color                                                    */
+/* -------------------------------------------------------------------------- */
+const DISC_COLORS: Record<string, string> = {
+  "ballet":        "#5A3A80",
+  "broadway":      "#8E2A23",
+  "hip hop":       "#4A3A80",
+  "hip-hop":       "#4A3A80",
+  "contemporary":  "#8A4A08",
+  "tap":           "#1D6A50",
+  "pre-ballet":    "#7A4A72",
+};
 
-  const [isOpen, setIsOpen] = useState(cartCount > 0);
+function discColor(disc: string | null | undefined): string {
+  if (!disc) return "var(--plum)";
+  return DISC_COLORS[disc.toLowerCase()] ?? "var(--plum)";
+}
+
+/* -------------------------------------------------------------------------- */
+/* Schedule grouping (sessions → enrollment options)                           */
+/* -------------------------------------------------------------------------- */
+type ScheduleGroup = {
+  key: string;               // scheduleId or session.id
+  sessions: PublicSession[]; // all occurrences in this schedule
+  representative: PublicSession;
+  daysLabel: string;         // e.g. "Mon · Wed"
+};
+
+const DAY_ABBREV: Record<string, string> = {
+  sunday: "Sun", monday: "Mon", tuesday: "Tue",
+  wednesday: "Wed", thursday: "Thu", friday: "Fri", saturday: "Sat",
+};
+
+function getDayOfWeek(dateStr: string): string {
+  const idx = new Date(dateStr + "T00:00:00").getDay();
+  const names = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  return names[idx] ?? "";
+}
+
+function groupBySchedule(sessions: PublicSession[]): ScheduleGroup[] {
+  const map = new Map<string, PublicSession[]>();
+
+  for (const s of sessions) {
+    const key = s.scheduleId ?? s.id;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(s);
+  }
+
+  const groups: ScheduleGroup[] = [];
+  for (const [key, items] of map) {
+    // Sort occurrences chronologically
+    items.sort((a, b) => (a.scheduleDate ?? "").localeCompare(b.scheduleDate ?? ""));
+
+    // Unique days of week in schedule order.
+    // Prefer deriving from individual scheduleDates; fall back to the
+    // schedule-level daysOfWeek array when schedule_date is not set.
+    const seenDays = new Set<string>();
+    const orderedDays: string[] = [];
+    for (const s of items) {
+      if (s.scheduleDate) {
+        const dow = getDayOfWeek(s.scheduleDate);
+        if (!seenDays.has(dow)) { seenDays.add(dow); orderedDays.push(dow); }
+      } else if (s.daysOfWeek) {
+        for (const dow of s.daysOfWeek) {
+          const key = dow.toLowerCase();
+          if (!seenDays.has(key)) { seenDays.add(key); orderedDays.push(key); }
+        }
+      }
+    }
+
+    const daysLabel = orderedDays
+      .map((d) => DAY_ABBREV[d] ?? d)
+      .join(" · ");
+
+    groups.push({ key, sessions: items, representative: items[0]!, daysLabel });
+  }
+
+  return groups;
+}
+
+/* -------------------------------------------------------------------------- */
+/* ScCard — individual schedule option card inside the accordion               */
+/* -------------------------------------------------------------------------- */
+function ScCard({
+  group,
+  discStripeColor,
+}: {
+  group: ScheduleGroup;
+  discStripeColor: string;
+}) {
+  const { add, remove, sessionIds } = useCart();
+  const rep = group.representative;
+
+  // Use representative session's ID for cart operations
+  const inCart = sessionIds.includes(rep.id);
+  const isFull = rep.spotsRemaining <= 0;
+  const capacity = rep.capacity;
+  const enrolled = rep.enrolledCount;
+  const pct = capacity > 0 ? Math.round((enrolled / capacity) * 100) : 0;
+  const fillClass = pct >= 100 ? "danger" : pct >= 80 ? "warn" : "";
+
+  // Availability badge
+  let badgeClass = "sem-badge-sage";
+  let badgeLabel = "Open";
+  if (isFull && !rep.waitlistEnabled) {
+    badgeClass = "sem-badge-rose";
+    badgeLabel = "Full";
+  } else if (isFull && rep.waitlistEnabled) {
+    badgeClass = "sem-badge-rose";
+    badgeLabel = "Waitlist";
+  } else if (rep.spotsRemaining <= 3) {
+    badgeClass = "sem-badge-amber";
+    badgeLabel = `${rep.spotsRemaining} spot${rep.spotsRemaining !== 1 ? "s" : ""}`;
+  }
+
+  // Price display
+  let priceDisplay = "";
+  let priceSub = "";
+  if (rep.pricingModel === "full_schedule" && rep.priceTiers && rep.priceTiers.length > 0) {
+    const defaultTier = rep.priceTiers.find((t) => t.isDefault) ?? rep.priceTiers[0]!;
+    priceDisplay = formatCents(defaultTier.amount);
+    priceSub = `${group.sessions.length} session${group.sessions.length !== 1 ? "s" : ""}`;
+  } else if (rep.dropInPrice != null) {
+    priceDisplay = formatCents(rep.dropInPrice);
+    priceSub = "per session";
+  }
+
+  const cardClasses = [
+    "sem-sc",
+    isFull && !rep.waitlistEnabled ? "full" : "",
+    inCart ? "in-cart" : "",
+  ].filter(Boolean).join(" ");
+
+  function handleClick() {
+    if (isFull && !rep.waitlistEnabled) return;
+    if (inCart) remove(rep.id);
+    else add(rep.id);
+  }
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
-      {/* Header — clickable toggle */}
-      <button
-        type="button"
-        onClick={() => setIsOpen((o) => !o)}
-        className="w-full text-left px-6 py-5 flex items-start justify-between gap-3 hover:bg-neutral-50 transition-colors"
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center flex-wrap gap-2">
-            <h3 className="text-base font-semibold text-neutral-900">
-              {group.name}
-            </h3>
+    <div className={cardClasses} onClick={handleClick} role="button" tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick(); }}
+    >
+      {/* Discipline top stripe */}
+      <style>{`.sem-sc[data-key="${group.key}"]::before { background: ${discStripeColor}; opacity: 0.85; }`}</style>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: discStripeColor, opacity: 0.85 }} />
+
+      <div className="sem-sc-top">
+        <div>
+          <div className="sem-sc-days">{group.daysLabel || "—"}</div>
+          {rep.startTime && (
+            <div className="sem-sc-time">
+              {fmtTime(rep.startTime)}{rep.endTime ? ` – ${fmtTime(rep.endTime)}` : ""}
+            </div>
+          )}
+        </div>
+        <span className={`sem-badge ${badgeClass}`}>
+          <span className="sem-badge-dot" />
+          {badgeLabel}
+        </span>
+      </div>
+
+      <div className="sem-sc-meta">
+        {rep.location && (
+          <div className="sem-sc-meta-row">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+              <path d="M8 2C5.8 2 4 3.8 4 6c0 3 4 8 4 8s4-5 4-8c0-2.2-1.8-4-4-4z" stroke="currentColor" strokeWidth="1.3"/>
+            </svg>
+            {rep.location}
+          </div>
+        )}
+        {group.sessions.length > 0 && group.sessions[0].scheduleDate && (
+          <div className="sem-sc-meta-row">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            {fmtDateShort(group.sessions[0].scheduleDate)}
+            {group.sessions.length > 1 && group.sessions[group.sessions.length - 1].scheduleDate
+              ? ` – ${fmtDateShort(group.sessions[group.sessions.length - 1].scheduleDate!)}`
+              : ""}
+            {" · "}{group.sessions.length} class{group.sessions.length !== 1 ? "es" : ""}
+          </div>
+        )}
+        {rep.instructorName && (
+          <div className="sem-sc-meta-row">
+            <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+              <path d="M8 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            {rep.instructorName}
+          </div>
+        )}
+      </div>
+
+      {capacity > 0 && (
+        <>
+          <div className="sem-cap-label">{enrolled} of {capacity} enrolled</div>
+          <div className="sem-cap-bar">
+            <div className={`sem-cap-fill${fillClass ? ` ${fillClass}` : ""}`} style={{ width: `${pct}%` }} />
+          </div>
+        </>
+      )}
+
+      <div className="sem-sc-footer">
+        <div>
+          {priceDisplay && (
+            <>
+              <div className="sem-sc-price">{priceDisplay}</div>
+              {priceSub && <span className="sem-sc-price-sub">{priceSub}</span>}
+            </>
+          )}
+        </div>
+
+        {isFull && !rep.waitlistEnabled ? (
+          <button className="sem-atc waitlist" disabled onClick={(e) => e.stopPropagation()}>
+            Full
+          </button>
+        ) : isFull && rep.waitlistEnabled ? (
+          <button
+            className="sem-atc waitlist"
+            onClick={(e) => { e.stopPropagation(); add(rep.id); }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <line x1="23" y1="11" x2="17" y2="11"/>
+            </svg>
+            Join Waitlist
+          </button>
+        ) : inCart ? (
+          <button
+            className="sem-atc incart"
+            onClick={(e) => { e.stopPropagation(); remove(rep.id); }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            In Cart
+          </button>
+        ) : (
+          <button
+            className="sem-atc"
+            onClick={(e) => { e.stopPropagation(); add(rep.id); }}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="9" cy="21" r="1"/>
+              <circle cx="20" cy="21" r="1"/>
+              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+            </svg>
+            Add to Cart
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* ClassCard — accordion                                                        */
+/* -------------------------------------------------------------------------- */
+export function ClassCard({ group }: { group: GroupedClass }) {
+  const { sessionIds } = useCart();
+  const cartCount = group.sessions.filter((s) => sessionIds.includes(s.id)).length;
+  const [isOpen, setIsOpen] = useState(cartCount > 0);
+
+  const scheduleGroups = groupBySchedule(group.sessions);
+  const stripeColor = discColor(group.discipline);
+
+  // Overall availability for the class header badge
+  const allFull = scheduleGroups.every(
+    (sg) => sg.representative.spotsRemaining <= 0 && !sg.representative.waitlistEnabled
+  );
+  const anyLow = !allFull && scheduleGroups.some(
+    (sg) => sg.representative.spotsRemaining > 0 && sg.representative.spotsRemaining <= 3
+  );
+
+  let headerBadgeClass = "sem-badge-sage";
+  let headerBadgeLabel = "Spots available";
+  if (allFull) {
+    headerBadgeClass = "sem-badge-rose";
+    headerBadgeLabel = "All sessions full";
+  } else if (anyLow) {
+    headerBadgeClass = "sem-badge-amber";
+    headerBadgeLabel = "Filling fast";
+  }
+
+  // Age range label
+  let ageLabel = "";
+  if (group.minAge != null && group.maxAge != null) ageLabel = `Ages ${group.minAge}–${group.maxAge}`;
+  else if (group.minAge != null) ageLabel = `Ages ${group.minAge}+`;
+  else if (group.maxAge != null) ageLabel = `Ages up to ${group.maxAge}`;
+
+  // Preview details derived from first schedule group
+  const firstSG = scheduleGroups[0];
+  const firstRep = firstSG?.representative;
+  const firstGroupDates = (firstSG?.sessions ?? [])
+    .map((s) => s.scheduleDate)
+    .filter(Boolean)
+    .sort() as string[];
+  const previewStart = firstGroupDates[0];
+  const previewEnd = firstGroupDates[firstGroupDates.length - 1];
+  const previewCount = firstSG?.sessions.length ?? 0;
+  const previewTime = firstRep?.startTime
+    ? `${fmtTime(firstRep.startTime)}${firstRep.endTime ? ` – ${fmtTime(firstRep.endTime)}` : ""}`
+    : "";
+  const allInstructors = [
+    ...new Set(
+      scheduleGroups
+        .map((sg) => sg.representative.instructorName)
+        .filter((n): n is string => Boolean(n))
+    ),
+  ];
+  const instructorLabel =
+    allInstructors.length === 1 ? allInstructors[0]! : allInstructors.length > 1 ? "Multiple instructors" : "";
+
+  const cardClasses = ["sem-class-card", isOpen ? "open" : ""].filter(Boolean).join(" ");
+
+  return (
+    <div className={cardClasses}>
+      {/* Accordion header */}
+      <button type="button" className="sem-class-card-top" onClick={() => setIsOpen((o) => !o)}>
+        <div className="sem-disc-stripe" style={{ background: stripeColor }} />
+
+        <div className="sem-class-info">
+          <div className="sem-class-name">{group.name}</div>
+          <div className="sem-class-meta-row">
+            {group.location && (
+              <span className="sem-class-meta-item">
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 2C5.8 2 4 3.8 4 6c0 3 4 8 4 8s4-5 4-8c0-2.2-1.8-4-4-4z" stroke="currentColor" strokeWidth="1.4"/>
+                </svg>
+                {group.location}
+              </span>
+            )}
+            {ageLabel && (
+              <span className="sem-badge" style={{ background: "var(--plum-50)", color: "var(--plum-700)" }}>
+                {ageLabel}
+              </span>
+            )}
+            <span className={`sem-badge ${headerBadgeClass}`}>
+              <span className="sem-badge-dot" />
+              {headerBadgeLabel}
+            </span>
             {cartCount > 0 && (
-              <span className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full font-medium">
+              <span className="sem-badge" style={{ background: "var(--plum-50)", color: "var(--plum-700)" }}>
                 {cartCount} in cart
               </span>
             )}
           </div>
 
-          {group.description && (
-            <p className="text-sm text-neutral-500 mt-0.5 line-clamp-2">
-              {group.description}
-            </p>
+          {/* Schedule preview row */}
+          {(firstSG?.daysLabel || previewStart || instructorLabel) && (
+            <div className="sem-class-meta-row" style={{ marginTop: 5 }}>
+              {firstSG?.daysLabel && (
+                <span className="sem-class-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  {firstSG.daysLabel}{previewTime && ` · ${previewTime}`}
+                </span>
+              )}
+              {previewStart && (
+                <span className="sem-class-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                  {fmtDateShort(previewStart)}{previewEnd && previewEnd !== previewStart ? ` – ${fmtDateShort(previewEnd)}` : ""}
+                  {previewCount > 0 && ` · ${previewCount} class${previewCount !== 1 ? "es" : ""}`}
+                </span>
+              )}
+              {instructorLabel && (
+                <span className="sem-class-meta-item">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z" stroke="currentColor" strokeWidth="1.3"/>
+                    <path d="M3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                  </svg>
+                  {instructorLabel}
+                </span>
+              )}
+              {scheduleGroups.length > 1 && (
+                <span style={{ fontSize: 10, color: "var(--pub-text-faint)" }}>
+                  +{scheduleGroups.length - 1} more option{scheduleGroups.length > 2 ? "s" : ""}
+                </span>
+              )}
+            </div>
           )}
 
-          <div className="mt-1.5 flex flex-wrap gap-x-3 text-xs text-neutral-400">
-            {group.location && <span>{group.location}</span>}
-            {(group.minAge != null || group.maxAge != null) && (
-              <span>
-                Ages{" "}
-                {group.minAge != null && group.maxAge != null
-                  ? `${group.minAge}–${group.maxAge}`
-                  : group.minAge != null
-                    ? `${group.minAge}+`
-                    : `up to ${group.maxAge}`}
-              </span>
-            )}
-            {(group.minGrade != null || group.maxGrade != null) && (
-              <span>
-                Grade{" "}
-                {group.minGrade != null && group.maxGrade != null
-                  ? `${group.minGrade}–${group.maxGrade}`
-                  : group.minGrade != null
-                    ? `${group.minGrade}+`
-                    : `up to ${group.maxGrade}`}
-              </span>
-            )}
-          </div>
-
-          {!isOpen && (
-            <p className="text-xs text-neutral-400 mt-1.5">
-              {group.sessions.length} session
-              {group.sessions.length !== 1 ? "s" : ""}
-            </p>
+          {group.description && (
+            <div className="sem-class-desc">{group.description}</div>
           )}
         </div>
 
-        <span className="shrink-0 mt-0.5 text-neutral-400">
-          {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </span>
+        <div className="sem-class-right">
+          <div className="sem-session-count">
+            <div className="sem-session-num">{scheduleGroups.length}</div>
+            <div className="sem-session-label">option{scheduleGroups.length !== 1 ? "s" : ""}</div>
+          </div>
+          <div className="sem-chevron">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <path d="M4 6l4 4 4-4" stroke="var(--pub-text-muted)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
       </button>
 
-      {/* Session rows */}
+      {/* Expanded sessions grid */}
       {isOpen && (
-        <div className="px-6 pb-5 space-y-2 border-t border-neutral-200 pt-4">
-          {group.sessions.map((session) => {
-            const day = session.scheduleDate;
-
-            return (
-              <div
-                key={session.id}
-                className="flex items-center justify-between border rounded-lg px-4 py-2"
-              >
-                <div>
-                  <div className="text-sm font-medium text-neutral-900">{day}</div>
-                  <div className="text-xs text-neutral-500">
-                    {session.startTime} – {session.endTime}
-                  </div>
-                  <div className="text-xs text-neutral-500">
-                    {session.instructorName}
-                  </div>
-                </div>
-
-                <SessionAddButton session={session} />
-              </div>
-            );
-          })}
+        <div className="sem-sessions-body">
+          <div className="sem-sessions-intro">
+            <span className="sem-sessions-intro-label">
+              {scheduleGroups.length} available option{scheduleGroups.length !== 1 ? "s" : ""}
+              {group.location ? ` · ${group.location}` : ""}
+            </span>
+          </div>
+          <div className="sem-sessions-grid">
+            {scheduleGroups.map((sg) => (
+              <ScCard key={sg.key} group={sg} discStripeColor={stripeColor} />
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Utilities                                                                    */
+/* -------------------------------------------------------------------------- */
+function formatCents(cents: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
+}
+
+function fmtDateShort(d: string): string {
+  return new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function fmtTime(t: string): string {
+  const [h, m] = t.split(":").map(Number);
+  const period = h! >= 12 ? "PM" : "AM";
+  const hour = h! % 12 || 12;
+  return m === 0 ? `${hour} ${period}` : `${hour}:${String(m).padStart(2, "0")} ${period}`;
 }

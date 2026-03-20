@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import type { PublicSession, PublicSessionGroup } from "@/types/public";
 
 export interface FilterState {
   groupId: string;
   dayOfWeek: string;
+  discipline: string;
   spotsOnly: boolean;
 }
 
@@ -14,16 +14,16 @@ interface FilterBarProps {
   groups: PublicSessionGroup[];
   filters: FilterState;
   onChange: (f: FilterState) => void;
+  classCount: number;
 }
 
-const DAYS_OF_WEEK = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
+const DAYS: { label: string; value: string }[] = [
+  { label: "Mon", value: "monday" },
+  { label: "Tue", value: "tuesday" },
+  { label: "Wed", value: "wednesday" },
+  { label: "Thu", value: "thursday" },
+  { label: "Fri", value: "friday" },
+  { label: "Sat", value: "saturday" },
 ];
 
 export function applyFilters(
@@ -32,6 +32,10 @@ export function applyFilters(
 ): PublicSession[] {
   return sessions.filter((s) => {
     if (filters.groupId && s.groupId !== filters.groupId) return false;
+    if (filters.discipline) {
+      const disc = (s.discipline ?? "").toLowerCase();
+      if (disc !== filters.discipline.toLowerCase()) return false;
+    }
     if (filters.dayOfWeek && s.scheduleDate) {
       const dayIndex = new Date(s.scheduleDate + "T00:00:00").getDay();
       const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -43,123 +47,119 @@ export function applyFilters(
   });
 }
 
-export function FilterBar({
-  sessions: _sessions,
-  groups,
-  filters,
-  onChange,
-}: FilterBarProps) {
-  const [open, setOpen] = useState(false);
+export function FilterBar({ sessions, groups, filters, onChange, classCount }: FilterBarProps) {
+  // Derive unique disciplines from sessions
+  const disciplines = Array.from(
+    new Set(sessions.map((s) => s.discipline).filter(Boolean) as string[])
+  ).sort();
 
-  const activeCount = [
-    filters.groupId,
-    filters.dayOfWeek,
-    filters.spotsOnly,
-  ].filter(Boolean).length;
+  function setDay(value: string) {
+    onChange({ ...filters, dayOfWeek: filters.dayOfWeek === value ? "" : value });
+  }
 
-  function reset() {
-    onChange({ groupId: "", dayOfWeek: "", spotsOnly: false });
+  function setDisc(value: string) {
+    onChange({ ...filters, discipline: filters.discipline === value ? "" : value });
+  }
+
+  function setGroup(value: string) {
+    onChange({ ...filters, groupId: filters.groupId === value ? "" : value });
   }
 
   return (
-    <div className="mb-6">
-      {/* Toggle button (mobile) */}
-      <div className="flex items-center gap-3 sm:hidden mb-3">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2 text-sm text-neutral-600 bg-white border border-neutral-200 px-4 py-2 rounded-xl hover:bg-neutral-50 transition-colors"
-        >
-          <svg
-            className="w-4 h-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707l-6.414 6.414A1 1 0 0014 13.828V19a1 1 0 01-.553.894l-4 2A1 1 0 018 21v-7.172a1 1 0 00-.293-.707L1.293 6.707A1 1 0 011 6V4z"
-            />
-          </svg>
-          Filters
-          {activeCount > 0 && (
-            <span className="bg-primary-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-              {activeCount}
-            </span>
-          )}
-        </button>
-        {activeCount > 0 && (
+    <div className="sem-filter-bar">
+      {/* Day filter */}
+      <div className="sem-filter-group">
+        <div className="sem-filter-label">Day</div>
+        <div className="sem-filter-pills">
           <button
             type="button"
-            onClick={reset}
-            className="text-sm text-neutral-400 hover:text-neutral-600"
+            className={`sem-fpill${!filters.dayOfWeek ? " active" : ""}`}
+            onClick={() => onChange({ ...filters, dayOfWeek: "" })}
           >
-            Clear all
+            Any Day
           </button>
-        )}
+          {DAYS.map((d) => (
+            <button
+              key={d.value}
+              type="button"
+              className={`sem-fpill${filters.dayOfWeek === d.value ? " active" : ""}`}
+              onClick={() => setDay(d.value)}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Filter controls */}
-      <div
-        className={`${open ? "block" : "hidden"} sm:flex flex-wrap gap-3 items-center`}
-      >
-        {/* Group filter */}
-        {groups.length > 0 && (
-          <select
-            value={filters.groupId}
-            onChange={(e) => onChange({ ...filters, groupId: e.target.value })}
-            className="text-sm border border-neutral-200 rounded-xl px-3 py-2 bg-white text-neutral-700 focus:ring-2 focus:ring-primary-400 focus:outline-none"
-          >
-            <option value="">All Groups</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        )}
+      {disciplines.length > 0 && (
+        <>
+          <div className="sem-filter-sep" />
+          <div className="sem-filter-group">
+            <div className="sem-filter-label">Discipline</div>
+            <div className="sem-filter-pills">
+              <button
+                type="button"
+                className={`sem-fpill${!filters.discipline ? " active" : ""}`}
+                onClick={() => onChange({ ...filters, discipline: "" })}
+              >
+                All
+              </button>
+              {disciplines.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`sem-fpill${filters.discipline === d ? " active" : ""}`}
+                  onClick={() => setDisc(d)}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
-        {/* Day of week filter */}
-        <select
-          value={filters.dayOfWeek}
-          onChange={(e) =>
-            onChange({ ...filters, dayOfWeek: e.target.value })
-          }
-          className="text-sm border border-neutral-200 rounded-xl px-3 py-2 bg-white text-neutral-700 focus:ring-2 focus:ring-primary-400 focus:outline-none"
-        >
-          <option value="">Any Day</option>
-          {DAYS_OF_WEEK.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
+      {groups.length > 0 && (
+        <>
+          <div className="sem-filter-sep" />
+          <div className="sem-filter-group">
+            <div className="sem-filter-label">Group</div>
+            <div className="sem-filter-pills">
+              <button
+                type="button"
+                className={`sem-fpill${!filters.groupId ? " active" : ""}`}
+                onClick={() => onChange({ ...filters, groupId: "" })}
+              >
+                All Groups
+              </button>
+              {groups.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  className={`sem-fpill${filters.groupId === g.id ? " active" : ""}`}
+                  onClick={() => setGroup(g.id)}
+                >
+                  {g.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
-        {/* Available spots toggle */}
-        <label className="flex items-center gap-2 cursor-pointer select-none text-sm text-neutral-700">
-          <input
-            type="checkbox"
-            checked={filters.spotsOnly}
-            onChange={(e) =>
-              onChange({ ...filters, spotsOnly: e.target.checked })
-            }
-            className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
-          />
-          Available spots only
-        </label>
+      <div className="sem-filter-sep" />
 
-        {/* Clear */}
-        {activeCount > 0 && (
-          <button
-            type="button"
-            onClick={reset}
-            className="hidden sm:block text-sm text-neutral-400 hover:text-neutral-600"
-          >
-            Clear all
-          </button>
-        )}
+      <label className="sem-spots-check">
+        <input
+          type="checkbox"
+          checked={filters.spotsOnly}
+          onChange={(e) => onChange({ ...filters, spotsOnly: e.target.checked })}
+        />
+        Available spots only
+      </label>
+
+      <div className="sem-filter-count">
+        Showing {classCount} class{classCount !== 1 ? "es" : ""}
       </div>
     </div>
   );
