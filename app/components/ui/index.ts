@@ -18,3 +18,5 @@ export type { PageHeaderProps } from "./PageHeader";
 
 export { SectionCard } from "./SectionCard";
 export type { SectionCardProps } from "./SectionCard";
+
+export { InlineDatePicker } from "./InlineDatePicker";

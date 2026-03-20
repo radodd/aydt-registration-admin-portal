@@ -641,6 +641,7 @@ type Props = {
   onChange: (html: string) => void;
   placeholder?: string;
   minHeight?: string;
+  editorRef?: React.MutableRefObject<import("@tiptap/react").Editor | null>;
 };
 
 export default function TipTapEditor({
@@ -648,6 +649,7 @@ export default function TipTapEditor({
   onChange,
   placeholder = "Enter content...",
   minHeight = "120px",
+  editorRef,
 }: Props) {
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [imageModalLayout, setImageModalLayout] =
@@ -697,6 +699,11 @@ export default function TipTapEditor({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Expose editor instance via ref
+  useEffect(() => {
+    if (editorRef) editorRef.current = editor ?? null;
+  }, [editor, editorRef]);
 
   const setLink = useCallback(() => {
     if (!editor) return;
