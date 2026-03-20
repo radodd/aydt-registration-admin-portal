@@ -275,7 +275,7 @@ async function syncClassSchedules(
     );
 
     // Generate per-day class_sessions
-    const generatedIds = await generateSessionsForSchedule(
+    await generateSessionsForSchedule(
       supabase,
       scheduleId,
       semesterId,
@@ -283,9 +283,10 @@ async function syncClassSchedules(
       draftSchedule,
     );
 
-    for (const id of generatedIds) {
-      sessionIdMap.set(id, id);
-    }
+    // Map draft schedule keys → DB schedule ID.
+    // syncSemesterSessionGroups uses these to expand each schedule to its sessions.
+    sessionIdMap.set(draftSchedule._clientKey, scheduleId);
+    if (draftSchedule.id) sessionIdMap.set(draftSchedule.id, scheduleId);
 
     // Pricing sync — route by pricing model
     const pricingModel = draftSchedule.pricingModel ?? "full_schedule";

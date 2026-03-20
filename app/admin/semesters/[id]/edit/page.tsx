@@ -18,7 +18,7 @@ export default async function EditPage({ params }: { params: { id: string } }) {
           class_requirements!class_requirements_class_id_fkey (*, class_requirement_approved_dancers(dancer_id))
         ),
         session_groups(
-          id, name, session_group_sessions(session_id)
+          id, name, session_group_sessions(session_id, class_sessions(schedule_id))
         ),
         semester_payment_plans(*),
         semester_payment_installments(*),

@@ -102,7 +102,14 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
       groups: (semester.session_groups ?? []).map((g: any) => ({
         id: g.id,
         name: g.name,
-        sessionIds: (g.session_group_sessions ?? []).map((sgs: any) => sgs.session_id),
+        // De-duplicate by schedule_id so each schedule appears once in the group UI.
+        sessionIds: [
+          ...new Set(
+            (g.session_group_sessions ?? [])
+              .map((sgs: any) => sgs.class_sessions?.schedule_id)
+              .filter(Boolean),
+          ),
+        ],
       })),
     },
 
@@ -164,8 +171,31 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
       division: b.division,
       weekly_class_count: b.weekly_class_count,
       base_tuition: Number(b.base_tuition),
+      progressive_discount_percent: Number(b.progressive_discount_percent ?? 0),
+      semester_total: b.semester_total != null ? Number(b.semester_total) : undefined,
+      autopay_installment_amount: b.autopay_installment_amount != null ? Number(b.autopay_installment_amount) : undefined,
       notes: b.notes ?? undefined,
     })),
+
+    coupons: (semester.semester_coupons ?? []).map((sc: any) => {
+      const c = sc.coupon;
+      return {
+        _clientKey: c.id,
+        id: c.id,
+        name: c.name,
+        code: c.code ?? null,
+        value: Number(c.value),
+        valueType: c.value_type,
+        validFrom: c.valid_from ?? null,
+        validUntil: c.valid_until ?? null,
+        maxTotalUses: c.max_total_uses ?? null,
+        usesCount: c.uses_count ?? 0,
+        maxPerFamily: c.max_per_family ?? 1,
+        stackable: c.stackable ?? false,
+        eligibleSessionsMode: c.eligible_sessions_mode ?? "all",
+        isActive: c.is_active ?? true,
+      };
+    }),
 
     feeConfig: semester.semester_fee_config
       ? {

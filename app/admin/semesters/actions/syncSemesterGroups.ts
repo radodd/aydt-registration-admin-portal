@@ -88,17 +88,31 @@ export async function syncSemesterSessionGroups(
     if (deleteMembership) throw new Error(deleteMembership.message);
   }
 
-  // 5️⃣ Insert fresh membership rows using idMap
-  // Sessions not present in idMap were removed from the semester (or are stale
-  // references); drop them silently rather than crashing.
-  const membershipRows = groups.flatMap((group) =>
-    group.sessionIds
-      .filter((draftSessionId) => idMap.has(draftSessionId))
-      .map((draftSessionId) => ({
-        session_group_id: group.id,
-        session_id: idMap.get(draftSessionId)!,
-      })),
-  );
+  // 5️⃣ Insert fresh membership rows.
+  // idMap maps (draftSchedule._clientKey | class_schedule.id) → class_schedule.id.
+  // For each schedule ID in a group, fetch all class_sessions for that schedule
+  // and insert one session_group_sessions row per session.
+  const membershipRows: { session_group_id: string; session_id: string }[] = [];
+
+  for (const group of groups) {
+    for (const draftScheduleKey of group.sessionIds) {
+      const dbScheduleId = idMap.get(draftScheduleKey);
+      if (!dbScheduleId) continue;
+
+      const { data: sessions, error: sessionsError } = await supabase
+        .from("class_sessions")
+        .select("id")
+        .eq("schedule_id", dbScheduleId);
+      if (sessionsError) throw new Error(sessionsError.message);
+
+      for (const session of sessions ?? []) {
+        membershipRows.push({
+          session_group_id: group.id,
+          session_id: session.id,
+        });
+      }
+    }
+  }
 
   if (membershipRows.length > 0) {
     const { error: insertMembershipError } = await supabase
