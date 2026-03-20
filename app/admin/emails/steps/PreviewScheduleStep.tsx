@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 import { EmailDraft, EmailWizardAction } from "@/types";
 import { scheduleEmail } from "../actions/scheduleEmail";
 import { sendEmailNow } from "../actions/sendEmailNow";
@@ -66,7 +67,7 @@ export default function PreviewScheduleStep({
           setActionStatus("idle");
           return;
         }
-        await scheduleEmail(emailId, new Date(scheduledAt).toISOString(), state);
+        await scheduleEmail(emailId, new Date(scheduledAt + "T00:00:00").toISOString(), state);
       }
       setActionStatus("success");
       setTimeout(() => router.push("/admin/emails"), 1500);
@@ -224,12 +225,9 @@ export default function PreviewScheduleStep({
               <label className="text-sm font-medium text-neutral-700">
                 Send date &amp; time
               </label>
-              <input
-                type="datetime-local"
-                value={scheduledAt}
-                min={minDatetime}
-                onChange={(e) => setScheduledAt(e.target.value)}
-                className="w-full border border-neutral-300 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
+              <InlineDatePicker
+                value={scheduledAt.slice(0, 10)}
+                onChange={setScheduledAt}
               />
               <p className="text-xs text-neutral-400">
                 Times are in your local timezone.

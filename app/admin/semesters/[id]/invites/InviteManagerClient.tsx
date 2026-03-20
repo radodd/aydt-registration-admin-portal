@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 import type { ClassInviteRow, InviteAccessType } from "@/types";
 import {
   listClassInvites,
@@ -454,11 +455,9 @@ export default function InviteManagerClient({ semesterId, classes }: Props) {
                       Expires At{" "}
                       <span className="text-neutral-400">(optional)</span>
                     </label>
-                    <input
-                      type="datetime-local"
-                      value={inviteExpiry}
-                      onChange={(e) => setInviteExpiry(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                    <InlineDatePicker
+                      value={inviteExpiry.slice(0, 10)}
+                      onChange={setInviteExpiry}
                     />
                   </div>
 

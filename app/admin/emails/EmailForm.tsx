@@ -7,6 +7,7 @@ import {
 } from "@/types";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JSX, useEffect, useReducer, useRef, useState } from "react";
+import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 import { updateEmailDraft } from "./actions/updateEmailDraft";
 import { sendEmailNow } from "./actions/sendEmailNow";
 import { scheduleEmail } from "./actions/scheduleEmail";
@@ -298,7 +299,7 @@ export default function EmailForm({
     try {
       await scheduleEmail(
         state.id,
-        new Date(headerScheduledAt).toISOString(),
+        new Date(headerScheduledAt + "T00:00:00").toISOString(),
         state,
       );
       router.push("/admin/emails");
@@ -455,12 +456,9 @@ export default function EmailForm({
                       <p className="text-xs font-medium text-neutral-700">
                         Schedule send
                       </p>
-                      <input
-                        type="datetime-local"
-                        value={headerScheduledAt}
-                        min={minDatetime}
-                        onChange={(e) => setHeaderScheduledAt(e.target.value)}
-                        className="w-full border border-neutral-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
+                      <InlineDatePicker
+                        value={headerScheduledAt.slice(0, 10)}
+                        onChange={setHeaderScheduledAt}
                       />
                       <div className="flex gap-2">
                         <button
