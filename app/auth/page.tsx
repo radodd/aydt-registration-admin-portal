@@ -2,138 +2,261 @@
 
 import { useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { signOut, signUp } from "./actions";
+import { login, signUp } from "./actions";
 import { z } from "zod";
-import {
-  extractMessages,
-  formDataToObject,
-  signUpSchema,
-} from "../lib/validation/auth";
-import { FormField } from "../components/form/FormField";
+import { extractMessages, formDataToObject, signUpSchema } from "../lib/validation/auth";
+import "./auth.css";
 
-function SignUpForm() {
+function AuthForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "";
   const prefillEmail = searchParams.get("email") ?? "";
+  const tabParam = searchParams.get("tab");
+  const errorParam = searchParams.get("error");
 
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const ref = useRef<HTMLFormElement>(null);
+  const [activeTab, setActiveTab] = useState<"login" | "signup">(
+    tabParam === "signup" ? "signup" : "login"
+  );
+  const [signupErrors, setSignupErrors] = useState<Record<string, string>>({});
+  const [showLoginPw, setShowLoginPw] = useState(false);
+  const [showSignupPw, setShowSignupPw] = useState(false);
+  const signupRef = useRef<HTMLFormElement>(null);
 
-  const handleClientValidation = (e: React.FormEvent<HTMLFormElement>) => {
-    if (!ref.current) return;
-
-    const form = ref.current;
-    const formData = new FormData(form);
-
-    // ✔ Convert FormData into plain object
+  const handleSignupValidation = (e: React.FormEvent<HTMLFormElement>) => {
+    if (!signupRef.current) return;
+    const formData = new FormData(signupRef.current);
     const values = formDataToObject(formData);
-
-    // ✔ Validate using Zod
     const validated = signUpSchema.safeParse(values);
-
     if (!validated.success) {
       e.preventDefault();
       const tree = z.treeifyError(validated.error);
-      const simpleErrors = extractMessages(tree);
-      setErrors(simpleErrors);
+      setSignupErrors(extractMessages(tree));
       return;
     }
-
-    // ✔ Clear errors & allow server action to run
-    setErrors({});
+    setSignupErrors({});
   };
 
-  // Preserve next param in the login link so users can switch flows without losing context
-  const loginHref = next ? `/auth/login?next=${encodeURIComponent(next)}` : "/auth/login";
+  const EyeIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+  const EyeOffIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 p-6">
-      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-neutral-200">
-        <h1 className="text-2xl font-semibold mb-6 text-neutral-900">
-          Create an account
-        </h1>
-
-        <form
-          ref={ref}
-          action={signUp}
-          onSubmit={handleClientValidation}
-          className="space-y-4"
-          noValidate
-        >
-          {/* Thread the redirect destination through the form */}
-          {next && <input type="hidden" name="next" value={next} />}
-
-          <div>
-            <FormField
-              label="First Name"
-              name="first_name"
-              placeholder="Enter you first name"
-              error={errors.first_name}
-            />
-          </div>
-          <div>
-            <FormField
-              label="Last Name"
-              name="last_name"
-              placeholder="Enter you last name"
-              error={errors.last_name}
-            />
-          </div>
-          <div>
-            <FormField
-              label="Email"
-              name="email"
-              type="email"
-              placeholder="Enter you email"
-              defaultValue={prefillEmail}
-              error={errors.email}
-            />
-          </div>
-          <div>
-            <FormField
-              label="Password"
-              name="password"
-              type="password"
-              placeholder="Enter you Password"
-              error={errors.password}
-            />
+    <div className="aydt-auth-shell">
+      {/* Brand panel */}
+      <div className="aydt-brand-panel">
+        <div className="aydt-brand-inner">
+          <div className="aydt-brand-logo">
+            <div className="aydt-brand-logo-mark">
+              AY
+            </div>
+            <div className="aydt-brand-logo-text">
+              American Youth Dance Theater
+              <span>Registration Portal</span>
+            </div>
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-900 text-white py-3 rounded-xl mt-2 hover:bg-blue-800 transition"
-          >
-            Sign up
-          </button>
-          <button
-            className="w-full bg-blue-900 text-white py-3 rounded-xl mt-2 hover:bg-blue-800 transition"
-            formAction={signOut}
-          >
-            Log out
-          </button>
-        </form>
+          <div className="aydt-brand-center">
+            <h1 className="aydt-brand-headline">
+              American Youth<br />Dance <em>Theater.</em>
+            </h1>
+            <p className="aydt-brand-tagline">Where joy and technique take center stage.</p>
+          </div>
 
-        <div className="flex items-center gap-4 my-6">
-          <div className="h-px flex-1 bg-neutral-300"></div>
-          <span className="text-neutral-500 text-sm">Or</span>
-          <div className="h-px flex-1 bg-neutral-300"></div>
+          <div className="aydt-brand-footer">© 2026 American Youth Dance Theater</div>
         </div>
+      </div>
 
-        <p className="text-center text-sm text-neutral-600 mt-6">
-          Already have an account?{" "}
-          <a className="text-blue-700 font-medium" href={loginHref}>
-            Log in
-          </a>
-        </p>
+      {/* Form panel */}
+      <div className="aydt-form-panel">
+        <div className="aydt-form-inner">
+          {/* Login screen */}
+          {activeTab === "login" && (
+            <div>
+              <h2 className="aydt-auth-heading">Welcome back</h2>
+              <p className="aydt-auth-subhead">Sign in to manage your family&apos;s registrations.</p>
+
+              {errorParam === "invalid_credentials" && (
+                <div className="aydt-auth-error">Invalid email or password. Please try again.</div>
+              )}
+              {errorParam === "email_exists" && (
+                <div className="aydt-auth-error">
+                  An account with this email already exists. Log in instead.
+                </div>
+              )}
+
+              <form>
+                <input type="hidden" name="next" value={next} />
+
+                <div className="aydt-field">
+                  <label className="aydt-label">Email address</label>
+                  <input
+                    className="aydt-input"
+                    type="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="aydt-field">
+                  <label className="aydt-label">Password</label>
+                  <div className="aydt-pw-wrap">
+                    <input
+                      className="aydt-input"
+                      name="password"
+                      type={showLoginPw ? "text" : "password"}
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                      style={{ paddingRight: 42 }}
+                    />
+                    <button
+                      type="button"
+                      className="aydt-pw-toggle"
+                      onClick={() => setShowLoginPw((v) => !v)}
+                    >
+                      {showLoginPw ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="aydt-forgot-row">
+                  <a className="aydt-forgot-link" href="/auth/request-password-reset">
+                    Forgot your password?
+                  </a>
+                </div>
+
+                <button type="submit" className="aydt-btn-primary" formAction={login}>
+                  Log in
+                </button>
+
+                <div className="aydt-auth-footer">
+                  New to AYDT?{" "}
+                  <button
+                    type="button"
+                    className="aydt-auth-link"
+                    onClick={() => setActiveTab("signup")}
+                  >
+                    Create an account
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Signup screen */}
+          {activeTab === "signup" && (
+            <div>
+              <h2 className="aydt-auth-heading">Create your account</h2>
+              <p className="aydt-auth-subhead">Set up your family account to get started.</p>
+
+              <form ref={signupRef} action={signUp} onSubmit={handleSignupValidation} noValidate>
+                {next && <input type="hidden" name="next" value={next} />}
+
+                <div className="aydt-form-row">
+                  <div className="aydt-field">
+                    <label className="aydt-label">First name</label>
+                    <input
+                      className="aydt-input"
+                      type="text"
+                      name="first_name"
+                      placeholder="Jane"
+                      autoComplete="given-name"
+                    />
+                    {signupErrors.first_name && (
+                      <span className="aydt-field-error">{signupErrors.first_name}</span>
+                    )}
+                  </div>
+                  <div className="aydt-field">
+                    <label className="aydt-label">Last name</label>
+                    <input
+                      className="aydt-input"
+                      type="text"
+                      name="last_name"
+                      placeholder="Smith"
+                      autoComplete="family-name"
+                    />
+                    {signupErrors.last_name && (
+                      <span className="aydt-field-error">{signupErrors.last_name}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="aydt-field">
+                  <label className="aydt-label">Email address</label>
+                  <input
+                    className="aydt-input"
+                    type="email"
+                    name="email"
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    defaultValue={prefillEmail}
+                  />
+                  {signupErrors.email && (
+                    <span className="aydt-field-error">{signupErrors.email}</span>
+                  )}
+                </div>
+
+                <div className="aydt-field">
+                  <label className="aydt-label">Password</label>
+                  <div className="aydt-pw-wrap">
+                    <input
+                      className="aydt-input"
+                      name="password"
+                      type={showSignupPw ? "text" : "password"}
+                      placeholder="Create a password"
+                      autoComplete="new-password"
+                      style={{ paddingRight: 42 }}
+                    />
+                    <button
+                      type="button"
+                      className="aydt-pw-toggle"
+                      onClick={() => setShowSignupPw((v) => !v)}
+                    >
+                      {showSignupPw ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
+                  <p className="aydt-pw-hint">At least 6 characters</p>
+                  {signupErrors.password && (
+                    <span className="aydt-field-error">{signupErrors.password}</span>
+                  )}
+                </div>
+
+                <button type="submit" className="aydt-btn-primary" style={{ marginTop: 8 }}>
+                  Create account
+                </button>
+
+                <div className="aydt-auth-footer">
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    className="aydt-auth-link"
+                    onClick={() => setActiveTab("login")}
+                  >
+                    Log in
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-export default function SignUpPage() {
+export default function AuthPage() {
   return (
     <Suspense>
-      <SignUpForm />
+      <AuthForm />
     </Suspense>
   );
 }
