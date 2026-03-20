@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { AuthProvider } from "@/app/providers/AuthProvider";
+import ConditionalFooter from "./ConditionalFooter";
+import { NavCartButton } from "@/app/components/public/NavCartButton";
+import "./portal.css";
 
 export default async function PublicLayout({
   children,
@@ -24,73 +27,64 @@ export default async function PublicLayout({
 
   return (
     <AuthProvider>
-      <div className="user-shell flex flex-col">
+      <div className="pub-portal-shell">
 
-        {/* ── Navigation ──────────────────────────────────────── */}
-        <header className="user-topnav">
-          <nav className="max-w-6xl mx-auto w-full px-6 h-full flex items-center justify-between">
-
-            {/* Brand */}
-            <Link
-              href="/"
-              className="user-nav-link"
-              style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.1em' }}
-            >
-              American Youth Dance Theater
-            </Link>
-
-            {/* Nav links */}
-            <div className="hidden sm:flex items-center gap-6">
-              <Link href="/" className="user-nav-link">
-                Semesters
-              </Link>
-              {user && (
-                <Link href="/profile" className="user-nav-link">
-                  Profile
-                </Link>
-              )}
+        {/* ── Top Navigation ──────────────────────────────────── */}
+        <nav className="topnav">
+          <Link href="/" className="topnav-logo">
+            <div className="topnav-logo-mark">AY</div>
+            <div>
+              <div className="topnav-logo-text">AYDT</div>
+              <div className="topnav-logo-sub">Registration Portal</div>
             </div>
+          </Link>
 
-            {/* Auth CTA */}
-            <div className="flex items-center gap-3">
-              {user ? (
-                <div className="flex items-center gap-3">
-                  <span className="hidden sm:block text-sm" style={{ color: 'var(--user-text-faint)' }}>
-                    Hi, {firstName ?? "there"}
-                  </span>
-                  <Link href="/profile">
-                    <button className="user-btn-neutral user-btn-sm">Account</button>
-                  </Link>
-                </div>
-              ) : (
-                <Link href="/auth/login">
-                  <button className="user-btn-primary user-btn-sm">Sign In</button>
+          <div className="topnav-links">
+            <Link href="/#semesters" className="topnav-link active">Programs</Link>
+          </div>
+
+          <div className="topnav-right">
+            <NavCartButton />
+            {user ? (
+              <>
+                <span style={{ fontSize: 13, color: "var(--pub-nav-text)" }}>
+                  Hi, {firstName ?? "there"}
+                </span>
+                <Link href="/profile" className="btn-nav-ghost">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                  My Account
                 </Link>
-              )}
-            </div>
-          </nav>
-        </header>
+              </>
+            ) : (
+              <>
+                <Link href="/auth/login" className="btn-nav-ghost">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                    <polyline points="10 17 15 12 10 7"/>
+                    <line x1="15" y1="12" x2="3" y2="12"/>
+                  </svg>
+                  Log In
+                </Link>
+                <Link href="/register" className="btn-nav-primary">
+                  Create Account
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                    <polyline points="12 5 19 12 12 19"/>
+                  </svg>
+                </Link>
+              </>
+            )}
+          </div>
+        </nav>
 
-        {/* ── Page content ────────────────────────────────────── */}
-        <main className="flex-1">{children}</main>
+        {/* ── Page Content ────────────────────────────────────── */}
+        <main style={{ flex: 1 }}>{children}</main>
 
         {/* ── Footer ──────────────────────────────────────────── */}
-        <footer className="py-8 mt-auto" style={{ background: 'var(--user-surface-sub)', borderTop: '1px solid var(--user-border)' }}>
-          <div className="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <p className="text-sm" style={{ color: 'var(--user-text-faint)' }}>
-              © {new Date().getFullYear()} American Youth Dance Theater. All rights reserved.
-            </p>
-            <div className="flex items-center gap-6">
-              <Link
-                href="/auth/login"
-                className="text-sm"
-                style={{ color: 'var(--user-text-faint)' }}
-              >
-                Admin Login
-              </Link>
-            </div>
-          </div>
-        </footer>
+        <ConditionalFooter />
 
       </div>
     </AuthProvider>
