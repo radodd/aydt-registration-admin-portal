@@ -910,6 +910,17 @@ export type TextBlockFormatting = {
   link?: string;
 };
 
+export type ProfileFieldKey =
+  | "parent_first_name"
+  | "parent_last_name"
+  | "parent_email"
+  | "parent_phone"
+  | "parent_address_line1"
+  | "parent_address_line2"
+  | "parent_city"
+  | "parent_state"
+  | "parent_zipcode";
+
 export type RegistrationFormElement = {
   id: string;
   type: RegistrationElementType;
@@ -922,6 +933,9 @@ export type RegistrationFormElement = {
   instructionalText?: string;
   options?: string[]; // for select/checkbox
   sessionIds?: string[]; // applicability
+
+  // Auto-fill from parent profile for logged-in users
+  profileField?: ProfileFieldKey | null;
 
   // Subheader fields
   subtitle?: string;
