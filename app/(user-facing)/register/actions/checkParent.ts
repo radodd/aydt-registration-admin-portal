@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 interface CheckParentResult {
   exists: boolean;
@@ -14,7 +14,7 @@ interface CheckParentResult {
 export async function checkParentByEmail(
   email: string,
 ): Promise<CheckParentResult> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data } = await supabase
     .from("users")

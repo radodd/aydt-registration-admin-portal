@@ -23,6 +23,27 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+function formatTime(time: string): string {
+  const parts = time.split(":");
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+function getDisciplineDisc(session: PublicSession | undefined): {
+  line1: string;
+  line2: string | null;
+} {
+  const source = (session?.discipline ?? session?.name ?? "")
+    .split(" ")[0]
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "");
+  if (source.length < 5) return { line1: source.substring(0, 4), line2: null };
+  return { line1: source.substring(0, 3), line2: source.substring(3, 6) || null };
+}
+
 /* -------------------------------------------------------------------------- */
 /* Payment content                                                             */
 /* -------------------------------------------------------------------------- */
@@ -276,19 +297,33 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
   /* ---------------------------------------------------------------------- */
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900 mb-1">
-          Review & Confirm
+    <div className="space-y-4">
+      {/* Page header */}
+      <div className="mb-2">
+        <h1
+          className="text-3xl font-extrabold tracking-tight mb-1.5"
+          style={{
+            fontFamily: "var(--pub-font-secondary)",
+            color: "var(--pub-text-primary)",
+          }}
+        >
+          Review &amp; Confirm
         </h1>
-        <p className="text-neutral-500 text-sm">
-          Confirm your registration details below.
+        <p className="text-sm" style={{ color: "var(--pub-text-muted)" }}>
+          Confirm your registration details before completing payment.
         </p>
       </div>
 
       {/* Cart hold countdown — warn when < 5 minutes remain */}
       {!state.isPreview && secondsRemaining > 0 && secondsRemaining < 300 && (
-        <div className="bg-mauve/10 border border-mauve rounded-xl px-4 py-3 text-sm text-mauve-text font-medium">
+        <div
+          className="rounded-xl px-4 py-3 text-sm font-medium"
+          style={{
+            background: "rgba(122,74,114,0.08)",
+            border: "1px solid var(--plum-200)",
+            color: "var(--plum-700)",
+          }}
+        >
           Your cart reservation expires in {Math.floor(secondsRemaining / 60)}:
           {String(secondsRemaining % 60).padStart(2, "0")}. Complete your
           registration before the hold is released.
@@ -297,22 +332,102 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
 
       {/* Preview mode banner */}
       {state.isPreview && (
-        <div className="bg-mauve/10 border border-mauve rounded-xl px-4 py-3 text-sm text-mauve-text font-medium">
+        <div
+          className="rounded-xl px-4 py-3 text-sm font-medium"
+          style={{
+            background: "rgba(122,74,114,0.08)",
+            border: "1px solid var(--plum-200)",
+            color: "var(--plum-700)",
+          }}
+        >
           Preview mode — no registration will be saved.
         </div>
       )}
 
-      {/* Pricing breakdown (Phase 2) */}
+      {/* ══ PRICING BREAKDOWN ══ */}
       {!state.isPreview && (
-        <div className="bg-white border border-neutral-200 rounded-2xl p-5 space-y-4">
-          <h2 className="font-semibold text-neutral-900">Pricing Breakdown</h2>
+        <div
+          className="bg-white rounded-2xl overflow-hidden"
+          style={{
+            border: "1px solid var(--pub-border)",
+            boxShadow: "var(--pub-shadow-card)",
+          }}
+        >
+          {/* Card header */}
+          <div
+            className="flex items-center justify-between px-5 py-3.5 border-b"
+            style={{
+              background: "var(--pub-surface-warm)",
+              borderColor: "var(--pub-border)",
+            }}
+          >
+            <div
+              className="flex items-center gap-2 text-sm font-bold"
+              style={{
+                fontFamily: "var(--pub-font-secondary)",
+                color: "var(--pub-text-primary)",
+              }}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                style={{ color: "var(--plum)" }}
+              >
+                <line x1="12" y1="1" x2="12" y2="23" />
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+              Pricing Breakdown
+            </div>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex items-center gap-1 text-xs font-semibold transition-opacity hover:opacity-70"
+              style={{
+                color: "var(--plum)",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Edit cart
+            </button>
+          </div>
 
+          {/* Loading */}
           {quoteLoading && (
-            <p className="text-sm text-neutral-400">Calculating pricing…</p>
+            <p
+              className="px-5 py-4 text-sm"
+              style={{ color: "var(--pub-text-faint)" }}
+            >
+              Calculating pricing…
+            </p>
           )}
 
+          {/* Error */}
           {quoteError && (
-            <div className="rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
+            <div
+              className="mx-5 my-4 rounded-xl px-4 py-3 text-sm"
+              style={{
+                background: "rgba(122,74,114,0.08)",
+                border: "1px solid var(--plum-200)",
+                color: "var(--plum-700)",
+              }}
+            >
               <p className="font-medium">Pricing unavailable</p>
               <p className="mt-1 text-xs">{quoteError}</p>
               <p className="mt-1 text-xs">
@@ -322,91 +437,793 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
             </div>
           )}
 
+          {/* Quote */}
           {quote && !quoteLoading && (
-            <div className="space-y-4">
-              {/* Per-dancer breakdowns */}
-              {quote.perDancer.map((dancer) => (
-                <div
-                  key={dancer.dancerId}
-                  className="border border-neutral-200 rounded-xl p-4 space-y-2"
-                >
-                  <p className="text-sm font-medium text-neutral-900">
-                    {dancer.dancerName}
-                  </p>
-                  <p className="text-xs text-neutral-400 capitalize">
-                    {dancer.division.replace("_", " ")} ·{" "}
-                    {dancer.weeklyClassCount} class
-                    {dancer.weeklyClassCount !== 1 ? "es" : ""}/week
-                  </p>
-                  <div className="space-y-1">
-                    {dancer.lineItems.map((li, i) => (
+            <>
+              {quote.perDancer.map((dancer) => {
+                const tuitionItems = dancer.lineItems.filter((li) =>
+                  li.label.toLowerCase().includes("tuition"),
+                );
+                const feeItems = dancer.lineItems.filter(
+                  (li) => !li.label.toLowerCase().includes("tuition"),
+                );
+                const subtotal = dancer.lineItems.reduce(
+                  (sum, li) => sum + li.amount,
+                  0,
+                );
+                const initial = dancer.dancerName.charAt(0).toUpperCase();
+                const firstName = dancer.dancerName.split(" ")[0];
+
+                return (
+                  <div
+                    key={dancer.dancerId}
+                    className="border-b"
+                    style={{ borderColor: "var(--pub-border)" }}
+                  >
+                    {/* Nameplate */}
+                    <div className="flex items-center gap-2.5 px-5 pt-4">
                       <div
-                        key={i}
-                        className="flex justify-between text-sm text-neutral-700"
+                        className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs font-bold"
+                        style={{
+                          background: "var(--plum-50)",
+                          color: "var(--plum)",
+                          fontFamily: "var(--pub-font-secondary)",
+                        }}
                       >
-                        <span>{li.label}</span>
-                        <span className={li.amount < 0 ? "text-green-600" : ""}>
-                          {formatCurrency(li.amount)}
-                        </span>
+                        {initial}
                       </div>
-                    ))}
+                      <div>
+                        <div
+                          className="text-sm font-bold"
+                          style={{
+                            fontFamily: "var(--pub-font-secondary)",
+                            color: "var(--pub-text-primary)",
+                          }}
+                        >
+                          {dancer.dancerName}
+                        </div>
+                        <div
+                          className="text-xs capitalize"
+                          style={{ color: "var(--pub-text-muted)" }}
+                        >
+                          {dancer.division.replace("_", " ")} &middot;{" "}
+                          {dancer.weeklyClassCount} Class
+                          {dancer.weeklyClassCount !== 1 ? "es" : ""} / Week
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tuition group */}
+                    {tuitionItems.length > 0 && (
+                      <>
+                        <div
+                          className="px-5 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-[0.9px]"
+                          style={{ color: "var(--pub-text-faint)" }}
+                        >
+                          Tuition
+                        </div>
+                        <div className="px-5">
+                          {tuitionItems.map((li, i) => (
+                            <div
+                              key={i}
+                              className="flex justify-between items-start py-2 text-sm gap-3 border-b last:border-b-0"
+                              style={{ borderColor: "var(--pub-border-subtle)" }}
+                            >
+                              <span style={{ color: "var(--pub-text-muted)" }}>
+                                {li.label}
+                              </span>
+                              <span
+                                className="font-semibold shrink-0"
+                                style={{
+                                  color:
+                                    li.amount < 0
+                                      ? "var(--pub-badge-sage-text)"
+                                      : "var(--pub-text-primary)",
+                                }}
+                              >
+                                {formatCurrency(li.amount)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Fees & Add-ons group */}
+                    {feeItems.length > 0 && (
+                      <>
+                        <div
+                          className="px-5 pt-2.5 pb-1 text-[10px] font-bold uppercase tracking-[0.9px] border-t"
+                          style={{
+                            color: "var(--pub-text-faint)",
+                            borderColor: "var(--pub-border)",
+                          }}
+                        >
+                          Fees &amp; Add-ons
+                        </div>
+                        <div style={{ background: "var(--pub-surface-warm)" }}>
+                          {feeItems.map((li, i) => (
+                            <div
+                              key={i}
+                              className="flex justify-between items-start px-5 py-2 gap-3 border-b last:border-b-0"
+                              style={{ borderColor: "var(--pub-border-subtle)" }}
+                            >
+                              <span
+                                className="text-xs"
+                                style={{ color: "var(--pub-text-muted)" }}
+                              >
+                                {li.label}
+                              </span>
+                              <span
+                                className="text-xs font-semibold shrink-0"
+                                style={{
+                                  color:
+                                    li.amount < 0
+                                      ? "var(--pub-badge-sage-text)"
+                                      : "var(--pub-text-muted)",
+                                }}
+                              >
+                                {formatCurrency(Math.abs(li.amount))}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Dancer subtotal */}
+                    <div
+                      className="flex justify-between items-center px-5 py-2.5 text-sm border-t"
+                      style={{ borderColor: "var(--pub-border-subtle)" }}
+                    >
+                      <span
+                        className="font-semibold"
+                        style={{ color: "var(--pub-text-primary)" }}
+                      >
+                        {firstName} subtotal
+                      </span>
+                      <span className="font-bold">
+                        {formatCurrency(subtotal)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Family discount */}
+              {quote.familyDiscountAmount > 0 && (
+                <div
+                  className="flex justify-between items-center px-5 py-2.5 text-sm border-t font-bold"
+                  style={{
+                    background: "#EAF6EF",
+                    borderColor: "#C0E8D0",
+                    color: "var(--pub-badge-sage-text)",
+                  }}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                    Family Discount applied
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--pub-font-secondary)",
+                      fontSize: "15px",
+                    }}
+                  >
+                    &minus;{formatCurrency(quote.familyDiscountAmount)}
                   </div>
                 </div>
-              ))}
+              )}
 
-              {/* Family-level adjustments */}
-              {(quote.familyDiscountAmount > 0 ||
-                quote.autoPayAdminFeeTotal > 0 ||
-                quote.couponDiscount > 0) && (
-                <div className="space-y-1 px-1">
-                  {quote.familyDiscountAmount > 0 && (
-                    <div className="flex justify-between text-sm text-mint-text font-medium">
-                      <span>Family Discount</span>
-                      <span>−{formatCurrency(quote.familyDiscountAmount)}</span>
-                    </div>
-                  )}
-                  {quote.couponDiscount > 0 && (
-                    <div className="flex justify-between text-sm text-mint-text font-medium">
-                      <span>{quote.appliedCouponName ?? "Promo Code"}</span>
-                      <span>−{formatCurrency(quote.couponDiscount)}</span>
-                    </div>
-                  )}
-                  {quote.autoPayAdminFeeTotal > 0 && (
-                    <div className="flex justify-between text-sm text-neutral-700">
-                      <span>Auto-pay Admin Fee</span>
-                      <span>{formatCurrency(quote.autoPayAdminFeeTotal)}</span>
-                    </div>
-                  )}
+              {/* Coupon discount */}
+              {quote.couponDiscount > 0 && (
+                <div
+                  className="flex justify-between items-center px-5 py-2.5 text-sm border-t font-bold"
+                  style={{
+                    background: "#EAF6EF",
+                    borderColor: "#C0E8D0",
+                    color: "var(--pub-badge-sage-text)",
+                  }}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <polyline points="20 12 20 22 4 22 4 12" />
+                      <rect x="2" y="7" width="20" height="5" />
+                      <line x1="12" y1="22" x2="12" y2="7" />
+                      <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+                      <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+                    </svg>
+                    {quote.appliedCouponName ?? "Promo Code"} applied
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--pub-font-secondary)",
+                      fontSize: "15px",
+                    }}
+                  >
+                    &minus;{formatCurrency(quote.couponDiscount)}
+                  </div>
                 </div>
               )}
 
-              {/* Grand total */}
-              <div className="border-t border-neutral-200 pt-3 flex justify-between font-bold text-neutral-900">
-                <span>Total</span>
-                <span>{formatCurrency(quote.grandTotal)}</span>
+              {/* Promo strip — inline */}
+              <div
+                className="flex flex-wrap items-center gap-2 px-5 py-3 border-t"
+                style={{ borderColor: "var(--pub-border-subtle)" }}
+              >
+                <span
+                  className="text-xs font-semibold whitespace-nowrap"
+                  style={{ color: "var(--pub-text-muted)" }}
+                >
+                  Promo code
+                </span>
+                <input
+                  type="text"
+                  value={couponInput}
+                  onChange={(e) => {
+                    setCouponInput(e.target.value.toUpperCase());
+                    if (couponFeedback) setCouponFeedback(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter")
+                      setAppliedCouponCode(couponInput.trim() || null);
+                  }}
+                  placeholder="Enter code"
+                  className="flex-1 min-w-[120px] px-3 py-1.5 rounded-lg text-xs font-mono uppercase tracking-[0.5px] focus:outline-none"
+                  style={{
+                    border: "1.5px solid var(--pub-border)",
+                    color: "var(--pub-text-primary)",
+                    transition: "border-color .15s, box-shadow .15s",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "var(--plum)";
+                    e.currentTarget.style.boxShadow =
+                      "0 0 0 3px rgba(122,74,114,0.10)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--pub-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCouponFeedback(null);
+                    setAppliedCouponCode(couponInput.trim() || null);
+                  }}
+                  disabled={quoteLoading || !couponInput.trim()}
+                  className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 whitespace-nowrap"
+                  style={{
+                    border: "1.5px solid var(--pub-border)",
+                    color: "var(--pub-text-muted)",
+                    background: "white",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = "var(--plum-200)";
+                    e.currentTarget.style.color = "var(--plum)";
+                    e.currentTarget.style.background = "var(--plum-50)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = "var(--pub-border)";
+                    e.currentTarget.style.color = "var(--pub-text-muted)";
+                    e.currentTarget.style.background = "white";
+                  }}
+                >
+                  Apply
+                </button>
+                {appliedCouponCode && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCouponInput("");
+                      setAppliedCouponCode(null);
+                      setCouponFeedback(null);
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs transition-colors"
+                    style={{
+                      border: "1.5px solid var(--pub-border)",
+                      color: "var(--pub-text-muted)",
+                      background: "white",
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+                {couponFeedback && (
+                  <p
+                    className="w-full text-xs font-medium mt-0.5"
+                    style={{
+                      color:
+                        couponFeedback.type === "success"
+                          ? "var(--pub-badge-sage-text)"
+                          : "#dc2626",
+                    }}
+                  >
+                    {couponFeedback.message}
+                  </p>
+                )}
               </div>
 
-              {/* Amount due now */}
-              {quote.amountDueNow !== quote.grandTotal && (
-                <div className="flex justify-between text-sm text-primary-700 font-medium">
-                  <span>Due today</span>
-                  <span>{formatCurrency(quote.amountDueNow)}</span>
+              {/* Grand total */}
+              <div
+                className="flex justify-between items-center px-5 py-4 border-t-2"
+                style={{
+                  borderColor: "var(--pub-border)",
+                  background: "var(--pub-surface-warm)",
+                }}
+              >
+                <div>
+                  <div
+                    className="text-[15px] font-bold"
+                    style={{ color: "var(--pub-text-primary)" }}
+                  >
+                    Total Due
+                  </div>
+                  <div
+                    className="text-xs mt-0.5"
+                    style={{ color: "var(--pub-text-muted)" }}
+                  >
+                    Final amount at payment
+                  </div>
                 </div>
-              )}
+                <div
+                  className="font-extrabold"
+                  style={{
+                    fontFamily: "var(--pub-font-secondary)",
+                    fontSize: "26px",
+                    color: "var(--plum)",
+                  }}
+                >
+                  {formatCurrency(quote.grandTotal)}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
-              {/* Payment schedule (if multi-installment) */}
-              {quote.paymentSchedule.length > 1 && (
-                <div className="rounded-xl bg-neutral-50 p-4 space-y-2">
-                  <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">
-                    Payment Schedule
-                  </p>
+      {/* ══ SESSIONS & PARTICIPANTS (combined) ══ */}
+      <div
+        className="bg-white rounded-2xl overflow-hidden"
+        style={{
+          border: "1px solid var(--pub-border)",
+          boxShadow: "var(--pub-shadow-card)",
+        }}
+      >
+        {/* Card header */}
+        <div
+          className="flex items-center justify-between px-5 py-3.5 border-b"
+          style={{
+            background: "var(--pub-surface-warm)",
+            borderColor: "var(--pub-border)",
+          }}
+        >
+          <div
+            className="flex items-center gap-2 text-sm font-bold"
+            style={{
+              fontFamily: "var(--pub-font-secondary)",
+              color: "var(--pub-text-primary)",
+            }}
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              style={{ color: "var(--plum)" }}
+            >
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            Sessions &amp; Participants
+          </div>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-1 text-xs font-semibold transition-opacity hover:opacity-70"
+            style={{
+              color: "var(--plum)",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+            Edit
+          </button>
+        </div>
+
+        {state.participants.map((p, idx) => {
+          const session = sessionMap.get(p.sessionId);
+          const dancerLabel = p.newDancer
+            ? `${p.newDancer.firstName} ${p.newDancer.lastName}`
+            : dancerNames.get(p.dancerId ?? "") ?? "—";
+          const dancerInitial = dancerLabel.charAt(0).toUpperCase();
+          const disc = getDisciplineDisc(session);
+
+          const dayStr = session?.scheduleDate
+            ? new Date(
+                session.scheduleDate + "T00:00:00",
+              ).toLocaleDateString("en-US", { weekday: "long" }) + "s"
+            : session?.daysOfWeek?.[0]
+              ? session.daysOfWeek[0].charAt(0).toUpperCase() +
+                session.daysOfWeek[0].slice(1).toLowerCase() +
+                "s"
+              : null;
+          const timeStr =
+            session?.startTime && session?.endTime
+              ? `${formatTime(session.startTime)} – ${formatTime(session.endTime)}`
+              : null;
+
+          const isLast = idx === state.participants.length - 1;
+
+          return (
+            <div
+              key={p.sessionId}
+              className={isLast ? "" : "border-b"}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                borderColor: "var(--pub-border-subtle)",
+              }}
+            >
+              {/* Session info */}
+              <div
+                className="flex gap-3 p-4"
+                style={{ borderRight: "1px solid var(--pub-border-subtle)" }}
+              >
+                <div
+                  className="w-10 h-10 rounded-lg shrink-0 flex flex-col items-center justify-center text-center leading-tight"
+                  style={{
+                    background: "var(--plum-50)",
+                    color: "var(--plum)",
+                    fontSize: "9px",
+                    fontWeight: 800,
+                    letterSpacing: "0.3px",
+                  }}
+                >
+                  <span>{disc.line1}</span>
+                  {disc.line2 && <span>{disc.line2}</span>}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div
+                    className="text-sm font-bold mb-1.5"
+                    style={{
+                      fontFamily: "var(--pub-font-secondary)",
+                      color: "var(--pub-text-primary)",
+                    }}
+                  >
+                    {session?.name ?? p.sessionId}
+                  </div>
+                  {(dayStr || timeStr) && (
+                    <div
+                      className="flex items-center gap-1.5 text-xs mb-0.5"
+                      style={{ color: "var(--pub-text-muted)" }}
+                    >
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        style={{ color: "var(--pub-text-faint)", flexShrink: 0 }}
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      {[dayStr, timeStr].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
+                  {session?.location && (
+                    <div
+                      className="flex items-center gap-1.5 text-xs mb-0.5"
+                      style={{ color: "var(--pub-text-muted)" }}
+                    >
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        style={{ color: "var(--pub-text-faint)", flexShrink: 0 }}
+                      >
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                        <circle cx="12" cy="10" r="3" />
+                      </svg>
+                      {session.location}
+                    </div>
+                  )}
+                  {session?.instructorName && (
+                    <div
+                      className="flex items-center gap-1 text-[11px] mt-2 pt-2 border-t"
+                      style={{
+                        color: "var(--pub-text-muted)",
+                        borderColor: "var(--pub-border-subtle)",
+                      }}
+                    >
+                      <svg
+                        width="10"
+                        height="10"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        style={{ color: "var(--pub-text-faint)" }}
+                      >
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                      Instructor: {session.instructorName}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Dancer panel */}
+              <div
+                className="flex flex-col items-center justify-center gap-1.5 px-4 py-4"
+                style={{
+                  background: "var(--pub-surface-warm)",
+                  minWidth: "110px",
+                }}
+              >
+                <div
+                  className="text-[10px] font-semibold uppercase tracking-[0.6px]"
+                  style={{ color: "var(--pub-text-faint)" }}
+                >
+                  Dancer
+                </div>
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+                  style={{
+                    background: "var(--plum-50)",
+                    border: "2px solid var(--plum-100)",
+                    color: "var(--plum)",
+                    fontFamily: "var(--pub-font-secondary)",
+                  }}
+                >
+                  {dancerInitial}
+                </div>
+                <div
+                  className="text-xs font-bold text-center leading-tight"
+                  style={{ color: "var(--pub-text-primary)" }}
+                >
+                  {dancerLabel}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ══ PAYMENT ══ */}
+      <div
+        className="bg-white rounded-2xl overflow-hidden"
+        style={{
+          border: "1px solid var(--pub-border)",
+          boxShadow: "var(--pub-shadow-card)",
+        }}
+      >
+        {/* Card header */}
+        <div
+          className="flex items-center gap-2 px-5 py-3.5 border-b text-sm font-bold"
+          style={{
+            fontFamily: "var(--pub-font-secondary)",
+            color: "var(--pub-text-primary)",
+            background: "var(--pub-surface-warm)",
+            borderColor: "var(--pub-border)",
+          }}
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            style={{ color: "var(--plum)" }}
+          >
+            <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+            <line x1="1" y1="10" x2="23" y2="10" />
+          </svg>
+          Payment
+        </div>
+
+        {state.isPreview ? (
+          <p className="px-5 py-4 text-sm" style={{ color: "var(--pub-text-muted)" }}>
+            In preview mode, payment is simulated. Click confirm to see the
+            success screen.
+          </p>
+        ) : (
+          <>
+            {/* Elavon provider row */}
+            <div
+              className="flex items-center gap-3.5 px-5 py-4 border-b"
+              style={{ borderColor: "var(--pub-border-subtle)" }}
+            >
+              <div
+                className="w-11 h-11 rounded-lg shrink-0 flex items-center justify-center"
+                style={{
+                  background: "var(--pub-surface-warm)",
+                  border: "1px solid var(--pub-border)",
+                }}
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  style={{ color: "var(--plum)" }}
+                >
+                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                  <line x1="1" y1="10" x2="23" y2="10" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div
+                  className="text-sm font-bold mb-0.5"
+                  style={{ color: "var(--pub-text-primary)" }}
+                >
+                  Secure Payment via Elavon
+                </div>
+                <div
+                  className="text-xs leading-relaxed"
+                  style={{ color: "var(--pub-text-muted)" }}
+                >
+                  You&apos;ll be redirected to a secure Elavon page to complete
+                  your purchase. Card details are never stored on this portal.
+                </div>
+              </div>
+              <div
+                className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold"
+                style={{
+                  background: "var(--pub-badge-sage-bg)",
+                  color: "var(--pub-badge-sage-text)",
+                }}
+              >
+                <svg
+                  width="9"
+                  height="9"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                Secure
+              </div>
+            </div>
+
+            {/* Payment options */}
+            <div className="grid grid-cols-2">
+              <div className="flex items-start gap-2.5 p-5">
+                <div
+                  className="w-8 h-8 rounded shrink-0 flex items-center justify-center mt-0.5"
+                  style={{ background: "var(--plum-50)", color: "var(--plum)" }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                    <line x1="1" y1="10" x2="23" y2="10" />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    className="text-xs font-bold mb-0.5"
+                    style={{ color: "var(--pub-text-primary)" }}
+                  >
+                    Pay in Full
+                  </div>
+                  <div
+                    className="text-[11px] leading-relaxed"
+                    style={{ color: "var(--pub-text-muted)" }}
+                  >
+                    Single payment of{" "}
+                    {quote ? formatCurrency(quote.grandTotal) : "—"} at
+                    checkout.
+                  </div>
+                </div>
+              </div>
+              <div
+                className="flex items-start gap-2.5 p-5"
+                style={{ borderLeft: "1px solid var(--pub-border)" }}
+              >
+                <div
+                  className="w-8 h-8 rounded shrink-0 flex items-center justify-center mt-0.5"
+                  style={{ background: "var(--plum-50)", color: "var(--plum)" }}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <line x1="12" y1="1" x2="12" y2="23" />
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                  </svg>
+                </div>
+                <div>
+                  <div
+                    className="text-xs font-bold mb-0.5"
+                    style={{ color: "var(--pub-text-primary)" }}
+                  >
+                    Installment Plan
+                  </div>
+                  <div
+                    className="text-[11px] leading-relaxed"
+                    style={{ color: "var(--pub-text-muted)" }}
+                  >
+                    Split payments available. Select at checkout on the next
+                    page.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment schedule (if multi-installment) */}
+            {quote && quote.paymentSchedule.length > 1 && (
+              <div
+                className="px-5 py-4 border-t"
+                style={{ borderColor: "var(--pub-border-subtle)" }}
+              >
+                <p
+                  className="text-[10px] font-bold uppercase tracking-[0.9px] mb-2.5"
+                  style={{ color: "var(--pub-text-faint)" }}
+                >
+                  Payment Schedule
+                </p>
+                <div className="space-y-1.5">
                   {quote.paymentSchedule.map((inst) => (
                     <div
                       key={inst.installmentNumber}
-                      className="flex justify-between text-sm text-neutral-700"
+                      className="flex justify-between text-sm"
+                      style={{ color: "var(--pub-text-muted)" }}
                     >
                       <span>
-                        Payment {inst.installmentNumber} —{" "}
+                        Payment {inst.installmentNumber} &mdash;{" "}
                         {new Date(
                           inst.dueDate + "T00:00:00",
                         ).toLocaleDateString("en-US", {
@@ -419,191 +1236,121 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Promo code entry */}
-      {!state.isPreview && (
-        <div className="bg-white border border-neutral-200 rounded-2xl p-5 space-y-3">
-          <button
-            type="button"
-            onClick={() => {
-              const el = document.getElementById("promo-code-section");
-              if (el) el.classList.toggle("hidden");
-            }}
-            className="text-sm font-medium text-primary-600 hover:text-primary-700 transition"
-          >
-            Have a promo code?
-          </button>
-
-          <div id="promo-code-section" className="hidden space-y-2">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={couponInput}
-                onChange={(e) => {
-                  setCouponInput(e.target.value.toUpperCase());
-                  // Clear previous feedback if user edits the code
-                  if (couponFeedback) setCouponFeedback(null);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") setAppliedCouponCode(couponInput.trim() || null);
-                }}
-                placeholder="Enter code"
-                className="flex-1 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-primary-600"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setCouponFeedback(null);
-                  setAppliedCouponCode(couponInput.trim() || null);
-                }}
-                disabled={quoteLoading || !couponInput.trim()}
-                className="px-4 py-2 rounded-xl bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 transition"
-              >
-                Apply
-              </button>
-              {appliedCouponCode && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCouponInput("");
-                    setAppliedCouponCode(null);
-                    setCouponFeedback(null);
-                  }}
-                  className="px-3 py-2 rounded-xl border border-neutral-200 text-sm text-neutral-500 hover:bg-neutral-50 transition"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-
-            {couponFeedback && (
-              <p
-                className={`text-xs font-medium ${
-                  couponFeedback.type === "success"
-                    ? "text-green-600"
-                    : "text-red-600"
-                }`}
-              >
-                {couponFeedback.message}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Sessions summary — always shown; shows full detail once sessionMap is loaded */}
-      <div className="bg-white border border-neutral-200 rounded-2xl p-5">
-        <h2 className="font-semibold text-neutral-900 mb-4">Sessions</h2>
-        <div className="space-y-3">
-          {sessionIds.map((id) => {
-            const session = sessionMap.get(id);
-            const dateLabel = session?.scheduleDate
-              ? new Date(session.scheduleDate + "T00:00:00").toLocaleDateString(
-                  "en-US",
-                  { weekday: "long", month: "short", day: "numeric" },
-                )
-              : null;
-            return (
-              <div
-                key={id}
-                className="border border-neutral-200 rounded-xl px-4 py-3 space-y-0.5"
-              >
-                <p className="text-sm font-medium text-neutral-900">
-                  {session?.name ?? id}
-                </p>
-                {dateLabel && (
-                  <p className="text-xs text-neutral-500">
-                    {dateLabel}
-                    {session?.startTime
-                      ? ` · ${session.startTime}–${session.endTime}`
-                      : ""}
-                    {session?.location ? ` · ${session.location}` : ""}
-                  </p>
-                )}
-                {session?.instructorName && (
-                  <p className="text-xs text-neutral-400">
-                    Instructor: {session.instructorName}
-                  </p>
-                )}
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Participant summary */}
-      {state.participants.length > 0 && (
-        <div className="bg-white border border-neutral-200 rounded-2xl p-5">
-          <h2 className="font-semibold text-neutral-900 mb-3">Participants</h2>
-          <div className="space-y-2">
-            {state.participants.map((p) => {
-              const session = sessionMap.get(p.sessionId);
-              const dancerLabel = p.newDancer
-                ? `${p.newDancer.firstName} ${p.newDancer.lastName}`
-                : dancerNames.get(p.dancerId ?? "") ?? "—";
-              return (
-                <div
-                  key={p.sessionId}
-                  className="flex justify-between text-sm text-neutral-700"
-                >
-                  <span>{session?.name ?? p.sessionId}</span>
-                  <span className="text-neutral-500 font-medium">{dancerLabel}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Payment section */}
-      <div className="bg-white border border-neutral-200 rounded-2xl p-5">
-        <h2 className="font-semibold text-neutral-900 mb-3">Payment</h2>
-        {state.isPreview ? (
-          <p className="text-sm text-neutral-500">
-            In preview mode, payment is simulated. Click confirm to see the
-            success screen.
-          </p>
-        ) : (
-          <p className="text-sm text-neutral-400">
-            You will be redirected to a secure Elavon payment page to complete
-            your payment.
-          </p>
+            )}
+          </>
         )}
       </div>
 
+      {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{
+            background: "#fef2f2",
+            border: "1px solid #fecaca",
+            color: "#b91c1c",
+          }}
+        >
           {error}
         </div>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-3">
+      {/* CTA row */}
+      <div
+        className="grid gap-3 mt-2"
+        style={{ gridTemplateColumns: "1fr 2fr" }}
+      >
         <button
           type="button"
           onClick={() => router.back()}
           disabled={processing}
-          className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors text-sm font-medium disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-1.5 py-3 px-5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+          style={{
+            border: "1.5px solid var(--pub-border)",
+            background: "white",
+            color: "var(--pub-text-muted)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = "var(--plum-200)";
+            e.currentTarget.style.color = "var(--plum)";
+            e.currentTarget.style.background = "var(--plum-50)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = "var(--pub-border)";
+            e.currentTarget.style.color = "var(--pub-text-muted)";
+            e.currentTarget.style.background = "white";
+          }}
         >
-          ← Back
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+          >
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back
         </button>
         <button
           type="button"
           onClick={handleConfirm}
           disabled={processing}
-          className="flex-1 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors text-sm disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 py-3 px-7 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-60"
+          style={{
+            background: "var(--plum)",
+            border: "2px solid var(--plum)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--plum-700)";
+            e.currentTarget.style.borderColor = "var(--plum-700)";
+            e.currentTarget.style.boxShadow = "var(--pub-shadow-plum)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "var(--plum)";
+            e.currentTarget.style.borderColor = "var(--plum)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
         >
           {processing
             ? "Processing…"
             : state.isPreview
               ? "Simulate Registration"
               : "Confirm Registration"}
+          {!processing && (
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          )}
         </button>
+      </div>
+
+      {/* Security note */}
+      <div
+        className="flex items-center justify-center gap-1.5 text-[11px] mt-1"
+        style={{ color: "var(--pub-text-faint)" }}
+      >
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+        >
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+        Your information is encrypted and secure. Powered by Elavon.
       </div>
     </div>
   );

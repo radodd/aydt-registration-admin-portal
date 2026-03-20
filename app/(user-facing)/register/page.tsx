@@ -90,21 +90,15 @@ function EmailForm({ semesterId }: { semesterId: string }) {
   const signInHref = `/auth/login?next=${encodeURIComponent(participantsPath)}`;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900 mb-1">
-          Let&apos;s get started
-        </h1>
-        <p className="text-neutral-500 text-sm">
-          Enter your email to create an account or sign in.
-        </p>
-      </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="reg-email-wrap">
+      <h1 className="reg-email-heading">Enter your email address</h1>
+      <p className="reg-email-subhead">
+        We&apos;ll use this to sign you in or create your account to complete
+        registration.
+      </p>
 
       <div>
-        <label
-          htmlFor="email"
-          className="block text-sm font-medium text-neutral-700 mb-1.5"
-        >
+        <label htmlFor="email" className="reg-email-label">
           Email address
         </label>
         <input
@@ -113,15 +107,19 @@ function EmailForm({ semesterId }: { semesterId: string }) {
           autoComplete="email"
           placeholder="you@example.com"
           {...register("email")}
-          className="w-full border border-neutral-300 rounded-xl px-4 py-3 text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+          className="reg-email-input"
         />
         {errors.email && (
           <p className="mt-1.5 text-sm text-red-600">{errors.email.message}</p>
         )}
+        <p className="reg-email-hint">
+          Existing AYDT families will receive a sign-in link. New families will
+          be guided through account setup.
+        </p>
       </div>
 
       {serverError && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
           {serverError}
         </p>
       )}
@@ -129,16 +127,14 @@ function EmailForm({ semesterId }: { semesterId: string }) {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors disabled:opacity-60"
+        className="reg-email-submit"
       >
         {isSubmitting ? "Checking…" : "Continue"}
       </button>
 
-      <p className="text-xs text-neutral-400 text-center">
+      <p className="reg-email-signin">
         Already have an account?{" "}
-        <a href={signInHref} className="text-primary-600 hover:underline">
-          Sign in
-        </a>
+        <a href={signInHref}>Sign in directly</a>
       </p>
     </form>
   );

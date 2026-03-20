@@ -5,12 +5,10 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createClient } from "@/utils/supabase/client";
-import {
-  RegistrationProvider,
-  useRegistration,
-} from "@/app/providers/RegistrationProvider";
+import { useRegistration } from "@/app/providers/RegistrationProvider";
 import { CartRestoreGuard } from "../CartRestoreGuard";
 import { useCart } from "@/app/providers/CartProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { createDancer } from "../actions/createDancer";
 import {
   computeAge,
@@ -22,8 +20,32 @@ import type { ParticipantAssignment } from "@/types/public";
 import type { ConflictDetail, Dancer, SessionScheduleInfo } from "@/types";
 
 /* -------------------------------------------------------------------------- */
-/* Dancer row — select existing or create new                                  */
+/* Helpers                                                                     */
 /* -------------------------------------------------------------------------- */
+
+function getDisciplineAbbrev(name: string): string {
+  const words = name.split(/[\s\-]+/).filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0].slice(0, 3).toUpperCase()}\n${words[1].slice(0, 3).toUpperCase()}`;
+  }
+  const s = name.toUpperCase();
+  return s.length <= 4 ? s : s.slice(0, 3);
+}
+
+function fmtTime(t: string | null): string {
+  if (!t) return "";
+  const parts = t.split(":");
+  const h = parseInt(parts[0], 10);
+  const m = parts[1] ?? "00";
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${m} ${ampm}`;
+}
+
+function fmtDay(d: string | null): string {
+  if (!d) return "";
+  return d.charAt(0).toUpperCase() + d.slice(1, 3);
+}
 
 function parseGrade(g: string | null): number | null {
   if (!g) return null;
@@ -33,17 +55,23 @@ function parseGrade(g: string | null): number | null {
   return !isNaN(n) && n >= 1 && n <= 12 ? n : null;
 }
 
+/* -------------------------------------------------------------------------- */
+/* DancerSelector — per-session dancer picker                                  */
+/* -------------------------------------------------------------------------- */
+
 interface DancerSelectorProps {
   sessionId: string;
   sessionName: string;
   existingDancers: Dancer[];
   assignment: ParticipantAssignment | undefined;
   onChange: (a: ParticipantAssignment) => void;
+  onDancerCreated: (dancer: Dancer) => void;
   minAge?: number | null;
   maxAge?: number | null;
   minGrade?: number | null;
   maxGrade?: number | null;
   familyId: string | null;
+  showSessionLabel: boolean;
 }
 
 function DancerSelector({
@@ -52,11 +80,13 @@ function DancerSelector({
   existingDancers,
   assignment,
   onChange,
+  onDancerCreated,
   minAge,
   maxAge,
   minGrade,
   maxGrade,
   familyId,
+  showSessionLabel,
 }: DancerSelectorProps) {
   const [mode, setMode] = useState<"select" | "create">(
     assignment?.dancerId
@@ -71,28 +101,27 @@ function DancerSelector({
   const {
     register,
     handleSubmit,
-    watch,
+    reset,
     formState: { errors },
   } = useForm<NewDancerInput>({
     resolver: zodResolver(newDancerSchema),
   });
 
-  const dobValue = watch("dateOfBirth");
+  // If new dancers are added externally (other sessions), switch to select mode
+  useEffect(() => {
+    if (existingDancers.length > 0 && mode === "create" && !assignment?.dancerId) {
+      // Stay in create mode if user opened it; just ensure "select" is available
+    }
+  }, [existingDancers.length]);
 
   function validateEligibility(
     dob: string,
     gradeStr: string | null,
   ): "valid" | "warning" | "error" | "unchecked" {
-    console.log("[validateEligibility] input:", { dob, gradeStr, minAge, maxAge, minGrade, maxGrade });
-
     const hasCriteria =
       minAge != null || maxAge != null || minGrade != null || maxGrade != null;
-    if (!hasCriteria) {
-      console.log("[validateEligibility] no criteria set → valid");
-      return "valid";
-    }
+    if (!hasCriteria) return "valid";
 
-    // Age check — only evaluate if the class actually has age criteria set
     let ageOk: boolean | null = null;
     const hasAgeCriteria = minAge != null || maxAge != null;
     if (dob && hasAgeCriteria) {
@@ -100,63 +129,38 @@ function DancerSelector({
       ageOk = true;
       if (minAge != null && age < minAge) ageOk = false;
       if (maxAge != null && age > maxAge) ageOk = false;
-      console.log("[validateEligibility] age:", age, "ageOk:", ageOk);
-    } else {
-      console.log("[validateEligibility] age check skipped. hasAgeCriteria:", hasAgeCriteria, "dob:", dob);
     }
 
-    // Grade check — only evaluate if the class actually has grade criteria set
     let gradeOk: boolean | null = null;
     const hasGradeCriteria = minGrade != null || maxGrade != null;
     const gradeNum = parseGrade(gradeStr);
-    console.log("[validateEligibility] gradeStr:", gradeStr, "gradeNum:", gradeNum, "hasGradeCriteria:", hasGradeCriteria);
     if (gradeNum !== null && hasGradeCriteria) {
       gradeOk = true;
       if (minGrade != null && gradeNum < minGrade) gradeOk = false;
       if (maxGrade != null && gradeNum > maxGrade) gradeOk = false;
-      console.log("[validateEligibility] gradeOk:", gradeOk);
-    } else {
-      console.log("[validateEligibility] grade check skipped (gradeNum null or no grade criteria)");
     }
 
-    // OR logic: pass if either criterion is met
     if (ageOk === true || gradeOk === true) {
-      // Near-age warning when age just barely passes and grade check wasn't decisive
       if (
         dob &&
         minAge != null &&
         computeAge(dob) < minAge + 1 &&
         gradeOk !== true
       ) {
-        console.log("[validateEligibility] result: warning (near age limit)");
         return "warning";
       }
-      console.log("[validateEligibility] result: valid");
       return "valid";
     }
-    // Error if any evaluated criterion explicitly failed (the other is null/not applicable)
-    if (ageOk === false || gradeOk === false) {
-      console.log("[validateEligibility] result: error (ageOk:", ageOk, "gradeOk:", gradeOk, ")");
-      return "error";
-    }
-
-    // Age near lower limit and grade can't be evaluated
-    if (dob && minAge != null && computeAge(dob) < minAge + 1) {
-      console.log("[validateEligibility] result: warning (age near lower limit, grade unchecked)");
-      return "warning";
-    }
-    console.log("[validateEligibility] result: unchecked (insufficient data)");
+    if (ageOk === false || gradeOk === false) return "error";
+    if (dob && minAge != null && computeAge(dob) < minAge + 1) return "warning";
     return "unchecked";
   }
 
   function handleSelectExisting(dancerId: string) {
     const dancer = existingDancers.find((d) => d.id === dancerId);
-    console.log("[handleSelectExisting] dancer:", { id: dancer?.id, birth_date: dancer?.birth_date, grade: dancer?.grade });
-    console.log("[handleSelectExisting] session criteria:", { minAge, maxAge, minGrade, maxGrade });
     const ageStatus = dancer?.birth_date
       ? validateEligibility(dancer.birth_date, dancer.grade ?? null)
       : "unchecked";
-    console.log("[handleSelectExisting] final ageStatus:", ageStatus);
     onChange({ sessionId, dancerId, ageStatus });
   }
 
@@ -171,28 +175,34 @@ function DancerSelector({
       return;
     }
     const ageStatus = validateEligibility(data.dateOfBirth, null);
-    onChange({
-      sessionId,
-      dancerId: result.dancerId,
-      newDancer: data,
-      ageStatus,
-    });
+    const newDancer: Dancer = {
+      id: result.dancerId,
+      first_name: data.firstName,
+      last_name: data.lastName,
+      birth_date: data.dateOfBirth,
+      gender: data.gender ?? null,
+      grade: null,
+      email: null,
+      phone_number: null,
+    };
+    onDancerCreated(newDancer);
+    onChange({ sessionId, dancerId: result.dancerId, newDancer: data, ageStatus });
+    reset();
     setMode("select");
   }
 
-  const ageStatus =
-    assignment?.dancerId && dobValue
-      ? validateEligibility(dobValue, null)
-      : (assignment?.ageStatus ?? "unchecked");
+  const ageStatus = assignment?.ageStatus ?? "unchecked";
+  const hasCriteria = minAge != null || maxAge != null || minGrade != null || maxGrade != null;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-2xl p-5">
-      <h3 className="font-semibold text-neutral-900 mb-1">{sessionName}</h3>
-      {(minAge != null ||
-        maxAge != null ||
-        minGrade != null ||
-        maxGrade != null) && (
-        <p className="text-xs text-neutral-400 mb-3">
+    <div>
+      {showSessionLabel && (
+        <div className="reg-session-heading">For {sessionName}</div>
+      )}
+
+      {/* Eligibility criteria note */}
+      {hasCriteria && (
+        <p style={{ fontSize: 12, color: "var(--pub-text-faint)", marginBottom: 12 }}>
           {(minAge != null || maxAge != null) && (
             <span>
               Ages{" "}
@@ -203,8 +213,9 @@ function DancerSelector({
                   : `up to ${maxAge}`}
             </span>
           )}
-          {(minAge != null || maxAge != null) &&
-            (minGrade != null || maxGrade != null) && <span> or </span>}
+          {(minAge != null || maxAge != null) && (minGrade != null || maxGrade != null) && (
+            <span> or </span>
+          )}
           {(minGrade != null || maxGrade != null) && (
             <span>
               Grade{" "}
@@ -218,140 +229,252 @@ function DancerSelector({
         </p>
       )}
 
-      {/* Mode toggle */}
-      {existingDancers.length > 0 && (
-        <div className="flex gap-2 mb-4">
-          {(["select", "create"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
-                mode === m
-                  ? "bg-primary-600 text-white"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
-            >
-              {m === "select" ? "Select dancer" : "Add new dancer"}
-            </button>
-          ))}
+      {/* Existing dancer cards */}
+      {mode === "select" && existingDancers.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+          {existingDancers.map((d) => {
+            const initials = (d.first_name[0] + (d.last_name[0] ?? "")).toUpperCase();
+            const age = d.birth_date ? computeAge(d.birth_date) : null;
+            const isSelected = assignment?.dancerId === d.id;
+            return (
+              <div
+                key={d.id}
+                className={`dancer-card${isSelected ? " selected" : ""}`}
+                onClick={() => handleSelectExisting(d.id)}
+              >
+                <div className="dancer-avatar">{initials}</div>
+                <div className="dancer-info">
+                  <div className="dancer-name">
+                    {d.first_name} {d.last_name}
+                  </div>
+                  {age !== null && (
+                    <div className="dancer-meta">Age {age}</div>
+                  )}
+                </div>
+                <div className="dancer-check">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M3 8l4 4 6-6"
+                      stroke="#fff"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Select existing */}
-      {mode === "select" && existingDancers.length > 0 && (
-        <select
-          value={assignment?.dancerId ?? ""}
-          onChange={(e) => handleSelectExisting(e.target.value)}
-          className="w-full border border-neutral-200 rounded-xl px-3 py-2.5 text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-400"
-        >
-          <option value="">— Select a dancer —</option>
-          {existingDancers.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.first_name} {d.last_name}
-              {d.birth_date ? ` (age ${computeAge(d.birth_date)})` : ""}
-            </option>
-          ))}
-        </select>
+      {/* Empty state: no dancers yet */}
+      {mode === "select" && existingDancers.length === 0 && (
+        <div className="reg-empty-state">
+          <div className="reg-empty-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10z"
+                stroke="var(--plum)"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+              <path
+                d="M3 21c0-4.4 4-8 9-8s9 3.6 9 8"
+                stroke="var(--plum)"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+          <div className="reg-empty-title">No dancers on your account yet</div>
+          <div className="reg-empty-desc">
+            Dancer profiles let you register faster each semester — we&apos;ll
+            pre-fill their info everywhere it&apos;s needed.
+          </div>
+        </div>
       )}
 
-      {/* Create new dancer form */}
-      {mode === "create" && (
-        <form onSubmit={handleSubmit(onCreateSubmit)} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-neutral-600 mb-1">
-                First name
-              </label>
-              <input
-                {...register("firstName")}
-                className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-400"
-              />
-              {errors.firstName && (
-                <p className="text-xs text-red-600 mt-1">
-                  {errors.firstName.message}
-                </p>
-              )}
+      {/* Add dancer form */}
+      {mode === "create" ? (
+        <div className="reg-form-card">
+          <div className="reg-form-card-header">
+            <div className="reg-form-card-icon">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M8 3v10M3 8h10"
+                  stroke="#fff"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-600 mb-1">
-                Last name
-              </label>
-              <input
-                {...register("lastName")}
-                className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-400"
-              />
-              {errors.lastName && (
-                <p className="text-xs text-red-600 mt-1">
-                  {errors.lastName.message}
-                </p>
-              )}
+              <div className="reg-form-card-title">Add a dancer</div>
+              <div className="reg-form-card-desc">
+                Saved to your account and pre-filled in future registrations
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1">
-              Date of birth
-            </label>
-            <input
-              type="date"
-              {...register("dateOfBirth")}
-              className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400"
-            />
-            {errors.dateOfBirth && (
-              <p className="text-xs text-red-600 mt-1">
-                {errors.dateOfBirth.message}
-              </p>
+          <form onSubmit={handleSubmit(onCreateSubmit)} className="reg-form-card-body">
+            <div className="reg-grid-2">
+              <div className="reg-field">
+                <label className="reg-label">First name</label>
+                <input
+                  {...register("firstName")}
+                  className="reg-input"
+                  placeholder="Sofia"
+                />
+                {errors.firstName && (
+                  <span className="reg-error">{errors.firstName.message}</span>
+                )}
+              </div>
+              <div className="reg-field">
+                <label className="reg-label">Last name</label>
+                <input
+                  {...register("lastName")}
+                  className="reg-input"
+                  placeholder="Flores"
+                />
+                {errors.lastName && (
+                  <span className="reg-error">{errors.lastName.message}</span>
+                )}
+              </div>
+            </div>
+
+            <div className="reg-field">
+              <label className="reg-label">Date of birth</label>
+              <input
+                type="date"
+                {...register("dateOfBirth")}
+                className="reg-input"
+              />
+              <span className="reg-hint">
+                Used to confirm age eligibility for each class.
+              </span>
+              {errors.dateOfBirth && (
+                <span className="reg-error">{errors.dateOfBirth.message}</span>
+              )}
+            </div>
+
+            <div className="reg-field">
+              <label className="reg-label">
+                Gender <span className="reg-label-opt">optional</span>
+              </label>
+              <select {...register("gender")} className="reg-input">
+                <option value="">Prefer not to say</option>
+                <option value="female">Girl</option>
+                <option value="male">Boy</option>
+                <option value="non_binary">Non-binary</option>
+                <option value="prefer_not_to_say">Other</option>
+              </select>
+            </div>
+
+            {createError && (
+              <p style={{ fontSize: 12, color: "#C0392B" }}>{createError}</p>
             )}
-          </div>
 
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1">
-              Gender (optional)
-            </label>
-            <select
-              {...register("gender")}
-              className="w-full border border-neutral-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400"
+            <div
+              style={{
+                paddingTop: 4,
+                borderTop: "1px solid var(--pub-border-subtle)",
+                display: "flex",
+                gap: 10,
+              }}
             >
-              <option value="">Prefer not to say</option>
-              <option value="female">Female</option>
-              <option value="male">Male</option>
-              <option value="non_binary">Non-binary</option>
-              <option value="prefer_not_to_say">Prefer not to say</option>
-            </select>
-          </div>
-
-          {createError && <p className="text-xs text-red-600">{createError}</p>}
-
-          <button
-            type="submit"
-            disabled={creating}
-            className="w-full bg-neutral-900 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-black transition-colors disabled:opacity-50"
-          >
-            {creating ? "Saving…" : "Add dancer"}
-          </button>
-        </form>
+              <button
+                type="submit"
+                disabled={creating}
+                className="btn-continue"
+                style={{
+                  flex: 1,
+                  fontSize: 14,
+                  padding: "12px 22px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 7,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M8 3v10M3 8h10"
+                    stroke="#fff"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                {creating ? "Saving…" : "Add dancer"}
+              </button>
+              {existingDancers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode("select");
+                    reset();
+                    setCreateError(null);
+                  }}
+                  className="btn-back"
+                  style={{ padding: "12px 16px", fontSize: 13 }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setMode("create")}
+          className="reg-add-dancer-btn"
+          style={{ marginTop: existingDancers.length > 0 ? 8 : 0 }}
+        >
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M8 3v10M3 8h10"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+          Add new dancer
+        </button>
       )}
 
-      {/* Eligibility warning */}
+      {/* Eligibility messages */}
       {assignment?.dancerId && ageStatus === "warning" && (
-        <p className="mt-3 text-xs text-mauve-text bg-mauve/10 rounded-lg px-3 py-2">
+        <div
+          style={{
+            marginTop: 10,
+            padding: "8px 12px",
+            background: "var(--plum-50)",
+            border: "1px solid var(--plum-100)",
+            borderRadius: 8,
+            fontSize: 12,
+            color: "var(--plum-700)",
+          }}
+        >
           This dancer is near the age limit. Please confirm eligibility.
-        </p>
+        </div>
       )}
       {assignment?.dancerId && ageStatus === "error" && (
-        <p className="mt-3 text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
+        <div
+          style={{
+            marginTop: 10,
+            padding: "8px 12px",
+            background: "#FDE8E8",
+            border: "1px solid #F5AEAE",
+            borderRadius: 8,
+            fontSize: 12,
+            color: "#7A2018",
+          }}
+        >
           This dancer does not meet the{" "}
           {minGrade != null || maxGrade != null ? "age or grade" : "age"}{" "}
           requirement for this session.
-        </p>
-      )}
-
-      {/* Assigned badge */}
-      {assignment?.dancerId && (
-        <p className="mt-3 text-xs text-green-600 font-medium">
-          ✓ Dancer assigned
-        </p>
+        </div>
       )}
     </div>
   );
@@ -371,6 +494,7 @@ export function ParticipantsContent({
   const router = useRouter();
   const { sessionIds, remove: removeFromCart } = useCart();
   const { state, setParticipants } = useRegistration();
+  const { userRecord } = useAuth();
 
   const [dancers, setDancers] = useState<Dancer[]>([]);
   const [familyId, setFamilyId] = useState<string | null>(null);
@@ -380,63 +504,38 @@ export function ParticipantsContent({
     state.participants,
   );
 
-  // Session schedule info fetched from DB — used for client-side conflict detection
   const [scheduleMap, setScheduleMap] = useState<
     Map<string, SessionScheduleInfo>
   >(new Map());
 
-  // Load existing dancers for this family
+  // Load family and existing dancers
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      console.log(
-        "[Participants] Auth user:",
-        user ? user.id : "NOT LOGGED IN",
-      );
       if (!user) {
-        console.warn(
-          "[Participants] No authenticated user — dancer list will be empty.",
-        );
         setLoading(false);
         return;
       }
-      const { data: userRecord, error: userError } = await supabase
+      const { data: userRow } = await supabase
         .from("users")
         .select("family_id")
         .eq("id", user.id)
         .single();
 
-      console.log(
-        "[Participants] userRecord:",
-        userRecord,
-        "error:",
-        userError?.message ?? null,
-      );
-
-      if (userRecord?.family_id) {
-        setFamilyId(userRecord.family_id);
-        const { data: dancerRows, error: dancerError } = await supabase
+      if (userRow?.family_id) {
+        setFamilyId(userRow.family_id);
+        const { data: dancerRows } = await supabase
           .from("dancers")
           .select("id, first_name, last_name, birth_date, gender, grade")
-          .eq("family_id", userRecord.family_id)
+          .eq("family_id", userRow.family_id)
           .order("first_name");
-        console.log(
-          "[Participants] Dancers loaded:",
-          dancerRows?.length ?? 0,
-          "error:",
-          dancerError?.message ?? null,
-        );
         setDancers((dancerRows as Dancer[]) ?? []);
-      } else {
-        console.warn(
-          "[Participants] No family_id on userRecord — can't load dancers.",
-        );
       }
       setLoading(false);
     });
   }, []);
 
-  // Fetch session schedule info for conflict detection (runs when cart items are ready)
+  // Fetch session schedule info for conflict detection and summary display
   useEffect(() => {
     if (sessionIds.length === 0) return;
     const supabase = createClient();
@@ -463,7 +562,6 @@ export function ParticipantsContent({
             maxGrade: (cls as any)?.max_grade ?? null,
           });
         }
-        console.log("[scheduleMap] populated:", Object.fromEntries(map));
         setScheduleMap(map);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -481,11 +579,13 @@ export function ParticipantsContent({
     setAssignments((prev) => prev.filter((a) => a.sessionId !== sessionId));
   }
 
-  // Client-side conflict detection — re-runs on every assignment change
+  function handleDancerCreated(dancer: Dancer) {
+    setDancers((prev) => [...prev, dancer]);
+  }
+
+  // Client-side conflict detection
   const conflictsByDancer = useMemo(() => {
     const result = new Map<string, ConflictDetail[]>();
-
-    // Group assigned sessions by dancerId
     const dancerSessions = new Map<string, string[]>();
     for (const a of assignments) {
       if (!a.dancerId) continue;
@@ -494,16 +594,11 @@ export function ParticipantsContent({
       }
       dancerSessions.get(a.dancerId)!.push(a.sessionId);
     }
-
-    // Only check dancers with 2+ sessions
     for (const [dancerId, sids] of dancerSessions) {
       if (sids.length < 2) continue;
       const { conflicts } = detectTimeConflicts(sids, scheduleMap);
-      if (conflicts.length > 0) {
-        result.set(dancerId, conflicts);
-      }
+      if (conflicts.length > 0) result.set(dancerId, conflicts);
     }
-
     return result;
   }, [assignments, scheduleMap]);
 
@@ -514,9 +609,6 @@ export function ParticipantsContent({
   );
 
   function handleContinue() {
-    console.log(
-      `[Participants] handleContinue allAssigned=${allAssigned} hasConflicts=${hasConflicts} cartItems=${sessionIds.length}`,
-    );
     const enriched = assignments.map((a) => ({
       ...a,
       selectedDayIds: [],
@@ -525,97 +617,357 @@ export function ParticipantsContent({
     router.push(continueUrl);
   }
 
+  const firstName = userRecord?.first_name ?? null;
+  const showSessionLabel = sessionIds.length > 1;
+
+  // ── Loading skeleton ──────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="space-y-4 animate-pulse">
-        {[1, 2].map((i) => (
+      <div className="reg-page-wrap" style={{ padding: "0 0 40px" }}>
+        <div className="reg-page-layout">
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div
+              style={{
+                height: 13,
+                width: 72,
+                background: "var(--pub-border)",
+                borderRadius: 4,
+                animation: "pulse 1.5s infinite",
+              }}
+            />
+            <div
+              style={{
+                height: 30,
+                width: 200,
+                background: "var(--pub-border)",
+                borderRadius: 8,
+                animation: "pulse 1.5s infinite",
+              }}
+            />
+            <div
+              style={{
+                height: 80,
+                background: "var(--pub-border)",
+                borderRadius: 10,
+                animation: "pulse 1.5s infinite",
+              }}
+            />
+            <div
+              style={{
+                height: 220,
+                background: "var(--pub-border)",
+                borderRadius: 14,
+                animation: "pulse 1.5s infinite",
+              }}
+            />
+          </div>
           <div
-            key={i}
-            className="bg-white border border-neutral-200 rounded-2xl p-5 h-40"
+            style={{
+              height: 200,
+              background: "var(--pub-border)",
+              borderRadius: 12,
+              animation: "pulse 1.5s infinite",
+            }}
           />
-        ))}
+        </div>
       </div>
     );
   }
 
+  // ── Main render ───────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900 mb-1">
-          Assign participants
-        </h1>
-        <p className="text-neutral-500 text-sm">
-          Select a dancer for each session in your cart.
-        </p>
-      </div>
-
-      {/* Schedule conflict banner — hard block, user must remove a session */}
-      {hasConflicts && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
-          <p className="font-semibold mb-2">Schedule conflicts detected</p>
-          {[...conflictsByDancer.values()].flat().map((conflict, i) => (
-            <p key={i} className="text-xs mt-1">
-              "{conflict.sessionA.className}" and "{conflict.sessionB.className}
-              " overlap on {conflict.sessionA.dayOfWeek}. Remove one of these
-              sessions to continue.
+    <>
+      <div className="reg-page-wrap" style={{ padding: "0 0 80px" }}>
+        {/* Conflict banner */}
+        {hasConflicts && (
+          <div
+            style={{
+              background: "#FDE8E8",
+              border: "1px solid #F5AEAE",
+              borderRadius: 10,
+              padding: "12px 16px",
+              fontSize: 13,
+              color: "#7A2018",
+              marginBottom: 24,
+            }}
+          >
+            <p style={{ fontWeight: 700, marginBottom: 6 }}>
+              Schedule conflicts detected
             </p>
-          ))}
-        </div>
-      )}
+            {[...conflictsByDancer.values()].flat().map((c, i) => (
+              <p key={i} style={{ fontSize: 12, marginTop: 4 }}>
+                &ldquo;{c.sessionA.className}&rdquo; and &ldquo;
+                {c.sessionB.className}&rdquo; overlap on {c.sessionA.dayOfWeek}.
+                Remove one to continue.
+              </p>
+            ))}
+          </div>
+        )}
 
-      <div className="space-y-4">
-        {sessionIds.map((sid) => {
-          const info = scheduleMap.get(sid);
-          return (
-            <div key={sid} className="relative">
-              <DancerSelector
-                sessionId={sid}
-                sessionName={info?.className ?? sid}
-                existingDancers={dancers}
-                assignment={assignments.find((a) => a.sessionId === sid)}
-                onChange={handleAssignmentChange}
-                familyId={familyId}
-                minAge={info?.minAge}
-                maxAge={info?.maxAge}
-                minGrade={info?.minGrade}
-                maxGrade={info?.maxGrade}
-              />
-              <button
-                type="button"
-                onClick={() => handleRemoveSession(sid)}
-                className="absolute top-3 right-3 text-neutral-400 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-50"
-                aria-label="Remove session"
+        <div className="reg-page-layout">
+          {/* ── LEFT: main content ─────────────────────────────────────────── */}
+          <div>
+            <div className="reg-page-eyebrow">Step 2 of 4</div>
+            <h1 className="reg-page-title">
+              {firstName ? `${firstName}'s dancers` : "Assign dancers"}
+            </h1>
+            <p className="reg-page-desc">
+              Select a dancer for each session in your cart.
+            </p>
+
+            {sessionIds.length === 0 ? (
+              <div className="reg-empty-state">
+                <div className="reg-empty-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+                      stroke="var(--plum)"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                    <polyline
+                      points="9 22 9 12 15 12 15 22"
+                      stroke="var(--plum)"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+                <div className="reg-empty-title">Your cart is empty</div>
+                <div className="reg-empty-desc">
+                  Go back and add sessions to your cart before assigning
+                  dancers.
+                </div>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: showSessionLabel ? 36 : 0,
+                }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                  <path d="M10 11v6M14 11v6" />
-                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                </svg>
-              </button>
+                {sessionIds.map((sid) => {
+                  const info = scheduleMap.get(sid);
+                  return (
+                    <div key={sid} style={{ position: "relative" }}>
+                      <DancerSelector
+                        sessionId={sid}
+                        sessionName={info?.className ?? sid}
+                        existingDancers={dancers}
+                        assignment={assignments.find(
+                          (a) => a.sessionId === sid,
+                        )}
+                        onChange={handleAssignmentChange}
+                        onDancerCreated={handleDancerCreated}
+                        familyId={familyId}
+                        minAge={info?.minAge}
+                        maxAge={info?.maxAge}
+                        minGrade={info?.minGrade}
+                        maxGrade={info?.maxGrade}
+                        showSessionLabel={showSessionLabel}
+                      />
+                      {/* Remove session button */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSession(sid)}
+                        style={{
+                          position: "absolute",
+                          top: showSessionLabel ? 26 : 0,
+                          right: 0,
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--pub-text-faint)",
+                          padding: 4,
+                          borderRadius: 6,
+                          transition: "color .12s",
+                          lineHeight: 0,
+                        }}
+                        aria-label="Remove session"
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.color = "#7A2018")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.color = "var(--pub-text-faint)")
+                        }
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="15"
+                          height="15"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                        </svg>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* ── RIGHT: order summary ───────────────────────────────────────── */}
+          <div>
+            <div className="reg-summary-card">
+              <div className="reg-summary-header">
+                <div className="reg-summary-title">Your cart</div>
+              </div>
+
+              <div className="reg-summary-body">
+                {sessionIds.length === 0 ? (
+                  <div
+                    style={{
+                      padding: "16px 18px",
+                      fontSize: 12,
+                      color: "var(--pub-text-faint)",
+                    }}
+                  >
+                    No sessions in cart.
+                  </div>
+                ) : (
+                  sessionIds.map((sid) => {
+                    const info = scheduleMap.get(sid);
+                    const a = assignments.find((a) => a.sessionId === sid);
+                    const assignedDancer = a?.dancerId
+                      ? dancers.find((d) => d.id === a.dancerId)
+                      : null;
+                    const disc = info?.className
+                      ? getDisciplineAbbrev(info.className)
+                      : "?";
+
+                    return (
+                      <div key={sid} className="reg-summary-item">
+                        <div className="reg-summary-disc">{disc}</div>
+                        <div className="reg-summary-info">
+                          <div className="reg-summary-class">
+                            {info?.className ?? sid}
+                          </div>
+                          {info?.dayOfWeek && (
+                            <div className="reg-summary-session">
+                              {fmtDay(info.dayOfWeek)} &middot;{" "}
+                              {fmtTime(info.startTime)} –{" "}
+                              {fmtTime(info.endTime)}
+                            </div>
+                          )}
+                          {assignedDancer ? (
+                            <div className="reg-summary-dancer">
+                              <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                              >
+                                <path
+                                  d="M3 8l4 4 6-6"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                              {assignedDancer.first_name}{" "}
+                              {assignedDancer.last_name}
+                            </div>
+                          ) : (
+                            <div className="reg-summary-dancer unassigned">
+                              <svg
+                                width="10"
+                                height="10"
+                                viewBox="0 0 16 16"
+                                fill="none"
+                                style={{ marginRight: 2 }}
+                              >
+                                <circle
+                                  cx="8"
+                                  cy="8"
+                                  r="6.5"
+                                  stroke="currentColor"
+                                  strokeWidth="1.4"
+                                />
+                                <path
+                                  d="M8 5v3.5M8 11h.01"
+                                  stroke="currentColor"
+                                  strokeWidth="1.4"
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                              No dancer assigned yet
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="reg-summary-total-row">
+                <div className="reg-summary-total-label">
+                  {sessionIds.length} session
+                  {sessionIds.length !== 1 ? "s" : ""}
+                </div>
+                <div className="reg-summary-total-val">
+                  {assignments.filter((a) => a.dancerId).length} /{" "}
+                  {sessionIds.length} assigned
+                </div>
+              </div>
             </div>
-          );
-        })}
+          </div>
+        </div>
       </div>
 
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors text-sm font-medium"
-        >
-          ← Back
-        </button>
-        <button
-          type="button"
-          onClick={handleContinue}
-          disabled={!allAssigned}
-          className="flex-1 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Continue
-        </button>
+      {/* ── Fixed bottom bar ───────────────────────────────────────────────── */}
+      <div className="reg-bottom-bar">
+        <div className="reg-bottom-inner">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="btn-back"
+            style={{ flex: 1 }}
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M10 3L5 8l5 5"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={!allAssigned || hasConflicts}
+            className="btn-continue"
+            style={{ flex: 2 }}
+          >
+            Continue to Information
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M6 3l5 5-5 5"
+                stroke="#fff"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -629,12 +981,10 @@ function ParticipantsPageInner() {
 
   return (
     <CartRestoreGuard semesterId={semesterId}>
-      {/* <RegistrationProvider semesterId={semesterId}> */}
       <ParticipantsContent
         semesterId={semesterId}
         continueUrl={`/register/form?semester=${semesterId}`}
       />
-      {/* </RegistrationProvider> */}
     </CartRestoreGuard>
   );
 }

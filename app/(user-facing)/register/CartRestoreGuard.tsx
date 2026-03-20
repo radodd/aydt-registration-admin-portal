@@ -2,18 +2,17 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CartProvider, useCart } from "@/app/providers/CartProvider";
+import { useCart } from "@/app/providers/CartProvider";
 
 interface CartRestoreGuardProps {
   semesterId: string;
   children: React.ReactNode;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Internal Guard                                                              */
-/* -------------------------------------------------------------------------- */
-
-function Guard({ semesterId, children }: CartRestoreGuardProps) {
+export function CartRestoreGuard({
+  semesterId,
+  children,
+}: CartRestoreGuardProps) {
   const router = useRouter();
   const { hydrated, itemCount, isExpired } = useCart();
 
@@ -23,10 +22,7 @@ function Guard({ semesterId, children }: CartRestoreGuardProps) {
       return;
     }
 
-    console.log("[CartRestoreGuard] Cart state", {
-      itemCount,
-      isExpired,
-    });
+    console.log("[CartRestoreGuard] Cart state", { itemCount, isExpired });
 
     if (itemCount === 0 || isExpired) {
       console.warn(
@@ -45,19 +41,4 @@ function Guard({ semesterId, children }: CartRestoreGuardProps) {
   }
 
   return <>{children}</>;
-}
-
-/* -------------------------------------------------------------------------- */
-/* Public Guard                                                                */
-/* -------------------------------------------------------------------------- */
-
-export function CartRestoreGuard({
-  semesterId,
-  children,
-}: CartRestoreGuardProps) {
-  return (
-    <CartProvider semesterId={semesterId}>
-      <Guard semesterId={semesterId}>{children}</Guard>
-    </CartProvider>
-  );
 }
