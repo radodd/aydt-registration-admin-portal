@@ -31,6 +31,37 @@ export default async function Profile() {
     .eq("family_id", user.family_id)
     .order("created_at", { ascending: true });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <FamilyProfileCard user={user as any} dancers={dancers as any} />;
+  const dancerIds = (dancers ?? []).map((d) => d.id);
+
+  const [{ data: registrations }, { data: batches }] = await Promise.all([
+    dancerIds.length > 0
+      ? supabase
+          .from("registrations")
+          .select(
+            "id, status, dancer_id, class_sessions(id, day_of_week, start_time, end_time, location, instructor_name, classes(id, name, discipline))",
+          )
+          .in("dancer_id", dancerIds)
+          .in("status", ["confirmed", "pending_payment"])
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("registration_batches")
+      .select(
+        "id, grand_total, payment_plan_type, status, created_at, semesters:semester_id(name), batch_payment_installments(id, installment_number, amount_due, due_date, status, paid_at), registrations(id, dancer_id, dancers(first_name, last_name), class_sessions(classes(name)))",
+      )
+      .eq("family_id", user.family_id)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  return (
+    <FamilyProfileCard
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      user={user as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      dancers={dancers as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      registrations={registrations as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      batches={batches as any}
+    />
+  );
 }

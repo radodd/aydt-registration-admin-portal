@@ -1,67 +1,835 @@
 "use client";
 
+import { useState } from "react";
 import type { Dancer, User } from "@/types";
 import { ParentInfoCard } from "./ParentInfoCard";
-import { SmsOptInCard } from "./SmsOptInCard";
 import { DancerCard } from "./DancerCard";
 import AddDancerForm from "./AddDancerForm";
+import { SmsOptInCard } from "./SmsOptInCard";
+import { signOut } from "@/app/auth/actions";
+
+/* ── Data types from Supabase queries ─────────────────────── */
+
+type RegRow = {
+  id: string;
+  status: string;
+  dancer_id: string;
+  class_sessions: {
+    id: string;
+    day_of_week: string;
+    start_time: string | null;
+    end_time: string | null;
+    location: string | null;
+    instructor_name: string | null;
+    classes: { id: string; name: string; discipline: string | null } | null;
+  } | null;
+};
+
+type InstallmentRow = {
+  id: string;
+  installment_number: number;
+  amount_due: number;
+  due_date: string;
+  status: string;
+  paid_at: string | null;
+};
+
+type BatchRow = {
+  id: string;
+  grand_total: number | null;
+  payment_plan_type: string | null;
+  status: string;
+  created_at: string;
+  semesters: { name: string } | null;
+  batch_payment_installments: InstallmentRow[];
+  registrations?: {
+    id: string;
+    dancer_id: string;
+    dancers: { first_name: string; last_name: string } | null;
+    class_sessions: { classes: { name: string } | null } | null;
+  }[];
+};
 
 interface FamilyProfileCardProps {
   user: User;
   dancers?: Dancer[] | null;
+  registrations?: RegRow[] | null;
+  batches?: BatchRow[] | null;
 }
 
-export const FamilyProfileCard = ({
-  user,
-  dancers,
-}: FamilyProfileCardProps) => {
+/* ── Helper functions ─────────────────────────────────────── */
+
+function formatTime(t: string | null): string {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hr = h % 12 || 12;
+  return `${hr}:${m.toString().padStart(2, "0")} ${ampm}`;
+}
+
+function formatDay(day: string): string {
+  const map: Record<string, string> = {
+    monday: "Mon", tuesday: "Tue", wednesday: "Wed",
+    thursday: "Thu", friday: "Fri", saturday: "Sat", sunday: "Sun",
+  };
+  return map[day.toLowerCase()] ?? day;
+}
+
+function formatShortDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+    month: "short", day: "numeric",
+  });
+}
+
+function formatLongDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
+    month: "long", day: "numeric", year: "numeric",
+  });
+}
+
+function getDisciplineColor(d: string | null): string {
+  const colors: Record<string, string> = {
+    ballet: "#5A3A80", jazz: "#8E2A23", hip_hop: "#1D4A6A",
+    contemporary: "#1D6A50", tap: "#7A5A1D", lyrical: "#3A6A6A",
+    broadway: "#8E6A23", technique: "#3A3A8E", pointe: "#8E3A80", acro: "#6A1D1D",
+  };
+  return colors[d ?? ""] ?? "#5E3458";
+}
+
+function formatDisciplineLabel(d: string | null): string {
+  const labels: Record<string, string> = {
+    ballet: "Ballet", jazz: "Jazz", hip_hop: "Hip Hop",
+    contemporary: "Contemporary", tap: "Tap", lyrical: "Lyrical",
+    broadway: "Broadway", technique: "Technique", pointe: "Pointe", acro: "Acro",
+  };
+  return labels[d ?? ""] ?? (d ?? "");
+}
+
+/* ── Small SVG icons ─────────────────────────────────────── */
+
+function CalendarIcon() {
   return (
-    <main className="max-w-3xl mx-auto px-6 py-10 space-y-10">
-      {/* Header */}
-      <header>
-        <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
-          My Profile
-        </h1>
-        <p className="text-neutral-500 text-sm mt-1">
-          Manage your contact info and dancers.
-        </p>
-      </header>
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ opacity: 0.5, flexShrink: 0 }}>
+      <rect x="2" y="3" width="12" height="11" rx="2" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M5 1v3M11 1v3M2 7h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
 
-      {/* Parent / Guardian */}
-      <ParentInfoCard user={user} />
+function LocationIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ opacity: 0.5, flexShrink: 0 }}>
+      <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
 
-      {/* SMS Notifications */}
-      <SmsOptInCard user={user} />
+function AlertIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M8 5v3.5M8 11h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
-      {/* Dancers */}
-      <section className="space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold text-neutral-900">Dancers</h2>
-          <p className="text-sm text-neutral-500 mt-0.5">
-            Dancer info is used to pre-fill registration forms.
-          </p>
-        </div>
+function CheckIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+      <path d="M4 8l3 3 5-5" stroke="#1A5C16" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
-        {!dancers || dancers.length === 0 ? (
-          <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-6 text-sm text-neutral-400">
-            No dancers added yet.
+/* ── Toggle switch ───────────────────────────────────────── */
+
+function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      style={{
+        position: "relative", width: 38, height: 22, flexShrink: 0,
+        marginTop: 1, cursor: "pointer", userSelect: "none",
+      }}
+    >
+      <div style={{
+        position: "absolute", inset: 0, borderRadius: 11,
+        background: checked ? "var(--plum)" : "var(--pub-border)",
+        transition: "background .2s",
+      }} />
+      <div style={{
+        position: "absolute",
+        top: 3,
+        left: checked ? 19 : 3,
+        width: 16, height: 16, borderRadius: "50%",
+        background: "#fff",
+        transition: "left .2s",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+      }} />
+    </div>
+  );
+}
+
+/* ── Shared style helpers ─────────────────────────────────── */
+
+type BadgeType = "mint" | "amber" | "lavender" | "sage" | "plum" | "gray";
+
+const BADGE_BG: Record<BadgeType, string> = {
+  mint: "var(--pub-badge-mint-bg)",
+  amber: "var(--pub-badge-amber-bg)",
+  lavender: "var(--pub-badge-lavender-bg)",
+  sage: "var(--pub-badge-sage-bg)",
+  plum: "var(--plum-50)",
+  gray: "#EDEAE6",
+};
+const BADGE_TEXT: Record<BadgeType, string> = {
+  mint: "var(--pub-badge-mint-text)",
+  amber: "var(--pub-badge-amber-text)",
+  lavender: "var(--pub-badge-lavender-text)",
+  sage: "var(--pub-badge-sage-text)",
+  plum: "var(--plum-700)",
+  gray: "#4A4540",
+};
+
+function Badge({ type, dot, children }: { type: BadgeType; dot?: boolean; children: React.ReactNode }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      padding: "2px 8px", borderRadius: 99,
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.3px",
+      whiteSpace: "nowrap",
+      background: BADGE_BG[type], color: BADGE_TEXT[type],
+    }}>
+      {dot && <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", opacity: 0.75 }} />}
+      {children}
+    </span>
+  );
+}
+
+const CARD_STYLE: React.CSSProperties = {
+  background: "var(--pub-surface)",
+  border: "1px solid var(--pub-border)",
+  borderRadius: 12,
+  overflow: "hidden",
+  boxShadow: "var(--pub-shadow-card)",
+  marginBottom: 16,
+};
+
+const CHIP_STYLE: React.CSSProperties = {
+  padding: "3px 9px", borderRadius: 999,
+  fontSize: 11, fontWeight: 600,
+  background: "var(--plum-50)", color: "var(--plum-700)",
+  border: "1px solid var(--plum-100)",
+};
+
+/* ── Main component ──────────────────────────────────────── */
+
+export const FamilyProfileCard = ({
+  user, dancers, registrations, batches,
+}: FamilyProfileCardProps) => {
+  type Tab = "profile" | "registrations" | "payments" | "notifications";
+  const [activeTab, setActiveTab] = useState<Tab>("profile");
+  const [showAddDancer, setShowAddDancer] = useState(false);
+  const [newsletter, setNewsletter] = useState(false);
+
+  /* ── Derived stats ─────────────────────────────────────── */
+  const initials = `${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase();
+  const memberYear = new Date(user.created_at).getFullYear();
+  const activeDancerCount = dancers?.length ?? 0;
+  const activeRegCount = (registrations ?? []).filter(r => r.status === "confirmed").length;
+
+  const validBatches = (batches ?? []).filter(b => b.status !== "failed" && b.status !== "refunded");
+  const allInstallments = validBatches.flatMap(b => b.batch_payment_installments ?? []);
+  const pendingInstallments = allInstallments.filter(i => i.status === "pending" || i.status === "due");
+  const paidInstallments = [...allInstallments]
+    .filter(i => i.status === "paid")
+    .sort((a, b) => new Date(b.paid_at ?? "").getTime() - new Date(a.paid_at ?? "").getTime());
+
+  const totalOutstanding = pendingInstallments.reduce((s, i) => s + Number(i.amount_due ?? 0), 0);
+  const nextDueInstallment = pendingInstallments.length > 0
+    ? [...pendingInstallments].sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())[0]
+    : null;
+  const hasPendingPayment = pendingInstallments.length > 0;
+  const hasActivePlan = validBatches.some(b =>
+    (b.batch_payment_installments ?? []).some(i => i.status === "pending" || i.status === "due")
+  );
+  const daysUntilDue = nextDueInstallment
+    ? Math.ceil((new Date(nextDueInstallment.due_date + "T00:00:00").getTime() - Date.now()) / 86400000)
+    : null;
+
+  /* ── Disciplines per dancer (for profile tab chips) ─────── */
+  const disciplinesByDancer = new Map<string, string[]>();
+  for (const r of (registrations ?? [])) {
+    if (r.status === "confirmed") {
+      const disc = r.class_sessions?.classes?.discipline;
+      if (disc) {
+        const arr = disciplinesByDancer.get(r.dancer_id) ?? [];
+        if (!arr.includes(disc)) arr.push(disc);
+        disciplinesByDancer.set(r.dancer_id, arr);
+      }
+    }
+  }
+
+  /* ── Regs grouped by dancer ────────────────────────────── */
+  const regsByDancer = (dancers ?? []).map(d => ({
+    dancer: d,
+    regs: (registrations ?? []).filter(r => r.dancer_id === d.id),
+  }));
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: "profile", label: "Profile" },
+    { id: "registrations", label: "Registrations" },
+    { id: "payments", label: "Payments" },
+    { id: "notifications", label: "Notifications" },
+  ];
+
+  return (
+    <div style={{ maxWidth: 860, margin: "0 auto" }}>
+
+      {/* ── Account Card ────────────────────────────────────── */}
+      <div style={{ padding: "28px 32px 0" }}>
+        <div style={{
+          background: "var(--pub-surface)",
+          border: "1px solid var(--pub-border)",
+          borderRadius: 14, padding: "20px 24px",
+          display: "flex", alignItems: "center", gap: 18,
+          boxShadow: "var(--pub-shadow-card)", marginBottom: 24,
+          flexWrap: "wrap",
+        }}>
+          {/* Avatar */}
+          <div style={{
+            width: 52, height: 52, borderRadius: 12, flexShrink: 0,
+            background: "linear-gradient(135deg,var(--plum),var(--plum-700))",
+            color: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18, fontWeight: 700,
+          }}>{initials}</div>
+
+          {/* Name + meta + chips */}
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>{user.first_name} {user.last_name}</div>
+            <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginTop: 2 }}>
+              {user.email} · Member since {memberYear}
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+              {activeRegCount > 0 && <span style={CHIP_STYLE}>Spring 2026 Enrolled</span>}
+              {hasActivePlan && <span style={CHIP_STYLE}>Payment Plan Active</span>}
+            </div>
           </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 gap-4">
-            {dancers.map((dancer) => (
-              <DancerCard key={dancer.id} dancer={dancer} />
+
+          {/* Stats + Logout */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 24 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--plum)" }}>{activeDancerCount}</div>
+              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--pub-text-faint)", fontWeight: 600, marginTop: 1 }}>Dancers</div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "var(--plum)" }}>{activeRegCount}</div>
+              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--pub-text-faint)", fontWeight: 600, marginTop: 1 }}>Active Classes</div>
+            </div>
+            {totalOutstanding > 0 && nextDueInstallment && (
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "var(--pub-badge-amber-text)" }}>${totalOutstanding.toFixed(0)}</div>
+                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.6px", color: "var(--pub-text-faint)", fontWeight: 600, marginTop: 1 }}>
+                  Due {formatShortDate(nextDueInstallment.due_date)}
+                </div>
+              </div>
+            )}
+            <div style={{ width: 1, height: 32, background: "var(--pub-border)", flexShrink: 0 }} />
+            <form action={signOut}>
+              <button
+                type="submit"
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontSize: 12, fontWeight: 600, borderRadius: 8,
+                  border: "1.5px solid var(--pub-border)", cursor: "pointer",
+                  padding: "7px 13px", background: "transparent",
+                  color: "var(--pub-text-muted)", fontFamily: "inherit",
+                  transition: "border-color .12s, color .12s",
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                  <path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Sign Out
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Tab Bar ─────────────────────────────────────────── */}
+      <div style={{
+        padding: "0 32px",
+        borderBottom: "1px solid var(--pub-border)",
+        background: "var(--pub-surface)",
+        display: "flex",
+      }}>
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`profile-tab-btn${activeTab === tab.id ? " active" : ""}`}
+          >
+            {tab.label}
+            {tab.id === "payments" && hasPendingPayment && (
+              <span style={{
+                width: 18, height: 18, borderRadius: "50%",
+                background: "var(--pub-badge-amber-bg)",
+                color: "var(--pub-badge-amber-text)",
+                fontSize: 10, fontWeight: 700,
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+              }}>{pendingInstallments.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════
+          PROFILE TAB
+      ══════════════════════════════════════════════════════ */}
+      {activeTab === "profile" && (
+        <div style={{ padding: "28px 32px" }}>
+          <ParentInfoCard user={user} />
+
+          {/* Dancers section */}
+          <div style={{ marginTop: 28 }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "system-ui" }}>Dancers</div>
+              <button
+                onClick={() => setShowAddDancer(v => !v)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  fontSize: 11, fontWeight: 600, borderRadius: 7,
+                  border: "1.5px solid var(--plum)", cursor: "pointer",
+                  padding: "5px 11px", color: "var(--plum)",
+                  background: "transparent", fontFamily: "inherit",
+                  transition: "background .12s",
+                }}
+              >
+                {showAddDancer ? "Cancel" : "+ Add Dancer"}
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
+              Dancer info is used to pre-fill registration forms and track enrollments.
+            </div>
+
+            {(dancers ?? []).length === 0 && !showAddDancer && (
+              <div style={{
+                background: "var(--pub-surface-warm)", border: "1px solid var(--pub-border)",
+                borderRadius: 12, padding: 24, textAlign: "center",
+                color: "var(--pub-text-faint)", fontSize: 14,
+              }}>
+                No dancers added yet.
+              </div>
+            )}
+
+            {(dancers ?? []).map(dancer => (
+              <DancerCard
+                key={dancer.id}
+                dancer={dancer}
+                disciplines={disciplinesByDancer.get(dancer.id) ?? []}
+                onViewRegistrations={() => setActiveTab("registrations")}
+              />
             ))}
-          </div>
-        )}
 
-        {/* Add dancer */}
-        <div className="bg-white border border-neutral-200 rounded-2xl p-6 shadow-sm">
-          <h3 className="text-base font-semibold text-neutral-900 mb-4">
-            Add a Dancer
-          </h3>
-          <AddDancerForm familyId={user.family_id} />
+            {showAddDancer && (
+              <div style={CARD_STYLE}>
+                <div style={{
+                  padding: "14px 20px", background: "var(--pub-surface-warm)",
+                  borderBottom: "1px solid var(--pub-border-subtle)",
+                }}>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>Add a Dancer</div>
+                </div>
+                <div style={{ padding: 20 }}>
+                  <AddDancerForm
+                    onSuccess={() => setShowAddDancer(false)}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </section>
-    </main>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          REGISTRATIONS TAB
+      ══════════════════════════════════════════════════════ */}
+      {activeTab === "registrations" && (
+        <div style={{ padding: "28px 32px" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, fontFamily: "system-ui" }}>My Registrations</div>
+          <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 20 }}>
+            Current semester enrollments and waitlists.
+          </div>
+
+          {regsByDancer.every(({ regs }) => regs.length === 0) ? (
+            <div style={{
+              textAlign: "center", padding: "40px 24px",
+              background: "var(--pub-surface)", border: "1px solid var(--pub-border)", borderRadius: 12,
+            }}>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>No registrations yet</div>
+              <div style={{ fontSize: 13, color: "var(--pub-text-muted)" }}>Your active class enrollments will appear here.</div>
+            </div>
+          ) : (
+            regsByDancer.map(({ dancer, regs }) =>
+              regs.length === 0 ? null : (
+                <div key={dancer.id} style={{ marginBottom: 20 }}>
+                  {/* Dancer section header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <div style={{
+                      width: 34, height: 34, borderRadius: "50%",
+                      background: "var(--plum-50)", color: "var(--plum)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 12, fontWeight: 700, flexShrink: 0,
+                    }}>
+                      {(dancer.first_name?.[0] ?? "").toUpperCase()}{(dancer.last_name?.[0] ?? "").toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>{dancer.first_name} {dancer.last_name}</div>
+                      <div style={{ fontSize: 11, color: "var(--pub-text-muted)" }}>
+                        {regs.filter(r => r.status === "confirmed").length} active enrollment{regs.filter(r => r.status === "confirmed").length !== 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={CARD_STYLE}>
+                    <div style={{ padding: "14px 20px" }}>
+                      {regs.map((reg, idx) => {
+                        const cs = reg.class_sessions;
+                        const cls = cs?.classes;
+                        const isWaitlisted = reg.status === "waitlisted";
+                        return (
+                          <div key={reg.id} style={{
+                            display: "flex", alignItems: "flex-start", gap: 14,
+                            padding: "14px 0",
+                            borderBottom: idx < regs.length - 1 ? "1px solid var(--pub-border-subtle)" : "none",
+                            paddingTop: idx === 0 ? 0 : 14,
+                          }}>
+                            {/* Discipline color bar */}
+                            <div style={{
+                              width: 4, borderRadius: 2, flexShrink: 0,
+                              alignSelf: "stretch", minHeight: 48,
+                              background: getDisciplineColor(cls?.discipline ?? null),
+                            }} />
+
+                            {/* Info */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: 700 }}>{cls?.name ?? "Class"}</div>
+                              <div style={{
+                                fontSize: 11, color: "var(--pub-text-muted)", marginTop: 3,
+                                display: "flex", flexWrap: "wrap", gap: 8,
+                              }}>
+                                {cs && (
+                                  <>
+                                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                      <CalendarIcon />
+                                      {formatDay(cs.day_of_week)}{cs.start_time && cs.end_time ? ` · ${formatTime(cs.start_time)} – ${formatTime(cs.end_time)}` : ""}
+                                    </span>
+                                    {cs.location && (
+                                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                        <LocationIcon />
+                                        {cs.location}
+                                      </span>
+                                    )}
+                                    {cs.instructor_name && <span>{cs.instructor_name}</span>}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Status */}
+                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                              {isWaitlisted
+                                ? <Badge type="lavender" dot>Waitlisted</Badge>
+                                : <Badge type="mint" dot>Active</Badge>
+                              }
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )
+            )
+          )}
+
+          <div style={{ textAlign: "center", paddingTop: 4, paddingBottom: 8 }}>
+            <button style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              fontSize: 12, fontWeight: 600, borderRadius: 7,
+              border: "1.5px solid var(--pub-border)", cursor: "pointer",
+              padding: "7px 14px", background: "var(--pub-surface)",
+              color: "var(--pub-text-primary)", fontFamily: "inherit",
+            }}>
+              View Past Semesters
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          PAYMENTS TAB
+      ══════════════════════════════════════════════════════ */}
+      {activeTab === "payments" && (
+        <div style={{ padding: "28px 32px" }}>
+          {/* Outstanding balance card */}
+          {totalOutstanding > 0 && (
+            <>
+              <div style={{
+                background: "linear-gradient(135deg,var(--plum),var(--plum-700))",
+                borderRadius: 12, padding: "20px 24px",
+                color: "#fff", marginBottom: 16,
+                display: "flex", alignItems: "center", gap: 20,
+              }}>
+                <div>
+                  <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.7px" }}>Outstanding Balance</div>
+                  <div style={{ fontSize: 32, fontWeight: 700, fontFamily: "system-ui" }}>${totalOutstanding.toFixed(2)}</div>
+                  {nextDueInstallment && (
+                    <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>
+                      Next installment due {formatLongDate(nextDueInstallment.due_date)}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {daysUntilDue !== null && daysUntilDue <= 14 && (
+                <div style={{
+                  display: "flex", gap: 10, alignItems: "flex-start",
+                  padding: "12px 14px", borderRadius: 8,
+                  border: "1px solid #F0CE8A",
+                  background: "var(--pub-badge-amber-bg)",
+                  color: "var(--pub-badge-amber-text)",
+                  fontSize: 12, marginBottom: 16,
+                }}>
+                  <AlertIcon />
+                  <div>
+                    <strong>Payment due in {daysUntilDue} day{daysUntilDue !== 1 ? "s" : ""}.</strong>
+                    {" "}Your {formatLongDate(nextDueInstallment!.due_date)} installment of ${Number(nextDueInstallment!.amount_due).toFixed(0)} is due soon.
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Batch cards */}
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 14, fontFamily: "system-ui" }}>
+            Spring 2026 — Payment Plans
+          </div>
+
+          {validBatches.length === 0 ? (
+            <div style={{
+              textAlign: "center", padding: "40px 24px",
+              background: "var(--pub-surface)", border: "1px solid var(--pub-border)", borderRadius: 12,
+            }}>
+              <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>No payment records</div>
+              <div style={{ fontSize: 13, color: "var(--pub-text-muted)" }}>Your tuition payments will appear here after registration.</div>
+            </div>
+          ) : (
+            validBatches.map(batch => {
+              const installments = batch.batch_payment_installments ?? [];
+              const isPaidFull = installments.length > 0 && installments.every(i => i.status === "paid");
+              const batchLabel = isPaidFull ? "Paid in Full" : (batch.payment_plan_type === "installments" ? "Installment Plan" : "Paid in Full");
+              const batchBadgeType: BadgeType = isPaidFull ? "sage" : "plum";
+
+              // Build descriptive title from registrations
+              const batchRegs = batch.registrations ?? [];
+              const classesByDancer = new Map<string, string[]>();
+              for (const r of batchRegs) {
+                const dn = r.dancers ? `${r.dancers.first_name} ${r.dancers.last_name}` : "Dancer";
+                const cn = r.class_sessions?.classes?.name ?? "";
+                if (!classesByDancer.has(dn)) classesByDancer.set(dn, []);
+                if (cn && !classesByDancer.get(dn)!.includes(cn)) classesByDancer.get(dn)!.push(cn);
+              }
+              const titleParts = Array.from(classesByDancer.entries()).map(
+                ([dn, cls]) => `${dn}${cls.length > 0 ? " — " + cls.join(" & ") : ""}`
+              );
+              const batchTitle = titleParts.length > 0
+                ? titleParts.join(" · ")
+                : (batch.semesters?.name ?? "Registration");
+
+              return (
+                <div key={batch.id} style={{ ...CARD_STYLE, marginBottom: 14 }}>
+                  <div style={{
+                    padding: "14px 20px", background: "var(--pub-surface-warm)",
+                    borderBottom: "1px solid var(--pub-border-subtle)",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>{batchTitle}</div>
+                      <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginTop: 1 }}>
+                        {installments.length > 1 ? `${installments.length}-installment plan` : "Full payment"} · ${Number(batch.grand_total ?? 0).toFixed(0)} total
+                      </div>
+                    </div>
+                    <Badge type={batchBadgeType}>{batchLabel}</Badge>
+                  </div>
+                  <div style={{ padding: 20 }}>
+                    {installments.map(inst => {
+                      const isPaid = inst.status === "paid";
+                      const isDue = inst.status === "pending" || inst.status === "due";
+                      return (
+                        <div key={inst.id} style={{
+                          display: "flex", alignItems: "center", gap: 12,
+                          padding: "10px 14px",
+                          border: isDue ? "1.5px solid var(--pub-badge-amber-text)" : "1px solid var(--pub-border-subtle)",
+                          borderRadius: 8,
+                          background: isDue ? "var(--pub-badge-amber-bg)" : "var(--pub-surface)",
+                          marginBottom: 6,
+                        }}>
+                          <div style={{
+                            width: 24, height: 24, borderRadius: "50%",
+                            border: "2px solid var(--pub-border)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            fontSize: 10, fontWeight: 700, flexShrink: 0,
+                            ...(isPaid ? { background: "var(--plum-50)", borderColor: "var(--plum-200)", color: "var(--plum)" } : {}),
+                            ...(isDue ? { background: "var(--pub-badge-amber-bg)", borderColor: "var(--pub-badge-amber-text)", color: "var(--pub-badge-amber-text)" } : {}),
+                          }}>
+                            {isPaid ? "✓" : inst.installment_number}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: isDue ? 700 : 500 }}>
+                              {installments.length === 1
+                                ? "Full Payment"
+                                : `Installment ${inst.installment_number}${isDue ? " — Due" : ""}`}
+                            </div>
+                            <div style={{
+                              fontSize: 11,
+                              color: isDue ? "var(--pub-badge-amber-text)" : "var(--pub-text-muted)",
+                              fontWeight: isDue ? 600 : 400,
+                            }}>
+                              {isPaid && inst.paid_at
+                                ? `Paid ${formatLongDate(inst.paid_at)}`
+                                : `Due ${formatLongDate(inst.due_date)}`}
+                            </div>
+                          </div>
+                          <div style={{
+                            fontSize: 14, fontWeight: 700, fontFamily: "system-ui",
+                            color: isPaid ? "var(--pub-badge-sage-text)" : undefined,
+                          }}>
+                            ${Number(inst.amount_due).toFixed(2)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          {/* Payment history */}
+          {paidInstallments.length > 0 && (
+            <>
+              <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 14, fontFamily: "system-ui" }}>Payment History</div>
+              <div style={CARD_STYLE}>
+                <div style={{ padding: 20 }}>
+                  {paidInstallments.slice(0, 5).map((inst, idx) => (
+                    <div key={inst.id} style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "10px 0",
+                      borderBottom: idx < Math.min(paidInstallments.length, 5) - 1 ? "1px solid var(--pub-border-subtle)" : "none",
+                    }}>
+                      <div style={{
+                        width: 30, height: 30, borderRadius: 7,
+                        background: "var(--pub-badge-sage-bg)",
+                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                      }}>
+                        <CheckIcon />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>Payment</div>
+                        <div style={{ fontSize: 11, color: "var(--pub-text-muted)" }}>
+                          {inst.paid_at ? formatLongDate(inst.paid_at) : ""}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--pub-badge-sage-text)" }}>
+                        −${Number(inst.amount_due).toFixed(2)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {paidInstallments.length > 5 && (
+                  <div style={{ padding: "10px 20px", borderTop: "1px solid var(--pub-border-subtle)", background: "var(--pub-surface-warm)", textAlign: "center" }}>
+                    <button style={{ fontSize: 12, color: "var(--pub-text-muted)", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}>
+                      View All Transactions
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          NOTIFICATIONS TAB
+      ══════════════════════════════════════════════════════ */}
+      {activeTab === "notifications" && (
+        <div style={{ padding: "28px 32px" }}>
+          {/* SMS section */}
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, fontFamily: "system-ui" }}>SMS Notifications</div>
+          {user.phone_number && (
+            <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
+              Alerts sent to <strong>{user.phone_number}</strong>.
+            </div>
+          )}
+          <div style={{ marginBottom: 20 }}>
+            <SmsOptInCard user={user} />
+          </div>
+
+          {/* Email section */}
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, fontFamily: "system-ui" }}>Email Communications</div>
+          <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
+            Sent to <strong>{user.email}</strong>.
+          </div>
+          <div style={CARD_STYLE}>
+            <div style={{
+              padding: "14px 20px", background: "var(--pub-surface-warm)",
+              borderBottom: "1px solid var(--pub-border-subtle)",
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>Email Preferences</div>
+            </div>
+            <div style={{ padding: 20 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--pub-text-primary)" }}>AYDT newsletter</div>
+                  <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginTop: 2, lineHeight: 1.5 }}>
+                    Monthly studio news, student spotlights, and class highlights.
+                  </div>
+                </div>
+                <ToggleSwitch checked={newsletter} onChange={setNewsletter} />
+              </div>
+            </div>
+            <div style={{
+              padding: "12px 20px",
+              borderTop: "1px solid var(--pub-border-subtle)",
+              background: "var(--pub-surface-warm)",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+            }}>
+              <span style={{ fontSize: 11, color: "var(--pub-text-faint)" }}>
+                Transactional emails (receipts, confirmations) are always sent.
+              </span>
+              <button style={{
+                display: "inline-flex", alignItems: "center",
+                fontSize: 11, fontWeight: 600, borderRadius: 7,
+                border: "1.5px solid var(--plum)", cursor: "pointer",
+                padding: "5px 11px", background: "var(--plum)", color: "#fff",
+                fontFamily: "inherit",
+              }}>
+                Save Preferences
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
   );
 };
+
+/* ── keep helper exports accessible if needed elsewhere ──── */
+export { formatDisciplineLabel };
