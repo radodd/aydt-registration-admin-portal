@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 import {
   publishSemesterNow,
   scheduleSemester,
@@ -9,192 +10,292 @@ import {
 import { archiveSemester } from "../actions/archiveSemester";
 import { unpublishSemester } from "../actions/unpublishSemester";
 import { restoreSemester } from "../actions/restoreSemester";
+import { Check, AlertTriangle } from "lucide-react";
+
+type HealthData = {
+  classCount: number;
+  paymentSet: boolean;
+  regFormBuilt: boolean;
+  emailSet: boolean;
+  waitlistCount: number;
+};
+
+type AuditLog = {
+  id: string;
+  action: string;
+  created_at: string;
+  changes?: any;
+};
 
 type Props = {
   semesterId: string;
   status: string;
   publishAt: string | null;
+  health: HealthData;
+  auditLogs: AuditLog[];
 };
+
+const STATUS_BADGE: Record<string, string> = {
+  published: "bg-green-100 text-green-700",
+  draft: "bg-neutral-100 text-neutral-600",
+  scheduled: "bg-blue-100 text-blue-700",
+  archived: "bg-red-100 text-red-600",
+};
+
+function fmtAuditDate(iso: string) {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function auditLabel(action: string): string {
+  const map: Record<string, string> = {
+    published_now: "Semester published",
+    saved_draft: "Saved as draft",
+    scheduled_publish: "Scheduled to publish",
+    archived: "Semester archived",
+    restored: "Semester restored",
+    unpublished: "Semester unpublished",
+    discount_updated: "Discount rule updated",
+  };
+  return map[action] ?? action.replace(/_/g, " ");
+}
 
 export default function SemesterLifecycleActions({
   semesterId,
   status,
   publishAt,
+  health,
+  auditLogs,
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [scheduledDate, setScheduledDate] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
 
-  function handlePublishNow() {
+  function run(fn: () => Promise<any>) {
     setActionError(null);
     startTransition(async () => {
       try {
-        await publishSemesterNow(semesterId);
+        await fn();
       } catch (e) {
-        setActionError(e instanceof Error ? e.message : "Failed to publish.");
+        setActionError(e instanceof Error ? e.message : "Action failed.");
       }
     });
   }
 
-  function handleSaveDraft() {
-    setActionError(null);
-    startTransition(async () => {
-      try {
-        await saveSemesterDraft(semesterId);
-      } catch (e) {
-        setActionError(e instanceof Error ? e.message : "Failed to save draft.");
-      }
-    });
-  }
+  const statusBadge = STATUS_BADGE[status] ?? STATUS_BADGE.draft;
 
-  function handleSchedule() {
-    if (!scheduledDate) return;
-    setActionError(null);
-    startTransition(async () => {
-      try {
-        await scheduleSemester(semesterId, new Date(scheduledDate).toISOString());
-      } catch (e) {
-        setActionError(e instanceof Error ? e.message : "Failed to schedule.");
-      }
-    });
-  }
-
-  function handleArchive() {
-    setActionError(null);
-    startTransition(async () => {
-      try {
-        await archiveSemester(semesterId);
-      } catch (e) {
-        setActionError(e instanceof Error ? e.message : "Failed to archive.");
-      }
-    });
-  }
-
-  function handleUnpublish() {
-    setActionError(null);
-    startTransition(async () => {
-      try {
-        await unpublishSemester(semesterId);
-      } catch (e) {
-        setActionError(e instanceof Error ? e.message : "Failed to unpublish.");
-      }
-    });
-  }
-
-  function handleRestore() {
-    setActionError(null);
-    startTransition(async () => {
-      try {
-        await restoreSemester(semesterId);
-      } catch (e) {
-        setActionError(e instanceof Error ? e.message : "Failed to restore.");
-      }
-    });
-  }
+  const healthRows = [
+    {
+      label: "Classes",
+      ok: health.classCount > 0,
+      warn: false,
+      value: health.classCount > 0 ? String(health.classCount) : "None",
+    },
+    {
+      label: "Payment plan",
+      ok: health.paymentSet,
+      warn: false,
+      value: health.paymentSet ? "Set" : "Not set",
+    },
+    {
+      label: "Reg form",
+      ok: health.regFormBuilt,
+      warn: false,
+      value: health.regFormBuilt ? "Built" : "Empty",
+    },
+    {
+      label: "Conf. email",
+      ok: health.emailSet,
+      warn: false,
+      value: health.emailSet ? "Set" : "Not set",
+    },
+  ];
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-6 space-y-6">
-      <h2 className="text-lg font-semibold">Lifecycle Controls</h2>
+    <div className="space-y-3">
+      {/* ── Lifecycle Controls ───────────────────────────────────────── */}
+      <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4 space-y-4">
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+          Lifecycle Controls
+        </h3>
 
-      {actionError && (
-        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-          {actionError}
-        </div>
-      )}
-
-      {/* Current Status */}
-      <div className="text-sm text-neutral-600">
-        Current Status: <span className="font-medium">{status}</span>
-      </div>
-
-      <div className="flex flex-wrap gap-3">
-        {(status === "draft" || status === "scheduled") && (
-          <button
-            onClick={handlePublishNow}
-            disabled={pending}
-            className="px-4 py-2 rounded-xl bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-          >
-            Publish Now
-          </button>
-        )}
-
-        {(status === "scheduled" || status === "published") && (
-          <button
-            onClick={handleSaveDraft}
-            disabled={pending}
-            className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-          >
-            Revert to Draft
-          </button>
-        )}
-
-        {status === "published" && (
-          <button
-            onClick={handleUnpublish}
-            disabled={pending}
-            className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-          >
-            Unpublish
-          </button>
-        )}
-
-        {status === "published" && (
-          <button
-            onClick={handleArchive}
-            disabled={pending}
-            className="px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-          >
-            Archive
-          </button>
-        )}
-
-        {status === "archived" && (
-          <button
-            onClick={handleRestore}
-            disabled={pending}
-            className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-          >
-            Restore
-          </button>
-        )}
-      </div>
-
-      {/* Scheduling */}
-      {status !== "archived" && <div className="space-y-3">
-        <div className="text-sm font-medium text-neutral-700">
-          Schedule Publish
-        </div>
-
-        <div className="flex gap-3">
-          <input
-            type="datetime-local"
-            value={scheduledDate}
-            onChange={(e) => setScheduledDate(e.target.value)}
-            className="px-3 py-2 border border-neutral-300 rounded-xl text-sm"
-          />
-
-          <button
-            onClick={handleSchedule}
-            disabled={!scheduledDate || pending}
-            className="px-4 py-2 rounded-xl bg-neutral-900 text-white text-sm font-medium disabled:opacity-50"
-          >
-            {status === "scheduled" ? "Reschedule" : "Schedule"}
-          </button>
-        </div>
-
-        {publishAt && status === "scheduled" && (
-          <div className="text-xs text-neutral-500">
-            Currently scheduled for:{" "}
-            {new Date(publishAt).toLocaleString("en-US", {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            })}
+        {actionError && (
+          <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+            {actionError}
           </div>
         )}
-      </div>}
+
+        {/* Current status */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-neutral-500">Current status</span>
+          <span
+            className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusBadge}`}
+          >
+            {status}
+          </span>
+        </div>
+
+        {/* Primary action buttons */}
+        <div className="space-y-2">
+          {(status === "draft" || status === "scheduled") && (
+            <button
+              onClick={() => run(() => publishSemesterNow(semesterId))}
+              disabled={pending}
+              className="w-full px-3 py-2 rounded-lg text-xs font-medium text-white disabled:opacity-50"
+              style={{ background: "var(--admin-sidebar-active)" }}
+            >
+              Publish Now
+            </button>
+          )}
+
+          {(status === "scheduled" || status === "published") && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => run(() => saveSemesterDraft(semesterId))}
+                disabled={pending}
+                className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                Revert to draft
+              </button>
+              {status === "published" && (
+                <button
+                  onClick={() => run(() => unpublishSemester(semesterId))}
+                  disabled={pending}
+                  className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                >
+                  Unpublish
+                </button>
+              )}
+            </div>
+          )}
+
+          {status === "published" && (
+            <button
+              onClick={() => run(() => archiveSemester(semesterId))}
+              disabled={pending}
+              className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+            >
+              Archive semester
+            </button>
+          )}
+
+          {status === "archived" && (
+            <button
+              onClick={() => run(() => restoreSemester(semesterId))}
+              disabled={pending}
+              className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+            >
+              Restore
+            </button>
+          )}
+        </div>
+
+        {/* Schedule publish */}
+        {status !== "archived" && (
+          <div className="space-y-2 pt-2 border-t border-neutral-100">
+            <div className="text-xs font-medium text-neutral-600">
+              Schedule publish
+            </div>
+            <div className="flex gap-2">
+              <InlineDatePicker
+                value={scheduledDate}
+                onChange={setScheduledDate}
+              />
+              <button
+                onClick={() => {
+                  if (!scheduledDate) return;
+                  run(() =>
+                    scheduleSemester(
+                      semesterId,
+                      new Date(scheduledDate + "T00:00:00").toISOString(),
+                    ),
+                  );
+                }}
+                disabled={!scheduledDate || pending}
+                className="px-3 py-1.5 rounded-lg border text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-80"
+                style={{
+                  borderColor: "var(--admin-sidebar-active)",
+                  color: "var(--admin-sidebar-active)",
+                }}
+              >
+                {status === "scheduled" ? "Reschedule" : "Schedule"}
+              </button>
+            </div>
+            {publishAt && status === "scheduled" && (
+              <p className="text-[11px] text-neutral-400">
+                Scheduled for{" "}
+                {new Date(publishAt).toLocaleString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Semester Health ──────────────────────────────────────────── */}
+      <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4 space-y-3">
+        <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+          Semester Health
+        </h3>
+        <div className="space-y-2.5">
+          {healthRows.map(({ label, ok, value }) => (
+            <div key={label} className="flex items-center justify-between text-xs">
+              <span className="text-neutral-500">{label}</span>
+              <span
+                className={`flex items-center gap-1 font-medium ${
+                  ok ? "text-green-600" : "text-neutral-400"
+                }`}
+              >
+                {ok && <Check className="w-3 h-3" strokeWidth={3} />}
+                {value}
+              </span>
+            </div>
+          ))}
+
+          {health.waitlistCount > 0 && (
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-neutral-500">Waitlist</span>
+              <span className="flex items-center gap-1 font-medium text-amber-600">
+                <AlertTriangle className="w-3 h-3" strokeWidth={2.5} />
+                {health.waitlistCount} waiting
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Recent Activity ──────────────────────────────────────────── */}
+      {auditLogs.length > 0 && (
+        <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4 space-y-3">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+            Recent Activity
+          </h3>
+          <div className="space-y-3">
+            {auditLogs.map((log) => (
+              <div
+                key={log.id}
+                className="flex items-start justify-between gap-3 text-xs"
+              >
+                <span className="text-neutral-700 font-medium leading-snug">
+                  {auditLabel(log.action)}
+                </span>
+                <span className="text-neutral-400 shrink-0 text-[11px]">
+                  {fmtAuditDate(log.created_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

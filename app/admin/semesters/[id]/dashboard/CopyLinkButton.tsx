@@ -20,14 +20,19 @@ export default function CopyLinkButton({ semesterId }: Props) {
   return (
     <button
       onClick={handleCopy}
-      className="flex items-center gap-2 w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-slate-50 transition text-slate-600"
+      className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-sm font-medium border transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 text-left"
+      style={{
+        borderColor: "var(--admin-border)",
+        color: copied ? "#0A5A50" : "var(--admin-text-muted)",
+        background: copied ? "#C8EEE2" : "var(--admin-page-bg)",
+      }}
     >
       {copied ? (
-        <Check className="w-4 h-4 text-green-500 shrink-0" />
+        <Check style={{ width: 13, height: 13, flexShrink: 0, color: "#0A5A50" }} />
       ) : (
-        <Link2 className="w-4 h-4 text-slate-400 shrink-0" />
+        <Link2 style={{ width: 13, height: 13, flexShrink: 0 }} />
       )}
-      {copied ? "Copied!" : "Copy registration link"}
+      {copied ? "Link copied!" : "Copy registration link"}
     </button>
   );
 }
