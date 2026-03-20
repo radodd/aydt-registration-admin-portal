@@ -947,6 +947,7 @@ export type WaitlistConfig = {
     fromName: string;
     fromEmail: string;
     htmlBody: string;
+    includeSignature?: boolean;
   };
 };
 
@@ -991,6 +992,7 @@ export type SemesterDraft = {
     fromName: string;
     fromEmail: string;
     htmlBody: string;
+    includeSignature?: boolean;
   };
 
   waitlist?: WaitlistConfig;
@@ -1200,6 +1202,8 @@ export type ReviewStepProps = {
 
 export type PaymentFormState = {
   type: "pay_in_full" | "deposit_flat" | "deposit_percent" | "installments";
+  depositAmount: string;
+  depositPercent: string;
   dueDate: string;
   installmentCount: string;
 };
