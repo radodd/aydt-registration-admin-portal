@@ -7,7 +7,8 @@ import {
   PaymentFormState,
   PaymentStepProps,
 } from "@/types";
-import { useState } from "react";
+import React, { useState } from "react";
+import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 
 /* -------------------------------------------------------------------------- */
 /* Sub-step types                                                              */
@@ -82,6 +83,8 @@ export default function PaymentStep({
   /* ---- Payment plan state ---- */
   const [form, setForm] = useState<PaymentFormState>({
     type: state.paymentPlan?.type ?? "pay_in_full",
+    depositAmount: state.paymentPlan?.depositAmount?.toString() ?? "",
+    depositPercent: state.paymentPlan?.depositPercent?.toString() ?? "",
     dueDate: state.paymentPlan?.dueDate ?? "",
     installmentCount: state.paymentPlan?.installmentCount?.toString() ?? "",
   });
@@ -346,6 +349,8 @@ export default function PaymentStep({
       type: "SET_PAYMENT",
       payload: {
         type: form.type,
+        depositAmount: form.type === "deposit_flat" && form.depositAmount ? Number(form.depositAmount) : undefined,
+        depositPercent: form.type === "deposit_percent" && form.depositPercent ? Number(form.depositPercent) : undefined,
         dueDate: form.dueDate,
         installmentCount:
           form.type === "installments"
@@ -365,188 +370,329 @@ export default function PaymentStep({
   /* Render                                                                    */
   /* ------------------------------------------------------------------------ */
 
+  /* ---- Division badge styles (matches badge-* system: rgba at 18% opacity) ---- */
+  function divisionBadgeStyle(division: string): React.CSSProperties {
+    switch (division) {
+      case "early_childhood": return { background: "rgba(125,206,194,0.18)", color: "#0A5A50" };
+      case "junior":          return { background: "rgba(196,160,212,0.18)", color: "#5A2878" };
+      case "senior":          return { background: "rgba(158,196,180,0.18)", color: "#20503A" };
+      case "competition":     return { background: "rgba(232,184,176,0.18)", color: "#802818" };
+      default:                return { background: "rgba(158,196,180,0.18)", color: "#20503A" };
+    }
+  }
+
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-6">
-        {/* Header */}
-        <div>
-          <h2 className="text-2xl font-semibold text-neutral-900 tracking-tight">
-            Payment & Pricing
-          </h2>
-          <p className="text-sm text-neutral-500 mt-1">
-            Configure payment plans, tuition rates, special programs, and fee
-            constants for this semester.
-          </p>
+    <div className="max-w-4xl mx-auto space-y-5">
+      {/* Header */}
+      <div>
+        <h2
+          className="text-xl font-semibold tracking-tight"
+          style={{ color: "var(--admin-text)" }}
+        >
+          Payment &amp; pricing
+        </h2>
+        <p className="text-sm mt-1" style={{ color: "var(--admin-text-faint)" }}>
+          Configure payment plans, tuition rates, special programs, and fee
+          constants for this semester.
+        </p>
+      </div>
+
+      {isLocked && (
+        <div
+          className="rounded-xl px-4 py-3 text-sm"
+          style={{
+            background: "#FDF2F1",
+            border: "1px solid #E6D5D1",
+            color: "var(--admin-text-muted)",
+          }}
+        >
+          This semester has active registrations. Payment settings are locked.
         </div>
+      )}
 
-        {isLocked && (
-          <div className="rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
-            This semester has active registrations. Payment settings are locked.
-          </div>
-        )}
-
-        {/* Sub-step Tabs */}
-        <div className="border-b border-neutral-200">
-          <div className="flex gap-1 overflow-x-auto">
-            {SUB_STEPS.map((s) => (
-              <button
-                key={s.key}
-                onClick={() => setActiveSubStep(s.key)}
-                className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition ${
+      {/* Sub-step Tabs */}
+      <div style={{ borderBottom: "0.5px solid var(--admin-border)" }}>
+        <div className="flex gap-1 overflow-x-auto">
+          {SUB_STEPS.map((s) => (
+            <button
+              key={s.key}
+              onClick={() => setActiveSubStep(s.key)}
+              className="px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors"
+              style={{
+                borderBottomColor:
                   activeSubStep === s.key
-                    ? "border-primary-600 text-primary-600"
-                    : "border-transparent text-neutral-500 hover:text-neutral-700"
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+                    ? "var(--admin-sidebar-active)"
+                    : "transparent",
+                color:
+                  activeSubStep === s.key
+                    ? "var(--admin-sidebar-active)"
+                    : "var(--admin-text-faint)",
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
         </div>
+      </div>
 
-        {/* ------------------------------------------------------------------ */}
-        {/* Tab: Payment Plans                                                  */}
-        {/* ------------------------------------------------------------------ */}
-        {activeSubStep === "plans" && (
-          <fieldset disabled={isLocked} className="space-y-6">
-            <div className="space-y-3">
-              <label className="text-sm font-medium text-neutral-700">
-                Payment type
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {(
-                  [
-                    {
-                      value: "pay_in_full",
-                      label: "Pay in Full",
-                      desc: "Full payment at time of checkout",
-                    },
-                    {
-                      value: "deposit_flat",
-                      label: "Flat Deposit",
-                      desc: "Fixed deposit, balance due later",
-                    },
-                    {
-                      value: "deposit_percent",
-                      label: "Percent Deposit",
-                      desc: "% of total due upfront",
-                    },
-                    {
-                      value: "installments",
-                      label: "Installments",
-                      desc: "Split into multiple payments",
-                    },
-                  ] as const
-                ).map((option) => (
+      {/* ------------------------------------------------------------------ */}
+      {/* Tab: Payment Plans                                                  */}
+      {/* ------------------------------------------------------------------ */}
+      {activeSubStep === "plans" && (
+        <fieldset disabled={isLocked} className="space-y-5">
+          <div
+            className="rounded-xl p-5 space-y-4"
+            style={{
+              background: "var(--admin-surface)",
+              border: "0.5px solid var(--admin-border)",
+            }}
+          >
+            <p
+              className="text-xs font-semibold uppercase tracking-wider"
+              style={{ color: "var(--admin-text-faint)" }}
+            >
+              Payment type
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {(
+                [
+                  {
+                    value: "pay_in_full",
+                    label: "Pay in full",
+                    desc: "Full payment at time of checkout",
+                  },
+                  {
+                    value: "deposit_flat",
+                    label: "Flat deposit",
+                    desc: "Fixed deposit, balance due later",
+                  },
+                  {
+                    value: "deposit_percent",
+                    label: "Percent deposit",
+                    desc: "% of total due upfront",
+                  },
+                  {
+                    value: "installments",
+                    label: "Installments",
+                    desc: "Split into multiple payments",
+                  },
+                ] as const
+              ).map((option) => {
+                const active = form.type === option.value;
+                return (
                   <button
                     key={option.value}
                     type="button"
                     disabled={isLocked}
                     onClick={() => updateField("type", option.value)}
-                    className={`text-left border rounded-xl px-4 py-3 transition focus:outline-none disabled:opacity-50 ${
-                      form.type === option.value
-                        ? "border-primary-600 bg-primary-50 ring-1 ring-primary-600"
-                        : "border-neutral-200 hover:border-neutral-300 bg-white"
-                    }`}
+                    className="relative text-left rounded-xl px-4 py-3 transition-all focus:outline-none disabled:opacity-50"
+                    style={{
+                      background: active ? "#FDF2F1" : "var(--admin-surface)",
+                      border: active
+                        ? "1.5px solid var(--admin-sidebar-active)"
+                        : "0.5px solid var(--admin-border)",
+                      boxShadow: active
+                        ? "0 0 0 3px rgba(142,42,35,0.08)"
+                        : "none",
+                    }}
                   >
+                    <span
+                      className="absolute top-3 right-3 w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                      style={{
+                        borderColor: active
+                          ? "var(--admin-sidebar-active)"
+                          : "var(--admin-border)",
+                        background: active
+                          ? "var(--admin-sidebar-active)"
+                          : "transparent",
+                      }}
+                    >
+                      {active && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                      )}
+                    </span>
                     <p
-                      className={`text-sm font-medium ${form.type === option.value ? "text-primary-700" : "text-neutral-900"}`}
+                      className="text-sm font-medium pr-6"
+                      style={{
+                        color: active
+                          ? "var(--admin-sidebar-active)"
+                          : "var(--admin-text)",
+                      }}
                     >
                       {option.label}
                     </p>
-                    <p className="text-xs text-neutral-500 mt-0.5">
+                    <p
+                      className="text-xs mt-0.5"
+                      style={{ color: "var(--admin-text-faint)" }}
+                    >
                       {option.desc}
                     </p>
                   </button>
-                ))}
+                );
+              })}
+            </div>
+          </div>
+
+          {(form.type === "deposit_flat" || form.type === "deposit_percent" || form.type === "installments") && (
+            <div
+              className="rounded-xl p-5"
+              style={{
+                background: "var(--admin-surface)",
+                border: "0.5px solid var(--admin-border)",
+              }}
+            >
+              <div className="grid grid-cols-2 gap-5">
+                {form.type === "deposit_flat" && (
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="deposit-amount"
+                      className="block text-sm font-medium"
+                      style={{ color: "var(--admin-text)" }}
+                    >
+                      Deposit amount ($){" "}
+                      <span style={{ color: "var(--admin-sidebar-active)" }}>*</span>
+                    </label>
+                    <input
+                      id="deposit-amount"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      placeholder="0.00"
+                      value={form.depositAmount}
+                      onChange={(e) => updateField("depositAmount", e.target.value)}
+                      className="admin-input"
+                    />
+                  </div>
+                )}
+                {form.type === "deposit_percent" && (
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="deposit-percent"
+                      className="block text-sm font-medium"
+                      style={{ color: "var(--admin-text)" }}
+                    >
+                      Deposit percent (%){" "}
+                      <span style={{ color: "var(--admin-sidebar-active)" }}>*</span>
+                    </label>
+                    <input
+                      id="deposit-percent"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      placeholder="50"
+                      value={form.depositPercent}
+                      onChange={(e) => updateField("depositPercent", e.target.value)}
+                      className="admin-input"
+                    />
+                  </div>
+                )}
+                {form.type === "installments" && (
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="installment-count"
+                      className="block text-sm font-medium"
+                      style={{ color: "var(--admin-text)" }}
+                    >
+                      Number of installments
+                    </label>
+                    <input
+                      id="installment-count"
+                      type="number"
+                      min={1}
+                      placeholder="3"
+                      value={form.installmentCount}
+                      onChange={(e) =>
+                        updateField("installmentCount", e.target.value)
+                      }
+                      className="admin-input"
+                    />
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="due-date"
+                    className="block text-sm font-medium"
+                    style={{ color: "var(--admin-text)" }}
+                  >
+                    {form.type === "deposit_flat" || form.type === "deposit_percent"
+                      ? "Balance due date"
+                      : "First payment due date"}
+                  </label>
+                  <InlineDatePicker
+                    value={form.dueDate}
+                    onChange={(v) => updateField("dueDate", v)}
+                  />
+                </div>
               </div>
             </div>
+          )}
+        </fieldset>
+      )}
 
-            {form.type === "installments" && (
-              <div className="space-y-2">
-                <label
-                  htmlFor="installment-count"
-                  className="text-sm font-medium text-neutral-700"
-                >
-                  Number of installments
-                </label>
-                <input
-                  id="installment-count"
-                  type="number"
-                  min={1}
-                  placeholder="3"
-                  value={form.installmentCount}
-                  onChange={(e) =>
-                    updateField(
-                      "installmentCount",
-                      e.target.value as PaymentFormState["installmentCount"],
-                    )
-                  }
-                  className="w-40 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-neutral-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600 transition"
-                />
-              </div>
-            )}
-            {form.type !== "pay_in_full" && (
-              <div className="space-y-2">
-                <label
-                  htmlFor="due-date"
-                  className="text-sm font-medium text-neutral-700"
-                >
-                  First payment due date
-                </label>
-                <input
-                  id="due-date"
-                  type="date"
-                  value={form.dueDate}
-                  onChange={(e) =>
-                    updateField(
-                      "dueDate",
-                      e.target.value as PaymentFormState["dueDate"],
-                    )
-                  }
-                  className="w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600 transition"
-                />
-              </div>
-            )}
-          </fieldset>
-        )}
+      {/* ------------------------------------------------------------------ */}
+      {/* Tab: Tuition Rates                                                  */}
+      {/* ------------------------------------------------------------------ */}
+      {activeSubStep === "tuition" && (
+        <div className="space-y-5">
+          <div
+            className="rounded-xl px-4 py-3 text-sm"
+            style={{
+              background: "#EEF2FF",
+              border: "0.5px solid #C7D2FE",
+              color: "#3730A3",
+            }}
+          >
+            Division-based tuition using a progressive discount model. The base
+            tuition applies to the first class; each additional class receives a
+            progressively larger discount. Fill{" "}
+            <strong>Semester Total</strong> and <strong>Auto-Pay /mo</strong>{" "}
+            for admin reference and auto-fill in class setup.
+          </div>
 
-        {/* ------------------------------------------------------------------ */}
-        {/* Tab: Tuition Rates                                                  */}
-        {/* ------------------------------------------------------------------ */}
-        {activeSubStep === "tuition" && (
-          <div className="space-y-6">
-            <p className="text-sm text-neutral-500">
-              Division-based tuition using a progressive discount model. The
-              base tuition applies to the first class; each additional class
-              receives a progressively larger discount. Set the pre-calculated{" "}
-              <strong>Semester Total</strong> and <strong>Auto-Pay</strong> for
-              admin reference and auto-fill in class setup.
-            </p>
-
-            {/* Existing bands */}
-            {bands.length > 0 ? (
+          {/* Existing bands */}
+          {bands.length > 0 ? (
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "0.5px solid var(--admin-border)" }}
+            >
               <div className="overflow-x-auto">
-                <table className="w-full text-sm border border-neutral-200 rounded-xl overflow-hidden">
-                  <thead className="bg-neutral-50 text-neutral-600 text-xs uppercase tracking-wide">
-                    <tr>
-                      <th className="px-3 py-3 text-left whitespace-nowrap">Division</th>
-                      <th className="px-3 py-3 text-left whitespace-nowrap">Classes/Wk</th>
-                      <th className="px-3 py-3 text-left whitespace-nowrap">Base Tuition</th>
-                      <th className="px-3 py-3 text-left whitespace-nowrap">Discount %</th>
-                      <th className="px-3 py-3 text-left whitespace-nowrap">Semester Total</th>
-                      <th className="px-3 py-3 text-left whitespace-nowrap">Auto-Pay /mo</th>
-                      <th className="px-3 py-3 text-left whitespace-nowrap">Notes</th>
-                      {!isLocked && <th className="px-3 py-3" />}
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr style={{ background: "var(--admin-table-header-bg)" }}>
+                      {(["Division","Classes/Wk","Base Tuition","Discount %","Semester Total","Auto-Pay /mo","Notes"] as const).map((h) => (
+                        <th
+                          key={h}
+                          className="px-4 py-2.5 text-left whitespace-nowrap"
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 500,
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            color: "var(--admin-table-header-text)",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                      {!isLocked && <th className="px-4 py-2.5" />}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-100">
+                  <tbody>
                     {bands.map((band) => (
-                      <tr key={band._clientKey}>
-                        <td className="px-3 py-2">
+                      <tr
+                        key={band._clientKey}
+                        className="hover:bg-[#EDE9E4] transition-colors"
+                        style={{ borderBottom: "0.5px solid var(--admin-table-border)" }}
+                      >
+                        {/* Division */}
+                        <td className="px-4 py-2.5 text-sm" style={{ color: "var(--admin-text)" }}>
                           {isLocked ? (
-                            <span className="capitalize">
-                              {band.division.replace("_", " ")}
+                            <span
+                              className="badge"
+                              style={divisionBadgeStyle(band.division)}
+                            >
+                              {DIVISIONS.find((d) => d.value === band.division)?.label ?? band.division}
                             </span>
                           ) : (
                             <select
@@ -554,7 +700,15 @@ export default function PaymentStep({
                               onChange={(e) =>
                                 updateBand(band._clientKey, "division", e.target.value)
                               }
-                              className="rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                              className="badge cursor-pointer outline-none border-0"
+                              style={{
+                                ...divisionBadgeStyle(band.division),
+                                appearance: "none",
+                                paddingRight: "1.25rem",
+                                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 16 16' fill='none' stroke='%239E9890' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E")`,
+                                backgroundRepeat: "no-repeat",
+                                backgroundPosition: "right 4px center",
+                              }}
                             >
                               {DIVISIONS.map((d) => (
                                 <option key={d.value} value={d.value}>
@@ -564,7 +718,8 @@ export default function PaymentStep({
                             </select>
                           )}
                         </td>
-                        <td className="px-3 py-2">
+                        {/* Classes/Wk */}
+                        <td className="px-4 py-2.5 text-sm" style={{ color: "var(--admin-text)" }}>
                           {isLocked ? (
                             band.weekly_class_count
                           ) : (
@@ -575,16 +730,22 @@ export default function PaymentStep({
                               onChange={(e) =>
                                 updateBand(band._clientKey, "weekly_class_count", Number(e.target.value))
                               }
-                              className="w-14 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                              className="admin-input !w-14 !py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                           )}
                         </td>
-                        <td className="px-3 py-2">
+                        {/* Base Tuition */}
+                        <td className="px-4 py-2.5 text-sm" style={{ color: "var(--admin-text)" }}>
                           {isLocked ? (
                             `$${band.base_tuition.toFixed(2)}`
                           ) : (
                             <div className="relative">
-                              <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
+                              <span
+                                className="absolute left-2 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                                style={{ color: "var(--admin-text-faint)" }}
+                              >
+                                $
+                              </span>
                               <input
                                 type="number"
                                 min={0}
@@ -593,16 +754,17 @@ export default function PaymentStep({
                                 onChange={(e) =>
                                   updateBand(band._clientKey, "base_tuition", Number(e.target.value))
                                 }
-                                className="w-24 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                                className="admin-input !w-24 !pl-5 !py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-2">
+                        {/* Discount % */}
+                        <td className="px-4 py-2.5 text-sm" style={{ color: "var(--admin-text)" }}>
                           {isLocked ? (
                             `${band.progressive_discount_percent}%`
                           ) : (
-                            <div className="relative">
+                            <div className="flex items-center gap-1">
                               <input
                                 type="number"
                                 min={0}
@@ -612,17 +774,24 @@ export default function PaymentStep({
                                 onChange={(e) =>
                                   updateBand(band._clientKey, "progressive_discount_percent", Number(e.target.value))
                                 }
-                                className="w-16 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                                className="admin-input !w-16 !py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
+                              <span className="text-xs" style={{ color: "var(--admin-text-faint)" }}>%</span>
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-2">
+                        {/* Semester Total */}
+                        <td className="px-4 py-2.5 text-sm" style={{ color: "var(--admin-text)" }}>
                           {isLocked ? (
                             band.semester_total != null ? `$${band.semester_total.toFixed(2)}` : "—"
                           ) : (
                             <div className="relative">
-                              <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
+                              <span
+                                className="absolute left-2 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                                style={{ color: "var(--admin-text-faint)" }}
+                              >
+                                $
+                              </span>
                               <input
                                 type="number"
                                 min={0}
@@ -636,12 +805,13 @@ export default function PaymentStep({
                                     e.target.value ? Number(e.target.value) : undefined,
                                   )
                                 }
-                                className="w-24 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                                className="admin-input !w-24 !pl-5 !py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               />
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-2">
+                        {/* Auto-Pay /mo */}
+                        <td className="px-4 py-2.5 text-sm" style={{ color: "var(--admin-text)" }}>
                           {isLocked ? (
                             band.autopay_installment_amount != null
                               ? `$${band.autopay_installment_amount.toFixed(2)}`
@@ -649,7 +819,12 @@ export default function PaymentStep({
                           ) : (
                             <div className="space-y-0.5">
                               <div className="relative">
-                                <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
+                                <span
+                                  className="absolute left-2 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                                  style={{ color: "var(--admin-text-faint)" }}
+                                >
+                                  $
+                                </span>
                                 <input
                                   type="number"
                                   min={0}
@@ -663,18 +838,22 @@ export default function PaymentStep({
                                       e.target.value ? Number(e.target.value) : undefined,
                                     )
                                   }
-                                  className="w-24 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                                  className="admin-input !w-24 !pl-5 !py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                               </div>
                               {band.autopay_installment_amount && band.semester_total ? (
-                                <p className="text-xs text-neutral-400 pl-1">
+                                <p
+                                  className="text-xs pl-1"
+                                  style={{ color: "var(--admin-text-faint)" }}
+                                >
                                   5× = ${(band.autopay_installment_amount * 5).toFixed(2)}
                                 </p>
                               ) : null}
                             </div>
                           )}
                         </td>
-                        <td className="px-3 py-2">
+                        {/* Notes */}
+                        <td className="px-4 py-2.5 text-sm" style={{ color: "var(--admin-text)" }}>
                           {isLocked ? (
                             band.notes ?? "—"
                           ) : (
@@ -685,17 +864,18 @@ export default function PaymentStep({
                               onChange={(e) =>
                                 updateBand(band._clientKey, "notes", e.target.value)
                               }
-                              className="w-32 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                              className="admin-input !w-32 !py-1"
                             />
                           )}
                         </td>
                         {!isLocked && (
-                          <td className="px-3 py-2">
+                          <td className="px-4 py-2.5 text-sm">
                             <button
                               onClick={() => removeBand(band._clientKey)}
-                              className="text-xs text-red-600 hover:text-red-700"
+                              className="text-xs transition-colors hover:text-red-600"
+                              style={{ color: "var(--admin-text-faint)" }}
                             >
-                              Remove
+                              ×
                             </button>
                           </td>
                         )}
@@ -704,9 +884,15 @@ export default function PaymentStep({
                   </tbody>
                 </table>
               </div>
+            </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center">
-                <p className="text-sm text-neutral-500">
+              <div
+                className="rounded-xl p-6 text-center"
+                style={{
+                  border: "1px dashed var(--admin-border)",
+                }}
+              >
+                <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
                   No rate bands configured yet. Add rows below.
                 </p>
               </div>
@@ -714,13 +900,27 @@ export default function PaymentStep({
 
             {/* Add new band row */}
             {!isLocked && (
-              <div className="rounded-xl border border-neutral-200 p-4 space-y-4">
-                <h4 className="text-sm font-medium text-neutral-700">
+              <div
+                className="rounded-xl p-5 space-y-4"
+                style={{
+                  background: "var(--admin-surface)",
+                  border: "0.5px solid var(--admin-border)",
+                }}
+              >
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
                   Add Rate Band
-                </h4>
+                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-500">Division</label>
+                  <div className="space-y-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Division
+                    </label>
                     <select
                       value={newBand.division}
                       onChange={(e) =>
@@ -729,7 +929,7 @@ export default function PaymentStep({
                           division: e.target.value as DraftTuitionRateBand["division"],
                         }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-select"
                     >
                       {DIVISIONS.map((d) => (
                         <option key={d.value} value={d.value}>
@@ -738,8 +938,13 @@ export default function PaymentStep({
                       ))}
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-500">Classes/Week</label>
+                  <div className="space-y-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Classes/week
+                    </label>
                     <input
                       type="number"
                       min={1}
@@ -750,11 +955,16 @@ export default function PaymentStep({
                           weekly_class_count: Number(e.target.value),
                         }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-input"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-500">Base Tuition ($)</label>
+                  <div className="space-y-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Base tuition ($)
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -767,11 +977,16 @@ export default function PaymentStep({
                           base_tuition: Number(e.target.value),
                         }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-input"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-500">Discount % (nth class)</label>
+                  <div className="space-y-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Discount %
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -785,11 +1000,16 @@ export default function PaymentStep({
                           progressive_discount_percent: Number(e.target.value),
                         }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-input"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-500">Semester Total ($)</label>
+                  <div className="space-y-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Semester total ($)
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -802,11 +1022,16 @@ export default function PaymentStep({
                           semester_total: e.target.value ? Number(e.target.value) : undefined,
                         }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-input"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-500">Auto-Pay /mo ($)</label>
+                  <div className="space-y-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Auto-pay /mo ($)
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -821,16 +1046,24 @@ export default function PaymentStep({
                             : undefined,
                         }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-input"
                     />
                     {newBand.autopay_installment_amount && (
-                      <p className="text-xs text-neutral-400">
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--admin-text-faint)" }}
+                      >
                         5× = ${(newBand.autopay_installment_amount * 5).toFixed(2)}
                       </p>
                     )}
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-500">Notes (optional)</label>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Notes (optional)
+                    </label>
                     <input
                       type="text"
                       placeholder="e.g. includes costume deposit"
@@ -838,15 +1071,12 @@ export default function PaymentStep({
                       onChange={(e) =>
                         setNewBand((prev) => ({ ...prev, notes: e.target.value }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-input"
                     />
                   </div>
                 </div>
-                <button
-                  onClick={addBand}
-                  className="px-4 py-2 rounded-xl bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 transition"
-                >
-                  + Add Row
+                <button onClick={addBand} className="admin-btn-primary admin-btn-sm">
+                  + Add row
                 </button>
               </div>
             )}
@@ -857,214 +1087,266 @@ export default function PaymentStep({
         {/* Tab: Special Programs                                               */}
         {/* ------------------------------------------------------------------ */}
         {activeSubStep === "programs" && (
-          <div className="space-y-6">
-            <div className="flex items-start justify-between gap-4">
-              <p className="text-sm text-neutral-500">
+          <div className="space-y-5">
+            <div
+              className="rounded-xl px-4 py-3 text-sm flex items-start justify-between gap-4"
+              style={{
+                background: "#EEF2FF",
+                border: "0.5px solid #C7D2FE",
+                color: "#3730A3",
+              }}
+            >
+              <span>
                 Fixed-tuition programs that bypass division-based progressive
-                discount calculations. These amounts are used exactly as entered —
+                discount calculations. Amounts are used exactly as entered —
                 no additional discounts apply.
-              </p>
+              </span>
               {!isLocked && (
                 <button
                   type="button"
                   onClick={autoPopulatePrograms}
-                  className="shrink-0 px-3 py-1.5 rounded-lg border border-primary-200 bg-primary-50 text-xs font-medium text-primary-700 hover:bg-primary-100 transition"
+                  className="shrink-0 admin-btn-secondary admin-btn-sm"
                 >
                   Auto-populate from classes
                 </button>
               )}
             </div>
             {autoPopulateMsg && (
-              <p className="text-xs text-primary-600">{autoPopulateMsg}</p>
+              <p
+                className="text-xs"
+                style={{ color: "var(--admin-sidebar-active)" }}
+              >
+                {autoPopulateMsg}
+              </p>
             )}
 
             {programs.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border border-neutral-200 rounded-xl overflow-hidden">
-                  <thead className="bg-neutral-50 text-neutral-600 text-xs uppercase tracking-wide">
-                    <tr>
-                      <th className="px-4 py-3 text-left">Program</th>
-                      <th className="px-4 py-3 text-left">Semester Total</th>
-                      <th className="px-4 py-3 text-left">Auto-Pay /mo</th>
-                      <th className="px-4 py-3 text-left">Installments</th>
-                      <th className="px-4 py-3 text-left">Reg. Fee Override</th>
-                      <th className="px-4 py-3 text-left">Notes</th>
-                      {!isLocked && <th className="px-4 py-3" />}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-100">
-                    {programs.map((prog) => (
-                      <tr key={prog._clientKey}>
-                        <td className="px-4 py-2">
-                          {isLocked ? (
-                            <span>{prog.programLabel}</span>
-                          ) : (
-                            <select
-                              value={prog.programKey}
-                              onChange={(e) => {
-                                const selected = SPECIAL_PROGRAM_KEYS.find(
-                                  (k) => k.value === e.target.value,
-                                );
-                                updateProgram(prog._clientKey, {
-                                  programKey: e.target.value,
-                                  programLabel: selected?.label ?? e.target.value,
-                                });
-                              }}
-                              className="rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                            >
-                              {SPECIAL_PROGRAM_KEYS.map((k) => (
-                                <option key={k.value} value={k.value}>
-                                  {k.label}
-                                </option>
-                              ))}
-                            </select>
-                          )}
-                        </td>
-                        <td className="px-4 py-2">
-                          {isLocked ? (
-                            `$${prog.semesterTotal.toFixed(2)}`
-                          ) : (
-                            <div className="relative">
-                              <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
+              <div
+                className="rounded-xl overflow-hidden"
+                style={{ border: "0.5px solid var(--admin-border)" }}
+              >
+                <div className="overflow-x-auto">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>Program</th>
+                        <th>Semester total ($)</th>
+                        <th>Auto-pay /mo</th>
+                        <th>Installments</th>
+                        <th>Reg. fee override</th>
+                        <th>Notes</th>
+                        {!isLocked && <th />}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {programs.map((prog) => (
+                        <tr key={prog._clientKey}>
+                          <td>
+                            {isLocked ? (
+                              <span>{prog.programLabel}</span>
+                            ) : (
+                              <select
+                                value={prog.programKey}
+                                onChange={(e) => {
+                                  const selected = SPECIAL_PROGRAM_KEYS.find(
+                                    (k) => k.value === e.target.value,
+                                  );
+                                  updateProgram(prog._clientKey, {
+                                    programKey: e.target.value,
+                                    programLabel: selected?.label ?? e.target.value,
+                                  });
+                                }}
+                                className="admin-select !py-1"
+                              >
+                                {SPECIAL_PROGRAM_KEYS.map((k) => (
+                                  <option key={k.value} value={k.value}>
+                                    {k.label}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </td>
+                          <td>
+                            {isLocked ? (
+                              `$${prog.semesterTotal.toFixed(2)}`
+                            ) : (
+                              <div className="relative">
+                                <span
+                                  className="absolute left-2 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                                  style={{ color: "var(--admin-text-faint)" }}
+                                >
+                                  $
+                                </span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={0.01}
+                                  value={prog.semesterTotal}
+                                  onChange={(e) =>
+                                    updateProgram(prog._clientKey, {
+                                      semesterTotal: Number(e.target.value),
+                                    })
+                                  }
+                                  className="admin-input !w-28 !pl-5 !py-1"
+                                />
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {isLocked ? (
+                              prog.autoPayInstallmentAmount != null
+                                ? `$${prog.autoPayInstallmentAmount.toFixed(2)}`
+                                : "N/A"
+                            ) : (
+                              <div className="space-y-0.5">
+                                <div className="relative">
+                                  <span
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                                    style={{ color: "var(--admin-text-faint)" }}
+                                  >
+                                    $
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    placeholder="N/A"
+                                    value={prog.autoPayInstallmentAmount ?? ""}
+                                    onChange={(e) =>
+                                      updateProgram(prog._clientKey, {
+                                        autoPayInstallmentAmount: e.target.value
+                                          ? Number(e.target.value)
+                                          : null,
+                                      })
+                                    }
+                                    className="admin-input !w-24 !pl-5 !py-1"
+                                  />
+                                </div>
+                                {prog.autoPayInstallmentAmount &&
+                                prog.autoPayInstallmentCount ? (
+                                  <p
+                                    className="text-xs pl-1"
+                                    style={{ color: "var(--admin-text-faint)" }}
+                                  >
+                                    {prog.autoPayInstallmentCount}× = $
+                                    {(
+                                      prog.autoPayInstallmentAmount *
+                                      prog.autoPayInstallmentCount
+                                    ).toFixed(2)}
+                                  </p>
+                                ) : null}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {isLocked ? (
+                              prog.autoPayInstallmentCount ?? "N/A"
+                            ) : (
                               <input
                                 type="number"
-                                min={0}
-                                step={0.01}
-                                value={prog.semesterTotal}
+                                min={1}
+                                placeholder="5"
+                                value={prog.autoPayInstallmentCount ?? ""}
                                 onChange={(e) =>
                                   updateProgram(prog._clientKey, {
-                                    semesterTotal: Number(e.target.value),
+                                    autoPayInstallmentCount: e.target.value
+                                      ? Number(e.target.value)
+                                      : null,
                                   })
                                 }
-                                className="w-28 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary-600"
+                                className="admin-input !w-16 !py-1"
                               />
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-2">
-                          {isLocked ? (
-                            prog.autoPayInstallmentAmount != null
-                              ? `$${prog.autoPayInstallmentAmount.toFixed(2)}`
-                              : "N/A"
-                          ) : (
-                            <div className="space-y-0.5">
-                              <div className="relative">
-                                <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={0.01}
-                                  placeholder="N/A"
-                                  value={prog.autoPayInstallmentAmount ?? ""}
-                                  onChange={(e) =>
-                                    updateProgram(prog._clientKey, {
-                                      autoPayInstallmentAmount: e.target.value
-                                        ? Number(e.target.value)
-                                        : null,
-                                    })
-                                  }
-                                  className="w-24 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                                />
-                              </div>
-                              {prog.autoPayInstallmentAmount &&
-                              prog.autoPayInstallmentCount ? (
-                                <p className="text-xs text-neutral-400 pl-1">
-                                  {prog.autoPayInstallmentCount}× = $
-                                  {(
-                                    prog.autoPayInstallmentAmount *
-                                    prog.autoPayInstallmentCount
-                                  ).toFixed(2)}
-                                </p>
-                              ) : null}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-2">
-                          {isLocked ? (
-                            prog.autoPayInstallmentCount ?? "N/A"
-                          ) : (
-                            <input
-                              type="number"
-                              min={1}
-                              placeholder="5"
-                              value={prog.autoPayInstallmentCount ?? ""}
-                              onChange={(e) =>
-                                updateProgram(prog._clientKey, {
-                                  autoPayInstallmentCount: e.target.value
-                                    ? Number(e.target.value)
-                                    : null,
-                                })
-                              }
-                              className="w-16 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                            />
-                          )}
-                        </td>
-                        <td className="px-4 py-2">
-                          {isLocked ? (
-                            prog.registrationFeeOverride != null
-                              ? prog.registrationFeeOverride === 0
-                                ? "Exempt ($0)"
-                                : `$${prog.registrationFeeOverride.toFixed(2)}`
-                              : "Global"
-                          ) : (
-                            <div className="space-y-0.5">
-                              <div className="relative">
-                                <span className="absolute left-2 top-1.5 text-neutral-400 text-xs">$</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={0.01}
-                                  placeholder="Global"
-                                  value={prog.registrationFeeOverride ?? ""}
-                                  onChange={(e) =>
-                                    updateProgram(prog._clientKey, {
-                                      registrationFeeOverride: e.target.value !== ""
-                                        ? Number(e.target.value)
-                                        : null,
-                                    })
-                                  }
-                                  className="w-24 pl-4 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                                />
-                              </div>
-                              <p className="text-xs text-neutral-400 pl-1">
-                                0 = exempt; blank = global
-                              </p>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-2">
-                          {isLocked ? (
-                            prog.notes ?? "—"
-                          ) : (
-                            <input
-                              type="text"
-                              placeholder="Optional"
-                              value={prog.notes ?? ""}
-                              onChange={(e) =>
-                                updateProgram(prog._clientKey, { notes: e.target.value })
-                              }
-                              className="w-36 rounded-lg border border-neutral-300 px-2 py-1 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600"
-                            />
-                          )}
-                        </td>
-                        {!isLocked && (
-                          <td className="px-4 py-2">
-                            <button
-                              onClick={() => removeProgram(prog._clientKey)}
-                              className="text-xs text-red-600 hover:text-red-700"
-                            >
-                              Remove
-                            </button>
+                            )}
                           </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          <td>
+                            {isLocked ? (
+                              prog.registrationFeeOverride != null
+                                ? prog.registrationFeeOverride === 0
+                                  ? "Exempt ($0)"
+                                  : `$${prog.registrationFeeOverride.toFixed(2)}`
+                                : "Global"
+                            ) : (
+                              <div className="space-y-0.5">
+                                <div className="relative">
+                                  <span
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                                    style={{ color: "var(--admin-text-faint)" }}
+                                  >
+                                    $
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    placeholder="Global"
+                                    value={prog.registrationFeeOverride ?? ""}
+                                    onChange={(e) =>
+                                      updateProgram(prog._clientKey, {
+                                        registrationFeeOverride:
+                                          e.target.value !== ""
+                                            ? Number(e.target.value)
+                                            : null,
+                                      })
+                                    }
+                                    className="admin-input !w-24 !pl-5 !py-1"
+                                  />
+                                </div>
+                                <p
+                                  className="text-xs pl-1"
+                                  style={{ color: "var(--admin-text-faint)" }}
+                                >
+                                  0 = exempt; blank = global
+                                </p>
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {isLocked ? (
+                              prog.notes ?? "—"
+                            ) : (
+                              <input
+                                type="text"
+                                placeholder="Optional"
+                                value={prog.notes ?? ""}
+                                onChange={(e) =>
+                                  updateProgram(prog._clientKey, {
+                                    notes: e.target.value,
+                                  })
+                                }
+                                className="admin-input !w-36 !py-1"
+                              />
+                            )}
+                          </td>
+                          {!isLocked && (
+                            <td>
+                              <button
+                                onClick={() => removeProgram(prog._clientKey)}
+                                className="text-xs transition-colors"
+                                style={{ color: "var(--admin-text-faint)" }}
+                                onMouseEnter={(e) =>
+                                  ((e.target as HTMLElement).style.color = "#DC2626")
+                                }
+                                onMouseLeave={(e) =>
+                                  ((e.target as HTMLElement).style.color =
+                                    "var(--admin-text-faint)")
+                                }
+                              >
+                                ×
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center">
-                <p className="text-sm text-neutral-500">
+              <div
+                className="rounded-xl p-6 text-center"
+                style={{ border: "1px dashed var(--admin-border)" }}
+              >
+                <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
                   No special program rates configured yet. Add programs below.
                 </p>
               </div>
@@ -1072,13 +1354,27 @@ export default function PaymentStep({
 
             {/* Add new program */}
             {!isLocked && (
-              <div className="rounded-xl border border-neutral-200 p-4 space-y-4">
-                <h4 className="text-sm font-medium text-neutral-700">
+              <div
+                className="rounded-xl p-5 space-y-4"
+                style={{
+                  background: "var(--admin-surface)",
+                  border: "0.5px solid var(--admin-border)",
+                }}
+              >
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
                   Add Special Program
-                </h4>
+                </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className="text-xs text-neutral-500">Program</label>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Program
+                    </label>
                     <select
                       value={newProgram.programKey}
                       onChange={(e) => {
@@ -1091,7 +1387,7 @@ export default function PaymentStep({
                           programLabel: selected?.label ?? e.target.value,
                         }));
                       }}
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-select"
                     >
                       {SPECIAL_PROGRAM_KEYS.map((k) => (
                         <option key={k.value} value={k.value}>
@@ -1100,8 +1396,13 @@ export default function PaymentStep({
                       ))}
                     </select>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-500">Semester Total ($)</label>
+                  <div className="space-y-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Semester total ($)
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -1114,11 +1415,16 @@ export default function PaymentStep({
                           semesterTotal: Number(e.target.value),
                         }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-input"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-500">Auto-Pay /mo ($)</label>
+                  <div className="space-y-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Auto-pay /mo ($)
+                    </label>
                     <input
                       type="number"
                       min={0}
@@ -1133,11 +1439,14 @@ export default function PaymentStep({
                             : null,
                         }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-input"
                     />
                     {newProgram.autoPayInstallmentAmount &&
                     newProgram.autoPayInstallmentCount ? (
-                      <p className="text-xs text-neutral-400">
+                      <p
+                        className="text-xs"
+                        style={{ color: "var(--admin-text-faint)" }}
+                      >
                         {newProgram.autoPayInstallmentCount}× = $
                         {(
                           newProgram.autoPayInstallmentAmount *
@@ -1146,8 +1455,13 @@ export default function PaymentStep({
                       </p>
                     ) : null}
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-neutral-500">Installments</label>
+                  <div className="space-y-1.5">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Installments
+                    </label>
                     <input
                       type="number"
                       min={1}
@@ -1161,11 +1475,16 @@ export default function PaymentStep({
                             : null,
                         }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-input"
                     />
                   </div>
-                  <div className="space-y-1 sm:col-span-3">
-                    <label className="text-xs text-neutral-500">Notes (optional)</label>
+                  <div className="space-y-1.5 sm:col-span-3">
+                    <label
+                      className="text-xs font-medium"
+                      style={{ color: "var(--admin-text-muted)" }}
+                    >
+                      Notes (optional)
+                    </label>
                     <input
                       type="text"
                       placeholder="e.g. 9-class session, no recital"
@@ -1173,15 +1492,12 @@ export default function PaymentStep({
                       onChange={(e) =>
                         setNewProgram((prev) => ({ ...prev, notes: e.target.value }))
                       }
-                      className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                      className="admin-input"
                     />
                   </div>
                 </div>
-                <button
-                  onClick={addProgram}
-                  className="px-4 py-2 rounded-xl bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 transition"
-                >
-                  + Add Program
+                <button onClick={addProgram} className="admin-btn-primary admin-btn-sm">
+                  + Add program
                 </button>
               </div>
             )}
@@ -1192,160 +1508,248 @@ export default function PaymentStep({
         {/* Tab: Fee Config                                                      */}
         {/* ------------------------------------------------------------------ */}
         {activeSubStep === "fees" && (
-          <fieldset disabled={isLocked} className="space-y-6">
-            <p className="text-sm text-neutral-500">
-              These fee constants apply to all registrations in this semester.
-              Changes here affect pricing calculations for all families.
-            </p>
+          <fieldset disabled={isLocked} className="space-y-4">
+            {/* Core Fees */}
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "0.5px solid var(--admin-border)" }}
+            >
+              <div
+                className="px-5 py-3"
+                style={{
+                  background: "var(--admin-surface-sub)",
+                  borderBottom: "0.5px solid var(--admin-border)",
+                }}
+              >
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
+                  Core Fees
+                </p>
+              </div>
+              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label
+                    className="block text-sm font-medium"
+                    style={{ color: "var(--admin-text)" }}
+                  >
+                    Registration fee per child ($)
+                  </label>
+                  <div className="relative">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+                      style={{ color: "var(--admin-text-faint)" }}
+                    >
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={feeConfig.registration_fee_per_child || ""}
+                      onChange={(e) =>
+                        updateFeeConfig(
+                          "registration_fee_per_child",
+                          Number(e.target.value),
+                        )
+                      }
+                      disabled={isLocked}
+                      className="admin-input !pl-7"
+                    />
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
+                    One-time fee per dancer per semester (default $40).
+                  </p>
+                </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-neutral-700">
-                  Registration fee per child
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
-                    $
-                  </span>
+                <div className="space-y-1.5">
+                  <label
+                    className="block text-sm font-medium"
+                    style={{ color: "var(--admin-text)" }}
+                  >
+                    Family discount — once per family ($)
+                  </label>
+                  <div className="relative">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+                      style={{ color: "var(--admin-text-faint)" }}
+                    >
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={feeConfig.family_discount_amount || ""}
+                      onChange={(e) =>
+                        updateFeeConfig(
+                          "family_discount_amount",
+                          Number(e.target.value),
+                        )
+                      }
+                      disabled={isLocked}
+                      className="admin-input !pl-7"
+                    />
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
+                    Flat discount applied once per family per semester (default $50).
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    className="block text-sm font-medium"
+                    style={{ color: "var(--admin-text)" }}
+                  >
+                    Auto-pay admin fee per month ($)
+                  </label>
+                  <div className="relative">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+                      style={{ color: "var(--admin-text-faint)" }}
+                    >
+                      $
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={feeConfig.auto_pay_admin_fee_monthly || ""}
+                      onChange={(e) =>
+                        updateFeeConfig(
+                          "auto_pay_admin_fee_monthly",
+                          Number(e.target.value),
+                        )
+                      }
+                      disabled={isLocked}
+                      className="admin-input !pl-7"
+                    />
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
+                    Added per installment for auto-pay plans (default $5/month).
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    className="block text-sm font-medium"
+                    style={{ color: "var(--admin-text)" }}
+                  >
+                    Auto-pay installment count
+                  </label>
                   <input
                     type="number"
-                    min={0}
-                    step={0.01}
-                    value={feeConfig.registration_fee_per_child || ""}
+                    min={1}
+                    value={feeConfig.auto_pay_installment_count || ""}
                     onChange={(e) =>
                       updateFeeConfig(
-                        "registration_fee_per_child",
+                        "auto_pay_installment_count",
                         Number(e.target.value),
                       )
                     }
                     disabled={isLocked}
-                    className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
+                    className="admin-input"
                   />
+                  <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
+                    Number of monthly payments for auto-pay plan (default 5).
+                  </p>
                 </div>
-                <p className="text-xs text-neutral-400">
-                  One-time fee per dancer per semester (default $40).
-                </p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-neutral-700">
-                  Family discount (once per family)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={feeConfig.family_discount_amount || ""}
-                    onChange={(e) =>
-                      updateFeeConfig(
-                        "family_discount_amount",
-                        Number(e.target.value),
-                      )
-                    }
-                    disabled={isLocked}
-                    className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
-                  />
-                </div>
-                <p className="text-xs text-neutral-400">
-                  Flat discount applied once per family per semester (default $50).
+              {/* Fee-exempt class types */}
+              <div
+                className="px-5 py-3"
+                style={{
+                  background: "var(--admin-surface-sub)",
+                  borderTop: "0.5px solid var(--admin-border)",
+                  borderBottom: "0.5px solid var(--admin-border)",
+                }}
+              >
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
+                  Fee-exempt class types
+                </p>
+                <p
+                  className="text-xs mt-0.5"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
+                  Classes with these disciplines are exempt from costume fees and the registration fee.
                 </p>
               </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-neutral-700">
-                  Auto-pay admin fee (per month)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={feeConfig.auto_pay_admin_fee_monthly || ""}
-                    onChange={(e) =>
-                      updateFeeConfig(
-                        "auto_pay_admin_fee_monthly",
-                        Number(e.target.value),
-                      )
-                    }
-                    disabled={isLocked}
-                    className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
-                  />
-                </div>
-                <p className="text-xs text-neutral-400">
-                  Added per installment for auto-pay plans (default $5/month).
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-neutral-700">
-                  Auto-pay installment count
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={feeConfig.auto_pay_installment_count || ""}
-                  onChange={(e) =>
-                    updateFeeConfig(
-                      "auto_pay_installment_count",
-                      Number(e.target.value),
-                    )
-                  }
-                  disabled={isLocked}
-                  className="w-full rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
-                />
-                <p className="text-xs text-neutral-400">
-                  Number of monthly payments for auto-pay plan (default 5).
-                </p>
+              <div className="p-5 flex flex-wrap gap-2">
+                {EXEMPT_KEY_OPTIONS.map((opt) => {
+                  const checked = (feeConfig.costume_fee_exempt_keys ?? []).includes(opt.value);
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      disabled={isLocked}
+                      onClick={() => {
+                        const current = feeConfig.costume_fee_exempt_keys ?? [];
+                        const next = checked
+                          ? current.filter((k) => k !== opt.value)
+                          : [...current, opt.value];
+                        updateFeeConfig("costume_fee_exempt_keys", next);
+                      }}
+                      className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all disabled:opacity-50"
+                      style={{
+                        background: checked ? "#FDF2F1" : "var(--admin-surface-sub)",
+                        border: checked
+                          ? "1.5px solid var(--admin-sidebar-active)"
+                          : "1px solid var(--admin-border)",
+                        color: checked
+                          ? "var(--admin-sidebar-active)"
+                          : "var(--admin-text-muted)",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="border-t border-neutral-200 pt-6">
-              <p className="text-sm font-medium text-neutral-700 mb-1">
-                Fee-Exempt Class Types
-              </p>
-              <p className="text-xs text-neutral-400 mb-3">
-                Classes with these disciplines or division types are exempt from costume fees and the registration fee.
-              </p>
-              <div className="flex flex-wrap gap-3 mb-6">
-                {EXEMPT_KEY_OPTIONS.map((opt) => (
-                  <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      disabled={isLocked}
-                      checked={(feeConfig.costume_fee_exempt_keys ?? []).includes(opt.value)}
-                      onChange={(e) => {
-                        const current = feeConfig.costume_fee_exempt_keys ?? [];
-                        const next = e.target.checked
-                          ? [...current, opt.value]
-                          : current.filter((k) => k !== opt.value);
-                        updateFeeConfig("costume_fee_exempt_keys", next);
-                      }}
-                      className="rounded border-neutral-300 text-primary-600 focus:ring-primary-600 disabled:opacity-50"
-                    />
-                    <span className="text-sm text-neutral-700">{opt.label}</span>
-                  </label>
-                ))}
+            {/* Junior Division Fees */}
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "0.5px solid var(--admin-border)" }}
+            >
+              <div
+                className="px-5 py-3"
+                style={{
+                  background: "var(--admin-surface-sub)",
+                  borderBottom: "0.5px solid var(--admin-border)",
+                }}
+              >
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
+                  Junior Division Fees
+                </p>
+                <p
+                  className="text-xs mt-0.5"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
+                  Applied to standard junior classes (non-exempt types above).
+                </p>
               </div>
-              <p className="text-sm font-medium text-neutral-700 mb-1">
-                Junior Division Fees
-              </p>
-              <p className="text-xs text-neutral-400 mb-4">
-                Applied to standard junior classes (non-exempt types above).
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-700">
-                    Recital Costume Fee (per class, junior)
+              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label
+                    className="block text-sm font-medium"
+                    style={{ color: "var(--admin-text)" }}
+                  >
+                    Recital costume fee per class ($)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+                      style={{ color: "var(--admin-text-faint)" }}
+                    >
                       $
                     </span>
                     <input
@@ -1360,31 +1764,55 @@ export default function PaymentStep({
                         )
                       }
                       disabled={isLocked}
-                      className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
+                      className="admin-input !pl-7"
                     />
                   </div>
-                  <p className="text-xs text-neutral-400">
-                    Per-class recital costume fee for junior dancers; multiplied by weekly
-                    class count (default $55).
+                  <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
+                    Per-class costume fee for junior dancers; multiplied by
+                    weekly class count (default $55).
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="border-t border-neutral-200 pt-6">
-              <p className="text-sm font-medium text-neutral-700 mb-1">
-                Senior Division Fees
-              </p>
-              <p className="text-xs text-neutral-400 mb-4">
-                Applied to standard senior classes (non-exempt types above).
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-700">
-                    Video fee (per senior registrant)
+            {/* Senior Division Fees */}
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: "0.5px solid var(--admin-border)" }}
+            >
+              <div
+                className="px-5 py-3"
+                style={{
+                  background: "var(--admin-surface-sub)",
+                  borderBottom: "0.5px solid var(--admin-border)",
+                }}
+              >
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
+                  Senior Division Fees
+                </p>
+                <p
+                  className="text-xs mt-0.5"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
+                  Applied to standard senior classes (non-exempt types above).
+                </p>
+              </div>
+              <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label
+                    className="block text-sm font-medium"
+                    style={{ color: "var(--admin-text)" }}
+                  >
+                    Video fee per senior registrant ($)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+                      style={{ color: "var(--admin-text-faint)" }}
+                    >
                       $
                     </span>
                     <input
@@ -1399,20 +1827,26 @@ export default function PaymentStep({
                         )
                       }
                       disabled={isLocked}
-                      className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
+                      className="admin-input !pl-7"
                     />
                   </div>
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
                     Flat fee charged once per senior dancer per semester (default $15).
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-700">
-                    Recital Costume Fee (per class, senior)
+                <div className="space-y-1.5">
+                  <label
+                    className="block text-sm font-medium"
+                    style={{ color: "var(--admin-text)" }}
+                  >
+                    Recital costume fee per class ($)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
+                    <span
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+                      style={{ color: "var(--admin-text-faint)" }}
+                    >
                       $
                     </span>
                     <input
@@ -1427,11 +1861,11 @@ export default function PaymentStep({
                         )
                       }
                       disabled={isLocked}
-                      className="w-full pl-7 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:opacity-50"
+                      className="admin-input !pl-7"
                     />
                   </div>
-                  <p className="text-xs text-neutral-400">
-                    Per-class recital costume fee for senior dancers; multiplied by weekly
+                  <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
+                    Per-class costume fee for senior dancers; multiplied by weekly
                     class count (default $65).
                   </p>
                 </div>
@@ -1441,22 +1875,17 @@ export default function PaymentStep({
         )}
 
         {/* Navigation */}
-        <div className="flex justify-between pt-4 border-t border-neutral-200">
-          <button
-            onClick={onBack}
-            className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
-          >
-            Back
+        <div
+          className="flex justify-between pt-5"
+          style={{ borderTop: "0.5px solid var(--admin-border)" }}
+        >
+          <button onClick={onBack} className="admin-btn-outline">
+            ← Back
           </button>
-
-          <button
-            onClick={handleSubmit}
-            className="px-6 py-2.5 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition"
-          >
-            Next
+          <button onClick={handleSubmit} className="admin-btn-primary">
+            Next →
           </button>
         </div>
-      </div>
     </div>
   );
 }

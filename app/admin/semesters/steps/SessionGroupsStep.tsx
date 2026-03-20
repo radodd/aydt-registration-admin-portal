@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SemesterDraft, SemesterAction } from "@/types";
 
 /* -------------------------------------------------------------------------- */
@@ -20,6 +20,95 @@ type LocalGroup = {
   sessionIds: string[];
 };
 
+type AppliedSession = {
+  sessionId: string;
+  className: string;
+  discipline: string;
+  disciplineLabel: string;
+  dayLabel: string;
+  timeLabel: string;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Constants — mirror SessionsStep.tsx                                        */
+/* -------------------------------------------------------------------------- */
+
+const DISCIPLINES: { value: string; label: string }[] = [
+  { value: "ballet", label: "Ballet" },
+  { value: "tap", label: "Tap" },
+  { value: "broadway", label: "Broadway" },
+  { value: "hip_hop", label: "Hip Hop" },
+  { value: "contemporary", label: "Contemporary" },
+  { value: "technique", label: "Technique" },
+  { value: "pointe", label: "Pointe" },
+  { value: "jazz", label: "Jazz" },
+  { value: "lyrical", label: "Lyrical" },
+  { value: "acro", label: "Acro" },
+];
+
+const DISCIPLINE_COLORS: Record<string, { bg: string; text: string }> = {
+  ballet: { bg: "bg-pink-100", text: "text-pink-700" },
+  tap: { bg: "bg-teal-100", text: "text-teal-700" },
+  broadway: { bg: "bg-orange-100", text: "text-orange-700" },
+  hip_hop: { bg: "bg-green-100", text: "text-green-700" },
+  contemporary: { bg: "bg-purple-100", text: "text-purple-700" },
+  technique: { bg: "bg-blue-100", text: "text-blue-700" },
+  pointe: { bg: "bg-rose-100", text: "text-rose-700" },
+  jazz: { bg: "bg-yellow-100", text: "text-yellow-700" },
+  lyrical: { bg: "bg-indigo-100", text: "text-indigo-700" },
+  acro: { bg: "bg-cyan-100", text: "text-cyan-700" },
+};
+
+const DAYS: { value: string; label: string }[] = [
+  { value: "monday", label: "Mon" },
+  { value: "tuesday", label: "Tue" },
+  { value: "wednesday", label: "Wed" },
+  { value: "thursday", label: "Thu" },
+  { value: "friday", label: "Fri" },
+  { value: "saturday", label: "Sat" },
+  { value: "sunday", label: "Sun" },
+];
+
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function fmt12(hhmm: string): string {
+  const [h, m] = hhmm.split(":");
+  const hour = parseInt(h, 10);
+  const period = hour >= 12 ? "PM" : "AM";
+  const display = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+  return `${display}:${m} ${period}`;
+}
+
+function fmtDays(days: string[]): string {
+  return days
+    .map((d) => DAYS.find((x) => x.value === d)?.label ?? d)
+    .join(", ");
+}
+
+/* -------------------------------------------------------------------------- */
+/* Scroll + fade hook                                                         */
+/* -------------------------------------------------------------------------- */
+
+function useScrollFades(ref: React.RefObject<HTMLDivElement | null>) {
+  const [topFade, setTopFade] = useState(false);
+  const [bottomFade, setBottomFade] = useState(false);
+
+  function update() {
+    const el = ref.current;
+    if (!el) return;
+    setTopFade(el.scrollTop > 0);
+    setBottomFade(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+  }
+
+  useEffect(() => {
+    update();
+  });
+
+  return { topFade, bottomFade, onScroll: update };
+}
+
 /* -------------------------------------------------------------------------- */
 /* Component                                                                  */
 /* -------------------------------------------------------------------------- */
@@ -33,44 +122,52 @@ export default function SessionsGroupsStep({
   const [groups, setGroups] = useState<LocalGroup[]>(
     state.sessionGroups?.groups ?? [],
   );
-
   const [newGroupName, setNewGroupName] = useState("");
+  const [assignState, setAssignState] = useState<{
+    sessionId: string;
+    top: number;
+    left: number;
+  } | null>(null);
+
+  const tableRef = useRef<HTMLDivElement>(null);
+  const groupsRef = useRef<HTMLDivElement>(null);
+  const tableFades = useScrollFades(tableRef);
+  const groupsFades = useScrollFades(groupsRef);
 
   /* ------------------------------------------------------------------------ */
-  /* Derived Data                                                             */
+  /* Derived                                                                  */
   /* ------------------------------------------------------------------------ */
 
-  // Flatten DraftClass[] → { sessionId, title } so group membership uses class_session IDs
-  const appliedSessions = useMemo(
+  const appliedSessions = useMemo<AppliedSession[]>(
     () =>
       (state.sessions?.classes ?? []).flatMap((cls) =>
         (cls.schedules ?? []).map((cs) => ({
-          sessionId: cs.id ?? "",
-          title: `${cls.name} — ${cs.daysOfWeek.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(", ")}`,
+          sessionId: cs.id ?? cs._clientKey,
+          className: cls.name,
+          discipline: cls.discipline,
+          disciplineLabel:
+            DISCIPLINES.find((d) => d.value === cls.discipline)?.label ??
+            cls.discipline,
+          dayLabel: fmtDays(cs.daysOfWeek),
+          timeLabel:
+            cs.startTime && cs.endTime
+              ? `${fmt12(cs.startTime)}–${fmt12(cs.endTime)}`
+              : "",
         })),
       ),
     [state.sessions?.classes],
   );
 
-  /* ------------------------------------------------------------------------ */
-  /* Derived Data                                                             */
-  /* ------------------------------------------------------------------------ */
-
   const sessionGroupMap = useMemo(() => {
     const map = new Map<string, string>();
-    groups.forEach((group) => {
-      group.sessionIds.forEach((id) => {
-        map.set(id, group.name);
-      });
-    });
+    groups.forEach((g) => g.sessionIds.forEach((id) => map.set(id, g.name)));
     return map;
   }, [groups]);
 
-  const ungroupedSessions = useMemo(() => {
-    return appliedSessions.filter(
-      (session) => !sessionGroupMap.has(session.sessionId),
-    );
-  }, [appliedSessions, sessionGroupMap]);
+  const ungroupedCount = useMemo(
+    () => appliedSessions.filter((s) => !sessionGroupMap.has(s.sessionId)).length,
+    [appliedSessions, sessionGroupMap],
+  );
 
   /* ------------------------------------------------------------------------ */
   /* Handlers                                                                 */
@@ -78,14 +175,10 @@ export default function SessionsGroupsStep({
 
   function handleCreateGroup() {
     if (!newGroupName.trim()) return;
-
-    const newGroup: LocalGroup = {
-      id: crypto.randomUUID(),
-      name: newGroupName.trim(),
-      sessionIds: [],
-    };
-
-    setGroups((prev) => [...prev, newGroup]);
+    setGroups((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), name: newGroupName.trim(), sessionIds: [] },
+    ]);
     setNewGroupName("");
   }
 
@@ -93,74 +186,30 @@ export default function SessionsGroupsStep({
     setGroups((prev) => prev.filter((g) => g.id !== groupId));
   }
 
-  function handleAddSessionToGroup(groupId: string, sessionId: string) {
+  function handleAssign(groupId: string, sessionId: string) {
     setGroups((prev) =>
-      prev.map((group) => {
-        // Remove session from all groups first
-        const cleanedSessionIds = group.sessionIds.filter(
-          (id) => id !== sessionId,
-        );
-
-        // Then add to target group only
-        if (group.id === groupId) {
-          return {
-            ...group,
-            sessionIds: [...cleanedSessionIds, sessionId],
-          };
-        }
-
-        return {
-          ...group,
-          sessionIds: cleanedSessionIds,
-        };
+      prev.map((g) => {
+        const cleaned = g.sessionIds.filter((id) => id !== sessionId);
+        return g.id === groupId
+          ? { ...g, sessionIds: [...cleaned, sessionId] }
+          : { ...g, sessionIds: cleaned };
       }),
     );
+    setAssignState(null);
   }
 
-  function handleRemoveSessionFromGroup(groupId: string, sessionId: string) {
+  function handleRemove(groupId: string, sessionId: string) {
     setGroups((prev) =>
-      prev.map((group) =>
-        group.id === groupId
-          ? {
-              ...group,
-              sessionIds: group.sessionIds.filter((id) => id !== sessionId),
-            }
-          : group,
+      prev.map((g) =>
+        g.id === groupId
+          ? { ...g, sessionIds: g.sessionIds.filter((id) => id !== sessionId) }
+          : g,
       ),
     );
   }
 
-  function handleMoveGroup(idx: number, dir: "up" | "down") {
-    const next = idx + (dir === "up" ? -1 : 1);
-    if (next < 0 || next >= groups.length) return;
-    setGroups((prev) => {
-      const arr = [...prev];
-      [arr[idx], arr[next]] = [arr[next], arr[idx]];
-      return arr;
-    });
-  }
-
-  function handleMoveSession(groupId: string, sessionIdx: number, dir: "up" | "down") {
-    const next = sessionIdx + (dir === "up" ? -1 : 1);
-    setGroups((prev) =>
-      prev.map((group) => {
-        if (group.id !== groupId) return group;
-        if (next < 0 || next >= group.sessionIds.length) return group;
-        const ids = [...group.sessionIds];
-        [ids[sessionIdx], ids[next]] = [ids[next], ids[sessionIdx]];
-        return { ...group, sessionIds: ids };
-      }),
-    );
-  }
-
   function handleSubmit() {
-    dispatch({
-      type: "SET_SESSION_GROUPS",
-      payload: {
-        groups: groups,
-      },
-    });
-
+    dispatch({ type: "SET_SESSION_GROUPS", payload: { groups } });
     onNext();
   }
 
@@ -169,237 +218,334 @@ export default function SessionsGroupsStep({
   /* ------------------------------------------------------------------------ */
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      <div>
-        <h2 className="text-2xl font-semibold text-neutral-900 tracking-tight">
-          Session Groups
-        </h2>
-        <p className="text-sm text-neutral-500 mt-1">
-          Create groups to allow users to book sessions a la carte.
-        </p>
+    <div className="flex h-full w-full min-h-0 gap-8 p-6">
+      {/* ------------------------------------------------------------------ */}
+      {/* Left: Sessions card                                                 */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="flex flex-col bg-white border border-neutral-200 rounded-2xl overflow-hidden flex-1 min-w-0">
+        {/* Card header */}
+        <div className="px-6 py-4 border-b border-neutral-200 shrink-0">
+          <h2 className="text-base font-semibold text-neutral-900">
+            Sessions
+          </h2>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            Click + to assign a session to a group
+          </p>
+        </div>
+
+        {/* Table */}
+        <div className="relative flex-1 min-h-0">
+          {tableFades.topFade && (
+            <div
+              className="absolute top-0 left-0 right-0 h-8 pointer-events-none z-10"
+              style={{ background: "linear-gradient(to bottom, #fff, transparent)" }}
+            />
+          )}
+
+          <div
+            ref={tableRef}
+            onScroll={() => { tableFades.onScroll(); setAssignState(null); }}
+            className="h-full overflow-y-auto [&::-webkit-scrollbar]:w-0"
+            style={{ scrollbarWidth: "none" }}
+          >
+            {appliedSessions.length === 0 ? (
+              <div className="flex items-center justify-center h-full py-16">
+                <p className="text-sm text-neutral-400">
+                  No sessions yet. Add sessions in the previous step.
+                </p>
+              </div>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 z-10">
+                  <tr style={{ background: "var(--admin-table-header-bg)" }}>
+                    <th
+                      className="text-left px-6 py-2.5 text-[11px] font-semibold uppercase tracking-wide"
+                      style={{ color: "var(--admin-table-header-text)" }}
+                    >
+                      Class
+                    </th>
+                    <th
+                      className="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide"
+                      style={{ color: "var(--admin-table-header-text)" }}
+                    >
+                      Schedule
+                    </th>
+                    <th
+                      className="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide"
+                      style={{ color: "var(--admin-table-header-text)" }}
+                    >
+                      Group
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-neutral-100">
+                  {appliedSessions.map((session) => {
+                    const groupName = sessionGroupMap.get(session.sessionId);
+                    const color =
+                      DISCIPLINE_COLORS[session.discipline] ?? {
+                        bg: "bg-neutral-100",
+                        text: "text-neutral-600",
+                      };
+
+                    return (
+                      <tr key={session.sessionId} className="hover:bg-neutral-50">
+                        {/* Class */}
+                        <td className="px-6 py-3">
+                          <span className="font-medium text-neutral-900">
+                            {session.className}
+                          </span>
+                          <span
+                            className={`block mt-0.5 w-fit rounded-full px-2 py-0 text-xs font-medium ${color.bg} ${color.text}`}
+                          >
+                            {session.disciplineLabel}
+                          </span>
+                        </td>
+
+                        {/* Schedule */}
+                        <td className="px-4 py-3 text-neutral-600">
+                          {session.dayLabel ? (
+                            <div>
+                              <p className="text-neutral-700">{session.dayLabel}</p>
+                              {session.timeLabel && (
+                                <p className="text-xs text-neutral-400">
+                                  {session.timeLabel}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-neutral-300">—</span>
+                          )}
+                        </td>
+
+                        {/* Group */}
+                        <td className="px-4 py-3">
+                          {groupName ? (
+                            <span className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-700">
+                              {groupName}
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                                  setAssignState((prev) =>
+                                    prev?.sessionId === session.sessionId
+                                      ? null
+                                      : { sessionId: session.sessionId, top: rect.bottom + 4, left: rect.left },
+                                  );
+                                }}
+                                className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                              >
+                                + Assign
+                              </button>
+
+                              {assignState?.sessionId === session.sessionId && (
+                                <div
+                                  className="fixed z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-40"
+                                  style={{ top: assignState.top, left: assignState.left }}
+                                >
+                                  {groups.length === 0 ? (
+                                    <p className="px-3 py-2 text-xs text-neutral-400">
+                                      Create a group first
+                                    </p>
+                                  ) : (
+                                    groups.map((g) => (
+                                      <button
+                                        key={g.id}
+                                        onClick={() => handleAssign(g.id, session.sessionId)}
+                                        className="w-full text-left px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
+                                      >
+                                        {g.name}
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {tableFades.bottomFade && (
+            <div
+              className="absolute bottom-0 left-0 right-0 h-8 pointer-events-none z-10"
+              style={{ background: "linear-gradient(to top, #fff, transparent)" }}
+            />
+          )}
+        </div>
       </div>
 
-      {/* All Sessions Overview */}
-
-      <section className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-neutral-900 mb-4">
-          All Sessions Overview
-        </h3>
-
-        {appliedSessions.length === 0 && (
-          <div className="text-sm text-neutral-500">
-            No sessions applied in previous step.
-          </div>
+      {/* ------------------------------------------------------------------ */}
+      {/* Right: Groups                                                       */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="relative flex-1 min-h-0">
+        {groupsFades.topFade && (
+          <div
+            className="absolute top-0 left-0 right-0 h-10 pointer-events-none z-10"
+            style={{
+              background:
+                "linear-gradient(to bottom, var(--admin-page-bg), transparent)",
+            }}
+          />
         )}
 
-        <ul className="space-y-3">
-          {appliedSessions.map((session) => {
-            const groupName = sessionGroupMap.get(session.sessionId);
-
-            return (
-              <li
-                key={session.sessionId}
-                className="flex justify-between items-center border border-neutral-200 rounded-xl p-4"
-              >
-                <div className="text-sm font-medium text-neutral-900">
-                  {session.title}
-                </div>
-
-                {groupName ? (
-                  <span className="text-xs font-medium bg-primary-100 text-primary-700 px-3 py-1 rounded-full">
-                    {groupName}
-                  </span>
-                ) : (
-                  <span className="text-xs font-medium bg-neutral-100 text-neutral-600 px-3 py-1 rounded-full">
-                    Unassigned
-                  </span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
-      {/* Create Group */}
-      <section className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-6 space-y-4">
-        <h3 className="text-lg font-semibold text-neutral-900">
-          Create New Group
-        </h3>
-
-        <div className="flex gap-3">
-          <input
-            type="text"
-            placeholder="Group name"
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
-            className="flex-1 rounded-xl border border-neutral-300 px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-600 focus:outline-none"
-          />
-          <button
-            onClick={handleCreateGroup}
-            className="px-4 py-2 rounded-xl bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 transition"
-          >
-            Create
-          </button>
-        </div>
-      </section>
-
-      {/* Groups */}
-      {groups.map((group, groupIdx) => (
-        <section
-          key={group.id}
-          className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-6 space-y-4"
+        <div
+          ref={groupsRef}
+          onScroll={groupsFades.onScroll}
+          className="h-full overflow-y-auto space-y-4 pl-2 pr-1 [&::-webkit-scrollbar]:w-0"
+          style={{ scrollbarWidth: "none" }}
         >
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <div className="flex flex-col gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => handleMoveGroup(groupIdx, "up")}
-                  disabled={groupIdx === 0}
-                  className="text-neutral-400 hover:text-neutral-700 disabled:opacity-25 leading-none"
-                  aria-label="Move group up"
-                >
-                  ▲
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleMoveGroup(groupIdx, "down")}
-                  disabled={groupIdx === groups.length - 1}
-                  className="text-neutral-400 hover:text-neutral-700 disabled:opacity-25 leading-none"
-                  aria-label="Move group down"
-                >
-                  ▼
-                </button>
-              </div>
-              <h3 className="text-lg font-semibold text-neutral-900">
-                {group.name}
-              </h3>
-            </div>
+          {/* Header */}
+          <div>
+            <h2 className="text-2xl font-semibold text-neutral-900 tracking-tight">
+              Class groups
+            </h2>
+            <p className="text-sm text-neutral-500 mt-1">
+              Group sessions so families can book them together or à la carte.
+            </p>
+          </div>
 
+          {/* Create group */}
+          <div className="flex gap-3">
+            <input
+              type="text"
+              placeholder="New group name..."
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()}
+              className="flex-1 rounded-lg border border-neutral-300 px-4 py-2 text-sm text-neutral-700 placeholder:text-neutral-400 focus:ring-2 focus:ring-primary-600 focus:outline-none"
+            />
             <button
-              onClick={() => handleDeleteGroup(group.id)}
-              className="text-sm font-medium text-red-600 hover:text-red-700 transition"
+              onClick={handleCreateGroup}
+              disabled={!newGroupName.trim()}
+              className="px-4 py-2 rounded-lg bg-primary-600 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-40 transition"
             >
-              Delete group
+              Create group
             </button>
           </div>
 
-          {/* Assigned Sessions */}
-          {group.sessionIds.length === 0 && (
-            <div className="rounded-xl border border-dashed border-neutral-300 p-4 text-center">
-              <p className="text-sm text-neutral-500">
-                No sessions assigned to this group.
-              </p>
-            </div>
-          )}
-
-          <ul className="space-y-3">
-            {group.sessionIds.map((sessionId, sessionIdx) => {
-              const session = appliedSessions.find(
-                (s) => s.sessionId === sessionId,
-              );
-              if (!session) return null;
-
-              return (
-                <li
-                  key={session.sessionId}
-                  className="flex justify-between items-center border border-neutral-200 rounded-xl p-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => handleMoveSession(group.id, sessionIdx, "up")}
-                        disabled={sessionIdx === 0}
-                        className="text-neutral-400 hover:text-neutral-700 disabled:opacity-25 text-[10px] leading-none"
-                        aria-label="Move up"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMoveSession(group.id, sessionIdx, "down")}
-                        disabled={sessionIdx === group.sessionIds.length - 1}
-                        className="text-neutral-400 hover:text-neutral-700 disabled:opacity-25 text-[10px] leading-none"
-                        aria-label="Move down"
-                      >
-                        ▼
-                      </button>
-                    </div>
-                    <span className="text-sm font-medium text-neutral-900">
-                      {session.title}
+          {/* Group cards */}
+          {groups.map((group) => {
+            const count = group.sessionIds.length;
+            return (
+              <div
+                key={group.id}
+                className="border border-neutral-200 rounded-xl overflow-hidden bg-white"
+              >
+                <div className="flex items-center justify-between px-5 py-3 bg-neutral-50 border-b border-neutral-200">
+                  <span className="text-sm font-semibold text-neutral-900">
+                    {group.name}{" "}
+                    <span className="font-normal text-neutral-500">
+                      {count} {count === 1 ? "session" : "sessions"}
                     </span>
-                  </div>
-
+                  </span>
                   <button
-                    onClick={() =>
-                      handleRemoveSessionFromGroup(group.id, session.sessionId)
-                    }
-                    className="text-sm text-red-600 hover:text-red-700"
+                    onClick={() => handleDeleteGroup(group.id)}
+                    className="text-sm font-medium text-red-600 hover:text-red-700 transition"
                   >
-                    Remove session
+                    Delete group
                   </button>
-                </li>
-              );
-            })}
-          </ul>
+                </div>
 
-          {/* Add Sessions */}
-          {ungroupedSessions.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium text-neutral-700">
-                Add Sessions
-              </h4>
+                {count === 0 ? (
+                  <p className="px-5 py-4 text-sm text-neutral-400 text-center">
+                    No sessions — assign from the table.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-neutral-100">
+                    {group.sessionIds.map((sessionId) => {
+                      const session = appliedSessions.find(
+                        (s) => s.sessionId === sessionId,
+                      );
+                      if (!session) return null;
+                      const color =
+                        DISCIPLINE_COLORS[session.discipline] ?? {
+                          bg: "bg-neutral-100",
+                          text: "text-neutral-600",
+                        };
+                      return (
+                        <li
+                          key={sessionId}
+                          className="flex items-center justify-between px-5 py-3"
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-sm font-medium text-neutral-900">
+                                {session.className}
+                              </span>
+                              <span
+                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${color.bg} ${color.text}`}
+                              >
+                                {session.disciplineLabel}
+                              </span>
+                            </div>
+                            {(session.dayLabel || session.timeLabel) && (
+                              <p className="text-xs text-neutral-500 mt-0.5">
+                                {session.dayLabel}
+                                {session.timeLabel
+                                  ? ` · ${session.timeLabel}`
+                                  : ""}
+                              </p>
+                            )}
+                          </div>
 
-              <ul className="space-y-2">
-                {ungroupedSessions.map((session) => (
-                  <li
-                    key={session.sessionId}
-                    className="flex justify-between items-center border border-neutral-200 rounded-xl p-3"
-                  >
-                    <span className="text-sm text-neutral-700">
-                      {session.title}
-                    </span>
+                          <button
+                            onClick={() => handleRemove(group.id, sessionId)}
+                            className="text-sm text-neutral-400 hover:text-red-600 transition ml-4 shrink-0"
+                          >
+                            ✕ Remove
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
 
-                    <button
-                      onClick={() =>
-                        handleAddSessionToGroup(group.id, session.sessionId)
-                      }
-                      className="text-sm font-medium text-green-600 hover:text-mint-text"
-                    >
-                      Add
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {/* Ungrouped notice */}
+          {appliedSessions.length > 0 && ungroupedCount > 0 && (
+            <p className="text-sm text-neutral-500">
+              <span className="font-medium">{ungroupedCount}</span>{" "}
+              {ungroupedCount === 1 ? "session is" : "sessions are"} ungrouped
+              and will be available for standalone booking.
+            </p>
           )}
-        </section>
-      ))}
 
-      {/* Ungrouped Notice */}
-      {appliedSessions.length > 0 && ungroupedSessions.length > 0 && (
-        <div className="text-sm text-neutral-500">
-          {ungroupedSessions.length} session(s) remain ungrouped and will be
-          available for standalone booking.
+          {/* Navigation */}
+          <div className="flex justify-between pt-4 border-t border-neutral-200">
+            <button
+              onClick={onBack}
+              className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
+            >
+              Back
+            </button>
+            <button
+              onClick={handleSubmit}
+              className="px-6 py-2.5 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition"
+            >
+              Next
+            </button>
+          </div>
         </div>
-      )}
 
-      {/* Navigation */}
-      <div className="flex justify-between pt-4">
-        <button
-          onClick={onBack}
-          className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
-        >
-          Back
-        </button>
-
-        <button
-          onClick={handleSubmit}
-          className="px-6 py-2.5 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition"
-        >
-          Next
-        </button>
+        {groupsFades.bottomFade && (
+          <div
+            className="absolute bottom-0 left-0 right-0 h-10 pointer-events-none z-10"
+            style={{
+              background:
+                "linear-gradient(to top, var(--admin-page-bg), transparent)",
+            }}
+          />
+        )}
       </div>
     </div>
   );
