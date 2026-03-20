@@ -42,6 +42,37 @@ faker.seed(42); // deterministic output
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const uid = () => crypto.randomUUID();
 
+/** Mirrors buildDefaultRegistrationElements() from RegistrationFormStep.tsx */
+function buildRegistrationForm() {
+  return {
+    elements: [
+      { id: uid(), type: "subheader", label: "Participant Questions" },
+      { id: uid(), type: "question", label: "First Name", inputType: "short_answer", required: true },
+      { id: uid(), type: "question", label: "Last Name", inputType: "short_answer", required: true },
+      { id: uid(), type: "question", label: "Date of Birth", inputType: "date", required: true },
+      {
+        id: uid(), type: "text_block", label: "Attendance Policy",
+        htmlContent: "<p><strong>Attendance Policy</strong></p><p>Please update this section with your attendance policy details.</p>",
+      },
+      { id: uid(), type: "question", label: "School Name", inputType: "short_answer", required: false },
+      {
+        id: uid(), type: "question", label: "Grade", inputType: "select", required: false,
+        options: ["Pre-School","Kindergarten","1st Grade","2nd Grade","3rd Grade","4th Grade","5th Grade","6th Grade","7th Grade","8th Grade","9th Grade","10th Grade","11th Grade","12th Grade"],
+      },
+      { id: uid(), type: "question", label: "Email Address", inputType: "short_answer", required: true },
+      { id: uid(), type: "question", label: "Phone Number", inputType: "phone_number", required: true },
+      { id: uid(), type: "question", label: "Address", inputType: "long_answer", required: false },
+      { id: uid(), type: "question", label: "Nanny / Caregiver Name (if applicable)", inputType: "short_answer", required: false },
+      { id: uid(), type: "subheader", label: "Emergency Contact" },
+      { id: uid(), type: "question", label: "Emergency Contact Name", inputType: "short_answer", required: true },
+      {
+        id: uid(), type: "question", label: "How did you hear about us?", inputType: "select", required: false,
+        options: ["Social Media","Google Search","Word of Mouth","Returning Family","Flyer / Brochure","Other"],
+      },
+    ],
+  };
+}
+
 async function ins<T extends Record<string, unknown>>(
   table: string,
   rows: T | T[],
@@ -380,6 +411,20 @@ async function clearDatabase() {
 
   for (const [table, col] of tables) await del(table, col ?? "id");
 
+  // Auth users created for seed families — delete before re-seeding
+  const SEED_PARENT_EMAILS = Array.from(
+    { length: 6 },
+    (_, i) => `ethanf.flores+${i + 1}@gmail.com`,
+  );
+  const { data: authList } = await sb.auth.admin.listUsers({ perPage: 200 });
+  if (authList) {
+    for (const u of authList.users) {
+      if (SEED_PARENT_EMAILS.includes(u.email ?? "")) {
+        await sb.auth.admin.deleteUser(u.id);
+      }
+    }
+  }
+
   // Users — preserve Ethan Flores
   const { error: uErr } = await sb.from("users").delete().neq("id", ETHAN_ID);
   if (uErr) console.warn(`  ⚠ clearing users: ${uErr.message}`);
@@ -487,12 +532,33 @@ async function seedFamilies() {
 
   for (const [famIdx, fam] of families.entries()) {
     const lastName = fam.family_name.replace(" Family", "");
-    const parentId = uid();
+    const firstName = faker.person.firstName("female");
+    const parentEmail = `ethanf.flores+${famIdx + 1}@gmail.com`;
+    const { data: authData, error: authErr } =
+      await sb.auth.admin.createUser({
+        email: parentEmail,
+        email_confirm: true,
+        password: "SeedParent123!",
+        user_metadata: { first_name: firstName, last_name: lastName },
+      });
+    if (authErr) throw new Error(`[CREATE AUTH USER] ${authErr.message}`);
+    const parentId = authData.user.id;
+
+    // handle_new_user trigger fires and creates a throwaway family — remove it
+    const { data: triggerUser } = await sb
+      .from("users")
+      .select("family_id")
+      .eq("id", parentId)
+      .single();
+    if (triggerUser?.family_id) {
+      await sb.from("families").delete().eq("id", triggerUser.family_id);
+    }
+
     users.push({
       id: parentId,
       family_id: fam.id,
-      email: `ethanf.flores+${famIdx + 1}@gmail.com`,
-      first_name: faker.person.firstName("female"),
+      email: parentEmail,
+      first_name: firstName,
       last_name: lastName,
       phone_number: "+18087285029",
       sms_opt_in: true,
@@ -536,7 +602,11 @@ async function seedFamilies() {
     }
   }
 
-  await ins("users", users);
+  // Trigger already created partial user rows — upsert to fill in all fields
+  const { error: upsertErr } = await sb
+    .from("users")
+    .upsert(users, { onConflict: "id" });
+  if (upsertErr) throw new Error(`[UPSERT users] ${upsertErr.message}`);
   await ins("dancers", dancers);
 
   // Email subscriptions for all parents
@@ -590,7 +660,7 @@ async function seedSemesters() {
       updated_by: ETHAN_ID,
       tracking_mode: true,
       capacity_warning_threshold: 3,
-      registration_form: { elements: [] },
+      registration_form: s.status === "published" ? buildRegistrationForm() : { elements: [] },
       confirmation_email: {
         subject: `You're registered for ${s.name} at AYDT!`,
         senderName: "AYDT Studio",
@@ -1166,7 +1236,7 @@ async function seedClasses() {
         id: uid(),
         schedule_id: schedId,
         label: "Regular",
-        amount: tmpl.tuition,
+        amount: Math.round(tmpl.tuition * 100),
         sort_order: 0,
         is_default: true,
       } as TierRow);
@@ -2048,7 +2118,7 @@ async function seedClassRequirements(classes: ClassRow[]) {
     reqs.push({
       id: uid(),
       class_id: contemporaryClass.id,
-      requirement_type: "skill_qualification",
+      requirement_type: "prerequisite_completed",
       required_discipline: "ballet",
       required_level: "Level 1",
       required_class_id: null,
@@ -2241,7 +2311,7 @@ async function seedAYDTClassCatalog() {
       registration_note: `${REHEARSAL_NOTE} This is a 2–3 year program.`,
       requirements: [
         {
-          requirement_type: "skill_qualification",
+          requirement_type: "prerequisite_completed",
           enforcement: "soft_warn",
           is_waivable: true,
           description:
@@ -2937,7 +3007,7 @@ async function seedAYDTClassCatalog() {
       max_grade: 12,
       requirements: [
         {
-          requirement_type: "skill_qualification",
+          requirement_type: "prerequisite_completed",
           enforcement: "soft_warn",
           is_waivable: true,
           description:
@@ -3133,6 +3203,58 @@ async function seedStoredPaymentMethods(users: UserRow[]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ETHAN'S DANCERS
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedEthanDancers(): Promise<void> {
+  console.log("💃  Seeding dancers for Ethan Flores…");
+
+  const { data: ethanUser } = await sb
+    .from("users")
+    .select("family_id")
+    .eq("id", ETHAN_ID)
+    .single();
+
+  let familyId = ethanUser?.family_id as string | null;
+  if (!familyId) {
+    const [fam] = await ins<{ id: string; family_name: string }>("families", {
+      id: uid(),
+      family_name: "Flores Family",
+    });
+    familyId = fam.id;
+    await sb.from("users").update({ family_id: familyId }).eq("id", ETHAN_ID);
+  }
+
+  await ins("dancers", [
+    {
+      id: uid(),
+      family_id: familyId,
+      user_id: ETHAN_ID,
+      first_name: "Sophia",
+      last_name: "Flores",
+      birth_date: "2016-04-12",
+      gender: "female",
+      grade: "4",
+      is_self: false,
+    },
+    {
+      id: uid(),
+      family_id: familyId,
+      user_id: ETHAN_ID,
+      first_name: "Mia",
+      last_name: "Flores",
+      birth_date: "2019-08-23",
+      gender: "female",
+      grade: "1",
+      is_self: false,
+    },
+  ]);
+
+  console.log(
+    "  ✓ Sophia Flores (2016-04-12, grade 4), Mia Flores (2019-08-23, grade 1)\n",
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN
 // ─────────────────────────────────────────────────────────────────────────────
 async function main() {
@@ -3142,6 +3264,7 @@ async function main() {
 
   await clearDatabase();
   await seedAdmin();
+  await seedEthanDancers();
 
   const { families, users, dancers } = await seedFamilies();
   await seedStoredPaymentMethods(users);
