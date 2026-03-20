@@ -206,20 +206,7 @@ export default function SemesterForm({
   const persistedSnapshotRef = useRef<string>(
     JSON.stringify(initialState ?? {}),
   );
-  const isDirty = JSON.stringify(state) !== persistedSnapshotRef.current;
   const [isSaving, setIsSaving] = useState(false);
-  const [showExitModal, setShowExitModal] = useState(false);
-
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (isDirty) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [isDirty]);
 
   /* ----------------------------- Navigation ------------------------------ */
 
@@ -295,10 +282,10 @@ export default function SemesterForm({
     }
   }
 
-  /* ------------------------- Exit with Save ------------------------------ */
+  /* ------------------------- Back to Semesters --------------------------- */
 
-  async function handleExitConfirm() {
-    setShowExitModal(false);
+  async function handleBackToSemesters() {
+    if (isSaving) return;
     setIsSaving(true);
     try {
       const current = stateRef.current;
@@ -414,6 +401,10 @@ export default function SemesterForm({
       <ReviewStep
         state={state}
         onBack={previousStep}
+        onGoToStep={(stepKey) => {
+          const idx = STEPS.findIndex((s) => s.key === stepKey);
+          if (idx !== -1) navigateToStep(idx);
+        }}
         onPublishNow={async () => {
           const current = stateRef.current;
           const { semesterId } = await persistSemesterDraft(current);
@@ -477,7 +468,7 @@ export default function SemesterForm({
     >
       {/* ── Left wizard sidebar ─────────────────────────────────────── */}
       <aside
-        className="shrink-0 flex flex-col overflow-y-auto"
+        className="shrink-0 flex flex-col overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
         style={{
           width: "var(--admin-sidebar-width)",
           background: "var(--admin-sidebar-bg)",
@@ -532,8 +523,9 @@ export default function SemesterForm({
           }}
         >
           <button
-            onClick={() => setShowExitModal(true)}
-            className="flex items-center gap-1 text-sm transition-colors hover:opacity-80"
+            onClick={handleBackToSemesters}
+            disabled={isSaving}
+            className="flex items-center gap-1 text-sm transition-colors hover:opacity-80 disabled:opacity-50"
             style={{ color: "var(--admin-text-faint)" }}
           >
             <ChevronLeft size={15} strokeWidth={2} />
@@ -582,42 +574,43 @@ export default function SemesterForm({
 
         {/* Content area */}
         <div
-          className="flex-1 overflow-y-auto p-8"
+          className={`flex-1 min-h-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none] ${activeStepKey === "sessions" || activeStepKey === "sessionGroups" || activeStepKey === "confirmationEmail" || activeStepKey === "waitlist" || activeStepKey === "review" ? "overflow-hidden flex flex-col" : "overflow-y-auto p-8"}`}
           style={{ background: "var(--admin-page-bg)" }}
         >
-          {/* Step indicator */}
-          <p
-            className="text-[11px] font-semibold uppercase tracking-widest mb-5"
-            style={{ color: "var(--admin-text-faint)" }}
-          >
-            Step {activeStepIndex + 1} of {STEPS.length}
-          </p>
-
-          {/* DEV: Fill test data */}
-          {process.env.NODE_ENV === "development" && (
-            <div className="mb-6 flex items-center gap-3 rounded-lg border border-dashed border-blue-200 bg-blue-50 px-3 py-2">
-              <span className="inline-flex items-center bg-blue-600 text-white text-[10px] font-bold rounded px-1.5 py-0.5 uppercase tracking-wide">
-                DEV
-              </span>
-              <button
-                type="button"
-                onClick={fillTestData}
-                className="text-sm font-medium text-blue-700 hover:text-blue-900 transition-colors"
-              >
-                Fill test data
-              </button>
-              <span className="text-xs text-blue-500">
-                Populates all {STEPS.length} steps with a complete test semester fixture
-              </span>
-            </div>
+          {/* Step indicator — hidden on full-bleed steps */}
+          {activeStepKey !== "sessions" && activeStepKey !== "sessionGroups" && activeStepKey !== "confirmationEmail" && activeStepKey !== "waitlist" && activeStepKey !== "review" && (
+            <p
+              className="text-[11px] font-semibold uppercase tracking-widest mb-5"
+              style={{ color: "var(--admin-text-faint)" }}
+            >
+              Step {activeStepIndex + 1} of {STEPS.length}
+            </p>
           )}
 
           {/* Step content */}
-          {stepRenderers[activeStepKey]}
+          {activeStepKey === "sessions" ? (
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+              {stepRenderers[activeStepKey]}
+            </div>
+          ) : activeStepKey === "sessionGroups" ? (
+            <div className="flex-1 min-h-0 overflow-hidden flex">
+              {stepRenderers[activeStepKey]}
+            </div>
+          ) : activeStepKey === "confirmationEmail" || activeStepKey === "waitlist" ? (
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              {stepRenderers[activeStepKey]}
+            </div>
+          ) : activeStepKey === "review" ? (
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              {stepRenderers[activeStepKey]}
+            </div>
+          ) : (
+            stepRenderers[activeStepKey]
+          )}
         </div>
 
-        {/* Footer navigation */}
-        <div
+        {/* Footer navigation — hidden on steps that manage their own navigation */}
+        {activeStepKey !== "review" && activeStepKey !== "sessionGroups" && activeStepKey !== "payment" && <div
           className="shrink-0 flex items-center justify-between px-6 py-4"
           style={{
             background: "var(--admin-surface)",
@@ -657,65 +650,9 @@ export default function SemesterForm({
               </button>
             )}
           </div>
-        </div>
+        </div>}
       </div>
 
-      {/* ── Exit confirmation modal ──────────────────────────────────── */}
-      {showExitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div
-            className="w-full max-w-md rounded-2xl p-8 space-y-5 shadow-xl"
-            style={{ background: "var(--admin-surface)" }}
-          >
-            <div>
-              <h2
-                className="text-lg font-semibold"
-                style={{ color: "var(--admin-text)" }}
-              >
-                {mode === "create" ? "Save and exit?" : "Save changes and exit?"}
-              </h2>
-              <p
-                className="text-sm mt-1.5"
-                style={{ color: "var(--admin-text-muted)" }}
-              >
-                {mode === "create"
-                  ? "Your progress will be saved as a draft. You can continue setting up this semester any time from the Semesters list."
-                  : "Your changes will be saved as a draft. This semester will not be published until you complete and publish the edit flow."}
-              </p>
-            </div>
-
-            <div
-              className="rounded-xl px-4 py-3 text-sm"
-              style={{
-                background: "var(--admin-surface-sub)",
-                color: "var(--admin-text-muted)",
-                border: "0.5px solid var(--admin-border)",
-              }}
-            >
-              The semester will remain in <strong>Draft</strong> status until
-              you publish it from the Review &amp; publish step.
-            </div>
-
-            <div className="flex justify-end gap-3 pt-1">
-              <button
-                onClick={() => setShowExitModal(false)}
-                className="px-4 py-2 text-sm rounded-lg transition-colors hover:bg-neutral-100"
-                style={{ color: "var(--admin-text-muted)" }}
-              >
-                Keep editing
-              </button>
-              <button
-                onClick={handleExitConfirm}
-                disabled={isSaving}
-                className="px-5 py-2 text-sm font-medium text-white rounded-lg transition-colors hover:opacity-90 disabled:opacity-60"
-                style={{ background: "var(--admin-sidebar-active)" }}
-              >
-                {isSaving ? "Saving…" : "Save draft & exit"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
