@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { DashboardRightPanel } from "./_components/DashboardRightPanel";
 import { EmailsTabSection } from "./_components/EmailsTabSection";
@@ -62,6 +63,7 @@ type DashboardData = {
   recentRegs: RecentReg[];
   totalEnrolled: number;
   openSemesterCount: number;
+  activeClassCount: number;
   overduePayments: OverdueRow[];
   recentEmails: EmailRow[];
 };
@@ -269,7 +271,7 @@ function OverviewTab({
   data: DashboardData;
   onSemesterArchived: (id: string) => void;
 }) {
-  const { activeSemesters, recentRegs, totalEnrolled, openSemesterCount } = data;
+  const { activeSemesters, recentRegs, totalEnrolled, openSemesterCount, activeClassCount } = data;
   const [search, setSearch] = useState("");
   const [statusSort, setStatusSort] = useState<"asc" | "desc" | null>(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
@@ -277,6 +279,7 @@ function OverviewTab({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [openRegMenuId, setOpenRegMenuId] = useState<string | null>(null);
   const [semView, setSemView] = useState<"active" | "past">("active");
+  const router = useRouter();
   const [archivedSemesters, setArchivedSemesters] = useState<SemesterRow[]>([]);
   const [archivedLoading, setArchivedLoading] = useState(false);
 
@@ -344,7 +347,7 @@ function OverviewTab({
       <div className="grid grid-cols-4 gap-3">
         <MetricCard label="Registrations" value={totalEnrolled.toLocaleString()} sub="confirmed enrollments" />
         <MetricCard label="Open semesters" value={String(openSemesterCount)} sub="published" />
-        <MetricCard label="Active classes" value="—" sub="across open semesters" />
+        <MetricCard label="Active classes" value={String(activeClassCount)} sub="across open semesters" />
         <MetricCard label="Sessions this week" value="—" sub="next 7 days" />
       </div>
 
@@ -464,11 +467,14 @@ function OverviewTab({
             {displayed.map((s, i) => (
               <li
                 key={s.id}
-                className="flex items-center px-5 py-3 border-b"
+                onClick={() => router.push(`/admin/semesters/${s.id}`)}
+                className="flex items-center px-5 py-3 border-b cursor-pointer"
                 style={{
                   borderColor: "var(--admin-border-sub)",
                   background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)",
                 }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)")}
               >
                 <div className="flex-1">
                   <Link
@@ -1289,6 +1295,17 @@ export default function AdminDashboardPage() {
         .in("status", ["published", "scheduled"])
         .order("created_at", { ascending: false });
 
+      // Distinct classes across open semesters
+      const activeSemesterIds = (semesters ?? []).map((s) => s.id);
+      let activeClassCount = 0;
+      if (activeSemesterIds.length > 0) {
+        const { data: activeClassSessions } = await supabase
+          .from("class_sessions")
+          .select("class_id")
+          .in("semester_id", activeSemesterIds);
+        activeClassCount = new Set((activeClassSessions ?? []).map((cs: any) => cs.class_id)).size;
+      }
+
       // Total confirmed registrations
       const { count: totalEnrolled } = await supabase
         .from("registrations")
@@ -1364,6 +1381,7 @@ export default function AdminDashboardPage() {
         recentRegs: (recentRegs ?? []) as unknown as RecentReg[],
         totalEnrolled: totalEnrolled ?? 0,
         openSemesterCount: (semesters ?? []).filter((s) => s.status === "published").length,
+        activeClassCount,
         overduePayments: (overduePayments ?? []) as unknown as OverdueRow[],
         recentEmails: ((recentEmails ?? []) as any[]).map((e) => ({
           ...e,
