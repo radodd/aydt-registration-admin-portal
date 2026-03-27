@@ -66,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         .eq("id", authUser.id)
         .single();
 
-      if (user?.role !== "super_admin") {
+      if (!user?.role || !["admin", "super_admin"].includes(user.role)) {
         router.push("/");
       } else {
         setIsAdmin(true);
