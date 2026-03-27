@@ -1,6 +1,6 @@
 # EPG Webhook — Architectural Analysis
 
-Analysis of the `/api/webhooks/epg` handler, the role of the webhook in the payment lifecycle,
+Created: 2026-03-25. Analysis of the `/api/webhooks/epg` handler, the role of the webhook in the payment lifecycle,
 and the design rationale behind every architectural decision.
 
 ---
@@ -80,6 +80,8 @@ arrival, it is too unreliable and insecure to use as the sole mechanism.
 
 ## 4. Production Payment Lifecycle
 
+### Full-pay path (`payment_plan_type !== 'installments'`)
+
 ```
 [User] → createRegistrations()
            → registration_batches: status = "pending"
@@ -102,6 +104,7 @@ arrival, it is too unreliable and insecure to use as the sole mechanism.
            → resolve batchId from transaction.customReference
            → look up payments row (idempotency check — skip if terminal state)
            → payments: state = "authorized"
+           → check batch.payment_plan_type → "full-pay" path:
            → registration_batches: status = "confirmed"  ← only if status = "pending"
                + confirmed_at, payment_reference_id set
            → registrations: status = "confirmed"
@@ -120,6 +123,44 @@ arrival, it is too unreliable and insecure to use as the sole mechanism.
 [EPG]  → POST /api/webhooks/epg  (saleSettled)         ← at settlement
            → payments: state = "settled"
            → batch already confirmed → early return (idempotent)
+```
+
+### Installment path (`payment_plan_type === 'installments'`)
+
+```
+[User] → createEPGPaymentSession()
+           → doCapture: false  ← EPG returns hostedCard token instead of capturing
+
+[EPG HPP] → user enters card → EPG authorizes (no capture)
+
+[EPG]  → POST /api/webhooks/epg  (saleAuthorized)
+           → (same auth / fetch / idempotency steps as above)
+           → payments: state = "authorized"
+           → check batch.payment_plan_type → "installments" path:
+           → GET /payment-sessions/{id}  ← fetch hostedCard token from session
+           → GET /shoppers?filter=customReference_eq_{parentId}  (find or create Shopper)
+           → POST /stored-cards  (convert hostedCard token to permanent StoredCard)
+               OR POST /stored-ach-payments  (if ACH checkout)
+           → UPSERT shoppers (by epg_shopper_id)
+           → INSERT stored_payment_methods
+           → registration_batches: stored_payment_method_id = <id>
+           → POST /transactions  ← server-to-server charge for installment 1
+               customReference: "installment1-{batchId}"
+               doCapture: true
+           → IF isAuthorized:
+               → registration_batches: status = "confirmed"  ← only if status = "pending"
+               → registrations: status = "confirmed"
+               → batch_payment_installments[1]: status = "paid"
+               → Resend: confirmation email
+           → IF declined:
+               → stored method still linked to batch (admin can retry)
+               → batch stays "pending" — requires admin intervention
+
+[Cron]  → process-overdue-payments  (daily)
+           → for each installment with status = "due" and stored_payment_method:
+           → POST /transactions  ← server-to-server charge
+           → mark installment "paid" or increment charge_attempt_count
+           → after 3 failures: mark "failed", alert admin
 ```
 
 The lifecycle correctly distinguishes between transient events (`authorized`, `captured`, `settled`)

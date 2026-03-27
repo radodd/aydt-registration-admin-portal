@@ -1,6 +1,6 @@
 # EPG Integration — Manual Steps
 
-All items that require human action outside of code. Complete these before going live.
+Created: 2026-03-16. All items that require human action outside of code. Complete these before going live.
 
 ---
 

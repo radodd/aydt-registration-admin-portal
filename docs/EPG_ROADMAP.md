@@ -1,6 +1,6 @@
 # EPG Implementation Roadmap & Gap Analysis
 
-Last updated: 2026-03-13
+Created: 2026-03-25.
 
 This document tracks what is implemented, what is missing, and the phased plan to complete the Elavon Payment Gateway integration for AYDT.
 
@@ -15,14 +15,14 @@ This document tracks what is implemented, what is missing, and the phased plan t
 | 42 unit tests | ✅ Done | `tests/unit/payment/` — epg, webhook, session action |
 | Elavon reference docs | ✅ Done | `docs/elavon/` — 12 files |
 | Cert account credentials | ✅ Done | `.env.local` updated 2026-03-13 |
-| Webhook credentials set | ⬜ Pending | `EPG_WEBHOOK_USERNAME` / `EPG_WEBHOOK_PASSWORD` still placeholders in `.env.local` |
+| Webhook credentials set | ⬜ Pending | `EPG_WEBHOOK_USERNAME` / `EPG_WEBHOOK_PASSWORD` still need to be set and registered in portal |
 | Webhook URL registered in Elavon portal | ⬜ Manual | Required before any payment confirms — register ngrok URL for local testing |
-| Shopper resource (create/retrieve) | ⬜ Missing | No functions in `utils/payment/epg.ts`; no DB table |
-| Stored Card (card on file) | ⬜ Missing | `doCapture` always `true`; Hosted Card token never captured or persisted |
-| Stored ACH Payment | ⬜ Missing | No ACH HPP session or storage flow exists |
-| Server-to-server charge (stored card) | ⬜ Missing | No `POST /transactions` with `storedCard` |
-| Server-to-server charge (stored ACH) | ⬜ Missing | Same |
-| Recurring installment auto-charge | ⬜ Missing | `batch_payment_installments` exist in DB; cron marks overdue but never charges |
+| Shopper resource (create/retrieve) | ✅ Done | `createEpgShopper`, `fetchEpgShopperByReference`; `shoppers` DB table |
+| Stored Card (card on file) | ✅ Done | `createEpgStoredCard`; `stored_payment_methods` DB table; webhook stores on installment checkout |
+| Stored ACH Payment | ✅ Done | `createEpgStoredAchPayment`; same DB table; webhook stores on ACH installment checkout |
+| Server-to-server charge (stored card) | ✅ Done | `createEpgTransaction`; webhook charges installment 1; `chargeStoredPaymentInstallment` action for manual/admin |
+| Server-to-server charge (stored ACH) | ✅ Done | Same `createEpgTransaction`; ACH path handled in webhook and charge action |
+| Recurring installment auto-charge | ✅ Done | `process-overdue-payments` edge function extended; `chargeStoredPaymentInstallment` server action |
 | EPG Plans/Subscriptions (gateway-managed) | 🔵 Deferred | DIY cron preferred — see Phase 4 rationale below |
 
 ---
@@ -47,7 +47,9 @@ This document tracks what is implemented, what is missing, and the phased plan t
 
 ---
 
-## Phase 3 — Shopper + Stored Card/ACH Infrastructure
+## Phase 3 — Shopper + Stored Card/ACH Infrastructure ✅
+
+**Completed 2026-03-16.**
 
 **Elavon refs:** [`api_shoppers.md`](./elavon/api_shoppers.md), [`api_stored_cards.md`](./elavon/api_stored_cards.md), [`api_stored_ach.md`](./elavon/api_stored_ach.md)
 
@@ -129,7 +131,9 @@ Same pattern as 3c but uses a separate HPP session type and `hostedAchPayment` t
 
 ---
 
-## Phase 4 — Recurring Installment Auto-Charge
+## Phase 4 — Recurring Installment Auto-Charge ✅
+
+**Completed 2026-03-16.**
 
 **Elavon refs:** [`api_transactions.md`](./elavon/api_transactions.md)
 

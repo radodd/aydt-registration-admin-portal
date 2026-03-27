@@ -1,7 +1,9 @@
 # AYDT Registration Admin Portal — Full Architecture Document
 
-**Generated:** 2026-03-16
-**Stack:** Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Supabase · PostgreSQL
+> **Purpose of this document:** This is the **living reference** for the entire system. It describes what exists, how it works, and where everything lives. Consult this when you need to understand the system's structure, data model, workflows, or integrations. For security vulnerabilities, production readiness, and risk analysis, see [ARCHITECTURE_REPORT.md](./ARCHITECTURE_REPORT.md).
+
+**Updated:** 2026-03-22
+**Stack:** Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Supabase · PostgreSQL · Elavon EPG · Twilio · Resend
 
 ---
 
@@ -9,15 +11,17 @@
 
 AYDT is a production-grade registration and administrative portal for a dance studio. The application supports:
 
-- Public registration flow for families/dancers
-- Admin dashboard for semester/class/payment management
-- Email broadcast system with template rendering and delivery tracking
-- Payment integration with EPG (Elavon payment gateway)
-- Waitlist automation with token-based acceptance
-- Advanced pricing engine supporting progressive discounts and special programs
-- Family account credits system for refunds/adjustments
+- Public registration flow for families/dancers with multi-step wizard
+- Admin dashboard for semester/class/payment/family management
+- Email broadcast system with template rendering, scheduling, and delivery tracking
+- Payment integration with Elavon EPG (hosted checkout, stored cards/ACH, recurring installments)
+- SMS notifications via Twilio (opt-in, verified phone, delivery tracking)
+- Waitlist automation with token-based acceptance and capacity management
+- Tuition engine with progressive discounts, special programs, and coupon system
+- Family account credits system for refunds and adjustments
+- Media library for image and PDF management
 
-As of March 16, 2026, the project has completed Phase 4 (EPG payment integration).
+As of March 22, 2026, the project has completed Phases 1–4 (class catalog, pricing, tuition, EPG payment) and Phase 5 (SMS — code-complete, awaiting Twilio A2P carrier approval).
 
 ---
 
@@ -31,72 +35,81 @@ aydt-registration-admin-portal/
 │   │   ├── cart/                      # Shopping cart view
 │   │   ├── error/                     # Error page
 │   │   ├── family/                    # Family dashboard
-│   │   ├── profile/                   # User profile management
+│   │   ├── profile/                   # User profile (inline editing, SMS opt-in)
+│   │   │   └── actions/               # addDancer, updateDancer, SMS actions
 │   │   ├── register/                  # Multi-step registration wizard
-│   │   │   ├── layout.tsx
+│   │   │   ├── layout.tsx             # CartRestoreGuard + progress indicator
 │   │   │   ├── page.tsx               # Step router
 │   │   │   ├── confirmation/          # Final success page
 │   │   │   ├── form/                  # Dynamic form step
 │   │   │   ├── participants/          # Dancer assignment step
-│   │   │   └── payment/               # Payment step
-│   │   ├── semester/[id]/             # Semester detail & session browser
+│   │   │   └── payment/               # EPG hosted checkout step
+│   │   ├── semester/[id]/             # Semester detail + session browser
 │   │   ├── waitlist/accept/[token]/   # Waitlist acceptance flow
-│   │   └── layout.tsx
+│   │   ├── ConditionalFooter.tsx      # Portal footer
+│   │   ├── portal.css                 # Portal-specific styling (600+ lines)
+│   │   └── layout.tsx                 # Portal shell + nav + auth status
 │   │
-│   ├── admin/                         # Super-admin management portal
-│   │   ├── _components/               # Admin layout components (TopBar.tsx)
+│   ├── admin/                         # Admin management portal
+│   │   ├── _components/               # Admin layout components
+│   │   │   ├── TopBar.tsx             # Sticky header with page title + actions
+│   │   │   ├── NotificationBell.tsx   # Notification status indicator
+│   │   │   ├── DashboardRightPanel.tsx
+│   │   │   ├── EmailsRightPanel.tsx
+│   │   │   ├── EmailsTabSection.tsx   # Email management UI (63 KB)
+│   │   │   ├── PaymentsRightPanel.tsx
+│   │   │   └── SessionsRightPanel.tsx
 │   │   ├── layout.tsx                 # Admin shell + auth guard + sidebar nav
-│   │   ├── page.tsx                   # Dashboard landing page
+│   │   ├── page.tsx                   # Dashboard landing (registrations, metrics, people tabs)
 │   │   ├── classes/                   # Class management (CRUD)
-│   │   │   ├── [id]/                  # Class detail view
-│   │   │   └── page.tsx
+│   │   │   └── [id]/                  # Class detail view
 │   │   ├── semesters/                 # Semester editor (9-step wizard)
 │   │   │   ├── [id]/                  # Semester detail/tabs
 │   │   │   │   ├── dashboard/         # Semester stats dashboard
 │   │   │   │   ├── edit/              # Edit page (loads SemesterForm)
-│   │   │   │   ├── invites/           # Competition track invite management
-│   │   │   │   └── page.tsx
+│   │   │   │   └── invites/           # Competition track invite management
 │   │   │   ├── new/                   # New semester creation
 │   │   │   │   └── discounts/         # Discount CRUD helpers
 │   │   │   ├── actions/               # Server actions (all semester mutations)
 │   │   │   ├── steps/                 # Form step components
-│   │   │   ├── SemesterForm.tsx       # Main editor orchestrator (useReducer)
-│   │   │   └── page.tsx               # Semester listing
+│   │   │   └── SemesterForm.tsx       # Main editor orchestrator (useReducer)
 │   │   ├── emails/                    # Email broadcast management
 │   │   │   ├── [id]/edit/             # Email edit page
 │   │   │   ├── new/                   # New email draft
 │   │   │   ├── steps/                 # Email wizard steps
 │   │   │   ├── actions/               # Email server actions
-│   │   │   ├── EmailForm.tsx          # Email editor
-│   │   │   ├── EmailsClient.tsx       # Email list (client)
-│   │   │   └── page.tsx
+│   │   │   └── EmailForm.tsx          # Email editor
 │   │   ├── families/                  # Family records management
-│   │   │   ├── [id]/page.tsx          # Family detail page
-│   │   │   ├── _components/           # Family UI components
-│   │   │   └── page.tsx
+│   │   │   ├── [id]/                  # Family detail page
+│   │   │   │   └── _components/       # FamilyDetailClient, ParentCard, DancerCard, panels
+│   │   │   ├── _components/           # Family list: modals, form helpers
+│   │   │   └── actions/               # sendFamilyEmail
 │   │   ├── dancers/                   # Dancer records management
 │   │   ├── users/                     # User/admin management
-│   │   ├── payments/                  # Payment tracking & admin adjustments
-│   │   │   ├── actions/               # Mark installment paid
-│   │   │   └── page.tsx
+│   │   ├── payments/                  # Payment tracking + admin adjustments
+│   │   │   └── actions/               # markInstallmentPaid
 │   │   ├── sessions/                  # Session management
-│   │   ├── media/                     # Media library (images)
-│   │   ├── credits/                   # Family account credits management
+│   │   ├── media/                     # Media library (images, PDFs, folders)
+│   │   ├── credits/                   # Family account credits
+│   │   │   └── actions/               # issueAccountCredit, issueBulkCredits
 │   │   ├── profile/                   # Admin profile settings
 │   │   └── register/                  # Admin manual registration tool
 │   │
 │   ├── api/                           # API routes (JSON)
 │   │   ├── webhooks/
-│   │   │   ├── epg/route.ts           # EPG payment webhook handler
+│   │   │   ├── epg/route.ts           # EPG payment webhook (625 lines)
 │   │   │   ├── resend/route.ts        # Resend email delivery tracking
-│   │   │   └── twilio/route.ts        # SMS webhook (Phase 5)
+│   │   │   └── twilio/route.ts        # SMS delivery status webhook
 │   │   ├── media/                     # Media CRUD endpoints
+│   │   │   ├── route.ts               # List/search images
+│   │   │   ├── [id]/route.ts          # Update/delete image
+│   │   │   └── folders/               # Folder CRUD
 │   │   ├── register/batch-status/     # Batch status polling endpoint
-│   │   ├── upload-image/route.ts      # Image upload handler
-│   │   └── upload-pdf/route.ts        # PDF upload handler
+│   │   ├── upload-image/route.ts      # Image upload (5MB, MIME validation)
+│   │   └── upload-pdf/route.ts        # PDF upload (10MB)
 │   │
 │   ├── auth/                          # Authentication flows
-│   │   ├── page.tsx                   # Auth landing
+│   │   ├── page.tsx                   # Auth landing (tabbed login/signup)
 │   │   ├── login/page.tsx
 │   │   ├── actions.ts                 # signUp, login, resetPassword server actions
 │   │   ├── confirm/route.ts
@@ -104,16 +117,17 @@ aydt-registration-admin-portal/
 │   │   └── reset-password/
 │   │
 │   ├── components/                    # Shared React components
+│   │   ├── public/                    # ClassCard, SessionGrid, FilterBar, NavCartButton
+│   │   │   └── semester-flow/         # CustomQuestionModal
 │   │   ├── semester-flow/             # TipTap editors, form builders
 │   │   ├── form/                      # Inputs, selects, etc.
-│   │   ├── public/                    # SessionGrid, CartDrawer
 │   │   ├── email/                     # Email preview frame
 │   │   ├── media/                     # Image picker modal
 │   │   └── ui/                        # Generic UI primitives
 │   │
 │   ├── providers/                     # React Context providers
 │   │   ├── AuthProvider.tsx
-│   │   ├── CartProvider.tsx           # Shopping cart (localStorage)
+│   │   ├── CartProvider.tsx           # Shopping cart (localStorage, 2hr TTL)
 │   │   ├── RegistrationProvider.tsx   # Multi-step wizard state (sessionStorage)
 │   │   └── SemesterDataProvider.tsx   # Semester data hydration
 │   │
@@ -130,37 +144,38 @@ aydt-registration-admin-portal/
 │
 ├── utils/
 │   ├── supabase/
-│   │   ├── client.ts                  # Browser Supabase client
-│   │   ├── server.ts                  # Server Supabase client
-│   │   ├── admin.ts                   # Admin/service role client
+│   │   ├── client.ts                  # Browser Supabase client (anon key)
+│   │   ├── server.ts                  # Server Supabase client (anon key + cookies)
+│   │   ├── admin.ts                   # Admin/service role client (BYPASSES RLS)
 │   │   └── middleware.ts              # Auth session middleware
 │   ├── payment/
-│   │   └── epg.ts                     # EPG REST API client (Elavon)
+│   │   └── epg.ts                     # EPG REST API client (Elavon, ~420 lines)
 │   ├── email-templates/
 │   │   └── subscriptionConfirmation.ts
-│   ├── tuitionEngine.ts               # Pricing calculation engine
-│   ├── mapSemesterToDraft.ts          # Hydration utility for semester editor
+│   ├── tuitionEngine.ts               # Pricing calculation engine (~250 lines)
 │   ├── buildPaymentSchedule.ts        # Payment plan calculation
 │   ├── detectTimeConflicts.ts         # Registration conflict checking
 │   ├── ratelimit.ts                   # Upstash rate limiting
-│   ├── requireAdmin.ts                # Admin auth guard
-│   ├── prepareEmailHtml.ts            # Email HTML normalization
-│   ├── resolveEmailVariables.ts       # Token replacement
-│   ├── sendSms.ts                     # Twilio SMS integration
+│   ├── requireAdmin.ts                # Admin auth guard (server-side)
+│   ├── resolveEmailVariables.ts       # Token replacement (canonical)
+│   ├── prepareEmailHtml.ts            # Email HTML normalization (Outlook)
+│   ├── sendSms.ts                     # Twilio SMS integration (E.164, best-effort)
 │   └── gradeLabel.ts                  # Grade label mapping
 │
 ├── queries/
 │   └── admin/
 │       ├── index.ts                   # Admin data queries (~500 lines)
-│       └── getFamilyDetail.ts         # Family detail query (new)
+│       └── getFamilyDetail.ts         # Family detail query
 │
 ├── supabase/
-│   ├── migrations/                    # 41 migration files
-│   │   ├── 20260302000000_baseline.sql  (3123 lines — core schema)
-│   │   ├── 20260304000000_session_pricing_and_options.sql
-│   │   ├── 20260304030000_hybrid_pricing_model.sql
+│   ├── migrations/                    # 42+ migration files
+│   │   ├── 20260302000000_baseline.sql       (3123 lines — core schema)
+│   │   ├── 20260304000000_session_pricing.sql
+│   │   ├── 20260304030000_hybrid_pricing.sql
+│   │   ├── 20260309000002_class_catalog.sql
 │   │   ├── 20260309000003_tuition_engine.sql
-│   │   ├── 20260309000002_class_catalog_schema.sql
+│   │   ├── 20260312000002_discount_coupons.sql
+│   │   ├── 20260313000001_sms_opt_in.sql
 │   │   ├── 20260316000001_family_account_credits.sql
 │   │   ├── 20260316000002_epg_stored_payment.sql
 │   │   ├── 20260316000003_installment_charge_tracking.sql
@@ -168,10 +183,17 @@ aydt-registration-admin-portal/
 │   └── functions/                     # Deno edge functions
 │       ├── process-waitlist/
 │       ├── process-scheduled-emails/
-│       └── send-email-broadcast/
+│       ├── send-email-broadcast/
+│       └── process-overdue-payments/  # Auto-charge installments
+│
+├── scripts/
+│   ├── seed.ts                        # Base seed (auth users, forms, data)
+│   ├── seed-spring-2026-north.ts      # North location seed
+│   └── seed-spring-2026-ues.ts        # UES location seed
 │
 ├── docs/                              # Project documentation
-│   ├── ARCHITECTURE_REPORT.md
+│   ├── ARCHITECTURE_FULL.md           # This file
+│   ├── ARCHITECTURE_REPORT.md         # Security + vulnerability audit
 │   ├── DESIGN_SYSTEM.md
 │   ├── EMAIL_SYSTEM.md
 │   ├── CLASS_CATALOG.md
@@ -184,7 +206,7 @@ aydt-registration-admin-portal/
 │   ├── TESTING.md
 │   └── elavon/                        # Elavon REST API specs
 │
-├── middleware.ts                      # Auth + rate limiting
+├── middleware.ts                      # Auth + rate limiting + security headers
 ├── next.config.ts
 ├── tailwind.config.js
 ├── package.json
@@ -215,7 +237,7 @@ aydt-registration-admin-portal/
 | uuid | ^13.0.0 | UUID generation |
 | @upstash/ratelimit | ^2.0.8 | Rate limiting |
 | @upstash/redis | ^1.37.0 | Redis client |
-| twilio | ^5.13.0 | SMS (Phase 5) |
+| twilio | ^5.13.0 | SMS |
 | image-size | ^2.0.2 | Image dimension detection |
 | sass | ^1.94.2 | SCSS support |
 
@@ -245,216 +267,47 @@ npm run db:seed       # Seed database
 
 ---
 
-## 3. Domain Types (types/index.ts — ~1827 lines)
+## 3. Core Domain Types (types/index.ts)
 
 ### User
-
 ```typescript
 interface User {
   id: string
   family_id: string
   email: string
   first_name: string
-  middle_name?: string | null
   last_name: string
   phone_number: string
   is_primary_parent: boolean
-  role: string  // 'super_admin' | 'admin' | 'parent'
+  role: 'super_admin' | 'admin' | 'parent'
   status: string
-  created_at: string
-  display_name?: string | null
-  signature_html?: string | null
-  signature_config?: SignatureConfig | null
-  reply_to_email?: string | null
+  sms_opt_in?: boolean
+  sms_verified?: boolean
   address_line1?: string | null
   city?: string | null
   state?: string | null
   zipcode?: string | null
-  sms_opt_in?: boolean
-  sms_verified?: boolean
-}
-```
-
-### Dancer
-
-```typescript
-interface Dancer {
-  id: string
-  first_name: string
-  middle_name?: string | null
-  last_name: string
-  gender: string | null
-  birth_date: string | null    // "YYYY-MM-DD"
-  grade: string | null
-  email: string | null
-  phone_number: string | null
-  address_line1: string | null
-  city: string | null
-  state: string | null
-  zipcode: string | null
-  is_self: boolean
-  created_at: string
-  users: { id: string; first_name: string; last_name: string; email: string }[]
-  registrations?: Registration[]
+  signature_html?: string | null
+  signature_config?: SignatureConfig | null
 }
 ```
 
 ### Family
-
 ```typescript
 interface Family {
   id: string
-  family_name: string | null
+  family_name: string | null    // NOTE: column is family_name, NOT name
   created_at: string
   users: User[]
   dancers: Dancer[]
 }
 ```
 
-### Class & Session
-
-```typescript
-type Discipline = 'ballet' | 'tap' | 'broadway' | 'hip_hop' | 'contemporary'
-               | 'technique' | 'pointe' | 'jazz' | 'lyrical' | 'acro'
-type Division = 'early_childhood' | 'junior' | 'senior' | 'competition'
-type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday'
-               | 'friday' | 'saturday' | 'sunday'
-type ClassVisibility = 'public' | 'hidden' | 'invite_only'
-type ClassEnrollmentType = 'standard' | 'audition'
-
-interface DanceClass {
-  id: string
-  semester_id: string
-  name: string
-  discipline: Discipline
-  division: Division
-  description: string | null
-  min_age: number | null
-  max_age: number | null
-  min_grade: number | null
-  max_grade: number | null
-  is_active: boolean
-  is_competition_track: boolean
-  requires_teacher_rec: boolean
-  visibility: ClassVisibility
-  enrollment_type: ClassEnrollmentType
-  created_at: string
-  updated_at: string
-  class_sessions?: ClassSession[]
-}
-
-interface ClassSession {
-  id: string
-  class_id: string
-  semester_id: string
-  day_of_week: string
-  start_time: string | null    // "HH:MM:SS"
-  end_time: string | null
-  start_date: string | null    // "YYYY-MM-DD"
-  end_date: string | null
-  location: string | null
-  instructor_name: string | null
-  capacity: number | null
-  registration_close_at: string | null
-  is_active: boolean
-  created_at: string
-  cancelled_at?: string | null
-  cancellation_reason?: string | null
-  session_occurrence_dates?: SessionOccurrenceDate[]
-}
-
-interface SessionOccurrenceDate {
-  id: string
-  session_id: string
-  date: string          // "YYYY-MM-DD"
-  is_cancelled: boolean
-  cancellation_reason: string | null
-  created_at: string
-}
-```
-
-### Pricing
-
-```typescript
-interface TuitionRateBand {
-  id: string
-  semester_id: string
-  division: string
-  weekly_class_count: number
-  base_tuition: number
-  progressive_discount_percent: number   // 0-100
-  semester_total?: number
-  autopay_installment_amount?: number
-  notes?: string
-  created_at: string
-  updated_at: string
-}
-
-interface SemesterFeeConfig {
-  semester_id: string
-  registration_fee_per_child: number     // default 40.00
-  family_discount_amount: number         // default 50.00
-  auto_pay_admin_fee_monthly: number     // default 5.00
-  auto_pay_installment_count: number     // default 5
-  senior_video_fee_per_registrant: number // default 15.00
-  senior_costume_fee_per_class: number   // default 65.00
-  costume_fee_exempt_keys: string[]      // ['technique', 'pointe', 'competition']
-  created_at: string
-  updated_at: string
-}
-
-type DraftTuitionRateBand = {
-  _clientKey: string              // React key for unsaved rows
-  id?: string
-  division: string
-  weekly_class_count: number
-  base_tuition: number
-  progressive_discount_percent: number
-  semester_total?: number
-  autopay_installment_amount?: number
-  notes?: string
-}
-
-type DraftSpecialProgramTuition = {
-  _clientKey: string
-  id?: string
-  programKey: string              // 'technique' | 'pointe' | 'competition_*' | 'early_childhood'
-  programLabel: string
-  semesterTotal: number
-  autoPayInstallmentAmount: number | null
-  autoPayInstallmentCount: number | null
-  registrationFeeOverride?: number | null
-  notes?: string
-}
-
-type DraftCoupon = {
-  _clientKey: string
-  id?: string
-  name: string
-  code: string | null             // null = auto-apply by date range
-  value: number
-  valueType: 'flat' | 'percent'
-  validFrom: string | null
-  validUntil: string | null
-  maxTotalUses: number | null
-  usesCount: number
-  maxPerFamily: number
-  stackable: boolean
-  eligibleSessionsMode: 'all' | 'selected'
-  sessionIds?: string[]
-  isActive: boolean
-  appliesToMostExpensiveOnly?: boolean
-  eligibleLineItemTypes?: Array<'tuition' | 'registration_fee' | 'recital_fee'>
-}
-```
-
 ### Semester
-
 ```typescript
 interface Semester {
   id: string
   name: string
-  description?: string | null
   status: 'draft' | 'scheduled' | 'published' | 'archived'
   registration_form: RegistrationFormElement[]   // JSONB
   confirmation_email: ClassEmailConfig           // JSONB
@@ -462,79 +315,37 @@ interface Semester {
   payment_plan?: PaymentPlan
   publish_at?: string | null
   published_at?: string | null
-  created_at: string
-  updated_at: string
-  created_by: string
-  updated_by: string
-}
-
-type WaitlistSettings = {
-  enabled: boolean
-  inviteExpiryHours: number      // default 48
-  stopDaysBeforeClose: number    // default 3
-}
-
-type PaymentPlan = {
-  type: 'pay_in_full' | 'deposit_flat' | 'deposit_percent' | 'installments'
-  depositAmount?: number | null
-  depositPercent?: number | null
-  installmentCount?: number | null
-  dueDate?: string | null
-  installments?: { number: number; amount: number; dueDate: string }[]
 }
 ```
 
 ### Registration & Payment
-
 ```typescript
-interface Registration {
-  id: string
-  dancer_id: string
-  session_id: string
-  registration_batch_id: string
-  status: 'pending' | 'confirmed' | 'cancelled'
-  form_data: Record<string, unknown>   // JSONB
-  total_amount: number | null
-  hold_expires_at: string | null       // 30-min hold after pending creation
-  created_at: string
-}
-
 interface RegistrationBatch {
   id: string
   parent_id?: string
   semester_id: string
   family_id: string
-  cart_snapshot: CartSnapshot[]        // JSONB
-  payment_intent_id?: string
-  status: 'pending' | 'confirmed' | 'failed' | 'refunded'
-  tuition_total?: number
-  registration_fee_total?: number
-  family_discount_amount: number
-  auto_pay_admin_fee_total: number
-  grand_total?: number
+  cart_snapshot: CartSnapshot[]
+  form_data_snapshot: Record<string, unknown>
   payment_plan_type?: string
+  grand_total?: number
   amount_due_now?: number
-  payment_reference_id?: string
-  created_at: string
-  confirmed_at?: string
+  stored_payment_method_id?: string   // FK to stored_payment_methods
+  status: 'pending' | 'confirmed' | 'failed' | 'refunded'
 }
 
 interface Payment {
   id: string
   registration_batch_id: string
-  order_id?: string
-  payment_session_id?: string
-  transaction_id?: string
-  custom_reference: string             // batchId
+  order_id?: string                   // EPG order ID
+  payment_session_id?: string         // EPG session ID
+  transaction_id?: string             // EPG transaction ID
+  custom_reference: string            // batchId (for reconciliation)
   amount: number
-  currency: string                     // 'USD'
   state: 'initiated' | 'pending_authorization' | 'authorized' | 'captured'
        | 'settled' | 'declined' | 'voided' | 'refunded' | 'held_for_review'
-  event_type?: string
-  raw_notification?: Record<string, unknown>   // EPG webhook payload
-  raw_transaction?: Record<string, unknown>    // Full EPG transaction
-  created_at: string
-  updated_at: string
+  raw_notification?: Record<string, unknown>   // EPG webhook payload (audit)
+  raw_transaction?: Record<string, unknown>    // Full EPG response (audit)
 }
 
 interface BatchPaymentInstallment {
@@ -542,215 +353,84 @@ interface BatchPaymentInstallment {
   registration_batch_id: string
   installment_number: number
   amount: number
-  due_date: string                     // ISO date
-  status: 'pending' | 'scheduled' | 'charged' | 'paid' | 'failed'
-  charged_at?: string | null
-  paid_at?: string | null
-  created_at: string
+  due_date: string
+  status: 'pending' | 'scheduled' | 'charged' | 'paid' | 'overdue' | 'failed' | 'waived'
+  charge_attempt_count: number        // max 3
+  last_charge_error?: string
+  transaction_id?: string             // EPG txn ID from auto-charge
 }
 ```
 
-### Email
-
+### EPG Stored Payment
 ```typescript
-interface Email {
+interface EpgStoredCard {
   id: string
-  subject: string
-  body_html: string
-  body_json: Record<string, unknown>   // TipTap JSON
-  status: 'draft' | 'scheduled' | 'sent' | 'sending' | 'failed' | 'cancelled'
-  scheduled_at?: string | null
-  sent_at?: string | null
-  sender_name: string
-  sender_email: string
-  reply_to_email?: string | null
-  include_signature: boolean
-  created_by_admin_id: string
-  updated_by_admin_id: string
-  created_at: string
-  updated_at: string
-  deleted_at?: string | null
+  shopper: string                     // Parent shopper HREF
+  card?: { maskedNumber, last4, scheme, expirationMonth, expirationYear }
 }
 
-interface EmailDelivery {
+interface EpgStoredAchPayment {
   id: string
-  email_id: string
-  user_id: string
-  email_address: string
-  resend_message_id?: string
-  status: 'pending' | 'sent' | 'delivered' | 'bounced' | 'complained'
-  delivered_at?: string | null
-  bounced_at?: string | null
-  opened_at?: string | null
-  clicked_at?: string | null
-  created_at: string
-  updated_at: string
+  shopper: string
+  last4?: string
+  achAccountType?: string
+  accountName?: string
 }
 ```
 
-### Waitlist
-
-```typescript
-interface WaitlistEntry {
-  id: string
-  session_id: string
-  user_id: string
-  position: number
-  status: 'waiting' | 'invited' | 'accepted' | 'expired' | 'cancelled'
-  invite_token?: string
-  invitation_expires_at?: string | null
-  invitation_sent_at?: string | null
-  accepted_at?: string | null
-  created_at: string
-  updated_at: string
-}
-```
-
-### Account Credits
-
+### Family Account Credits
 ```typescript
 interface FamilyAccountCredit {
   id: string
   family_id: string
   amount: number
   reason?: string | null
-  issued_by_admin_id?: string | null
-  source_batch_id?: string | null      // Batch that triggered the credit
-  used_in_batch_id?: string | null     // Batch that consumed the credit
-  used_at?: string | null
-  created_at: string
+  issued_by_admin_id?: string
+  source_batch_id?: string            // Batch that triggered the credit
+  used_in_batch_id?: string           // Batch that consumed the credit
   is_active: boolean
-}
-```
-
-### EPG Payment (Elavon)
-
-```typescript
-interface EpgOrder {
-  id: string
-  href: string
-  total: { amount: string; currencyCode: string }
-  customReference: string | null       // batchId
-}
-
-interface EpgPaymentSession {
-  id: string
-  href: string
-  url: string                          // Hosted payment page URL
-  transaction?: string | null
-  state?: string
-  hostedCard?: { href: string } | null
-  hostedAchPayment?: { href: string } | null
-}
-
-interface EpgTransaction {
-  id: string
-  href: string
-  type: 'sale' | 'void' | 'refund'
-  isAuthorized: boolean
-  state: string
-  total: { amount: string; currencyCode: string }
-  customReference: string | null
-  authorizationCode?: string | null
-  card?: {
-    maskedNumber?: string | null
-    last4?: string | null
-    scheme?: string | null
-  } | null
-}
-
-interface EpgShopper {
-  id: string
-  href: string
-  fullName?: string | null
-  email?: string | null
-  customReference?: string | null      // familyId
-  createdAt: string
-  modifiedAt?: string | null
-}
-
-interface EpgStoredCard {
-  id: string
-  href: string
-  shopper: string                      // Parent shopper href
-  card?: {
-    maskedNumber?: string | null
-    last4?: string | null
-    scheme?: string | null
-    expirationMonth?: number | null
-    expirationYear?: number | null
-  } | null
-  credentialOnFileType?: string | null
-  customReference?: string | null
-  createdAt: string
-  modifiedAt?: string | null
-}
-
-interface EpgStoredAchPayment {
-  id: string
-  href: string
-  shopper: string
-  last4?: string | null
-  achAccountType?: string | null
-  accountName?: string | null
-  achFingerprint?: string | null
-  customReference?: string | null
-  createdAt: string
-  modifiedAt?: string | null
-}
-
-interface InstallmentCharge {
-  id: string
-  installment_id: string
-  payment_session_id?: string
-  transaction_id?: string
-  state: 'initiated' | 'pending' | 'authorized' | 'captured' | 'settled'
-       | 'declined' | 'failed'
-  error_reason?: string | null
-  created_at: string
-  updated_at: string
 }
 ```
 
 ---
 
-## 4. Database Schema (Supabase PostgreSQL — 41 migrations)
+## 4. Database Schema (Supabase PostgreSQL — 42+ migrations)
 
 ### Core Tables
 
 | Table | Purpose |
 |-------|---------|
-| users | Auth + profile + address; role = super_admin / admin / parent |
-| families | Family grouping with family_name |
+| users | Auth + profile + address + SMS opt-in; role = super_admin / admin / parent |
+| families | Family grouping with `family_name` column |
 | dancers | Student records, linked to users via join table |
-| semesters | Enrollment periods (draft → published → archived); stores registration_form, confirmation_email, waitlist_settings as JSONB |
+| semesters | Enrollment periods (draft → published → archived); JSONB: registration_form, confirmation_email, waitlist_settings |
 | classes | Curriculum units (discipline, division, visibility, enrollment_type) |
-| class_sessions | Time slots within a class (day, time, capacity, instructor, dates) |
+| class_sessions | Time slots (day, time, capacity, instructor, dates) |
 | session_occurrence_dates | Individual calendar dates for absence tracking |
 | session_groups | Bundled class offerings |
-| registrations | Student enrollments (30-min hold logic, status = pending/confirmed/cancelled) |
-| registration_batches | Multi-registrant checkout with cart_snapshot JSONB, form_data_snapshot JSONB (NEW) |
-| batch_payment_installments | Auto-pay schedule (installment_number, amount, due_date, status) |
+| registrations | Student enrollments (30-min hold, status = pending/confirmed/cancelled) |
+| registration_batches | Multi-registrant checkout with cart_snapshot + form_data_snapshot JSONB |
+| batch_payment_installments | Auto-pay schedule (installment_number, amount, due_date, status, charge tracking) |
 | payments | EPG payment state + raw_notification + raw_transaction JSONB |
 | installment_charges | Per-charge tracking for recurring auto-pay attempts |
+| shoppers | EPG customer records (linked to user_id) |
+| stored_payment_methods | Card/ACH records (type discriminator, masked data only) |
 | family_account_credits | Dollar credits issued by admin; linked to source/used batches |
 | tuition_rate_bands | Progressive pricing by division + weekly class count |
 | special_program_tuition | Fixed fees for technique/pointe/competition/early_childhood |
-| semester_fee_config | Per-semester fee constants (reg fee, family discount, video fee, costume fee) |
-| waitlist_entries | Capacity overflow management with token-based invite acceptance |
+| semester_fee_config | Per-semester fee constants |
+| waitlist_entries | Capacity overflow management with token-based invite |
 | emails | Broadcast email records with TipTap JSON body |
 | email_recipients | Snapshotted recipient list at send time |
 | email_deliveries | Per-recipient delivery tracking via Resend webhooks |
 | email_subscriptions | Opt-in/opt-out tracking |
+| sms_notifications | SMS delivery records (twilio_sid, status, error_message) |
 | discounts / semester_discounts | Global discount definitions linked to semesters |
 | media_images | Image library with folder organization |
-| requirement_waivers | Audition/acceptance overrides |
-| authorized_pickups | Safe pickup tracking |
-| class_requirements | Prerequisite/recommendation rules |
+| media_folders | Folder structure for media organization |
 | semester_audit_logs | Admin action history |
 
 ### Key Indexes
-
 ```sql
 registrations(session_id, dancer_id, status)
 registrations(registration_batch_id)
@@ -759,17 +439,19 @@ waitlist_entries(session_id, status)
 session_occurrence_dates(session_id, date)
 email_recipients(email_id, user_id)
 email_deliveries(email_id, user_id, status)
+stored_payment_methods(shopper_id) WHERE stored_payment_method_id IS NOT NULL
 ```
 
 ### Database Functions & Triggers
-
 ```sql
 -- Auth
 handle_new_user()                    -- Auto-creates family + user on Supabase signup
-is_admin_or_super()
-is_super_admin()
+is_admin_or_super()                  -- RLS helper: role IN ('admin','super_admin')
+is_super_admin()                     -- RLS helper: role = 'super_admin'
+is_instructor()                      -- RLS helper: role = 'instructor'
 
 -- Registration
+check_registration_capacity()        -- Enforces session capacity at DB level
 check_registration_time_conflict()   -- Prevents overlapping session times
 prevent_child_modification_if_semester_published()
 prevent_semester_core_edit_if_published()
@@ -788,15 +470,43 @@ process_scheduled_emails()           -- Dispatches scheduled sends
 
 1. **Signup:** Email/password → Supabase Auth → `handle_new_user()` trigger creates `users` + `families` row
 2. **Login:** Email + password → Supabase Auth → JWT in httpOnly cookie (via `updateSession()` in middleware)
-3. **Admin Guard:** `app/admin/layout.tsx` checks `users.role === 'super_admin'` → 401 if not
+3. **Middleware Guard:** `utils/supabase/middleware.ts` server-side check for `/admin` paths → redirects unauthenticated or non-admin users before page renders
+4. **Client Guard:** `app/admin/layout.tsx` defense-in-depth check for `role IN ['admin', 'super_admin']`
+5. **Server-side Guard:** `utils/requireAdmin.ts` verifies `role IN ['admin', 'super_admin']` for server actions + API routes
 
 ### Roles
 
 | Role | Access |
 |------|--------|
 | super_admin | Full admin portal access |
-| admin | (Future: limited admin access) |
+| admin | Full admin portal access |
+| instructor | Read-only access to assigned classes/sessions (via `class_sessions.instructor_id`) |
 | parent | User-facing portal only |
+
+### Supabase Clients
+
+```typescript
+// utils/supabase/server.ts — for server components + server actions
+createClient()           // Uses anon key + cookie auth → RLS ENFORCED
+
+// utils/supabase/admin.ts — for privileged server actions + webhooks
+createAdminClient()      // Uses service role key → BYPASSES RLS
+
+// utils/supabase/client.ts — for client components
+createBrowserClient()    // Uses anon key → RLS ENFORCED
+```
+
+### Row-Level Security (RLS)
+
+**39 tables** have RLS enabled with role-based policies (as of migration `20260323000001`). Key patterns:
+
+- **Admins** (`is_admin_or_super()`): full CRUD on all admin-managed tables
+- **Parents**: read own family/payment/installment data (scoped via `registration_batches.parent_id` or `dancers.family_id`), read published catalog (classes, sessions, fees, requirements)
+- **Instructors** (`is_instructor()`): read-only on classes/sessions/occurrence dates where `class_sessions.instructor_id = auth.uid()`
+- **Service role**: full bypass (used in webhooks, cron jobs, edge functions)
+- **Public**: read published semesters + sessions + discounts + fee config + tuition bands
+
+Previously 9 tables lacked RLS (payments, batch_payment_installments, class_sessions, classes, class_requirements, requirement_waivers, semester_fee_config, session_occurrence_dates, tuition_rate_bands). All were secured in the March 23 migration.
 
 ---
 
@@ -811,48 +521,62 @@ GET  /register/participants      — Dancer assignment step
 GET  /register/payment           — EPG hosted checkout redirect
 GET  /register/confirmation      — Success page
 GET  /waitlist/accept/[token]    — Token-based waitlist acceptance
-GET  /family                     — Family dashboard
 GET  /audition/[token]           — Audition/invite acceptance
+GET  /family                     — Family dashboard
+GET  /profile                    — User profile (inline editing + SMS)
 ```
 
 ### Admin Routes
 ```
-GET  /admin                      — Dashboard landing page
+GET  /admin                      — Dashboard landing (registrations, metrics, people)
 GET  /admin/semesters            — Semester listing
 GET  /admin/semesters/new        — New semester creation (9-step wizard)
 GET  /admin/semesters/[id]/edit  — Semester editor
 GET  /admin/semesters/[id]/dashboard — Semester stats
 GET  /admin/classes              — Class listing
 GET  /admin/families             — Family listing
-GET  /admin/families/[id]        — Family detail (new)
+GET  /admin/families/[id]        — Family detail (parents, dancers, inline editing)
 GET  /admin/payments             — Payment tracking dashboard
-GET  /admin/emails               — Email broadcast listing
-GET  /admin/credits              — Family account credits
+GET  /admin/emails               — Email broadcast listing + analytics
+GET  /admin/credits              — Family account credits management
+GET  /admin/media                — Media library (images, PDFs, folders)
+GET  /admin/sessions             — Session management
 ```
 
 ### JSON API Endpoints
 ```
-POST   /api/register/batch-status    — Poll registration batch status
-GET    /api/media                    — List media
-POST   /api/media                    — Create media record
-DELETE /api/media/[id]               — Delete media
-POST   /api/upload-image             — Image upload (multipart/form-data)
-POST   /api/webhooks/epg             — EPG payment webhook (Phase 4)
-POST   /api/webhooks/resend          — Resend delivery tracking
-POST   /api/webhooks/twilio          — Twilio SMS callback (Phase 5)
+GET    /api/register/batch-status    — Poll registration batch status (auth + ownership)
+GET    /api/media                    — List media images (admin auth required)
+POST   /api/media                    — Create media record (admin auth required)
+PATCH  /api/media/[id]               — Update media metadata (admin auth required)
+DELETE /api/media/[id]               — Delete media (admin auth required)
+GET    /api/media/folders            — List folders (admin auth required)
+POST   /api/media/folders            — Create folder (admin auth required)
+DELETE /api/media/folders/[name]     — Delete folder (admin auth required)
+POST   /api/upload-image             — Image upload, 5MB, MIME validated (admin auth required)
+POST   /api/upload-pdf               — PDF upload, 10MB (admin auth required)
+POST   /api/webhooks/epg             — EPG payment webhook (HTTP Basic auth, mandatory)
+POST   /api/webhooks/resend          — Resend delivery tracking (Svix signature, mandatory)
+POST   /api/webhooks/twilio          — Twilio SMS callback (Twilio signature, mandatory)
 ```
 
 ---
 
-## 7. Rate Limiting (middleware.ts + utils/ratelimit.ts)
+## 7. Middleware (middleware.ts + utils/supabase/middleware.ts + utils/ratelimit.ts)
 
-```typescript
-// Applied per IP via Upstash Redis
-getWebhookLimiter()    // /api/webhooks   — 10 req/min
-getUploadLimiter()     // /api/upload-*   — 5 req/min
-getMediaLimiter()      // /api/media      — 20 req/min
-getRegisterLimiter()   // /api/register   — 10 req/min
-```
+### Request Flow
+1. **Rate limiting** — per-IP via Upstash Redis sliding window:
+   ```
+   /api/webhooks   → 100 req/60s
+   /api/upload-*   → 10 req/60s
+   /api/media      → 60 req/60s
+   /api/register   → 30 req/60s
+   ```
+2. **Session refresh** — `updateSession()` creates Supabase client, refreshes auth cookies
+3. **Admin route protection** — for `/admin` paths:
+   - No user → redirect to `/auth`
+   - User without `admin` or `super_admin` role → redirect to `/`
+4. **Security headers** — HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-XSS-Protection
 
 ---
 
@@ -864,8 +588,8 @@ getRegisterLimiter()   // /api/register   — 10 req/min
 |----------|---------|----------------|
 | AuthProvider | Memory | Supabase auth state, user info, sign-out |
 | CartProvider | localStorage (2hr TTL) | Cart items, addItem(), removeItem(), clear() |
-| RegistrationProvider | sessionStorage | Multi-step wizard: email, participants, form data, batch ID |
-| SemesterDataProvider | Memory (hydrated from server) | Semester + sessions data during browsing |
+| RegistrationProvider | sessionStorage | Multi-step wizard: email, participants, form data, batch ID, fingerprint |
+| SemesterDataProvider | Memory (hydrated) | Semester + sessions data during browsing |
 
 ### Semester Editor State (SemesterForm.tsx)
 
@@ -878,7 +602,7 @@ useEffect(() => {
 }, [isDirty])
 
 // On step change:
-await persistSemesterDraft(state)
+await persistSemesterDraft(state)  // Full sync of sessions, groups, plans, discounts
 navigate(nextStep)
 ```
 
@@ -897,31 +621,40 @@ Centralized pricing calculation supporting:
 - **Video fees:** $15/registrant (senior only)
 - **Family discount:** $50 off when 2+ dancers register
 
+Key functions: `validateWeeklyLimit()`, `isSpecialProgramClass()`, `getSpecialProgramKey()`, `calculateClassTuition()`
+
+### EPG API Client (utils/payment/epg.ts)
+
+HTTP Basic auth against Elavon REST API (~420 lines, server-only):
+```typescript
+createEpgOrder()                // Create order with amount + batchId
+createEpgPaymentSession()       // Get hosted checkout URL (doCapture, doThreeDSecure)
+fetchEpgPaymentSession()        // Re-fetch existing session (idempotency)
+fetchEpgTransaction()           // Query authoritative transaction state
+createEpgShopper()              // Create customer profile (linked to user_id)
+fetchEpgShopperByReference()    // Find existing shopper
+createEpgStoredCard()           // Save card from hostedCard token
+createEpgStoredAchPayment()     // Save ACH from hostedAchPayment token
+createEpgTransaction()          // Server-to-server charge (installments)
+epgEventTypeToPaymentState()    // Map EPG events → internal states
+```
+
+### SMS (utils/sendSms.ts)
+
+```typescript
+sendSms(to, body)  // E.164 normalization, best-effort delivery, logs to sms_notifications
+```
+- Never throws — failures logged but don't block calling flows
+- Automatic logging to `sms_notifications` table with Twilio SID
+
 ### Email Token Replacement (utils/resolveEmailVariables.ts)
 
 ```typescript
 resolveEmailVariables(htmlBody, {
-  parent_name: "Jane Doe",
-  student_name: "Emma Doe",
-  semester_name: "Spring 2026",
-  session_name: "Ballet 101",
-  hold_until_datetime: "2026-03-17 14:00:00",
-  accept_link: "https://...",
-  unsubscribe_link: "https://...",
+  parent_name, student_name, semester_name, session_name,
+  hold_until_datetime, accept_link, unsubscribe_link, ...
 })
 // Unknown tokens preserved as {{key}} — safe for forward compatibility
-```
-
-### EPG API Client (utils/payment/epg.ts)
-
-HTTP Basic auth against Elavon REST API:
-```typescript
-createEpgOrder()              // Create order with amount + batchId
-createEpgPaymentSession()     // Get hosted checkout URL
-fetchEpgTransaction()         // Query transaction status
-createEpgShopper()            // Create customer profile
-createEpgStoredCard()         // Save card for recurring charges
-createEpgStoredAchPayment()   // Save ACH for recurring charges
 ```
 
 ---
@@ -932,51 +665,64 @@ createEpgStoredAchPayment()   // Save ACH for recurring charges
 
 ```
 1. User visits /semester/[id]
-   ├─ Server fetches semester + sessions
-   └─ Renders SessionGrid with CartDrawer
+   ├─ Server fetches semester + sessions (with daysOfWeek)
+   └─ Renders ClassCard grid with CartDrawer
 
 2. User adds sessions to cart
    ├─ CartProvider updates localStorage
    └─ TTL: now + 2 hours
 
 3. User clicks Checkout → /register
-   ├─ Step 1: Email entry
+   ├─ Step 1: Email entry (auth lookup / magic link)
    ├─ Step 2: Participants (select/create dancers, assign to sessions)
-   ├─ Step 3: Dynamic form (semester-specific questions)
-   ├─ Step 4: Payment (EPG hosted checkout)
+   │          Custom questions rendered per session
+   ├─ Step 3: Dynamic form (semester-specific registration form JSONB)
+   ├─ Step 4: Payment
+   │   ├─ Pricing computed server-side (tuition engine)
+   │   ├─ Coupon validation (validateCoupon server action)
+   │   ├─ Payment plan selection (full-pay vs installments)
+   │   ├─ RegistrationBatch created (status='pending')
+   │   ├─ EPG order + payment session created
+   │   └─ User redirected to EPG hosted checkout page
    └─ Step 5: Confirmation
 
-4. On payment success
-   ├─ Create RegistrationBatch (status='confirmed')
-   ├─ Create Registration rows (1 per dancer-session pair)
-   ├─ Send confirmation email
-   └─ Clear cart + redirect to /register/confirmation
+4. EPG webhook (on payment success)
+   ├─ Validate HTTP Basic auth (timing-safe)
+   ├─ Fetch authoritative transaction from EPG
+   ├─ Update Payment record state
+   ├─ Full-pay: confirmBatch() immediately
+   ├─ Installments: store card → charge installment 1 → confirmBatch()
+   └─ confirmBatch():
+       ├─ batch.status = 'confirmed'
+       ├─ Registration rows created (1 per dancer-session pair)
+       ├─ Installment 1 marked paid
+       └─ Send confirmation email
 ```
 
-### Admin Semester Creation (9-step wizard)
+### EPG Payment Processing (Full-Pay vs Installments)
 
 ```
-Step 1: Details (name, description, dates)
-Step 2: Sessions (day, time, capacity, instructor)
-Step 3: Session Groups (bundling)
-Step 4: Payment Plan (pay-in-full vs installments)
-Step 5: Discounts (link global discount rules)
-Step 6: Registration Form (dynamic field builder)
-Step 7: Confirmation Email (TipTap rich text)
-Step 8: Waitlist Settings (enabled, expiry, stop window)
-Step 9: Review + Publish
+FULL-PAY (doCapture: true)
+  EPG HPP charges immediately → webhook → confirmBatch()
 
-Each step calls persistSemesterDraft() server action which:
-├─ Updates all semester fields
-├─ Syncs sessions (deletes removed, upserts existing)
-├─ Syncs session groups
-├─ Syncs payment plan
-└─ Syncs discounts
+INSTALLMENTS (doCapture: false)
+  EPG HPP authorizes (no charge) → webhook (saleAuthorized)
+    → storePaymentMethodAndCaptureInstallment():
+      1. Fetch hostedCard/hostedAchPayment token from session
+      2. Create or find EPG Shopper (linked to user_id)
+      3. Create Stored Card or Stored ACH from token
+      4. Charge installment 1 server-to-server
+         ├─ If authorized: confirmBatch() + mark installment 1 paid
+         └─ If declined: log error, leave batch pending (admin retry)
+      5. Link stored method to batch for future charges
 
-On publish:
-├─ Changes status to 'published'
-├─ Locks further editing (DB triggers)
-└─ Semester becomes visible to users
+AUTO-PAY (process-overdue-payments edge function, daily cron)
+  1. Find installments WHERE status='scheduled' AND due_date < today
+  2. Mark as 'overdue'
+  3. Charge via stored payment method (up to 3 attempts)
+  4. On success: mark 'paid', send receipt email + SMS
+  5. On final failure: mark 'failed', alert admin
+  6. Send admin summary email
 ```
 
 ### Email Broadcast
@@ -987,17 +733,23 @@ On publish:
    └─ Selects recipients: semester | session | manual
 
 2. Admin schedules or sends immediately
-   ├─ snapshot recipients → email_recipients table
+   ├─ Snapshot recipients → email_recipients table
    └─ status = 'scheduled' | 'sending'
 
-3. pg_cron every 1min triggers process-scheduled-emails edge fn
-   ├─ resolveEmailVariables() — token replacement
-   ├─ prepareEmailHtml() — Outlook normalization
-   ├─ resend.emails.send() — dispatch
+3. process-scheduled-emails edge fn (pg_cron every 1min)
+   ├─ Atomically claim: status → 'sending' (prevents double-send)
+   ├─ Invoke send-email-broadcast for each email
+   └─ Mark 'sent' only AFTER broadcast confirms completion
+
+4. send-email-broadcast edge fn
+   ├─ Process in batches of 100 (Promise.allSettled)
+   ├─ resolveEmailVariables() for each recipient
+   ├─ prepareEmailHtml() for Outlook compatibility
+   ├─ resend.emails.send() for delivery
    └─ Upsert email_deliveries with resend_message_id
 
-4. Resend webhook → /api/webhooks/resend
-   └─ Updates email_deliveries.status + timestamps
+5. Resend webhook → /api/webhooks/resend
+   └─ Updates email_deliveries: delivered, bounced, opened, clicked
 ```
 
 ### Waitlist Automation
@@ -1005,60 +757,36 @@ On publish:
 ```
 pg_cron every 1 minute → process-waitlist edge function
 
-For each session with capacity:
-├─ COUNT(active registrations) < capacity?
-├─ No active 'invited' entry?
-├─ Within stopDaysBeforeClose window?
-└─ Fetch next waiting entry (ORDER BY position)
-
-    → Update entry status='invited'
-    → Send invitation email with token
-       ├─ Token: SHA256(invite_token)
-       ├─ Link: /waitlist/accept/[token]
-       └─ Expires: now + inviteExpiryHours
+Step 1: Expire seat holds (registrations WHERE status='pending' AND hold_expires_at < now)
+Step 2: Expire stale invites (waitlist_entries WHERE status='invited' AND expired)
+Step 3: For each session with capacity:
+  ├─ One-at-a-time rule: no active 'invited' entry
+  ├─ Check available capacity
+  ├─ Fetch next waiting entry (ORDER BY position)
+  ├─ Update status → 'invited'
+  ├─ Send invitation email (token link)
+  └─ Send SMS if opted in
 
 User visits /waitlist/accept/[token]
-├─ Validate token
-├─ Create registration (status='pending')
-├─ Set 30-min hold (hold_expires_at)
-└─ Update entry status='accepted'
-
-If hold expires:
-├─ pg_cron releases pending registration
-├─ Capacity released
-└─ Next waitlist entry invited
+  ├─ Validate token (not expired, status='invited')
+  ├─ Create registration (status='pending', 30-min hold)
+  └─ Update entry → 'accepted'
 ```
 
-### EPG Payment Processing (Phase 4)
+### SMS Notifications
 
 ```
-1. User completes registration → clicks "Pay Now"
+Event triggers (waitlist invite, overdue payment, etc.)
+  ├─ Check user.sms_opt_in AND user.sms_verified
+  ├─ sendSms(phone, message) — best-effort, never throws
+  ├─ Log to sms_notifications table
+  └─ Twilio webhook → /api/webhooks/twilio updates delivery status
 
-2. Backend:
-   ├─ calculateTotalAmount()
-   ├─ Create RegistrationBatch (status='pending')
-   ├─ Create Payment record (state='initiated')
-   └─ createEpgOrder() + createEpgPaymentSession()
-      → Returns hosted checkout URL
-
-3. User fills in card/ACH on EPG hosted page
-   └─ EPG redirects to /register/confirmation?batch_id=...
-
-4. EPG sends webhook → /api/webhooks/epg
-   ├─ Validate HTTP Basic auth (constant-time compare)
-   ├─ Fetch full transaction from EPG (never trust webhook body alone)
-   ├─ Map event type → payment state
-   ├─ Update Payment record (state, raw_transaction)
-   │
-   └─ If captured/settled:
-       ├─ Create BatchPaymentInstallment rows (if auto-pay)
-       ├─ Update RegistrationBatch status='confirmed'
-       └─ Create Registration rows + send confirmation email
-
-5. Auto-pay installments (Phase 4)
-   ├─ Stored card/ACH used for future charges
-   ├─ Charges tracked in batch_payment_installments + installment_charges
-   └─ Admin can manually mark installment paid via /admin/payments
+User SMS Setup (profile page)
+  ├─ Toggle SMS opt-in
+  ├─ Enter phone number (E.164 normalized)
+  ├─ Receive verification code
+  └─ Confirm code → mark sms_verified
 ```
 
 ---
@@ -1074,18 +802,20 @@ SUPABASE_SERVICE_ROLE_KEY=
 # Email (Resend)
 RESEND_API_KEY=
 RESEND_FROM_EMAIL=
+RESEND_WEBHOOK_SECRET=           # Svix signature verification
 
 # Payment (Elavon EPG)
-EPG_BASE_URL=                        # UAT or production
+EPG_BASE_URL=                    # UAT or production
 EPG_MERCHANT_ALIAS=
 EPG_SECRET_KEY=
 EPG_WEBHOOK_USERNAME=
 EPG_WEBHOOK_PASSWORD=
 
-# SMS (Twilio — Phase 5)
+# SMS (Twilio)
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_PHONE_NUMBER=
+TWILIO_WEBHOOK_AUTH_TOKEN=       # Webhook signature validation
 
 # Rate limiting (Upstash)
 UPSTASH_REDIS_REST_URL=
@@ -1094,6 +824,7 @@ UPSTASH_REDIS_REST_TOKEN=
 # Site
 NEXT_PUBLIC_BASE_URL=
 SITE_URL=
+ADMIN_NOTIFICATION_EMAIL=        # For auto-pay summaries
 ```
 
 ---
@@ -1110,6 +841,9 @@ export async function persistSemesterDraft(state) { ... }
 export async function publishSemester(id) { ... }
 export async function sendEmailNow(emailId) { ... }
 export async function markInstallmentPaid(installmentId) { ... }
+export async function createEPGPaymentSession(batchId, amount) { ... }
+export async function chargeStoredPaymentInstallment(installmentId) { ... }
+export async function issueAccountCredit(familyId, amount, reason) { ... }
 ```
 
 ### Form Management
@@ -1118,75 +852,52 @@ export async function markInstallmentPaid(installmentId) { ... }
 - **useReducer** for multi-step admin forms (SemesterForm, EmailForm)
 - **TipTap** for rich text email body editing
 - **Dynamic field builder** for semester registration forms (JSONB schema)
+- **Inline editing** for profile cards (field-level, no modals)
 
 ### Database Access Patterns
 
-- **Server components** call Supabase directly (with `createClient()` from server utils)
+- **Server components** call Supabase directly (with `createClient()` — anon key, RLS enforced)
 - **Server actions** use admin client (`createAdminClient()`) for privileged mutations
 - **Client components** use Supabase browser client for real-time or user-scoped queries
 - **No ORM** — raw Supabase query builder throughout
 
-### Supabase Clients
+### Admin UI Architecture
 
-```typescript
-// utils/supabase/server.ts — for server components + server actions
-createClient()           // Uses anon key + cookie auth
-
-// utils/supabase/admin.ts — for privileged server actions
-createAdminClient()      // Uses service role key (bypasses RLS)
-
-// utils/supabase/client.ts — for client components
-createBrowserClient()    // Uses anon key
-```
+- **TopBar** + optional **Right Panels** for context-aware actions
+- Collapsible sidebar navigation
+- Right panels per section: DashboardRightPanel, PaymentsRightPanel, EmailsRightPanel, etc.
+- Avatar color system (deterministic from name hash, 5-color palette)
+- Status badges: consistent styling for enrollment, email, credit, payment states
 
 ---
 
 ## 13. Key Files Reference
 
-| File | Purpose | Approx. Lines |
-|------|---------|---------------|
+| File | Purpose | Lines |
+|------|---------|-------|
 | types/index.ts | All domain types — single source of truth | ~1827 |
 | types/public.ts | Public-safe type subset | ~228 |
-| app/admin/layout.tsx | Admin shell + auth guard + sidebar nav | ~222 |
+| app/admin/layout.tsx | Admin shell + client-side auth guard + sidebar nav | ~212 |
 | app/admin/semesters/SemesterForm.tsx | Multi-step editor orchestrator | ~500 |
 | app/admin/page.tsx | Dashboard landing page | ~400 |
 | utils/tuitionEngine.ts | Pricing calculation engine | ~250 |
+| utils/payment/epg.ts | EPG REST API client | ~420 |
+| utils/sendSms.ts | Twilio SMS integration | ~100 |
 | utils/resolveEmailVariables.ts | Token replacement utility | ~100 |
-| utils/payment/epg.ts | EPG REST API client | ~500 |
 | queries/admin/index.ts | Admin data queries | ~500 |
-| queries/admin/getFamilyDetail.ts | Family detail query (new) | ~100 |
+| queries/admin/getFamilyDetail.ts | Family detail query | ~100 |
+| app/api/webhooks/epg/route.ts | EPG payment webhook handler | ~625 |
+| middleware.ts | Rate limiting + admin route guard + security headers | ~61 |
+| utils/supabase/middleware.ts | Session refresh + server-side admin auth + security headers | ~95 |
+| supabase/migrations/20260323000001_*.sql | RLS on 9 tables + instructor role + policies | ~290 |
 | supabase/migrations/20260302000000_baseline.sql | Core schema | 3123 |
 | supabase/functions/process-waitlist/index.ts | Waitlist automation cron | ~300 |
 | supabase/functions/send-email-broadcast/index.ts | Batch email sender | ~200 |
-| middleware.ts | Auth + rate limiting | ~61 |
+| supabase/functions/process-overdue-payments/index.ts | Auto-charge installments | ~487 |
 
 ---
 
-## 14. Known Issues & Risks
-
-### Critical
-1. **Email status marked `sent` before dispatch** — Silent send failure possible
-2. **Broadcast emails send empty `student_name`/`semester_name`** — Token substitution gap
-
-### High
-3. Discount computation location unclear (potential client-side manipulation risk)
-4. Payment confirmation mechanism needs audit (registration finalization safety)
-
-### Medium
-5. Non-atomic waitlist invite (crash leaves entry stuck as `invited`)
-6. TOCTOU race on waitlist capacity check
-7. Cart holds live session references — no price snapshot taken at add-to-cart time
-8. No optimistic locking for concurrent admin semester editing
-
-### Low
-9. DB trigger bug: `RETURN NEW` on DELETE trigger
-10. Three divergent token-replacement implementations across codebase
-11. Confirmation email JSONB has no version history
-12. Waitlist cron is sequential — bottleneck at scale
-
----
-
-## 15. Future Phases
+## 14. Development Phases
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -1194,20 +905,66 @@ createBrowserClient()    // Uses anon key
 | 2 | Semester pricing engine | Complete |
 | 3 | Tuition engine + fee config | Complete |
 | 4 | EPG payment integration (Elavon) | Complete (2026-03-16) |
-| 5 | SMS notifications (Twilio) | Planned |
-| 6 | Competition program enhancements | Planned |
-| 7 | Advanced reporting & analytics | Planned |
-| 8 | Student app / mobile integration | Planned |
+| 5 | SMS notifications (Twilio) | Code-complete; blocked on A2P carrier approval |
+| 6 | RLS policy hardening + instructor role | Complete (2026-03-23) |
+| 7 | Competition program enhancements | Planned |
+| 8 | Advanced reporting & analytics | Planned |
 
 ---
 
-## 16. Deployment
+## 15. Deployment
 
 - **App:** Next.js 16 deployed to **Vercel**
 - **Database:** **Supabase** hosted PostgreSQL (with pg_cron for scheduled jobs)
-- **Edge Functions:** **Supabase Functions** (Deno runtime) for waitlist + email crons
+- **Edge Functions:** **Supabase Functions** (Deno runtime) for waitlist + email + payment crons
 - **Email:** **Resend** API for transactional + broadcast email
-- **Payments:** **Elavon EPG** (hosted checkout + stored payment methods)
+- **Payments:** **Elavon EPG** (hosted checkout + stored cards/ACH + recurring)
 - **CDN:** Vercel Edge Network
 - **Redis:** **Upstash** for rate limiting
-- **SMS:** **Twilio** (Phase 5)
+- **SMS:** **Twilio** (pending A2P approval)
+
+---
+
+## 16. Integration Architecture
+
+### How EPG Works (for non-payment developers)
+
+Elavon Payment Gateway (EPG) is the payment processor. The integration uses a **hosted payment page** (HPP) model, which means:
+
+1. **Your server creates an "order"** with the amount and a reference ID (the batch ID).
+2. **Your server creates a "payment session"** linked to that order. EPG returns a URL.
+3. **The user is redirected to that URL** — an Elavon-hosted page where they enter their card or ACH info. Your application never sees or handles raw card numbers.
+4. **Elavon processes the payment** and sends a webhook notification to your server.
+5. **Your webhook handler** receives the notification, re-fetches the authoritative transaction state from Elavon (never trusting the webhook payload alone), and updates your database.
+
+For **installment plans**, the HPP authorizes but doesn't charge (doCapture: false). Instead, it returns a one-time token that your server exchanges for a "stored card" or "stored ACH" — a persistent reference Elavon keeps. Future charges use this stored reference via server-to-server API calls, no user interaction needed.
+
+### How SMS Works (for non-Twilio developers)
+
+Twilio handles SMS delivery. The integration:
+
+1. **Sends SMS** via Twilio's API with the recipient's phone number and message body.
+2. **Logs the attempt** in the `sms_notifications` table with the Twilio message SID.
+3. **Receives status updates** via webhook when Twilio reports delivery, failure, or undelivery.
+4. **SMS is always best-effort** — failures never block the calling workflow (payment confirmations, waitlist invites, etc.).
+
+Users must **opt in** (toggle in profile) and **verify their phone** (receive a code) before receiving SMS.
+
+**Carrier compliance**: Twilio requires A2P 10DLC brand + campaign registration (~$39, ~1 week approval) before production SMS delivery. Code is complete; this is an external approval dependency.
+
+### How Email Broadcasting Works (for non-email developers)
+
+Resend is the transactional email provider. Broadcasting works in stages:
+
+1. **Admin composes** an email using a TipTap rich text editor with template variables (e.g., `{{parent_name}}`).
+2. **Admin selects recipients** by semester, session, or manual list.
+3. **On schedule/send**, recipients are **snapshotted** into a frozen list (preventing mid-send drift).
+4. **A cron job** picks up scheduled emails, atomically claims them (status → "sending"), and invokes a Deno edge function.
+5. **The edge function** processes recipients in batches of 100, replacing template variables and calling the Resend API.
+6. **Resend webhooks** report delivery status back (delivered, bounced, opened, clicked) per recipient.
+
+---
+
+_Updated: March 22, 2026_
+_System: AYDT Registration Admin Portal_
+_Document type: Living reference architecture_
