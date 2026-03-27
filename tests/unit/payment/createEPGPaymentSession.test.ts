@@ -108,7 +108,7 @@ function makeSupabaseMock(opts: {
 
   const user = authenticated ? { id: USER_ID } : null;
 
-  const batchData   = batchStatus === null ? null : { id: BATCH_ID, status: batchStatus };
+  const batchData   = batchStatus === null ? null : { id: BATCH_ID, status: batchStatus, amount_due_now: 100.0, grand_total: 100.0 };
   const batchChain  = makeChain({ singleResult: { data: batchData, error: batchStatus === null ? { code: "PGRST116" } : null } });
 
   const paymentChain = makeChain({ maybeSingleResult: { data: existingPayment } });
