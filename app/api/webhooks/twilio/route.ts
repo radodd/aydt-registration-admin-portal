@@ -15,15 +15,19 @@ export async function POST(request: NextRequest) {
   const body = await request.text();
   const params = Object.fromEntries(new URLSearchParams(body));
 
+  // Require webhook auth token — reject all requests if not configured
   const authToken = process.env.TWILIO_WEBHOOK_AUTH_TOKEN;
-  if (authToken) {
-    const signature = request.headers.get("x-twilio-signature") ?? "";
-    // URL must match exactly what is configured in the Twilio Console
-    const url = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/twilio`;
-    const valid = validateRequest(authToken, signature, url, params);
-    if (!valid) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-    }
+  if (!authToken) {
+    console.error("[twilio-webhook] TWILIO_WEBHOOK_AUTH_TOKEN not configured — rejecting request");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+  }
+
+  const signature = request.headers.get("x-twilio-signature") ?? "";
+  // URL must match exactly what is configured in the Twilio Console
+  const url = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/twilio`;
+  const valid = validateRequest(authToken, signature, url, params);
+  if (!valid) {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   return handleTwilioEvent(params);
