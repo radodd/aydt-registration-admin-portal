@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-function serviceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
-}
+import { requireAdmin } from "@/utils/requireAdmin";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ name: string }> },
 ) {
+  try {
+    await requireAdmin();
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { name } = await params;
-  const supabase = serviceClient();
+  const supabase = createAdminClient();
 
   // Block deletion if folder contains images
   const { count, error: countError } = await supabase
