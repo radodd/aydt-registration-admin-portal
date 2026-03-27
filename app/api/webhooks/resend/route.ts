@@ -28,38 +28,37 @@ const EVENT_STATUS: Record<
 };
 
 export async function POST(request: NextRequest) {
-  // Verify webhook secret
+  // Require webhook secret — reject all requests if not configured
   const secret = process.env.RESEND_WEBHOOK_SECRET;
-  if (secret) {
-    const signature = request.headers.get("svix-signature");
-    const msgId = request.headers.get("svix-id");
-    const msgTimestamp = request.headers.get("svix-timestamp");
-
-    if (!signature || !msgId || !msgTimestamp) {
-      return NextResponse.json({ error: "Missing signature headers" }, { status: 401 });
-    }
-
-    // Svix signature verification
-    try {
-      const { Webhook } = await import("svix");
-      const wh = new Webhook(secret);
-      const body = await request.text();
-      wh.verify(body, {
-        "svix-id": msgId,
-        "svix-timestamp": msgTimestamp,
-        "svix-signature": signature,
-      });
-      // Parse after verification
-      const event: ResendEvent = JSON.parse(body);
-      return await handleEvent(event);
-    } catch {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-    }
+  if (!secret) {
+    console.error("[resend-webhook] RESEND_WEBHOOK_SECRET not configured — rejecting request");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
   }
 
-  // No secret configured — still process (dev/staging without verification)
-  const event: ResendEvent = await request.json();
-  return await handleEvent(event);
+  const signature = request.headers.get("svix-signature");
+  const msgId = request.headers.get("svix-id");
+  const msgTimestamp = request.headers.get("svix-timestamp");
+
+  if (!signature || !msgId || !msgTimestamp) {
+    return NextResponse.json({ error: "Missing signature headers" }, { status: 401 });
+  }
+
+  // Svix signature verification
+  try {
+    const { Webhook } = await import("svix");
+    const wh = new Webhook(secret);
+    const body = await request.text();
+    wh.verify(body, {
+      "svix-id": msgId,
+      "svix-timestamp": msgTimestamp,
+      "svix-signature": signature,
+    });
+    // Parse after verification
+    const event: ResendEvent = JSON.parse(body);
+    return await handleEvent(event);
+  } catch {
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  }
 }
 
 async function handleEvent(event: ResendEvent): Promise<NextResponse> {

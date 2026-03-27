@@ -8,10 +8,11 @@ import {
   RegistrationProvider,
   useRegistration,
 } from "@/app/providers/RegistrationProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import { CartRestoreGuard } from "../CartRestoreGuard";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
 import { buildDynamicFormSchema } from "@/lib/schemas/registration";
-import type { RegistrationFormElement } from "@/types";
+import type { RegistrationFormElement, ProfileFieldKey } from "@/types";
 import type { PublicSemester } from "@/types/public";
 
 /* -------------------------------------------------------------------------- */
@@ -168,28 +169,86 @@ export function FormContent({
 }) {
   const router = useRouter();
   const { state, setFormData } = useRegistration();
+  const { userRecord } = useAuth();
 
   const [semester, setSemester] = useState<PublicSemester | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!semesterId) {
+      console.error("[FormContent] No semesterId provided");
+      setFetchError("No semester selected.");
+      setLoading(false);
+      return;
+    }
     getSemesterForDisplay(semesterId, mode)
-      .then(setSemester)
+      .then((data) => {
+        console.log(
+          "[FormContent] Semester loaded. registrationForm element count:",
+          data.registrationForm?.length ?? 0,
+          "| raw registrationForm:",
+          JSON.stringify(data.registrationForm),
+        );
+        setSemester(data);
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[FormContent] Failed to load semester:", msg);
+        setFetchError(msg);
+      })
       .finally(() => setLoading(false));
   }, [semesterId, mode]);
 
   const elements = semester?.registrationForm ?? [];
+
+  // Build the schema only once data has loaded so the resolver reflects the
+  // actual form shape. Re-compute on every render so that react-hook-form
+  // always validates against the latest schema.
   const schema = buildDynamicFormSchema(elements);
 
   const {
     register,
     control,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
     defaultValues: state.formData as Record<string, unknown>,
   });
+
+  // After semester loads, seed any profileField-mapped questions from the
+  // logged-in user's profile. state.formData takes precedence so previously
+  // entered answers are never overwritten.
+  useEffect(() => {
+    if (!semester || elements.length === 0) return;
+
+    const profileMap: Partial<Record<ProfileFieldKey, string | undefined>> = {
+      parent_first_name:    userRecord?.first_name    ?? undefined,
+      parent_last_name:     userRecord?.last_name     ?? undefined,
+      parent_email:         userRecord?.email         ?? undefined,
+      parent_phone:         userRecord?.phone_number  ?? undefined,
+      parent_address_line1: userRecord?.address_line1 ?? undefined,
+      parent_address_line2: userRecord?.address_line2 ?? undefined,
+      parent_city:          userRecord?.city          ?? undefined,
+      parent_state:         userRecord?.state         ?? undefined,
+      parent_zipcode:       userRecord?.zipcode       ?? undefined,
+    };
+
+    const profileSeeded: Record<string, unknown> = {};
+    for (const el of elements) {
+      if (el.profileField && profileMap[el.profileField]) {
+        profileSeeded[el.id] = profileMap[el.profileField];
+      }
+    }
+
+    // Only reset if there's actually something to seed
+    if (Object.keys(profileSeeded).length > 0) {
+      reset({ ...profileSeeded, ...state.formData });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semester]);
 
   function onSubmit(data: Record<string, unknown>) {
     setFormData(data);
@@ -206,8 +265,30 @@ export function FormContent({
     );
   }
 
+  if (fetchError) {
+    return (
+      <div className="text-center py-10">
+        <p className="text-red-600 mb-2 font-medium">
+          Could not load registration form
+        </p>
+        <p className="text-neutral-400 text-sm mb-4">{fetchError}</p>
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="text-primary-600 hover:underline text-sm"
+        >
+          ← Go back
+        </button>
+      </div>
+    );
+  }
+
   if (elements.length === 0) {
-    // No form elements — skip this step automatically
+    // No form elements configured — skip this step
+    console.log(
+      "[FormContent] registrationForm is empty — showing skip screen. semesterId:",
+      semesterId,
+    );
     return (
       <div className="text-center py-10">
         <p className="text-neutral-500 mb-4">

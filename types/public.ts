@@ -38,6 +38,8 @@ export interface PublicSession {
   location?: string | null;
 
   scheduleDate: string;
+  /** Days of week from the parent schedule (e.g. ["saturday"]) — used when scheduleDate is null */
+  daysOfWeek?: string[] | null;
   startTime?: string | null;
   endTime?: string | null;
 

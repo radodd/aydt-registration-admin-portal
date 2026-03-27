@@ -18,7 +18,7 @@ export interface User {
   last_name: string;
   phone_number: string;
   is_primary_parent: boolean;
-  role: string;
+  role: "admin" | "super_admin" | "parent" | "instructor";
   status: string;
   created_at: string;
   display_name?: string | null;
@@ -237,6 +237,7 @@ export interface ClassSession {
   end_date: string | null;      // "YYYY-MM-DD"
   location: string | null;
   instructor_name: string | null;
+  instructor_id: string | null;
   capacity: number | null;
   registration_close_at: string | null;
   is_active: boolean;
@@ -910,6 +911,17 @@ export type TextBlockFormatting = {
   link?: string;
 };
 
+export type ProfileFieldKey =
+  | "parent_first_name"
+  | "parent_last_name"
+  | "parent_email"
+  | "parent_phone"
+  | "parent_address_line1"
+  | "parent_address_line2"
+  | "parent_city"
+  | "parent_state"
+  | "parent_zipcode";
+
 export type RegistrationFormElement = {
   id: string;
   type: RegistrationElementType;
@@ -922,6 +934,9 @@ export type RegistrationFormElement = {
   instructionalText?: string;
   options?: string[]; // for select/checkbox
   sessionIds?: string[]; // applicability
+
+  // Auto-fill from parent profile for logged-in users
+  profileField?: ProfileFieldKey | null;
 
   // Subheader fields
   subtitle?: string;
@@ -1761,7 +1776,7 @@ export interface FamilyDetailParent {
   email: string;
   phone_number: string | null;
   is_primary_parent: boolean;
-  role: string;
+  role: "admin" | "super_admin" | "parent" | "instructor";
   status: string;
   address_line1: string | null;
   address_line2: string | null;
@@ -1830,3 +1845,45 @@ export interface FamilyDetail {
 export type FocusTarget =
   | { type: "parent"; id: string }
   | { type: "dancer"; id: string };
+
+/* -------------------------------------------------------------------------- */
+/* Reports Domain                                                              */
+/* -------------------------------------------------------------------------- */
+
+export interface ReportRow {
+  id: string;
+  dancerName: string;
+  parentName: string;
+  seasonName: string;
+  sessionName: string;
+  age: number | null;
+  grade: string | null;
+  dateRegistered: string;
+  daysOfWeek: string;
+  location: string | null;
+  instructor: string | null;
+  familyId: string;
+  parentEmail: string;
+  parentPhone: string | null;
+  tuitionAmount: number;
+  discountTotal: number;
+  paymentPlanType: string;
+  registrationStatus: string;
+  balance: number;
+  dancerId: string;
+}
+
+export interface ReportFilter {
+  field: string;
+  value: string;
+  valueTo?: string; // for date-range filters
+}
+
+export interface ReportSemester {
+  id: string;
+  name: string;
+  status: string;
+  created_at: string;
+  start_date?: string | null;
+  end_date?: string | null;
+}

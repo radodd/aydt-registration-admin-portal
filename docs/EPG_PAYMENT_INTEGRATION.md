@@ -1,7 +1,7 @@
 # EPG Payment Integration — Development Reference
 
 Elavon Payment Gateway (EPG) REST API integration for AYDT registration platform.
-This document reflects the current implementation as of 2026-03-12 (last updated 2026-03-12).
+Created: 2026-03-25.
 
 ---
 
@@ -12,9 +12,9 @@ This document reflects the current implementation as of 2026-03-12 (last updated
 | 1    | `docs/EPG_PAYMENT_INTEGRATION.md` — this file                              | ✅ Done        |
 | 2    | `supabase/migrations/20260302000000_baseline.sql` — `payments` table DDL   | ✅ In baseline |
 | 2b   | `supabase/migrations/20260302000001_payments_unique_reference.sql`         | ✅ Done        |
-| 3    | `utils/payment/epg.ts` — EPG REST client                                   | ✅ Done        |
+| 3    | `utils/payment/epg.ts` — EPG REST client (Phase 1–4 functions)             | ✅ Done        |
 | 4    | `app/actions/createEPGPaymentSession.ts` — server action                   | ✅ Done        |
-| 5    | `app/api/webhooks/epg/route.ts` — webhook handler                          | ✅ Done        |
+| 5    | `app/api/webhooks/epg/route.ts` — webhook handler (full-pay + installment) | ✅ Done        |
 | 6    | `app/api/register/batch-status/route.ts` — polling endpoint                | ✅ Done        |
 | 7    | `app/(user-facing)/register/payment/page.tsx` — uses EPG action            | ✅ Done        |
 | 8    | `app/(user-facing)/register/confirmation/page.tsx` — polling guard         | ✅ Done        |
@@ -26,7 +26,10 @@ This document reflects the current implementation as of 2026-03-12 (last updated
 | —    | **Bug fix:** webhook batch status check (`"pending_payment"` → `"pending"`)| ✅ Fixed       |
 | —    | **Bug fix:** debug `console.log` + mislabeled error in server action        | ✅ Fixed       |
 | —    | Unit tests — 42 tests across 3 files in `tests/unit/payment/`              | ✅ Done        |
-| 14   | Apply migrations against Supabase instance                                  | ⬜ Pending     |
+| 3a   | `supabase/migrations/20260316000002_epg_stored_payment.sql` — `shoppers`, `stored_payment_methods` | ✅ Done |
+| 3b   | `supabase/migrations/20260316000003_installment_charge_tracking.sql` — installment tracking columns | ✅ Done |
+| 3c   | `app/actions/chargeStoredPaymentInstallment.ts` — manual/admin charge action | ✅ Done      |
+| 14   | Apply all migrations against Supabase instance                              | ⬜ Pending     |
 | 15   | Register webhook URL with Elavon merchant portal ⚠️ required before any payment confirms | ⬜ Manual step |
 | 16   | Sandbox test matrix                                                         | ⬜ Pending     |
 | 17   | Production credential confirmation (NA/USD with Elavon)                     | ⬜ Pending     |
@@ -238,6 +241,58 @@ CREATE TABLE public.payments (
 );
 ```
 
+### `shoppers` Table
+
+Defined in `supabase/migrations/20260316000002_epg_stored_payment.sql`.
+
+```sql
+CREATE TABLE public.shoppers (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id          uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  epg_shopper_id   text NOT NULL UNIQUE,
+  epg_shopper_href text NOT NULL,
+  full_name        text,
+  email            text,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  updated_at       timestamptz NOT NULL DEFAULT now()
+);
+```
+
+### `stored_payment_methods` Table
+
+```sql
+CREATE TABLE public.stored_payment_methods (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  shopper_id       uuid NOT NULL REFERENCES shoppers(id) ON DELETE CASCADE,
+  type             text NOT NULL CHECK (type IN ('card', 'ach')),
+  epg_stored_id    text NOT NULL UNIQUE,
+  epg_stored_href  text NOT NULL,
+  -- Card fields (null for ACH)
+  masked_number    text,
+  card_scheme      text,
+  card_last4       text,
+  expiration_month integer,
+  expiration_year  integer,
+  -- ACH fields (null for card)
+  ach_account_type text,
+  ach_last4        text,
+  account_name     text,
+  -- Shared
+  is_default       boolean NOT NULL DEFAULT false,
+  created_at       timestamptz NOT NULL DEFAULT now()
+);
+```
+
+`registration_batches.stored_payment_method_id` (FK added in same migration) points to the stored method used for this batch's installments.
+
+### `batch_payment_installments` — additional columns
+
+Added in `supabase/migrations/20260316000003_installment_charge_tracking.sql`:
+- `transaction_id text` — EPG transaction ID from the server-to-server charge
+- `charge_attempt_count int` — number of failed charge attempts; auto-charge stops at 3
+- `last_charge_error text` — most recent EPG failure code or error message
+- Status constraint extended to include `'failed'`
+
 ### Relevant columns on related tables
 
 **`registration_batches`** (written by webhook on confirmation):
@@ -254,6 +309,23 @@ CREATE TABLE public.payments (
 ---
 
 ## Webhook Handler Design
+
+### Two confirmation paths
+
+The webhook handler routes `saleAuthorized` (and `saleCaptured`/`saleSettled`) events differently based on `registration_batches.payment_plan_type`:
+
+**Full-pay path** (`payment_plan_type !== 'installments'`):
+Directly calls `confirmBatch()` — updates `registration_batches` → `registrations` → `batch_payment_installments[1]` → sends email.
+
+**Installment path** (`payment_plan_type === 'installments'`):
+Calls `storePaymentMethodAndCaptureInstallment()`, which:
+1. Fetches the payment session to retrieve the `hostedCard` (or `hostedAchPayment`) one-time token — only present because `doCapture: false` was set
+2. Finds or creates an EPG Shopper for the parent (by `customReference = user_id`)
+3. Creates a `StoredCard` or `StoredAchPayment` from the one-time token via `POST /stored-cards`
+4. Upserts `shoppers` + `stored_payment_methods` in DB
+5. Issues a server-to-server `POST /transactions` for installment 1 against the stored method
+6. If authorized: calls `confirmBatch()` using the S2S transaction ID
+7. If declined: logs, links stored method to batch anyway (admin can retry manually), batch stays unconfirmed
 
 ### Why we never trust the notification payload
 
@@ -341,6 +413,11 @@ All requests include `Accept-Version: 1` header per EPG spec.
 | `createEpgPaymentSession` | `POST /payment-sessions` | Create HPP session; get redirect URL |
 | `fetchEpgPaymentSession` | `GET /payment-sessions/{id}` | Re-fetch existing session for idempotency |
 | `fetchEpgTransaction` | `GET {transactionHref}` | Authoritative transaction fetch in webhook |
+| `createEpgShopper` | `POST /shoppers` | Create an EPG Shopper (linked to Supabase user_id) |
+| `fetchEpgShopperByReference` | `GET /shoppers?filter=customReference_eq_*` | Find existing Shopper by user_id |
+| `createEpgStoredCard` | `POST /stored-cards` | Persist a card on file from a hostedCard token |
+| `createEpgStoredAchPayment` | `POST /stored-ach-payments` | Persist an ACH on file from a hostedAchPayment token |
+| `createEpgTransaction` | `POST /transactions` | Server-to-server charge against a stored card or ACH |
 | `epgEventTypeToPaymentState` | — | Maps EPG event type strings to our `payments.state` values |
 
 ### HPP session parameters
@@ -352,11 +429,13 @@ All requests include `Accept-Version: 1` header per EPG spec.
   returnUrl: "...",
   cancelUrl: "...",
   doCreateTransaction: true,  // EPG handles the full sale
-  doCapture: true,            // Immediate capture (not auth-only)
+  doCapture: !isInstallmentPlan, // false for installments → EPG returns hostedCard token
   doThreeDSecure: true,       // 3DS enabled; requires processor account config
   customReference: batchId,
 }
 ```
+
+`doCapture: false` for installment plans instructs EPG to authorize without capturing, which causes EPG to return a `hostedCard` (or `hostedAchPayment`) one-time token in the session resource. The webhook handler converts this token into a `StoredCard`/`StoredAchPayment` and then issues a server-to-server charge for installment 1.
 
 ---
 

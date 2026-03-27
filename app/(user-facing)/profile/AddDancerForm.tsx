@@ -1,15 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
+import { addDancer } from "./actions/addDancer";
 
-interface AddDancerFormProps {
-  familyId: string;
-}
-
-export default function AddDancerForm({ familyId }: AddDancerFormProps) {
-  const supabase = createClient();
+export default function AddDancerForm({ onSuccess }: { onSuccess?: () => void }) {
   const router = useRouter();
 
   const [firstName, setFirstName] = useState("");
@@ -26,22 +21,22 @@ export default function AddDancerForm({ familyId }: AddDancerFormProps) {
     setIsSubmitting(true);
     setErrorMsg("");
 
-    const { error } = await supabase.from("dancers").insert({
+    const result = await addDancer({
       first_name: firstName,
       last_name: lastName,
-      birth_date: birthDate || null,
-      grade: grade || null,
-      family_id: familyId,
+      birth_date: birthDate || undefined,
+      grade: grade || undefined,
     });
 
     setIsSubmitting(false);
 
-    if (error) {
-      setErrorMsg(error.message);
+    if (result.error) {
+      setErrorMsg(result.error);
       return;
     }
 
-    router.refresh(); // cleaner than push for dashboard updates
+    router.refresh();
+    onSuccess?.();
   };
 
   return (

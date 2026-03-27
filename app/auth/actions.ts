@@ -16,7 +16,10 @@ export async function login(formData: FormData) {
 
   const { error } = await supabase.auth.signInWithPassword(data);
   if (error) {
-    redirect("/error");
+    const nextParam = (formData.get("next") as string | null)?.startsWith("/")
+      ? `&next=${encodeURIComponent(formData.get("next") as string)}`
+      : "";
+    redirect(`/auth?error=invalid_credentials${nextParam}`);
   }
 
   revalidatePath("/", "layout");
@@ -96,7 +99,7 @@ export async function signUp(formData: FormData) {
   if (userError) {
     console.error("User table insert error:", userError.message);
     if (userError.message.includes("duplicate key value")) {
-      redirect("/auth/login?error=email_exists");
+      redirect("/auth?error=email_exists");
     }
     redirect("/error");
   }

@@ -546,8 +546,8 @@ function OverviewTab({
                         Classes &amp; Offerings
                       </Link>
                       <Link
-                        href={`/admin/semesters/${s.id}/dashboard`}
-                        onClick={() => setOpenMenuId(null)}
+                        href={`/admin/reports?semester=${s.id}`}
+                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); }}
                         className="flex items-center px-3.5 py-2 text-[12px] transition-colors"
                         style={{ color: "var(--admin-text)", background: "transparent", display: "flex" }}
                         onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}

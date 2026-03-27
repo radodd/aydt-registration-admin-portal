@@ -1,7 +1,45 @@
 # SMS Notifications Architecture
 
-> Status: **Implemented — blocked on Twilio A2P 10DLC compliance for production delivery**
-> Last updated: 2026-03-12
+> Status: **Live — Twilio A2P 10DLC registration complete, SMS delivery active**
+> Last updated: 2026-03-27
+
+---
+
+## Architecture Diagram
+
+```mermaid
+flowchart TD
+    subgraph OPT_IN ["Opt-In Flow"]
+        ParentProfile[Parent visits /profile] --> OptInCard[SmsOptInCard]
+        OptInCard -->|enters phone + consent| SendVerify[sendPhoneVerification]
+        SendVerify -->|Twilio Verify API| Twilio((Twilio))
+        Twilio -->|6-digit code| ParentPhone1[Parent's Phone]
+        ParentPhone1 -->|enters code| ConfirmVerify[confirmPhoneVerification]
+        ConfirmVerify -->|verificationChecks.create| Twilio
+        Twilio -->|approved| UsersTable[(users: sms_opt_in = true, sms_verified = true)]
+    end
+
+    subgraph SEND ["SMS Dispatch"]
+        Triggers[cancelClass / process-waitlist / process-overdue-payments] --> OptInCheck{sms_opt_in and sms_verified?}
+        OptInCheck -->|yes| SendSms[sendSms utility]
+        OptInCheck -->|no| Skip[skip]
+        SendSms -->|messages.create — AYDT: prefix, 160 char cap| Twilio
+        Twilio -->|delivers| ParentPhone2[Parent's Phone]
+        SendSms --> SmsLog[(sms_notifications: status = sent / failed)]
+    end
+
+    subgraph TRACK ["Delivery Tracking"]
+        Twilio -->|status callback| WebhookRoute[POST /api/webhooks/twilio]
+        WebhookRoute -->|validate x-twilio-signature| SigCheck{valid?}
+        SigCheck -->|yes| SmsUpdate[(sms_notifications: status = delivered / undelivered, delivered_at)]
+        SigCheck -->|no| Rejected[401 Rejected]
+    end
+
+    subgraph OPTOUT ["Opt-Out"]
+        OptOutClick[Parent clicks opt-out] --> OptOutAction[smsOptOut action]
+        OptOutAction --> UsersUpdate[(users: sms_opt_in = false, sms_verified = false)]
+    end
+```
 
 ---
 
@@ -30,11 +68,11 @@ All code is complete and tested end-to-end:
 
 | Item | Status |
 |------|--------|
-| Twilio account | Trial — created 2026-03-12 |
+| Twilio account | Active (paid) |
 | Purchased phone number | Yes — 10DLC long code |
-| A2P 10DLC brand registration | Not started |
-| A2P 10DLC campaign registration | Not started |
-| Personal number verified as caller ID | Needed for trial sending |
+| A2P 10DLC brand registration | **Complete** |
+| A2P 10DLC campaign registration | **Complete** |
+| Phone number linked to campaign | **Complete** |
 
 **Required env vars** (set in `.env.local` and Vercel):
 ```
@@ -46,26 +84,7 @@ TWILIO_VERIFY_SERVICE_SID=...        # for opt-in verification flow
 
 ---
 
-## Why SMS Is Not Delivering (The Blocker)
-
-US carriers (AT&T, Verizon, T-Mobile, etc.) require all business SMS sent from 10-digit long code numbers (10DLC) to be registered under the **A2P 10DLC** program. This is enforced at the carrier level — not something Twilio or the app can bypass.
-
-**Error received:** `30034 — Messages sent from numbers not associated with an approved A2P 10DLC Campaign will not be delivered`
-
-This applies to **all** Twilio accounts (trial and paid) sending to US numbers from a 10DLC number.
-
----
-
-## What It Costs to Go Live
-
-### One-time registration fees (Twilio charges these, paid to carriers)
-
-| Item | Cost | Notes |
-|------|------|-------|
-| Upgrade Twilio trial → paid | ~$20 minimum top-up | Required to register A2P |
-| A2P Brand registration | $4 one-time | Registers AYDT as a business brand |
-| A2P Campaign registration | $15 one-time | Describes use case (appointment/class alerts) |
-| **Total one-time** | **~$39** | Paid to Twilio; non-refundable |
+## Costs
 
 ### Ongoing monthly costs
 
@@ -82,50 +101,6 @@ This applies to **all** Twilio accounts (trial and paid) sending to US numbers f
 | Emergency cancellation blast (100 families) | 100 SMS one-time | ~$1 per blast |
 
 **Realistic ongoing cost: $5–10/month** during active semesters.
-
-### Registration timeline
-
-| Step | Time |
-|------|------|
-| Upgrade account + top up | Immediate |
-| Brand registration approval | 1–2 business days |
-| Campaign registration approval | 3–7 business days |
-| Total before first SMS delivered | ~1 week |
-
----
-
-## Steps to Go Live
-
-1. **Upgrade Twilio account** — add a credit card and top up $20 minimum at [console.twilio.com/billing](https://console.twilio.com/billing)
-
-2. **Register A2P Brand** — Twilio Console → Messaging → Regulatory Compliance → A2P 10DLC → Register a Brand
-   - Business legal name: AYDT (or full legal entity name)
-   - EIN / tax ID
-   - Business address
-   - Business type: Private for-profit
-
-3. **Register A2P Campaign** — after brand approval (~1–2 days):
-   - Use case: `Low Volume Mixed` or `Notifications` ($15 one-time)
-   - Sample messages:
-     - `AYDT: Ballet 1A on Wednesday is canceled. Reason: instructor illness. Contact us at aydt.nyc`
-     - `AYDT: A spot opened in Jazz 2. Accept by [date]: aydt.nyc/waitlist/accept/[token]`
-     - `AYDT: A payment of $X for Emma is overdue. Update: aydt.nyc/payment`
-
-4. **Link phone number to campaign** — Console → Phone Numbers → Manage → Active Numbers → select number → Messaging → assign campaign
-
-5. **No code changes needed** — the app is already fully implemented.
-
----
-
-## Alternative: Toll-Free Number (Faster Approval)
-
-Instead of a 10DLC long code, purchase a **toll-free number** (`+1-8XX-XXX-XXXX`). These use "Toll-Free Verification" instead of A2P 10DLC:
-- Simpler form, approval typically 2–3 business days
-- Same per-message pricing (~$0.0079)
-- Number cost: ~$2/month (slightly more than 10DLC)
-- One-time verification fee: free (no carrier fee)
-
-This is a good option if you want to go live sooner and avoid the $15 campaign registration fee.
 
 ---
 
@@ -170,6 +145,38 @@ SMS is only sent when both `sms_opt_in = true` AND `sms_verified = true`.
 
 ---
 
+## A2P 10DLC Campaign Compliance Page
+
+**File:** `app/sms-opt-in/page.tsx`
+**Public URL:** `https://aydt.nyc/sms-opt-in`
+
+### Purpose
+
+Twilio rejected the initial A2P 10DLC campaign registration for missing a public call-to-action URL — proof that users explicitly consent before receiving SMS. This page satisfies that requirement.
+
+It is a fully public, static server component (no login required) that shows the real opt-in flow in 4 annotated panels matching the production UI exactly:
+
+| Panel | What it shows |
+|-------|--------------|
+| 1 — Opt-In Form | Phone input + consent checkbox with exact disclosure language |
+| 2 — Phone Verification | 6-digit code entry step |
+| 3 — Notification Preferences | The 3 toggles (cancellations, waitlist, payments) |
+| 4 — Opt-Out | In-app opt-out button + "Reply STOP" explanation + program disclosure |
+
+The page is permanently public — middleware only protects `/admin` routes.
+
+### Next Steps — Campaign Resubmission
+
+1. Deploy the current branch to production
+2. Confirm `https://aydt.nyc/sms-opt-in` loads without login
+3. In Twilio Console → Messaging → A2P 10DLC → your campaign → **"Message Flow / Call to Action URL"** field, enter:
+   ```
+   https://aydt.nyc/sms-opt-in
+   ```
+4. Resubmit the campaign registration
+
+---
+
 ## Testing Checklist
 
 - [x] Phone number E.164 normalization (`8087285029` → `+18087285029`)
@@ -177,6 +184,6 @@ SMS is only sent when both `sms_opt_in = true` AND `sms_verified = true`.
 - [x] Duplicate family deduplication (one SMS per family even with 2+ dancers)
 - [x] `sms_notifications` row inserted on every attempt (success or failure)
 - [x] Twilio receives message request (confirmed in Twilio Monitor logs)
-- [ ] End-to-end delivery to real device (blocked on A2P 10DLC)
+- [ ] End-to-end delivery to real device
 - [ ] Delivery webhook updates `sms_notifications.status` to `delivered`
 - [ ] Opt-out: `sms_opt_in = false` → no SMS sent on next trigger

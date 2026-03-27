@@ -273,6 +273,7 @@ export function CartProvider({
       if (!preview) {
         try {
           localStorage.setItem(storageKey, JSON.stringify(next));
+          window.dispatchEvent(new Event("aydt-cart-change"));
         } catch {}
       }
     },
@@ -287,6 +288,7 @@ export function CartProvider({
       if (!preview) {
         try {
           localStorage.setItem(storageKey, JSON.stringify(next));
+          window.dispatchEvent(new Event("aydt-cart-change"));
         } catch {}
       }
     },

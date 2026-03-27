@@ -7,6 +7,7 @@ export interface UpdateDancerInput {
   first_name: string;
   last_name: string;
   birth_date: string;
+  grade?: string;
 }
 
 export async function updateDancer(input: UpdateDancerInput): Promise<void> {
@@ -33,6 +34,7 @@ export async function updateDancer(input: UpdateDancerInput): Promise<void> {
       first_name: input.first_name,
       last_name: input.last_name,
       birth_date: input.birth_date || null,
+      grade: input.grade ?? null,
     })
     .eq("id", input.id)
     .eq("family_id", userRow.family_id);

@@ -75,6 +75,7 @@ export async function getSemesterForDisplay(
           class_schedules (
             pricing_model,
             capacity,
+            days_of_week,
             schedule_price_tiers ( id, label, amount, sort_order, is_default )
           ),
           session_occurrence_dates (
@@ -247,6 +248,7 @@ export async function getSemesterForDisplay(
             minGrade: c.min_grade,
             maxGrade: c.max_grade,
             scheduleDate: cs.schedule_date,
+            daysOfWeek: cs.class_schedules?.days_of_week ?? null,
             instructorName: cs.instructor_name,
             startTime: cs.start_time,
             endTime: cs.end_time,
@@ -324,6 +326,17 @@ export async function getSemesterForDisplay(
   /* 9. Assemble                                                             */
   /* ---------------------------------------------------------------------- */
 
+  const rawRegForm = semester.registration_form as
+    | { elements: RegistrationFormElement[] }
+    | null
+    | undefined;
+  const registrationFormElements = rawRegForm?.elements ?? [];
+  console.log(
+    `[getSemesterForDisplay] semesterId=${semesterId} registration_form raw=`,
+    JSON.stringify(rawRegForm),
+    `| element count=${registrationFormElements.length}`,
+  );
+
   return {
     id: semester.id,
     name: semester.name,
@@ -338,9 +351,7 @@ export async function getSemesterForDisplay(
         ? ((semester.publish_at as string | null) ?? null)
         : null,
     paymentPlan: publicPaymentPlan,
-    registrationForm:
-      (semester.registration_form as { elements: RegistrationFormElement[] })
-        ?.elements ?? [],
+    registrationForm: registrationFormElements,
     sessions: publicSessions,
     sessionGroups: publicGroups,
     discounts: publicDiscounts,
@@ -387,6 +398,7 @@ interface PriceTierRow {
 interface ClassScheduleRow {
   pricing_model: string;
   capacity: number | null;
+  days_of_week: string[] | null;
   schedule_price_tiers: PriceTierRow[];
 }
 

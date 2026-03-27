@@ -17,7 +17,7 @@
     "db:new": "supabase migration new",
     "db:status": "supabase migration list",
     "db:repair:applied": "supabase migration repair --status applied",
-    "db:seed": "npx tsx scripts/seed.ts"
+    "db:seed": "npx tsx scripts/seed.ts && npx tsx scripts/seed-spring-2026-north.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

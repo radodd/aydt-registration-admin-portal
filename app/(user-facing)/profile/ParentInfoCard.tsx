@@ -70,195 +70,221 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
     setEditing(false);
   }
 
-  const inputClass =
-    "w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400 disabled:bg-neutral-50 disabled:text-neutral-400";
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "8px 12px",
+    border: "1.5px solid var(--pub-border)",
+    borderRadius: 7,
+    fontFamily: "inherit",
+    fontSize: 13,
+    color: "var(--pub-text-primary)",
+    background: "var(--pub-surface)",
+    outline: "none",
+    boxSizing: "border-box",
+  };
+  const readonlyStyle: React.CSSProperties = {
+    ...inputStyle,
+    background: "var(--pub-surface-warm)",
+    color: "var(--pub-text-muted)",
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 12, fontWeight: 600,
+    color: "var(--pub-text-primary)",
+    marginBottom: 4, display: "block",
+  };
 
   return (
-    <section className="bg-white border border-neutral-200 rounded-2xl p-8 shadow-sm">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-semibold text-neutral-900">
-            Parent / Guardian Info
-          </h2>
-          <p className="text-sm text-neutral-500 mt-0.5">
-            Used to pre-fill registration forms.
-          </p>
-        </div>
+    <>
+      {/* Section header */}
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "system-ui" }}>Parent / Guardian Info</div>
         {!editing && (
           <button
             type="button"
             onClick={() => setEditing(true)}
-            className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+            style={{
+              fontSize: 12, fontWeight: 600, color: "var(--wine)",
+              background: "none", border: "none", cursor: "pointer",
+              fontFamily: "inherit", padding: "6px 10px",
+            }}
           >
             Edit
           </button>
         )}
       </div>
-
-      {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
-          {error}
-        </div>
-      )}
-
-      <div className="space-y-5">
-        {/* Name */}
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-neutral-700">
-              First Name
-            </label>
-            <input
-              type="text"
-              value={form.first_name}
-              onChange={(e) => set("first_name", e.target.value)}
-              disabled={!editing}
-              className={inputClass}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-neutral-700">
-              Last Name
-            </label>
-            <input
-              type="text"
-              value={form.last_name}
-              onChange={(e) => set("last_name", e.target.value)}
-              disabled={!editing}
-              className={inputClass}
-            />
-          </div>
-        </div>
-
-        {/* Email (read-only) */}
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-neutral-700">
-            Email Address
-          </label>
-          <input
-            type="email"
-            value={user.email}
-            disabled
-            className={inputClass}
-          />
-          <p className="text-xs text-neutral-400">
-            Email cannot be changed here.
-          </p>
-        </div>
-
-        {/* Phone */}
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-neutral-700">
-            Phone Number
-          </label>
-          <input
-            type="tel"
-            value={form.phone_number}
-            onChange={(e) => set("phone_number", e.target.value)}
-            disabled={!editing}
-            placeholder="(555) 555-5555"
-            className={inputClass}
-          />
-        </div>
-
-        {/* Address */}
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-neutral-700">
-            Street Address
-          </label>
-          <input
-            type="text"
-            value={form.address_line1}
-            onChange={(e) => set("address_line1", e.target.value)}
-            disabled={!editing}
-            placeholder="123 Main St"
-            className={inputClass}
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-neutral-700">
-            Apt / Suite / Unit{" "}
-            <span className="text-neutral-400 font-normal">(optional)</span>
-          </label>
-          <input
-            type="text"
-            value={form.address_line2}
-            onChange={(e) => set("address_line2", e.target.value)}
-            disabled={!editing}
-            placeholder="Apt 4B"
-            className={inputClass}
-          />
-        </div>
-
-        {/* City / State / Zip */}
-        <div className="grid sm:grid-cols-3 gap-4">
-          <div className="space-y-1.5 sm:col-span-1">
-            <label className="block text-sm font-medium text-neutral-700">
-              City
-            </label>
-            <input
-              type="text"
-              value={form.city}
-              onChange={(e) => set("city", e.target.value)}
-              disabled={!editing}
-              className={inputClass}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-neutral-700">
-              State
-            </label>
-            <select
-              value={form.state}
-              onChange={(e) => set("state", e.target.value)}
-              disabled={!editing}
-              className={inputClass}
-            >
-              <option value="">— Select —</option>
-              {US_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-neutral-700">
-              ZIP Code
-            </label>
-            <input
-              type="text"
-              value={form.zipcode}
-              onChange={(e) => set("zipcode", e.target.value)}
-              disabled={!editing}
-              maxLength={10}
-              className={inputClass}
-            />
-          </div>
-        </div>
-
-        {/* Action buttons */}
-        {editing && (
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="flex-1 py-2.5 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors text-sm font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 py-2.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors text-sm disabled:opacity-60"
-            >
-              {saving ? "Saving…" : "Save Changes"}
-            </button>
-          </div>
-        )}
+      <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
+        Used to pre-fill registration forms.{" "}
+        <span style={{ color: "var(--pub-text-faint)", fontSize: 12 }}>Email cannot be changed here.</span>
       </div>
-    </section>
+
+      {/* Card */}
+      <div style={{
+        background: "var(--pub-surface)",
+        border: "1px solid var(--pub-border)",
+        borderRadius: 12,
+        overflow: "hidden",
+        boxShadow: "var(--pub-shadow-card)",
+        marginBottom: 0,
+      }}>
+        <div style={{ padding: 20 }}>
+          {error && (
+            <div style={{
+              marginBottom: 14, background: "#FFF0EE", border: "1px solid #F0D0CE",
+              color: "var(--wine)", fontSize: 12, borderRadius: 7, padding: "10px 14px",
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* First / Last */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+            <div>
+              <label style={labelStyle}>First Name</label>
+              <input
+                type="text"
+                value={form.first_name}
+                onChange={(e) => set("first_name", e.target.value)}
+                readOnly={!editing}
+                style={editing ? inputStyle : readonlyStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Last Name</label>
+              <input
+                type="text"
+                value={form.last_name}
+                onChange={(e) => set("last_name", e.target.value)}
+                readOnly={!editing}
+                style={editing ? inputStyle : readonlyStyle}
+              />
+            </div>
+          </div>
+
+          {/* Email */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Email Address</label>
+            <input type="email" value={user.email} readOnly style={readonlyStyle} />
+            <span style={{ fontSize: 11, color: "var(--pub-text-faint)" }}>Email cannot be changed here.</span>
+          </div>
+
+          {/* Phone */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Phone Number</label>
+            <input
+              type="tel"
+              value={form.phone_number}
+              onChange={(e) => set("phone_number", e.target.value)}
+              readOnly={!editing}
+              placeholder="(555) 555-5555"
+              style={editing ? inputStyle : readonlyStyle}
+            />
+          </div>
+
+          {/* Street Address */}
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Street Address</label>
+            <input
+              type="text"
+              value={form.address_line1}
+              onChange={(e) => set("address_line1", e.target.value)}
+              readOnly={!editing}
+              placeholder="123 Main St"
+              style={editing ? inputStyle : readonlyStyle}
+            />
+          </div>
+
+          {/* Apt/Unit (only in edit mode) */}
+          {editing && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>
+                Apt / Suite / Unit <span style={{ color: "var(--pub-text-faint)", fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={form.address_line2}
+                onChange={(e) => set("address_line2", e.target.value)}
+                placeholder="Apt 4B"
+                style={inputStyle}
+              />
+            </div>
+          )}
+
+          {/* City / State / ZIP */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: editing ? 14 : 0 }}>
+            <div>
+              <label style={labelStyle}>City</label>
+              <input
+                type="text"
+                value={form.city}
+                onChange={(e) => set("city", e.target.value)}
+                readOnly={!editing}
+                style={editing ? inputStyle : readonlyStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>State</label>
+              {editing ? (
+                <select
+                  value={form.state}
+                  onChange={(e) => set("state", e.target.value)}
+                  style={{ ...inputStyle, cursor: "pointer" }}
+                >
+                  <option value="">— Select —</option>
+                  {US_STATES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              ) : (
+                <input type="text" value={form.state} readOnly style={readonlyStyle} />
+              )}
+            </div>
+            <div>
+              <label style={labelStyle}>ZIP Code</label>
+              <input
+                type="text"
+                value={form.zipcode}
+                onChange={(e) => set("zipcode", e.target.value)}
+                readOnly={!editing}
+                maxLength={10}
+                style={editing ? inputStyle : readonlyStyle}
+              />
+            </div>
+          </div>
+
+          {/* Save / Cancel buttons */}
+          {editing && (
+            <div style={{ display: "flex", gap: 8, paddingTop: 6 }}>
+              <button
+                type="button"
+                onClick={handleCancel}
+                style={{
+                  flex: 1, padding: "8px 0", borderRadius: 7,
+                  border: "1.5px solid var(--pub-border)",
+                  background: "var(--pub-surface)", color: "var(--pub-text-muted)",
+                  fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saving}
+                style={{
+                  flex: 1, padding: "8px 0", borderRadius: 7,
+                  border: "1.5px solid var(--plum)",
+                  background: "var(--plum)", color: "#fff",
+                  fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  opacity: saving ? 0.6 : 1,
+                }}
+              >
+                {saving ? "Saving…" : "Save Changes"}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

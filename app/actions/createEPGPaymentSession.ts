@@ -35,7 +35,7 @@ export async function createEPGPaymentSession(
   // 2. Verify batch exists and is still awaiting payment
   const { data: batch, error: batchErr } = await supabase
     .from("registration_batches")
-    .select("id, status, payment_plan_type")
+    .select("id, status, payment_plan_type, amount_due_now, grand_total")
     .eq("id", batchId)
     .single();
 
@@ -44,6 +44,13 @@ export async function createEPGPaymentSession(
     return { error: "This registration has already been paid" };
   if (batch.status !== "pending")
     return { error: "Registration batch is not in a payable state" };
+
+  // Server-side amount validation — never trust client-provided amount
+  const serverAmount = batch.amount_due_now ?? batch.grand_total ?? 0;
+  if (Math.abs(serverAmount - amountDueNow) > 0.01) {
+    console.error("[EPG] Amount mismatch:", { client: amountDueNow, server: serverAmount, batchId });
+    return { error: "Payment amount does not match. Please refresh and try again." };
+  }
 
   // 3. Idempotency check — return existing session if already initiated
   const { data: existing } = await supabase
@@ -85,7 +92,7 @@ export async function createEPGPaymentSession(
   let order;
   try {
     order = await createEpgOrder({
-      amountDollars: amountDueNow,
+      amountDollars: serverAmount,
       currencyCode: "USD",
       description: `${semesterName} Registration`,
       customReference: batchId,
@@ -131,7 +138,7 @@ export async function createEPGPaymentSession(
       order_id: order.id,
       payment_session_id: session.id,
       custom_reference: batchId,
-      amount: amountDueNow,
+      amount: serverAmount,
       currency: "USD",
       state: "pending_authorization",
       updated_at: new Date().toISOString(),

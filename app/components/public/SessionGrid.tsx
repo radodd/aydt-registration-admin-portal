@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { SessionCard } from "./SessionCard";
 import { FilterBar, FilterState, applyFilters } from "./FilterBar";
 import type { PublicSession, PublicSessionGroup } from "@/types/public";
 import { ClassCard } from "./ClassCard";
@@ -17,7 +16,7 @@ export type GroupedClass = {
   maxAge?: number | null;
   minGrade?: number | null;
   maxGrade?: number | null;
-  sessions: PublicSession[]; // individual calendar-day sessions
+  sessions: PublicSession[];
 };
 
 function groupByClass(sessions: PublicSession[]): GroupedClass[] {
@@ -45,7 +44,6 @@ function groupByClass(sessions: PublicSession[]): GroupedClass[] {
     map.get(session.classId)!.sessions.push(session);
   }
 
-  // Optional: sort sessions chronologically inside each class
   for (const group of map.values()) {
     group.sessions.sort((a, b) =>
       (a.scheduleDate ?? "").localeCompare(b.scheduleDate ?? ""),
@@ -60,7 +58,6 @@ interface SessionGridProps {
   groups: PublicSessionGroup[];
 }
 
-/** Map sessionId → group name for passing to SessionCard */
 function buildGroupMap(
   sessions: PublicSession[],
   groups: PublicSessionGroup[],
@@ -78,21 +75,11 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
   const [filters, setFilters] = useState<FilterState>({
     groupId: "",
     dayOfWeek: "",
+    discipline: "",
     spotsOnly: false,
   });
 
-  const groupMap = buildGroupMap(sessions, groups);
-
-  // Attach groupId to sessions for filtering
-  const enriched = sessions.map((s) => ({
-    ...s,
-    groupId:
-      s.groupId ??
-      [...groupMap.entries()].find(([sid]) => sid === s.id)?.[0] ??
-      null,
-  }));
-
-  // Re-attach proper groupId from group membership
+  // Attach groupId from group membership
   const enrichedWithGroups = sessions.map((s) => {
     const group = groups.find((g) => g.sessionIds.includes(s.id));
     return { ...s, groupId: group?.id ?? null };
@@ -100,6 +87,7 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
 
   const filtered = applyFilters(enrichedWithGroups, filters);
   const grouped = groupByClass(filtered);
+
   return (
     <div>
       <FilterBar
@@ -107,35 +95,27 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
         groups={groups}
         filters={filters}
         onChange={setFilters}
+        classCount={grouped.length}
       />
 
-      {filtered.length === 0 ? (
-        <div className="bg-neutral-50 border border-neutral-200 rounded-2xl p-10 text-center">
-          <p className="text-neutral-500 font-medium">
-            No sessions match your filters.
+      {grouped.length === 0 ? (
+        <div className="sem-empty">
+          <p style={{ color: "var(--pub-text-muted)", fontWeight: 500 }}>
+            No classes match your filters.
           </p>
           <button
             type="button"
-            onClick={() =>
-              setFilters({ groupId: "", dayOfWeek: "", spotsOnly: false })
-            }
-            className="mt-2 text-sm text-primary-600 hover:text-primary-800"
+            onClick={() => setFilters({ groupId: "", dayOfWeek: "", discipline: "", spotsOnly: false })}
+            style={{
+              marginTop: 8, fontSize: 13, color: "var(--plum)", background: "none",
+              border: "none", cursor: "pointer", fontFamily: "var(--pub-font-primary)",
+            }}
           >
             Clear filters
           </button>
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 items-start">
-          {/* {filtered.map((session) => (
-            <SessionCard
-              key={session.id}
-              session={session}
-              groupName={
-                groups.find((g) => g.sessionIds.includes(session.id))?.name
-              }
-            />
-          ))} */}
-
+        <div>
           {grouped.map((group) => (
             <ClassCard key={group.classId} group={group} />
           ))}

@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-function serviceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
-}
+import { requireAdmin } from "@/utils/requireAdmin";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 function toSlug(label: string): string {
   return label
@@ -17,7 +11,13 @@ function toSlug(label: string): string {
 }
 
 export async function GET() {
-  const supabase = serviceClient();
+  try {
+    await requireAdmin();
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from("media_folders")
@@ -32,7 +32,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = serviceClient();
+  try {
+    await requireAdmin();
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const supabase = createAdminClient();
 
   const body = await req.json();
   const label = (typeof body.label === "string" ? body.label : "").trim();

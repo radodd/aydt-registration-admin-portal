@@ -39,16 +39,32 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/") &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    !request.nextUrl.pathname.startsWith("/error")
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  const pathname = request.nextUrl.pathname;
+
+  // Server-side admin route protection — redirect unauthenticated users to login
+  if (!user && pathname.startsWith("/admin")) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth";
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll());
+    return redirectResponse;
+  }
+
+  // Server-side admin role check — only admin and super_admin can access /admin
+  if (user && pathname.startsWith("/admin")) {
+    const { data: profile } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    if (!profile || !["admin", "super_admin"].includes(profile.role)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      const redirectResponse = NextResponse.redirect(url);
+      redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll());
+      return redirectResponse;
+    }
   }
 
   // IMPORTANT: You *must* return the supabaseResponse object as it is.

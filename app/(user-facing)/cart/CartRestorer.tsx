@@ -64,19 +64,24 @@ export function CartRestorer() {
 
   if (!semesterId) {
     return (
-      <div className="max-w-2xl mx-auto px-6 py-20 text-center">
-        <div className="text-5xl mb-4">🛒</div>
-        <h1 className="text-2xl font-bold text-neutral-900 mb-2">
-          Your cart is empty
-        </h1>
-        <p className="text-neutral-500 mb-8">
+      <div className="cart-empty-state">
+        <div className="cart-empty-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 0 1-8 0"/>
+          </svg>
+        </div>
+        <div className="cart-empty-title">Your cart is empty</div>
+        <div className="cart-empty-desc">
           Browse available semesters to add sessions.
-        </p>
-        <Link
-          href="/"
-          className="inline-block bg-primary-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors"
-        >
+        </div>
+        <Link href="/" className="btn-continue">
           Browse Semesters
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
         </Link>
       </div>
     );

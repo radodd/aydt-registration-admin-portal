@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   RegistrationFormElement,
   QuestionInputType,
+  ProfileFieldKey,
 } from "@/types";
 import { v4 as uuid } from "uuid";
 
@@ -49,6 +50,10 @@ export default function CustomQuestionModal({
 
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>(
     initialElement?.sessionIds ?? [],
+  );
+
+  const [profileField, setProfileField] = useState<ProfileFieldKey | null>(
+    initialElement?.profileField ?? null,
   );
 
   /* -------------------------------------------------------------------------- */
@@ -133,6 +138,7 @@ export default function CustomQuestionModal({
           : undefined,
       sessionIds:
         selectedSessionIds.length > 0 ? selectedSessionIds : undefined,
+      profileField: profileField ?? undefined,
     };
 
     onSave(element);
@@ -241,6 +247,34 @@ export default function CustomQuestionModal({
             className="h-4 w-4 text-primary-600 border-neutral-300 rounded"
           />
           <label className="text-sm text-neutral-700">Required</label>
+        </div>
+
+        {/* Auto-fill from profile */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-neutral-700">
+            Auto-fill from profile
+          </label>
+          <select
+            value={profileField ?? ""}
+            onChange={(e) =>
+              setProfileField((e.target.value as ProfileFieldKey) || null)
+            }
+            className="w-full border border-neutral-300 rounded-xl px-4 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-primary-600 focus:outline-none"
+          >
+            <option value="">(none)</option>
+            <option value="parent_first_name">Parent — First Name</option>
+            <option value="parent_last_name">Parent — Last Name</option>
+            <option value="parent_email">Parent — Email</option>
+            <option value="parent_phone">Parent — Phone Number</option>
+            <option value="parent_address_line1">Parent — Address Line 1</option>
+            <option value="parent_address_line2">Parent — Address Line 2</option>
+            <option value="parent_city">Parent — City</option>
+            <option value="parent_state">Parent — State</option>
+            <option value="parent_zipcode">Parent — Zip Code</option>
+          </select>
+          <p className="text-xs text-neutral-400">
+            When a registered user fills out this form, this field will be pre-filled with the value from their profile.
+          </p>
         </div>
 
         {/* Session Applicability */}
