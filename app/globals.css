@@ -46,8 +46,9 @@
 
 /* ═══════════════════════════════════════════════════════
    CSS CUSTOM PROPERTIES
-   Prefixed by portal: --admin-* | --user-* | --shared-*
+   Prefixed by portal: --admin-* | --shared-*
    Used directly in component classes below via var().
+   User portal tokens live in app/(user-facing)/portal.css.
 ═══════════════════════════════════════════════════════ */
 :root {
 
@@ -95,30 +96,6 @@
 
   --admin-card-accent:        #8E2A23;
 
-  /* ── USER PORTAL ── */
-  --user-nav-bg:              #160C0A;
-  --user-nav-border:          #2A1A16;
-  --user-nav-text:            #F0E8D8;
-  --user-nav-active:          #C9900A;
-
-  --user-page-bg:             #FBF6EC;
-  --user-surface:             #FFFDF5;
-  --user-surface-sub:         #F5EDD8;
-  --user-border:              #E8DFC8;
-  --user-border-sub:          #F0E8D8;
-
-  --user-text:                #201D18;
-  --user-text-muted:          #6A4A45;
-  --user-text-faint:          #A08880;
-
-  --user-gold:                #B8830A;
-  --user-gold-light:          #F8EDCF;
-  --user-gold-hover:          #9A6E08;
-
-  --user-table-header-bg:     #F8EDCF;
-  --user-table-header-text:   #B8830A;
-  --user-table-row-alt:       #FBF6EC;
-  --user-table-border:        #E8DFC8;
 }
 
 
@@ -217,12 +194,6 @@
   .admin-sidebar-logo-sub   { @apply text-xs mt-0.5; color: var(--admin-sidebar-text); }
   .admin-sidebar-nav    { @apply flex-1 px-2 py-3 flex flex-col gap-0.5 overflow-y-auto; }
   .admin-sidebar-footer { @apply px-4 py-4; border-top: 1px solid rgba(255,255,255,0.05); }
-  .admin-main {
-    margin-left: var(--admin-sidebar-width);
-    @apply min-h-screen px-8 py-8;
-    background: var(--admin-page-bg);
-  }
-
   /* ── Admin: Navigation items ── */
   .admin-nav-item {
     @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors;
@@ -242,8 +213,6 @@
 
   /* ── Admin: Cards ── */
   .admin-card          { background: var(--admin-surface); border: 0.5px solid var(--admin-border); @apply rounded-xl shadow-card; }
-  .admin-card-elevated { background: var(--admin-surface); @apply rounded-xl shadow-elevated; }
-  .admin-card-flat     { background: var(--admin-surface-sub); @apply rounded-xl; }
   .admin-card-stat {
     background: var(--admin-surface);
     border: 0.5px solid var(--admin-border);
@@ -269,20 +238,11 @@
   .admin-btn-primary:hover   { background: #7B1F1A; }
   .admin-btn-secondary { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; border: none; padding: 8px 16px; background: #F2E7E4; color: #5C1713; }
   .admin-btn-secondary:hover { background: #E6D5D1; }
-  .admin-btn-warm      { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; border: none; padding: 8px 16px; background: #E6D5D1; color: #5C1713; }
-  .admin-btn-warm:hover      { background: #D8C4BF; }
-  .admin-btn-muted     { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; border: none; padding: 8px 16px; background: #D8C4BF; color: #5C1713; }
-  .admin-btn-muted:hover     { background: #C4908A; color: #FFF; }
   .admin-btn-outline   { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; padding: 8px 16px; background: transparent; color: #8E2A23; border: 1px solid #8E2A23; }
   .admin-btn-outline:hover   { background: #FDF2F1; }
-  .admin-btn-ghost     { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; border: none; padding: 8px 16px; background: transparent; color: #7B1F1A; }
-  .admin-btn-ghost:hover     { background: #FDF2F1; }
-  .admin-btn-danger    { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; border: none; padding: 8px 16px; background: #DC2626; color: #FFF; }
-  .admin-btn-danger:hover    { background: #B91C1C; }
   .admin-btn-neutral   { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; border: none; padding: 8px 16px; background: #EDE9E4; color: #38342E; }
   .admin-btn-neutral:hover   { background: #DDD9D2; }
   .admin-btn-sm { font-size: 12px; padding: 6px 12px; }
-  .admin-btn-lg { font-size: 16px; padding: 12px 24px; }
 
   /* ── Admin: Inputs ── */
   .admin-input {
@@ -299,15 +259,6 @@
     border-color: #8E2A23;
     box-shadow: 0 0 0 3px var(--shared-focus-ring);
   }
-  .admin-textarea {
-    @apply w-full rounded-lg text-sm transition-colors outline-none;
-    background: #EDE9E4; border: 1px solid transparent;
-    color: var(--admin-text); padding: 9px 12px;
-    resize: vertical; min-height: 80px;
-  }
-  .admin-textarea::placeholder { color: var(--admin-text-faint); }
-  .admin-textarea:hover { background: #E4E0DB; }
-  .admin-textarea:focus { background: #FFFFFF; border-color: #8E2A23; box-shadow: 0 0 0 3px var(--shared-focus-ring); }
   .admin-select {
     @apply w-full rounded-lg text-sm transition-colors outline-none;
     background: #EDE9E4; border: 1px solid transparent;
@@ -341,312 +292,12 @@
     color: var(--admin-text);
   }
 
-  /* ── Admin: Auth ── */
-  .admin-auth-shell { @apply min-h-screen flex; background: var(--admin-page-bg); }
-  .admin-auth-brand {
-    background: #8E2A23;
-    @apply hidden lg:flex lg:flex-col lg:justify-center p-12 shrink-0;
-    width: 42%;
-  }
-  .admin-auth-brand-eyebrow {
-    @apply text-xs font-medium tracking-widest mb-3;
-    color: rgba(255,255,255,0.5); letter-spacing: 0.14em;
-  }
-  .admin-auth-brand-logo    { @apply text-3xl font-medium tracking-widest text-white; letter-spacing: 0.12em; }
-  .admin-auth-brand-tagline { @apply text-base font-medium mt-4 leading-relaxed text-white; }
-  .admin-auth-brand-sub     { @apply text-sm mt-3 leading-relaxed; color: rgba(255,255,255,0.55); }
-  .admin-auth-form-panel    { @apply flex-1 flex items-center justify-center px-6 py-12; background: #FFFFFF; }
-  .admin-auth-form-title    { @apply text-lg font-medium mb-1; color: var(--admin-text); }
-  .admin-auth-form-sub      { @apply text-sm mb-8; color: var(--admin-text-faint); }
-
   /* ── Admin: Section card ── */
   .admin-section-card        { background: var(--admin-surface); border: 0.5px solid var(--admin-border); @apply rounded-xl overflow-hidden; }
   .admin-section-card-header { @apply px-5 py-4 flex items-center justify-between; border-bottom: 0.5px solid var(--admin-border); }
   .admin-section-card-title  { @apply text-sm font-medium; color: var(--admin-text); }
 }
 
-
-/* ═══════════════════════════════════════════════════════
-   USER PORTAL COMPONENTS (.user-*)
-   Font: Outfit (font-outfit)
-   Palette: dark nav (#160C0A) + cream bg + gold accent + wine red CTAs
-═══════════════════════════════════════════════════════ */
-@layer components {
-
-  /* ── User: Shell & Layout ── */
-  .user-shell {
-    @apply min-h-screen;
-    font-family: var(--font-outfit-face), system-ui, sans-serif;
-    background: var(--user-page-bg);
-    color: var(--user-text);
-  }
-  .user-topnav {
-    background: var(--user-nav-bg);
-    border-bottom: 1px solid var(--user-nav-border);
-    @apply sticky top-0 z-30 h-14 flex items-center px-6 justify-between;
-  }
-  .user-main { @apply px-6 py-8 max-w-5xl mx-auto; }
-
-  /* ── User: Navigation ── */
-  .user-nav-link        { @apply text-sm cursor-pointer transition-colors; color: rgba(240,232,216,0.65); }
-  .user-nav-link:hover  { color: var(--user-nav-text); }
-  .user-nav-link-active { @apply text-sm font-medium cursor-pointer; color: var(--user-nav-active); }
-
-  /* ── User: Page header ── */
-  .user-page-header   { @apply flex items-start justify-between mb-6; }
-  .user-page-title    { @apply text-xl font-medium; color: var(--user-text); }
-  .user-page-subtitle { @apply text-sm mt-0.5; color: var(--user-text-faint); }
-
-  /* ── User: Cards ── */
-  .user-card          { background: var(--user-surface); border: 0.5px solid var(--user-border); @apply rounded-xl; }
-  .user-card-elevated { background: var(--user-surface); border: 0.5px solid var(--user-border); @apply rounded-xl shadow-card; }
-  .user-card-flat     { background: var(--user-surface-sub); @apply rounded-xl; }
-  .user-section-card         { background: var(--user-surface); border: 0.5px solid var(--user-border); @apply rounded-xl overflow-hidden; }
-  .user-section-card-header  { @apply px-5 py-4 flex items-center justify-between; border-bottom: 0.5px solid var(--user-border); }
-  .user-section-card-title   { @apply text-sm font-medium; color: var(--user-text); }
-
-  /* ── User: Welcome banner ── */
-  .user-banner         { background: var(--user-gold-light); @apply rounded-xl px-6 py-4; }
-  .user-banner-eyebrow { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--user-gold); }
-  .user-banner-title   { @apply text-lg font-medium mt-1; color: var(--user-text); }
-  .user-banner-sub     { @apply text-xs mt-1; color: var(--user-text-muted); }
-
-  /* ── User: Buttons ── */
-  .user-btn {
-    @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold
-           transition-colors cursor-pointer;
-    border: none;
-    padding: 8px 16px;
-  }
-  /* Wine red — primary actions (enroll, pay, submit) */
-  .user-btn-primary  { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; border: none; padding: 8px 16px; background: #8E2A23; color: #FFF; }
-  .user-btn-primary:hover  { background: #7B1F1A; }
-  /* Gold — secondary / featured CTA */
-  .user-btn-gold     { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; border: none; padding: 8px 16px; background: #B8830A; color: #FFF; }
-  .user-btn-gold:hover     { background: #9A6E08; }
-  /* Outline on cream — cancel, back */
-  .user-btn-outline  { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; padding: 8px 16px; background: transparent; color: #8E2A23; border: 1px solid #8E2A23; }
-  .user-btn-outline:hover  { background: #FDF2F1; }
-  /* Ghost — tertiary actions */
-  .user-btn-ghost    { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; border: none; padding: 8px 16px; background: transparent; color: #B8830A; }
-  .user-btn-ghost:hover    { background: var(--user-gold-light); }
-  /* Neutral — filters, sort */
-  .user-btn-neutral  { @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer; border: none; padding: 8px 16px; background: #E8DFC8; color: #38342E; }
-  .user-btn-neutral:hover  { background: #DDD3B8; }
-  .user-btn-sm { font-size: 12px; padding: 6px 12px; }
-  .user-btn-lg { font-size: 16px; padding: 12px 24px; }
-
-  /* ── User: Inputs ── */
-  .user-input {
-    @apply w-full rounded-lg text-sm transition-colors outline-none;
-    background: #F8F2E4;
-    border: 1px solid var(--user-border);
-    color: var(--user-text);
-    padding: 9px 12px;
-  }
-  .user-input::placeholder { color: var(--user-text-faint); }
-  .user-input:hover { background: var(--user-surface-sub); }
-  .user-input:focus {
-    background: var(--user-surface);
-    border-color: var(--user-gold);
-    box-shadow: 0 0 0 3px rgba(184, 131, 10, 0.10);
-  }
-  .user-textarea {
-    @apply w-full rounded-lg text-sm transition-colors outline-none;
-    background: #F8F2E4; border: 1px solid var(--user-border);
-    color: var(--user-text); padding: 9px 12px;
-    resize: vertical; min-height: 80px;
-  }
-  .user-textarea::placeholder { color: var(--user-text-faint); }
-  .user-textarea:hover { background: var(--user-surface-sub); }
-  .user-textarea:focus { background: var(--user-surface); border-color: var(--user-gold); box-shadow: 0 0 0 3px rgba(184,131,10,0.10); }
-  .user-select {
-    @apply w-full rounded-lg text-sm transition-colors outline-none;
-    background: #F8F2E4; border: 1px solid var(--user-border);
-    color: var(--user-text); padding: 9px 12px;
-    cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16' fill='none' stroke='%23A08880' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    padding-right: 36px;
-  }
-  .user-select::placeholder { color: var(--user-text-faint); }
-  .user-select:hover { background-color: var(--user-surface-sub); }
-  .user-select:focus { background-color: var(--user-surface); border-color: var(--user-gold); box-shadow: 0 0 0 3px rgba(184,131,10,0.10); }
-
-  /* ── User: Table — gold header ── */
-  .user-table { @apply w-full border-collapse; }
-  .user-table thead tr { background: var(--user-table-header-bg); }
-  .user-table thead th {
-    @apply px-4 py-2.5 text-left;
-    font-size: 10px; font-weight: 500;
-    letter-spacing: 0.05em; text-transform: uppercase;
-    color: var(--user-table-header-text);
-  }
-  .user-table tbody tr:nth-child(even) { background: var(--user-table-row-alt); }
-  .user-table tbody tr:nth-child(odd)  { background: var(--user-surface); }
-  .user-table tbody tr:hover           { background: var(--user-surface-sub); }
-  .user-table tbody td {
-    @apply px-4 py-2.5 text-sm;
-    border-bottom: 0.5px solid var(--user-table-border);
-    color: var(--user-text);
-  }
-
-  /* ── User: Auth ── */
-  .user-auth-shell    { @apply min-h-screen flex items-center justify-center px-4 py-12; background: var(--user-page-bg); }
-  .user-auth-card     { background: var(--user-surface); border: 0.5px solid var(--user-border); @apply rounded-2xl p-8 w-full; max-width: 360px; }
-  .user-auth-gold-bar { height: 3px; background: var(--user-gold); @apply rounded-full mb-6; }
-  .user-auth-eyebrow  { @apply text-xs font-medium tracking-widest text-center mb-2; color: var(--user-gold); letter-spacing: 0.12em; }
-  .user-auth-title    { @apply text-xl font-medium text-center mb-1; color: var(--user-text); }
-  .user-auth-sub      { @apply text-sm text-center mb-7; color: var(--user-text-muted); }
-  .user-auth-divider  { border-top: 0.5px solid var(--user-border); @apply mt-6 pt-5; }
-
-  /* ── User: Class enrollment cards ── */
-  .user-class-card         { background: var(--user-surface); border: 0.5px solid var(--user-border); @apply rounded-xl p-4 flex flex-col gap-2; }
-  .user-class-card-title   { @apply text-sm font-medium; color: var(--user-text); }
-  .user-class-card-sub     { @apply text-xs; color: var(--user-text-muted); }
-  .user-class-card-footer  { @apply flex items-center justify-between mt-auto pt-3; border-top: 0.5px solid var(--user-border); }
-  .user-class-card-meta    { @apply text-xs; color: var(--user-text-muted); }
-  .user-spots-available    { background: var(--user-gold-light); color: var(--user-gold); @apply text-xs font-medium px-2.5 py-0.5 rounded-full; }
-  .user-spots-full         { background: #F4D4CE; color: #7A2018; @apply text-xs font-medium px-2.5 py-0.5 rounded-full; }
-}
-
-
-/* ═══════════════════════════════════════════════════════
-   V1 BACKWARD COMPAT — DO NOT ADD NEW USAGES
-   Old unprefixed classes kept while UI primitives migrate.
-   Delete each block once the consuming component is updated.
-   Components still using these:
-     Button.tsx     → migrate to admin-btn-* / user-btn-*
-     Card.tsx       → uses inline utilities (unaffected)
-     Input.tsx      → migrate to admin-input / user-input
-     PageHeader.tsx → migrate to admin-page-header / user-page-header
-     SectionCard.tsx→ migrate to admin-section-card / user-section-card
-     nav-item usage in admin/layout.tsx → already migrated below
-═══════════════════════════════════════════════════════ */
-@layer components {
-
-  /* Buttons */
-  .btn-primary {
-    @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer;
-    border: none; padding: 8px 16px;
-    background: #8E2A23; color: #FFF;
-  }
-  .btn-primary:hover { background: #7B1F1A; }
-
-  .btn-secondary {
-    @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer;
-    border: none; padding: 8px 16px;
-    background: #F2E7E4; color: #5C1713;
-  }
-  .btn-secondary:hover { background: #E6D5D1; }
-
-  .btn-warm {
-    @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer;
-    border: none; padding: 8px 16px;
-    background: #E6D5D1; color: #5C1713;
-  }
-  .btn-warm:hover { background: #D8C4BF; }
-
-  .btn-muted {
-    @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer;
-    border: none; padding: 8px 16px;
-    background: #D8C4BF; color: #5C1713;
-  }
-  .btn-muted:hover { background: #C4908A; color: #FFF; }
-
-  .btn-outline {
-    @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer;
-    padding: 8px 16px;
-    background: transparent; color: #8E2A23;
-    border: 1px solid #8E2A23;
-  }
-  .btn-outline:hover { background: #FDF2F1; }
-
-  .btn-ghost {
-    @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer;
-    border: none; padding: 8px 16px;
-    background: transparent; color: #7B1F1A;
-  }
-  .btn-ghost:hover { background: #FDF2F1; }
-
-  .btn-danger {
-    @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer;
-    border: none; padding: 8px 16px;
-    background: #DC2626; color: #FFF;
-  }
-  .btn-danger:hover { background: #B91C1C; }
-
-  .btn-neutral {
-    @apply inline-flex items-center gap-1.5 rounded-lg text-sm font-semibold transition-colors cursor-pointer;
-    border: none; padding: 8px 16px;
-    background: #EDE9E4; color: #38342E;
-  }
-  .btn-neutral:hover { background: #DDD9D2; }
-
-  .btn-sm { font-size: 12px; padding: 6px 12px; }
-  .btn-lg { font-size: 16px; padding: 12px 24px; }
-
-  /* Inputs */
-  .input {
-    @apply w-full rounded-lg text-sm transition-colors outline-none;
-    background: #EDE9E4; border: 1px solid transparent;
-    color: #201D18; padding: 9px 12px;
-  }
-  .input::placeholder { color: #9E9890; }
-  .input:hover  { background: #E4E0DB; }
-  .input:focus  { background: #FFFFFF; border-color: #8E2A23; box-shadow: 0 0 0 3px rgba(142,42,35,0.12); }
-  .textarea {
-    @apply w-full rounded-lg text-sm transition-colors outline-none;
-    background: #EDE9E4; border: 1px solid transparent;
-    color: #201D18; padding: 9px 12px;
-    resize: vertical; min-height: 80px;
-  }
-  .textarea::placeholder { color: #9E9890; }
-  .textarea:hover { background: #E4E0DB; }
-  .textarea:focus { background: #FFFFFF; border-color: #8E2A23; box-shadow: 0 0 0 3px rgba(142,42,35,0.12); }
-  .select {
-    @apply w-full rounded-lg text-sm transition-colors outline-none;
-    background: #EDE9E4; border: 1px solid transparent;
-    color: #201D18; padding: 9px 12px;
-    cursor: pointer; appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16' fill='none' stroke='%239E9890' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 6 8 10 12 6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px;
-  }
-  .select:hover { background-color: #E4E0DB; }
-  .select:focus { background-color: #FFFFFF; border-color: #8E2A23; box-shadow: 0 0 0 3px rgba(142,42,35,0.12); }
-
-  /* Cards */
-  .card          { background: #FFFFFF; border: 0.5px solid #DDD9D2; @apply rounded-xl shadow-card; }
-  .card-elevated { background: #FFFFFF; @apply rounded-xl shadow-elevated; }
-  .card-flat     { background: #EDE9E4; @apply rounded-xl; }
-  .card-accent   { background: #FFFFFF; border: 0.5px solid #DDD9D2; border-top: 3px solid #8E2A23; @apply rounded-xl shadow-card; }
-
-  /* Nav (old unprefixed — admin sidebar uses admin-nav-item now) */
-  .nav-item {
-    @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors;
-    color: #B8A8A4;
-  }
-  .nav-item:hover        { background: rgba(255,255,255,0.06); color: #FFFFFF; }
-  .nav-item-active       { @apply flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer; background: #8E2A23; color: #FFFFFF; }
-
-  /* Page header */
-  .page-header   { @apply flex items-start justify-between mb-6; }
-  .page-title    { @apply text-xl font-medium; color: #201D18; }
-  .page-subtitle { @apply text-sm mt-0.5; color: #9E9890; }
-
-  /* Alert banners (old naming) */
-  .alert-error   { background: #FEF2F2; border: 0.5px solid #FCA5A5; @apply rounded-xl px-4 py-3 text-sm; color: #B91C1C; }
-  .alert-warning { background: rgba(212,160,192,.10); border: 0.5px solid #D4A0C0; @apply rounded-xl px-4 py-3 text-sm; color: #702858; }
-  .alert-success { background: rgba(125,206,194,.10); border: 0.5px solid #7DCEC2; @apply rounded-xl px-4 py-3 text-sm; color: #0A5A50; }
-
-  /* Stat cards (old naming) */
-  .stat-card { background: #FFFFFF; border: 0.5px solid #DDD9D2; border-top: 3px solid #8E2A23; @apply rounded-xl p-4; }
-  .stat-card-label { font-size: 10px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #9E9890; }
-  .stat-card-value { @apply text-2xl font-medium mt-1.5; color: #201D18; }
-  .stat-card-sub   { @apply text-xs mt-1; color: #736D65; }
-}
 
 
 /* ── TipTap email image constraints (do not remove) ─── */
