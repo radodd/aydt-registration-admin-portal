@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { gaEvent } from "@/utils/analytics";
 
 type BatchStatus = "confirmed" | "pending_payment" | "failed" | "unknown";
 
@@ -24,16 +25,21 @@ export function BatchConfirmationGuard({
   semesterId,
   initialStatus,
   isPreview,
+  grandTotal,
+  paymentPlanType,
 }: {
   batchId: string;
   semesterId: string;
   initialStatus: BatchStatus;
   isPreview: boolean;
+  grandTotal?: number | null;
+  paymentPlanType?: string | null;
 }) {
   const [status, setStatus] = useState<BatchStatus>(initialStatus);
   const [timedOut, setTimedOut] = useState(false);
   const pollCount = useRef(0);
   const MAX_POLLS = 15; // 15 × 2s = 30s
+  const purchaseFired = useRef(false);
 
   useEffect(() => {
     // No polling needed if already confirmed or in preview mode
@@ -62,6 +68,18 @@ export function BatchConfirmationGuard({
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Fire purchase event once when batch is confirmed
+  useEffect(() => {
+    if (status !== "confirmed" || isPreview || purchaseFired.current) return;
+    purchaseFired.current = true;
+    gaEvent("purchase", {
+      transaction_id: batchId,
+      value: grandTotal ?? 0,
+      currency: "USD",
+      payment_plan: paymentPlanType ?? "pay_in_full",
+    });
+  }, [status, batchId, grandTotal, paymentPlanType, isPreview]);
 
   // Confirmed — render normal success UI
   if (status === "confirmed" || isPreview) {

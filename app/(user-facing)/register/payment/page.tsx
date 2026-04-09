@@ -13,8 +13,9 @@ import { computePricingQuote } from "@/app/actions/computePricingQuote";
 import { createEPGPaymentSession } from "@/app/actions/createEPGPaymentSession";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
 import { createClient } from "@/utils/supabase/client";
-import type { PricingQuote } from "@/types";
+import type { PricingQuote, FamilyAccountCredit } from "@/types";
 import type { PublicSession } from "@/types/public";
+import { gaEvent } from "@/utils/analytics";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -61,13 +62,17 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
   const [semesterSessions, setSemesterSessions] = useState<PublicSession[]>([]);
   const [dancerNames, setDancerNames] = useState<Map<string, string>>(new Map());
 
-  // Promo code
+  // Coupon code
   const [couponInput, setCouponInput] = useState("");
   const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
   const [couponFeedback, setCouponFeedback] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  // Account credits
+  const [availableCredits, setAvailableCredits] = useState<FamilyAccountCredit[]>([]);
+  const [applyCredit, setApplyCredit] = useState(false);
 
   // Stable batchId: same cart + retry = same ID, so createRegistrations()
   // idempotency guard returns existing registrations without duplicate DB inserts.
@@ -120,6 +125,40 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
         );
       });
   }, [state.participants]);
+
+  // Fetch available account credits for this family
+  useEffect(() => {
+    if (state.isPreview) return;
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase
+        .from("users")
+        .select("family_id")
+        .eq("id", user.id)
+        .maybeSingle()
+        .then(({ data: profile }) => {
+          const familyId = (profile as any)?.family_id;
+          if (!familyId) return;
+          supabase
+            .from("family_account_credits")
+            .select("*")
+            .eq("family_id", familyId)
+            .is("used_in_batch_id", null)
+            .eq("is_active", true)
+            .then(({ data }) => {
+              if (data && data.length > 0) {
+                setAvailableCredits(data as FamilyAccountCredit[]);
+                setApplyCredit(true);
+              }
+            });
+        });
+    });
+  }, [state.isPreview]);
+
+  const creditTotal = applyCredit
+    ? availableCredits.reduce((sum, c) => sum + Number(c.amount), 0)
+    : 0;
 
   const sessionMap = useMemo(
     () => new Map(semesterSessions.map((s) => [s.id, s])),
@@ -199,7 +238,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
           } else {
             setCouponFeedback({
               type: "error",
-              message: "This promo code is invalid, expired, or not applicable to your enrollment.",
+              message: "This coupon code is invalid, expired, or not applicable to your enrollment.",
             });
           }
         }
@@ -240,6 +279,8 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
 
     setPaymentIntent("", batchId);
 
+    const creditIdsToApply = applyCredit ? availableCredits.map((c) => c.id) : [];
+
     const result = await createRegistrations({
       semesterId,
       participants: fullyAssigned.map((p) => ({
@@ -251,6 +292,8 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       batchId,
       pricingQuote: quote ?? undefined,
       couponCode: appliedCouponCode ?? undefined,
+      creditIdsToApply,
+      creditTotal,
     });
 
     if (!result.success) {
@@ -273,9 +316,12 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
     }
 
     // Registration batch created (pending_payment). Now redirect to EPG HPP.
+    const baseAmountDue = quote?.amountDueNow ?? quote?.grandTotal ?? 0;
+    const amountAfterCredits = Math.max(0, baseAmountDue - creditTotal);
+
     const paymentResult = await createEPGPaymentSession({
       batchId: result.batchId ?? batchId,
-      amountDueNow: quote?.amountDueNow ?? quote?.grandTotal ?? 0,
+      amountDueNow: amountAfterCredits,
       semesterId,
       semesterName: "Registration",
     });
@@ -287,6 +333,30 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       setProcessing(false);
       return;
     }
+
+    // Fire checkout analytics before leaving the site for EPG
+    const checkoutItems = state.participants
+      .filter((p) => p.dancerId)
+      .map((p) => {
+        const session = sessionMap.get(p.sessionId);
+        return {
+          item_id: p.sessionId,
+          item_name: session?.name ?? p.sessionId,
+          item_category: session?.discipline ?? undefined,
+          quantity: 1,
+        };
+      });
+    gaEvent("begin_checkout", {
+      currency: "USD",
+      value: quote?.grandTotal ?? 0,
+      items: checkoutItems,
+    });
+    gaEvent("add_payment_info", {
+      currency: "USD",
+      value: quote?.grandTotal ?? 0,
+      payment_type: "Credit Card",
+      items: checkoutItems,
+    });
 
     // Redirect to EPG HPP — cart/state cleared on confirmation page return
     window.location.href = paymentResult.paymentSessionUrl;
@@ -649,7 +719,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                       <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
                       <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
                     </svg>
-                    {quote.appliedCouponName ?? "Promo Code"} applied
+                    {quote.appliedCouponName ?? "Coupon Code"} applied
                   </div>
                   <div
                     style={{
@@ -662,7 +732,50 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                 </div>
               )}
 
-              {/* Promo strip — inline */}
+              {/* Account credits */}
+              {availableCredits.length > 0 && (
+                <div
+                  className="flex flex-wrap items-center justify-between px-5 py-3 border-t gap-3"
+                  style={{ borderColor: "var(--pub-border-subtle)" }}
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="apply-credit"
+                      type="checkbox"
+                      checked={applyCredit}
+                      onChange={(e) => setApplyCredit(e.target.checked)}
+                      className="w-4 h-4 rounded"
+                      style={{ accentColor: "var(--plum)" }}
+                    />
+                    <label
+                      htmlFor="apply-credit"
+                      className="text-xs font-semibold cursor-pointer"
+                      style={{ color: "var(--pub-text-primary)" }}
+                    >
+                      Apply account credit
+                    </label>
+                    <span
+                      className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold"
+                      style={{
+                        background: "var(--pub-badge-sage-bg)",
+                        color: "var(--pub-badge-sage-text)",
+                      }}
+                    >
+                      {formatCurrency(availableCredits.reduce((s, c) => s + Number(c.amount), 0))} available
+                    </span>
+                  </div>
+                  {applyCredit && (
+                    <span
+                      className="text-sm font-bold"
+                      style={{ color: "var(--pub-badge-sage-text)" }}
+                    >
+                      &minus;{formatCurrency(creditTotal)}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Coupon strip — inline */}
               <div
                 className="flex flex-wrap items-center gap-2 px-5 py-3 border-t"
                 style={{ borderColor: "var(--pub-border-subtle)" }}
@@ -671,7 +784,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                   className="text-xs font-semibold whitespace-nowrap"
                   style={{ color: "var(--pub-text-muted)" }}
                 >
-                  Promo code
+                  Coupon code
                 </span>
                 <input
                   type="text"
@@ -790,7 +903,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                     color: "var(--plum)",
                   }}
                 >
-                  {formatCurrency(quote.grandTotal)}
+                  {formatCurrency(Math.max(0, quote.grandTotal - creditTotal))}
                 </div>
               </div>
             </>
@@ -1160,8 +1273,10 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                     style={{ color: "var(--pub-text-muted)" }}
                   >
                     Single payment of{" "}
-                    {quote ? formatCurrency(quote.grandTotal) : "—"} at
-                    checkout.
+                    {quote
+                      ? formatCurrency(Math.max(0, quote.grandTotal - creditTotal))
+                      : "—"}{" "}
+                    at checkout.
                   </div>
                 </div>
               </div>
@@ -1196,8 +1311,11 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                     className="text-[11px] leading-relaxed"
                     style={{ color: "var(--pub-text-muted)" }}
                   >
-                    Split payments available. Select at checkout on the next
-                    page.
+                    Split your balance into monthly payments.{" "}
+                    <span style={{ color: "var(--pub-text-primary)", fontWeight: 600 }}>
+                      $5/month service fee applies.
+                    </span>{" "}
+                    Select at checkout on the next page.
                   </div>
                 </div>
               </div>

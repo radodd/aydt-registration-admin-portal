@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +18,7 @@ import {
 import { detectTimeConflicts } from "@/utils/detectTimeConflicts";
 import type { ParticipantAssignment } from "@/types/public";
 import type { ConflictDetail, Dancer, SessionScheduleInfo } from "@/types";
+import { gaEvent } from "@/utils/analytics";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
@@ -499,6 +500,14 @@ export function ParticipantsContent({
   const [dancers, setDancers] = useState<Dancer[]>([]);
   const [familyId, setFamilyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Fire once when the user reaches the participant assignment step
+  const registrationStartedFired = useRef(false);
+  useEffect(() => {
+    if (registrationStartedFired.current) return;
+    registrationStartedFired.current = true;
+    gaEvent("registration_started", { semester_id: semesterId });
+  }, [semesterId]);
 
   const [assignments, setAssignments] = useState<ParticipantAssignment[]>(
     state.participants,
