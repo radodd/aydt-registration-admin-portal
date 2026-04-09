@@ -38,7 +38,7 @@ export default async function ConfirmationPage({
   const supabase = await createClient();
   const { data: batchRow } = await supabase
     .from("registration_batches")
-    .select("status")
+    .select("status, grand_total, payment_plan_type")
     .eq("id", batchId)
     .maybeSingle();
 
@@ -54,6 +54,8 @@ export default async function ConfirmationPage({
         semesterId={semesterId}
         initialStatus={initialStatus}
         isPreview={isPreview}
+        grandTotal={batchRow?.grand_total ?? null}
+        paymentPlanType={batchRow?.payment_plan_type ?? null}
       />
     </>
   );

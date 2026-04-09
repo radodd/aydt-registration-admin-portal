@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/app/providers/CartProvider";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
+import { gaEvent } from "@/utils/analytics";
 import type { PublicSession } from "@/types/public";
 
 function formatCurrency(cents: number): string {
@@ -99,6 +100,24 @@ export function CartPageContent() {
       );
     }
   }, [isExpired, clear, router, semesterId, secondsRemaining, hydrated, itemCount]);
+
+  // Fire view_cart once when cart loads with items
+  const viewCartFired = useRef(false);
+  useEffect(() => {
+    if (viewCartFired.current || enrichedSessions.length === 0) return;
+    viewCartFired.current = true;
+    gaEvent("view_cart", {
+      currency: "USD",
+      value: subtotal / 100,
+      items: enrichedSessions.map((s) => ({
+        item_id: s.id,
+        item_name: s.name,
+        item_category: s.discipline ?? s.name,
+        price: sessionPrice(s) / 100,
+        quantity: 1,
+      })),
+    });
+  }, [enrichedSessions, subtotal]);
 
   const subtotal = enrichedSessions.reduce(
     (acc, s) => acc + sessionPrice(s),
@@ -293,7 +312,20 @@ export function CartPageContent() {
                   <button
                     type="button"
                     className="cart-item-remove"
-                    onClick={() => remove(session.id)}
+                    onClick={() => {
+                      gaEvent("remove_from_cart", {
+                        currency: "USD",
+                        value: sessionPrice(session) / 100,
+                        items: [{
+                          item_id: session.id,
+                          item_name: session.name,
+                          item_category: session.discipline ?? session.name,
+                          price: sessionPrice(session) / 100,
+                          quantity: 1,
+                        }],
+                      });
+                      remove(session.id);
+                    }}
                   >
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <line x1="18" y1="6" x2="6" y2="18"/>
@@ -352,9 +384,26 @@ export function CartPageContent() {
               <div className="order-group-label" style={{ borderTop: "1px solid var(--pub-border)", paddingTop: 12 }}>
                 Fees &amp; Add-ons
               </div>
+              <div className="order-line">
+                <div>
+                  <div className="order-line-label">Registration fee</div>
+                  <div className="order-line-sub">Per dancer enrolled</div>
+                </div>
+                <div className="order-line-amount pending">Applied at payment</div>
+              </div>
+              <div className="order-line">
+                <div>
+                  <div className="order-line-label">Family &amp; multi-class discounts</div>
+                  <div className="order-line-sub">Automatically applied when eligible</div>
+                </div>
+                <div className="order-line-amount pending">Applied at payment</div>
+              </div>
               <div className="order-line order-line-last">
-                <div className="order-line-label">Discounts &amp; fees</div>
-                <div className="order-line-amount pending">Calculated at checkout</div>
+                <div>
+                  <div className="order-line-label">Coupon code</div>
+                  <div className="order-line-sub">Enter at the payment step</div>
+                </div>
+                <div className="order-line-amount pending">Applied at payment</div>
               </div>
             </div>
 
