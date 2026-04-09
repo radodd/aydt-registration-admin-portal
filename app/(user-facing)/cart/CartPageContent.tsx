@@ -101,6 +101,11 @@ export function CartPageContent() {
     }
   }, [isExpired, clear, router, semesterId, secondsRemaining, hydrated, itemCount]);
 
+  const subtotal = enrichedSessions.reduce(
+    (acc, s) => acc + sessionPrice(s),
+    0,
+  );
+
   // Fire view_cart once when cart loads with items
   const viewCartFired = useRef(false);
   useEffect(() => {
@@ -118,11 +123,6 @@ export function CartPageContent() {
       })),
     });
   }, [enrichedSessions, subtotal]);
-
-  const subtotal = enrichedSessions.reduce(
-    (acc, s) => acc + sessionPrice(s),
-    0,
-  );
 
   const semesterLink = preview
     ? `/preview/semester/${semesterId}`
