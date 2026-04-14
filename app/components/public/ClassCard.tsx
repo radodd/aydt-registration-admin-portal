@@ -399,9 +399,6 @@ export function ClassCard({ group }: { group: GroupedClass }) {
             </div>
           )}
 
-          {group.description && (
-            <div className="sem-class-desc">{group.description}</div>
-          )}
         </div>
 
         <div className="sem-class-right">
@@ -420,6 +417,11 @@ export function ClassCard({ group }: { group: GroupedClass }) {
       {/* Expanded sessions grid */}
       {isOpen && (
         <div className="sem-sessions-body">
+          {group.description && (
+            <div className="sem-class-desc" style={{ padding: "10px 0 4px", borderBottom: "1px solid var(--pub-border-subtle)", marginBottom: 4 }}>
+              {group.description}
+            </div>
+          )}
           <div className="sem-sessions-intro">
             <span className="sem-sessions-intro-label">
               {scheduleGroups.length} available option{scheduleGroups.length !== 1 ? "s" : ""}

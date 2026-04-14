@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { PublicSession, PublicSessionGroup } from "@/types/public";
 
 export interface FilterState {
@@ -54,7 +55,6 @@ export function applyFilters(
       const g = gradeToNum(filters.grade);
       const hasMin = s.minGrade != null;
       const hasMax = s.maxGrade != null;
-      // Only filter if the class actually has grade constraints
       if (hasMin || hasMax) {
         if (hasMin && g < s.minGrade!) return false;
         if (hasMax && g > s.maxGrade!) return false;
@@ -65,6 +65,46 @@ export function applyFilters(
 }
 
 const GRADE_LABELS = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="10" height="10" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2.5"
+      className={`sem-fg-chevron${open ? " open" : ""}`}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+interface SectionProps {
+  label: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}
+
+function FilterSection({ label, children, defaultOpen = true }: SectionProps) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="sem-filter-group">
+      <button
+        type="button"
+        className="sem-filter-group-toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className="sem-filter-label">{label}</span>
+        <ChevronIcon open={open} />
+      </button>
+      <div className={`sem-filter-section-pills${open ? "" : " collapsed"}`}>
+        <div className="sem-filter-pills">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function FilterBar({ sessions, groups, filters, onChange, classCount }: FilterBarProps) {
   // Derive unique disciplines from sessions
@@ -94,110 +134,98 @@ export function FilterBar({ sessions, groups, filters, onChange, classCount }: F
   return (
     <div className="sem-filter-bar">
       {/* Day filter */}
-      <div className="sem-filter-group">
-        <div className="sem-filter-label">Day</div>
-        <div className="sem-filter-pills">
+      <FilterSection label="Day">
+        <button
+          type="button"
+          className={`sem-fpill${!filters.dayOfWeek ? " active" : ""}`}
+          onClick={() => onChange({ ...filters, dayOfWeek: "" })}
+        >
+          Any Day
+        </button>
+        {DAYS.map((d) => (
           <button
+            key={d.value}
             type="button"
-            className={`sem-fpill${!filters.dayOfWeek ? " active" : ""}`}
-            onClick={() => onChange({ ...filters, dayOfWeek: "" })}
+            className={`sem-fpill${filters.dayOfWeek === d.value ? " active" : ""}`}
+            onClick={() => setDay(d.value)}
           >
-            Any Day
+            {d.label}
           </button>
-          {DAYS.map((d) => (
-            <button
-              key={d.value}
-              type="button"
-              className={`sem-fpill${filters.dayOfWeek === d.value ? " active" : ""}`}
-              onClick={() => setDay(d.value)}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
-      </div>
+        ))}
+      </FilterSection>
 
       {disciplines.length > 0 && (
         <>
           <div className="sem-filter-sep" />
-          <div className="sem-filter-group">
-            <div className="sem-filter-label">Discipline</div>
-            <div className="sem-filter-pills">
+          <FilterSection label="Discipline">
+            <button
+              type="button"
+              className={`sem-fpill${!filters.discipline ? " active" : ""}`}
+              onClick={() => onChange({ ...filters, discipline: "" })}
+            >
+              All
+            </button>
+            {disciplines.map((d) => (
               <button
+                key={d}
                 type="button"
-                className={`sem-fpill${!filters.discipline ? " active" : ""}`}
-                onClick={() => onChange({ ...filters, discipline: "" })}
+                className={`sem-fpill${filters.discipline === d ? " active" : ""}`}
+                onClick={() => setDisc(d)}
               >
-                All
+                {d}
               </button>
-              {disciplines.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  className={`sem-fpill${filters.discipline === d ? " active" : ""}`}
-                  onClick={() => setDisc(d)}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
-          </div>
+            ))}
+          </FilterSection>
         </>
       )}
 
       {gradesInUse && (
         <>
           <div className="sem-filter-sep" />
-          <div className="sem-filter-group">
-            <div className="sem-filter-label">Grade</div>
-            <div className="sem-filter-pills">
+          <FilterSection label="Grade">
+            <button
+              type="button"
+              className={`sem-fpill${!filters.grade ? " active" : ""}`}
+              onClick={() => onChange({ ...filters, grade: "" })}
+            >
+              Any Grade
+            </button>
+            {GRADE_LABELS.map((g) => (
               <button
+                key={g}
                 type="button"
-                className={`sem-fpill${!filters.grade ? " active" : ""}`}
-                onClick={() => onChange({ ...filters, grade: "" })}
+                className={`sem-fpill${filters.grade === g ? " active" : ""}`}
+                onClick={() => setGrade(g)}
               >
-                Any Grade
+                {g}
               </button>
-              {GRADE_LABELS.map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  className={`sem-fpill${filters.grade === g ? " active" : ""}`}
-                  onClick={() => setGrade(g)}
-                >
-                  {g === "K" ? "K" : `${g}`}
-                </button>
-              ))}
-            </div>
-          </div>
+            ))}
+          </FilterSection>
         </>
       )}
 
       {groups.length > 0 && (
         <>
           <div className="sem-filter-sep" />
-          <div className="sem-filter-group">
-            <div className="sem-filter-label">Group</div>
-            <div className="sem-filter-pills">
+          <FilterSection label="Group">
+            <button
+              type="button"
+              className={`sem-fpill${!filters.groupId ? " active" : ""}`}
+              onClick={() => onChange({ ...filters, groupId: "" })}
+            >
+              All Groups
+            </button>
+            {groups.map((g) => (
               <button
+                key={g.id}
                 type="button"
-                className={`sem-fpill${!filters.groupId ? " active" : ""}`}
-                onClick={() => onChange({ ...filters, groupId: "" })}
+                className={`sem-fpill${filters.groupId === g.id ? " active" : ""}`}
+                onClick={() => setGroup(g.id)}
               >
-                All Groups
+                {g.name}
               </button>
-              {groups.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  className={`sem-fpill${filters.groupId === g.id ? " active" : ""}`}
-                  onClick={() => setGroup(g.id)}
-                >
-                  {g.name}
-                </button>
-              ))}
-            </div>
-          </div>
+            ))}
+          </FilterSection>
         </>
       )}
 
@@ -213,7 +241,7 @@ export function FilterBar({ sessions, groups, filters, onChange, classCount }: F
       </label>
 
       <div className="sem-filter-count">
-        Showing {classCount} class{classCount !== 1 ? "es" : ""}
+        {classCount} class{classCount !== 1 ? "es" : ""}
       </div>
     </div>
   );

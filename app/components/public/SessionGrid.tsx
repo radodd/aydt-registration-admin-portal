@@ -153,8 +153,8 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
         </span>
       </div>
 
-      {/* ── Collapsible filter panel ─────────────────────── */}
-      {filtersOpen && (
+      {/* ── Collapsible filter panel (animated) ─────────── */}
+      <div className={`sem-filter-panel-wrap${filtersOpen ? "" : " collapsed"}`}>
         <FilterBar
           sessions={sessions}
           groups={groups}
@@ -162,7 +162,7 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
           onChange={setFilters}
           classCount={grouped.length}
         />
-      )}
+      </div>
 
       {grouped.length === 0 ? (
         <div className="sem-empty" style={{ margin: "16px 40px" }}>
@@ -181,7 +181,7 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
           </button>
         </div>
       ) : (
-        <div>
+        <div style={{ paddingTop: 12 }}>
           {grouped.map((group) => (
             <ClassCard key={group.classId} group={group} />
           ))}
