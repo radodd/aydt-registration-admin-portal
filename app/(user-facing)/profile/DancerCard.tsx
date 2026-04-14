@@ -102,6 +102,13 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
     marginBottom: 4, display: "block",
   };
 
+  /* ── Metadata pills ── */
+  const metaPills = [
+    age !== null ? `Age ${age}` : null,
+    dancer.grade ? `Grade ${dancer.grade}` : null,
+    dancer.school ?? null,
+  ].filter(Boolean) as string[];
+
   return (
     <div style={{
       background: "var(--pub-surface)",
@@ -111,84 +118,134 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
       boxShadow: "var(--pub-shadow-card)",
       marginBottom: 10,
     }}>
-      <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 14 }}>
-        {/* Avatar */}
-        <div style={{
-          width: 46, height: 46, borderRadius: "50%", flexShrink: 0,
-          background: "var(--plum-50)", color: "var(--plum)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 15, fontWeight: 700,
-        }}>
-          {initials}
-        </div>
+      {/* ── Card header row ── */}
+      <div style={{ padding: "14px 16px 12px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+          {/* Avatar */}
+          <div style={{
+            width: 40, height: 40, borderRadius: "50%", flexShrink: 0,
+            background: "var(--plum-50)", color: "var(--plum)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 14, fontWeight: 700, marginTop: 1,
+          }}>
+            {initials}
+          </div>
 
-        {/* Info */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>
-            {dancer.first_name} {dancer.last_name}
-          </div>
-          <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginTop: 2 }}>
-            {[
-              age !== null ? `Age ${age}` : null,
-              dancer.grade ? `Grade ${dancer.grade}` : null,
-              dancer.birth_date ? `DOB ${formatDOB(dancer.birth_date)}` : null,
-              dancer.school ? dancer.school : null,
-            ].filter(Boolean).join(" · ")}
-          </div>
-          {disciplines.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-              {disciplines.map(d => (
-                <span key={d} style={{
-                  padding: "3px 9px", borderRadius: 999,
-                  fontSize: 11, fontWeight: 600,
-                  background: "var(--plum-50)", color: "var(--plum-700)",
-                  border: "1px solid var(--plum-100)",
-                }}>
-                  {DISCIPLINE_LABELS[d] ?? d}
-                </span>
-              ))}
+          {/* Name + meta */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.2, marginBottom: 4 }}>
+              {dancer.first_name} {dancer.last_name}
             </div>
-          )}
-        </div>
 
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            {/* Metadata pills */}
+            {metaPills.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: dancer.birth_date ? 4 : 0 }}>
+                {metaPills.map((pill) => (
+                  <span key={pill} style={{
+                    padding: "2px 8px", borderRadius: 999,
+                    fontSize: 11, fontWeight: 600,
+                    background: "var(--pub-surface-warm)",
+                    color: "var(--pub-text-muted)",
+                    border: "1px solid var(--pub-border-subtle)",
+                  }}>
+                    {pill}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* DOB — smaller, secondary line */}
+            {dancer.birth_date && (
+              <div style={{ fontSize: 11, color: "var(--pub-text-faint)", marginTop: 2 }}>
+                DOB {formatDOB(dancer.birth_date)}
+              </div>
+            )}
+
+            {/* Discipline chips */}
+            {disciplines.length > 0 && (
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 6 }}>
+                {disciplines.map(d => (
+                  <span key={d} style={{
+                    padding: "2px 8px", borderRadius: 999,
+                    fontSize: 11, fontWeight: 600,
+                    background: "var(--plum-50)", color: "var(--plum-700)",
+                    border: "1px solid var(--plum-100)",
+                  }}>
+                    {DISCIPLINE_LABELS[d] ?? d}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Action buttons — top-right */}
           {!editing && (
-            <>
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                style={{
-                  padding: "8px 16px", borderRadius: 9, fontSize: 12, fontWeight: 600,
-                  border: "none", background: "transparent",
-                  color: "var(--pub-text-muted)", cursor: "pointer", fontFamily: "inherit",
-                }}
-              >
-                Edit
-              </button>
+            <div style={{ display: "flex", gap: 5, flexShrink: 0, marginTop: 1 }}>
               {onViewRegistrations && (
                 <button
                   type="button"
                   onClick={onViewRegistrations}
+                  title="View Classes"
                   style={{
-                    padding: "8px 16px", borderRadius: 9, fontSize: 12, fontWeight: 600,
+                    width: 30, height: 30, borderRadius: 8, fontSize: 11, fontWeight: 600,
                     border: "1.5px solid var(--pub-border)",
-                    background: "var(--pub-surface)", color: "var(--pub-text-primary)",
-                    cursor: "pointer", fontFamily: "inherit",
+                    background: "var(--pub-surface)", color: "var(--pub-text-muted)",
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "border-color .12s, color .12s",
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--plum-200)";
+                    (e.currentTarget as HTMLButtonElement).style.color = "var(--plum)";
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--pub-border)";
+                    (e.currentTarget as HTMLButtonElement).style.color = "var(--pub-text-muted)";
                   }}
                 >
-                  View Classes
+                  {/* Classes icon */}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
                 </button>
               )}
-            </>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                title="Edit dancer"
+                style={{
+                  width: 30, height: 30, borderRadius: 8, fontSize: 11, fontWeight: 600,
+                  border: "1.5px solid var(--pub-border)",
+                  background: "var(--pub-surface)", color: "var(--pub-text-muted)",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "border-color .12s, color .12s",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--plum-200)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "var(--plum)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--pub-border)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "var(--pub-text-muted)";
+                }}
+              >
+                {/* Edit pencil icon */}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </button>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Inline edit form */}
+      {/* ── Inline edit form ── */}
       {editing && (
         <div style={{
-          padding: "16px 20px",
+          padding: "16px 16px",
           borderTop: "1px solid var(--pub-border-subtle)",
           background: "var(--pub-surface-warm)",
         }}>
@@ -222,7 +279,7 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
               <label style={labelStyle}>Date of Birth</label>
               <input
@@ -244,7 +301,7 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
             <div>
               <label style={labelStyle}>
                 Student Email{" "}

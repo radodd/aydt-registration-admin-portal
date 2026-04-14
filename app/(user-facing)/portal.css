@@ -1688,6 +1688,62 @@ select.reg-input {
 .reg-email-signin a:hover { text-decoration: underline; }
 
 /* ═══════════════════════════════════════
+   SEMESTER DETAIL — FILTER TOGGLE BAR
+═══════════════════════════════════════ */
+.sem-filter-toggle-bar {
+  background: var(--pub-surface);
+  border-bottom: 1px solid var(--pub-border);
+  padding: 10px 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 66px;
+  z-index: 41; /* one above filter bar */
+}
+.sem-filter-toggle-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--pub-radius-pill);
+  border: 1.5px solid var(--pub-border);
+  background: var(--pub-surface);
+  color: var(--pub-text-muted);
+  font-family: var(--pub-font-primary); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .12s;
+}
+.sem-filter-toggle-btn:hover {
+  border-color: var(--plum-200); color: var(--pub-text-primary);
+}
+.sem-filter-active-badge {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--plum); color: #fff;
+  font-size: 10px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sem-filter-chevron {
+  transition: transform .2s;
+  margin-left: 2px;
+}
+.sem-filter-chevron.open { transform: rotate(180deg); }
+
+.sem-filter-clear-inline {
+  font-size: 12px; font-weight: 600; color: var(--plum);
+  background: none; border: none; cursor: pointer;
+  font-family: var(--pub-font-primary); padding: 0;
+  transition: color .12s;
+}
+.sem-filter-clear-inline:hover { color: var(--plum-700); }
+
+.sem-filter-count-inline {
+  font-size: 12px; color: var(--pub-text-faint); margin-left: auto;
+}
+
+/* The old sticky filter bar sits below the toggle bar */
+.sem-filter-bar {
+  top: calc(66px + 41px); /* nav + toggle bar */
+}
+
+/* ═══════════════════════════════════════
    LAYOUT HELPERS — referenced by responsive
 ═══════════════════════════════════════ */
 
@@ -1778,8 +1834,10 @@ select.reg-input {
   .sem-hero { padding: 28px 20px 24px; }
   .sem-hero-title { font-size: 26px; }
 
-  /* ── Semester filter bar (sticky top adjusted for 58px nav) */
-  .sem-filter-bar { padding: 10px 16px; top: 58px; }
+  /* ── Semester filter toggle bar (sticky top adjusted for 58px nav) */
+  .sem-filter-toggle-bar { padding: 8px 16px; top: 58px; }
+  /* ── Semester filter bar sits below toggle bar on mobile */
+  .sem-filter-bar { padding: 10px 16px; top: calc(58px + 39px); }
 
   /* ── Expiry bar ───────────────────────────────────────── */
   .sem-expiry-bar { padding: 0 16px; }
