@@ -861,13 +861,14 @@ export default function ReviewStep({
                   Preview
                 </span>
 
+                <div className="grid grid-cols-2 gap-4 items-start">
                 {/* Desktop */}
                 <div>
                   <div className="flex items-center gap-1.5 mb-2">
                     <Monitor size={11} className="text-neutral-400" />
                     <span className="text-[11px] font-medium text-neutral-400">Desktop</span>
                   </div>
-                  <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-md">
+                  <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-md" style={{ width: `${Math.round(600 * 0.575)}px` }}>
                     <div className="flex items-center gap-1.5 px-3 py-2 bg-neutral-50 border-b border-neutral-200">
                       <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
                       <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
@@ -948,6 +949,7 @@ export default function ReviewStep({
                     </div>
                   </div>
                 </div>
+                </div>{/* end grid */}
 
                 <div className="flex gap-2.5 px-3.5 py-2.5 mt-3 rounded-lg border border-indigo-100 bg-indigo-50">
                   <Mail size={13} className="text-indigo-400 shrink-0 mt-0.5" />
@@ -1093,6 +1095,116 @@ export default function ReviewStep({
                     </div>
                   </div>
                 </div>
+
+                {wl.invitationEmail?.htmlBody && (
+                  <div className="space-y-4">
+                    <SectionHd title="Invitation Email Preview" onEdit={() => onGoToStep("waitlist")} />
+                    <KVTable rows={[
+                      { label: "From",    value: `${wl.invitationEmail.fromName || "AYDT Studio"} <${wl.invitationEmail.fromEmail || "hello@aydt.org"}>` },
+                      { label: "Subject", value: wl.invitationEmail.subject },
+                    ]} />
+                    <div className="grid grid-cols-2 gap-4 items-start">
+                      {/* Desktop */}
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Monitor size={11} className="text-neutral-400" />
+                          <span className="text-[11px] font-medium text-neutral-400">Desktop</span>
+                        </div>
+                        <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-md" style={{ width: `${Math.round(600 * 0.575)}px` }}>
+                          <div className="flex items-center gap-1.5 px-3 py-2 bg-neutral-50 border-b border-neutral-200">
+                            <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+                            <div className="flex-1 mx-2 bg-white border border-neutral-200 rounded px-2 py-0.5 text-[11px] text-neutral-400">
+                              mail.google.com
+                            </div>
+                          </div>
+                          <div className="px-4 py-2.5 bg-neutral-50 border-b border-neutral-200">
+                            <p className="text-[12.5px] font-bold text-neutral-900 truncate">{wl.invitationEmail.subject}</p>
+                            <p className="text-[11.5px] text-neutral-500 mt-0.5">
+                              {wl.invitationEmail.fromName || "AYDT Studio"} &lt;{wl.invitationEmail.fromEmail || "hello@aydt.org"}&gt;
+                            </p>
+                          </div>
+                          <div style={{ height: 300, overflow: "hidden", position: "relative" }}>
+                            <iframe
+                              srcDoc={wrapEmailLayout(wl.invitationEmail.htmlBody)}
+                              title="Waitlist email desktop preview"
+                              sandbox="allow-same-origin"
+                              style={{
+                                position: "absolute", top: 0, left: 0,
+                                width: 600, height: 560, border: "none",
+                                transform: "scale(0.575)", transformOrigin: "top left",
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Mobile */}
+                      <div>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <Smartphone size={11} className="text-neutral-400" />
+                          <span className="text-[11px] font-medium text-neutral-400">Mobile</span>
+                        </div>
+                        <div className="flex justify-center py-2">
+                          <div
+                            className="relative shrink-0"
+                            style={{
+                              width: 240, height: 490,
+                              background: "#1a1a1a",
+                              borderRadius: 36,
+                              padding: "10px 7px",
+                              boxShadow: "0 20px 50px rgba(0,0,0,0.3), inset 0 0 0 1.5px #3a3a3a",
+                            }}
+                          >
+                            <div
+                              className="absolute left-1/2 -translate-x-1/2"
+                              style={{ top: 16, width: 60, height: 8, background: "#000", borderRadius: 4, zIndex: 2 }}
+                            />
+                            <div className="w-full h-full overflow-hidden" style={{ borderRadius: 28, background: "#fff" }}>
+                              <div
+                                className="flex items-center gap-1.5 px-2 py-1.5 border-b border-neutral-100"
+                                style={{ background: "#f5f5f5" }}
+                              >
+                                <div className="flex gap-0.5">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                                  <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                                </div>
+                                <span className="flex-1 text-center text-[7px] font-medium text-neutral-500 truncate">
+                                  Mail — AYDT Studio
+                                </span>
+                              </div>
+                              <div style={{ width: 226, height: 452, overflow: "hidden", position: "relative" }}>
+                                <iframe
+                                  srcDoc={wrapEmailLayout(wl.invitationEmail.htmlBody)}
+                                  title="Waitlist email mobile preview"
+                                  sandbox="allow-same-origin"
+                                  style={{
+                                    position: "absolute", top: 0, left: 0,
+                                    width: 390, height: 780, border: "none",
+                                    transform: "scale(0.58)", transformOrigin: "top left",
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2.5 px-3.5 py-2.5 rounded-lg border border-indigo-100 bg-indigo-50">
+                      <Mail size={13} className="text-indigo-400 shrink-0 mt-0.5" />
+                      <p className="text-[12px] text-neutral-600 leading-relaxed">
+                        Tokens like{" "}
+                        <span className="bg-indigo-100 text-indigo-700 rounded px-1 py-0.5 font-mono text-[11px] font-bold">
+                          {`{{participant_name}}`}
+                        </span>{" "}
+                        will be replaced with real values at send time.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>
