@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { signOut } from "@/app/auth/actions";
 
 export const metadata: Metadata = {
   title: "AYDT — Dance Programs for Young Artists",
@@ -10,6 +11,22 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let firstName: string | null = null;
+  if (user) {
+    const { data } = await supabase
+      .from("users")
+      .select("first_name")
+      .eq("id", user.id)
+      .single();
+    firstName = data?.first_name ?? null;
+  }
+
+  const isLoggedIn = !!user;
 
   const { data: semesters } = await supabase
     .from("semesters")
@@ -59,14 +76,30 @@ export default async function HomePage() {
                 </svg>
                 View Open Programs
               </a>
-              <div className="pub-hero-divider">or</div>
-              <Link href="/auth/login" className="btn-hero-ghost">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                </svg>
-                Log In to My Account
-              </Link>
+              {!isLoggedIn && (
+                <>
+                  <div className="pub-hero-divider">or</div>
+                  <Link href="/auth/login" className="btn-hero-ghost">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    Log In to My Account
+                  </Link>
+                </>
+              )}
+              {isLoggedIn && (
+                <>
+                  <div className="pub-hero-divider">or</div>
+                  <Link href="/profile" className="btn-hero-ghost">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                      <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    Go to My Account
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -199,61 +232,114 @@ export default async function HomePage() {
           <div className="pub-section-head-row" style={{ marginBottom: 28 }}>
             <div>
               <div className="pub-section-eyebrow">Your Account</div>
-              <h2 className="pub-section-title">Ready to Get Started?</h2>
+              <h2 className="pub-section-title">
+                {isLoggedIn ? `Good to see you, ${firstName ?? "there"}.` : "Ready to Get Started?"}
+              </h2>
             </div>
           </div>
 
           <div className="cta-split">
-            {/* Returning families */}
+            {/* Returning families / logged-in panel */}
             <div className="cta-card returning">
-              <div className="cta-label">Returning Families</div>
-              <div className="cta-title">
-                Welcome back.<br />Pick up where you left off.
-              </div>
-              <div className="cta-body">
-                Log in to view your registrations, manage your dancers, check
-                upcoming sessions, and enroll for the new semester.
-              </div>
-              <div className="cta-actions">
-                <Link href="/auth/login" className="btn-cta-dark">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                    <polyline points="10 17 15 12 10 7"/>
-                    <line x1="15" y1="12" x2="3" y2="12"/>
-                  </svg>
-                  Log In to My Account
-                </Link>
-                <Link href="/auth/request-password-reset" className="btn-cta-outline-dark">
-                  Forgot password?
-                </Link>
-              </div>
+              {isLoggedIn ? (
+                <>
+                  <div className="cta-label" style={{ color: "var(--plum-200)" }}>Your Account</div>
+                  <div className="cta-title">
+                    You&apos;re signed in<br />as {firstName ?? "a member"}.
+                  </div>
+                  <div className="cta-body">
+                    Head to your dashboard to manage your dancers, view current
+                    registrations, and enroll in new programs.
+                  </div>
+                  <div className="cta-actions">
+                    <Link href="/profile" className="btn-cta-dark">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                      </svg>
+                      Go to My Dashboard
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="cta-label">Returning Families</div>
+                  <div className="cta-title">
+                    Welcome back.<br />Pick up where you left off.
+                  </div>
+                  <div className="cta-body">
+                    Log in to view your registrations, manage your dancers, check
+                    upcoming sessions, and enroll for the new semester.
+                  </div>
+                  <div className="cta-actions">
+                    <Link href="/auth/login" className="btn-cta-dark">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+                        <polyline points="10 17 15 12 10 7"/>
+                        <line x1="15" y1="12" x2="3" y2="12"/>
+                      </svg>
+                      Log In to My Account
+                    </Link>
+                    <Link href="/auth/request-password-reset" className="btn-cta-outline-dark">
+                      Forgot password?
+                    </Link>
+                  </div>
+                </>
+              )}
             </div>
 
-            {/* New families */}
+            {/* New families / already-member panel */}
             <div className="cta-card new-family">
-              <div className="cta-label">New Families</div>
-              <div className="cta-title">
-                First time at AYDT?<br />Let&apos;s get you set up.
-              </div>
-              <div className="cta-body">
-                Create a free family account to start registering your dancers.
-                It only takes a few minutes, and you&apos;ll be ready to enroll in
-                any open program.
-              </div>
-              <div className="cta-actions">
-                <Link href="/register" className="btn-cta-plum">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="8.5" cy="7" r="4"/>
-                    <line x1="20" y1="8" x2="20" y2="14"/>
-                    <line x1="23" y1="11" x2="17" y2="11"/>
-                  </svg>
-                  Create a Family Account
-                </Link>
-                <a href="#semesters" className="btn-cta-ghost-plum">
-                  Browse programs first
-                </a>
-              </div>
+              {isLoggedIn ? (
+                <>
+                  <div className="cta-label">Not {firstName ?? "you"}?</div>
+                  <div className="cta-title">
+                    Sign in with a<br />different account.
+                  </div>
+                  <div className="cta-body">
+                    If this isn&apos;t your account, you can sign out and log in
+                    with a different email address, or create a new family account.
+                  </div>
+                  <div className="cta-actions">
+                    <form action={signOut}>
+                      <button type="submit" className="btn-cta-plum">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                          <polyline points="16 17 21 12 16 7"/>
+                          <line x1="21" y1="12" x2="9" y2="12"/>
+                        </svg>
+                        Sign Out
+                      </button>
+                    </form>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="cta-label">New Families</div>
+                  <div className="cta-title">
+                    First time at AYDT?<br />Let&apos;s get you set up.
+                  </div>
+                  <div className="cta-body">
+                    Create a free family account to start registering your dancers.
+                    It only takes a few minutes, and you&apos;ll be ready to enroll in
+                    any open program.
+                  </div>
+                  <div className="cta-actions">
+                    <Link href="/register" className="btn-cta-plum">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="8.5" cy="7" r="4"/>
+                        <line x1="20" y1="8" x2="20" y2="14"/>
+                        <line x1="23" y1="11" x2="17" y2="11"/>
+                      </svg>
+                      Create a Family Account
+                    </Link>
+                    <a href="#semesters" className="btn-cta-ghost-plum">
+                      Browse programs first
+                    </a>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -93,24 +93,26 @@ function AuthForm() {
                 </div>
               )}
 
-              <form>
+              <form id="login-form">
                 <input type="hidden" name="next" value={next} />
 
                 <div className="aydt-field">
-                  <label className="aydt-label">Email address</label>
+                  <label className="aydt-label" htmlFor="login-email">Email address</label>
                   <input
+                    id="login-email"
                     className="aydt-input"
                     type="email"
                     name="email"
                     placeholder="you@example.com"
-                    autoComplete="email"
+                    autoComplete="username"
                   />
                 </div>
 
                 <div className="aydt-field">
-                  <label className="aydt-label">Password</label>
+                  <label className="aydt-label" htmlFor="login-password">Password</label>
                   <div className="aydt-pw-wrap">
                     <input
+                      id="login-password"
                       className="aydt-input"
                       name="password"
                       type={showLoginPw ? "text" : "password"}

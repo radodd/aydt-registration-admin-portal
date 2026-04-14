@@ -5,7 +5,12 @@ import { usePathname } from "next/navigation";
 
 const CHECKOUT_PATHS = ["/cart", "/register"];
 
-export default function ConditionalFooter() {
+interface ConditionalFooterProps {
+  isLoggedIn?: boolean;
+  firstName?: string | null;
+}
+
+export default function ConditionalFooter({ isLoggedIn = false, firstName }: ConditionalFooterProps) {
   const pathname = usePathname();
   const isCheckout = CHECKOUT_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
@@ -40,7 +45,7 @@ export default function ConditionalFooter() {
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                   <polyline points="22,6 12,13 2,6"/>
                 </svg>
-                info@aydance.org
+                info@aydt.nyc
               </div>
             </div>
             <div className="pub-footer-social">
@@ -71,15 +76,28 @@ export default function ConditionalFooter() {
             </div>
           </div>
 
-          {/* Account column */}
+          {/* Account column — adapts based on auth state */}
           <div>
-            <div className="pub-footer-col-title">My Account</div>
+            <div className="pub-footer-col-title">
+              {isLoggedIn ? `Hi, ${firstName ?? "there"}` : "My Account"}
+            </div>
             <div className="pub-footer-links">
-              <Link href="/auth/login" className="pub-footer-link">Log In</Link>
-              <Link href="/register" className="pub-footer-link">Create Account</Link>
-              <Link href="/auth/request-password-reset" className="pub-footer-link">Reset Password</Link>
-              <Link href="/profile" className="pub-footer-link">My Dashboard</Link>
-              <Link href="/profile" className="pub-footer-link">My Registrations</Link>
+              {isLoggedIn ? (
+                <>
+                  <Link href="/profile" className="pub-footer-link">My Dashboard</Link>
+                  <Link href="/profile" className="pub-footer-link">My Registrations</Link>
+                  <Link href="/profile" className="pub-footer-link">Payment History</Link>
+                  <Link href="/auth/request-password-reset" className="pub-footer-link">Reset Password</Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/auth/login" className="pub-footer-link">Log In</Link>
+                  <Link href="/register" className="pub-footer-link">Create Account</Link>
+                  <Link href="/auth/request-password-reset" className="pub-footer-link">Reset Password</Link>
+                  <Link href="/profile" className="pub-footer-link">My Dashboard</Link>
+                  <Link href="/profile" className="pub-footer-link">My Registrations</Link>
+                </>
+              )}
             </div>
           </div>
 

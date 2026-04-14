@@ -84,7 +84,7 @@ export default async function PublicLayout({
         <main style={{ flex: 1 }}>{children}</main>
 
         {/* ── Footer ──────────────────────────────────────────── */}
-        <ConditionalFooter />
+        <ConditionalFooter isLoggedIn={!!user} firstName={firstName} />
 
       </div>
     </AuthProvider>

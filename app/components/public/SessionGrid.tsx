@@ -71,6 +71,17 @@ function buildGroupMap(
   return map;
 }
 
+/** Count how many filters are actively applied (non-default). */
+function activeFilterCount(filters: FilterState): number {
+  let n = 0;
+  if (filters.groupId) n++;
+  if (filters.dayOfWeek) n++;
+  if (filters.discipline) n++;
+  if (filters.grade) n++;
+  if (filters.spotsOnly) n++;
+  return n;
+}
+
 export function SessionGrid({ sessions, groups }: SessionGridProps) {
   const [filters, setFilters] = useState<FilterState>({
     groupId: "",
@@ -79,6 +90,7 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
     spotsOnly: false,
     grade: "",
   });
+  const [filtersOpen, setFiltersOpen] = useState(true);
 
   // Attach groupId from group membership
   const enrichedWithGroups = sessions.map((s) => {
@@ -88,25 +100,78 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
 
   const filtered = applyFilters(enrichedWithGroups, filters);
   const grouped = groupByClass(filtered);
+  const activeCount = activeFilterCount(filters);
+
+  function clearFilters() {
+    setFilters({ groupId: "", dayOfWeek: "", discipline: "", spotsOnly: false, grade: "" });
+  }
 
   return (
     <div>
-      <FilterBar
-        sessions={sessions}
-        groups={groups}
-        filters={filters}
-        onChange={setFilters}
-        classCount={grouped.length}
-      />
+      {/* ── Filter toggle header ─────────────────────────── */}
+      <div className="sem-filter-toggle-bar">
+        <button
+          type="button"
+          className="sem-filter-toggle-btn"
+          onClick={() => setFiltersOpen((v) => !v)}
+          aria-expanded={filtersOpen}
+        >
+          <svg
+            width="13" height="13" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" strokeWidth="2.5"
+          >
+            <line x1="4" y1="6" x2="20" y2="6"/>
+            <line x1="8" y1="12" x2="16" y2="12"/>
+            <line x1="12" y1="18" x2="12" y2="18" strokeLinecap="round"/>
+          </svg>
+          Filters
+          {activeCount > 0 && (
+            <span className="sem-filter-active-badge">{activeCount}</span>
+          )}
+          <svg
+            width="11" height="11" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" strokeWidth="2.5"
+            className={`sem-filter-chevron${filtersOpen ? " open" : ""}`}
+          >
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+
+        {/* Active filter summary + clear — shown when collapsed */}
+        {!filtersOpen && activeCount > 0 && (
+          <button
+            type="button"
+            className="sem-filter-clear-inline"
+            onClick={clearFilters}
+          >
+            Clear {activeCount} filter{activeCount !== 1 ? "s" : ""}
+          </button>
+        )}
+
+        <span className="sem-filter-count-inline">
+          {grouped.length} class{grouped.length !== 1 ? "es" : ""}
+        </span>
+      </div>
+
+      {/* ── Collapsible filter panel (animated) ─────────── */}
+      <div className={`sem-filter-panel-wrap${filtersOpen ? "" : " collapsed"}`}>
+        <FilterBar
+          sessions={sessions}
+          groups={groups}
+          filters={filters}
+          onChange={setFilters}
+          classCount={grouped.length}
+        />
+      </div>
 
       {grouped.length === 0 ? (
-        <div className="sem-empty">
+        <div className="sem-empty" style={{ margin: "16px 40px" }}>
           <p style={{ color: "var(--pub-text-muted)", fontWeight: 500 }}>
             No classes match your filters.
           </p>
           <button
             type="button"
-            onClick={() => setFilters({ groupId: "", dayOfWeek: "", discipline: "", spotsOnly: false, grade: "" })}
+            onClick={clearFilters}
             style={{
               marginTop: 8, fontSize: 13, color: "var(--plum)", background: "none",
               border: "none", cursor: "pointer", fontFamily: "var(--pub-font-primary)",
@@ -116,7 +181,7 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
           </button>
         </div>
       ) : (
-        <div>
+        <div style={{ paddingTop: 12 }}>
           {grouped.map((group) => (
             <ClassCard key={group.classId} group={group} />
           ))}

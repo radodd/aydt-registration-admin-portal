@@ -1,7 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+
+// Explicit viewport prevents iOS Safari from using its 980px default width,
+// which causes pages to appear zoomed-out on load.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID;
 
