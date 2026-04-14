@@ -50,6 +50,8 @@ export async function getFamilyDetail(
         gender,
         birth_date,
         grade,
+        secondary_email,
+        school,
         is_self,
 
         registrations:registrations!dancer_id (

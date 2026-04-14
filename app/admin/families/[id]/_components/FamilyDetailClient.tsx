@@ -11,6 +11,7 @@ import { ConfirmModal } from "../../_components/ConfirmModal";
 import { ParentDetailPanel } from "./ParentDetailPanel";
 import { DancerDetailPanel } from "./DancerDetailPanel";
 import { DancerCard } from "./DancerCard";
+import { BillingHistorySection } from "./BillingHistorySection";
 import { addParent, type AddParentInput } from "../../actions/addParent";
 import { updateParent, type UpdateParentInput } from "../../actions/updateParent";
 import { removeParent } from "../../actions/removeParent";
@@ -367,6 +368,9 @@ export function FamilyDetailClient({
           onRemove={() => setModal({ type: "removeDancer", dancer: focusedDancer })}
         />
       )}
+
+      {/* Registration & Billing History */}
+      <BillingHistorySection family={family} />
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}
 

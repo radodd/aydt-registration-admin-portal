@@ -48,6 +48,8 @@ export interface Dancer {
   birth_date: string | null;
   grade: string | null;
   email: string | null;
+  secondary_email?: string | null;
+  school?: string | null;
   phone_number: string | null;
   address_line1: string | null;
   address_line2: string | null;
@@ -1805,6 +1807,8 @@ export interface FamilyDetailDancer {
   gender: string | null;
   birth_date: string | null;
   grade: string | null;
+  secondary_email?: string | null;
+  school?: string | null;
   is_self: boolean;
   registrations: FamilyDetailRegistration[];
 }
