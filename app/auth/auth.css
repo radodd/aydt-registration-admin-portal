@@ -307,6 +307,11 @@
   margin-top: 4px;
 }
 
+/* ── Prevent iOS Safari auto-zoom on input focus (font-size must be ≥ 16px) ── */
+@media (max-width: 768px) {
+  .aydt-input { font-size: 16px; }
+}
+
 /* ── Responsive ── */
 @media (max-width: 720px) {
   .aydt-auth-shell {
