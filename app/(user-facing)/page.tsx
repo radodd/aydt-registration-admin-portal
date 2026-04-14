@@ -57,13 +57,7 @@ export default async function HomePage() {
       <section className="pub-hero">
         <div className="pub-hero-inner">
           <div className="pub-hero-content">
-            {isLoggedIn && firstName ? (
-              <div className="pub-hero-eyebrow">
-                Welcome back, {firstName}
-              </div>
-            ) : (
-              <div className="pub-hero-eyebrow">American Youth Dance Theater</div>
-            )}
+            <div className="pub-hero-eyebrow">American Youth Dance Theater</div>
             <h1 className="pub-hero-title">
               Where Joy and Technique<br />
               Take <em>Center Stage</em>
