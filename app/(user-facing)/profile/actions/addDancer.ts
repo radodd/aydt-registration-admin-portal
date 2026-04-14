@@ -7,6 +7,8 @@ export interface AddDancerInput {
   last_name: string;
   birth_date?: string;
   grade?: string;
+  secondary_email?: string;
+  school?: string;
 }
 
 export interface AddDancerResult {
@@ -39,6 +41,8 @@ export async function addDancer(input: AddDancerInput): Promise<AddDancerResult>
       last_name: input.last_name,
       birth_date: input.birth_date || null,
       grade: input.grade || null,
+      secondary_email: input.secondary_email || null,
+      school: input.school || null,
       family_id: userRow.family_id,
     })
     .select("id")

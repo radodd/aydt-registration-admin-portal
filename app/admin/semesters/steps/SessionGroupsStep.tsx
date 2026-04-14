@@ -1,6 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { SemesterDraft, SemesterAction } from "@/types";
 
 /* -------------------------------------------------------------------------- */
@@ -110,6 +126,76 @@ function useScrollFades(ref: React.RefObject<HTMLDivElement | null>) {
 }
 
 /* -------------------------------------------------------------------------- */
+/* SortableSessionItem                                                        */
+/* -------------------------------------------------------------------------- */
+
+function SortableSessionItem({
+  sessionId,
+  session,
+  onRemove,
+}: {
+  sessionId: string;
+  session: AppliedSession;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: sessionId });
+
+  const color = DISCIPLINE_COLORS[session.discipline] ?? {
+    bg: "bg-neutral-100",
+    text: "text-neutral-600",
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+      }}
+      className="flex items-center justify-between px-5 py-3"
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <button
+          {...attributes}
+          {...listeners}
+          className="p-0.5 text-neutral-300 hover:text-neutral-500 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+          tabIndex={-1}
+        >
+          <GripVertical size={14} />
+        </button>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm font-medium text-neutral-900">
+              {session.className}
+            </span>
+            <span
+              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${color.bg} ${color.text}`}
+            >
+              {session.disciplineLabel}
+            </span>
+          </div>
+          {(session.dayLabel || session.timeLabel) && (
+            <p className="text-xs text-neutral-500 mt-0.5">
+              {session.dayLabel}
+              {session.timeLabel ? ` · ${session.timeLabel}` : ""}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={onRemove}
+        className="text-sm text-neutral-400 hover:text-red-600 transition ml-4 shrink-0"
+      >
+        ✕ Remove
+      </button>
+    </li>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -133,6 +219,21 @@ export default function SessionsGroupsStep({
   const groupsRef = useRef<HTMLDivElement>(null);
   const tableFades = useScrollFades(tableRef);
   const groupsFades = useScrollFades(groupsRef);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  function handleGroupDragEnd(groupId: string, event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        const oldIdx = g.sessionIds.indexOf(String(active.id));
+        const newIdx = g.sessionIds.indexOf(String(over.id));
+        return { ...g, sessionIds: arrayMove(g.sessionIds, oldIdx, newIdx) };
+      }),
+    );
+  }
 
   /* ------------------------------------------------------------------------ */
   /* Derived                                                                  */
@@ -459,53 +560,33 @@ export default function SessionsGroupsStep({
                     No sessions — assign from the table.
                   </p>
                 ) : (
-                  <ul className="divide-y divide-neutral-100">
-                    {group.sessionIds.map((sessionId) => {
-                      const session = appliedSessions.find(
-                        (s) => s.sessionId === sessionId,
-                      );
-                      if (!session) return null;
-                      const color =
-                        DISCIPLINE_COLORS[session.discipline] ?? {
-                          bg: "bg-neutral-100",
-                          text: "text-neutral-600",
-                        };
-                      return (
-                        <li
-                          key={sessionId}
-                          className="flex items-center justify-between px-5 py-3"
-                        >
-                          <div>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-sm font-medium text-neutral-900">
-                                {session.className}
-                              </span>
-                              <span
-                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${color.bg} ${color.text}`}
-                              >
-                                {session.disciplineLabel}
-                              </span>
-                            </div>
-                            {(session.dayLabel || session.timeLabel) && (
-                              <p className="text-xs text-neutral-500 mt-0.5">
-                                {session.dayLabel}
-                                {session.timeLabel
-                                  ? ` · ${session.timeLabel}`
-                                  : ""}
-                              </p>
-                            )}
-                          </div>
-
-                          <button
-                            onClick={() => handleRemove(group.id, sessionId)}
-                            className="text-sm text-neutral-400 hover:text-red-600 transition ml-4 shrink-0"
-                          >
-                            ✕ Remove
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(e) => handleGroupDragEnd(group.id, e)}
+                  >
+                    <SortableContext
+                      items={group.sessionIds}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <ul className="divide-y divide-neutral-100">
+                        {group.sessionIds.map((sessionId) => {
+                          const session = appliedSessions.find(
+                            (s) => s.sessionId === sessionId,
+                          );
+                          if (!session) return null;
+                          return (
+                            <SortableSessionItem
+                              key={sessionId}
+                              sessionId={sessionId}
+                              session={session}
+                              onRemove={() => handleRemove(group.id, sessionId)}
+                            />
+                          );
+                        })}
+                      </ul>
+                    </SortableContext>
+                  </DndContext>
                 )}
               </div>
             );

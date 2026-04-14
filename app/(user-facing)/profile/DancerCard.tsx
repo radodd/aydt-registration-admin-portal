@@ -46,6 +46,8 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
     last_name: dancer.last_name ?? "",
     birth_date: dancer.birth_date ?? "",
     grade: dancer.grade ?? "",
+    secondary_email: dancer.secondary_email ?? "",
+    school: dancer.school ?? "",
   });
 
   function set(field: keyof typeof form, value: string) {
@@ -72,6 +74,8 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
       last_name: dancer.last_name ?? "",
       birth_date: dancer.birth_date ?? "",
       grade: dancer.grade ?? "",
+      secondary_email: dancer.secondary_email ?? "",
+      school: dancer.school ?? "",
     });
     setError(null);
     setEditing(false);
@@ -128,6 +132,7 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
               age !== null ? `Age ${age}` : null,
               dancer.grade ? `Grade ${dancer.grade}` : null,
               dancer.birth_date ? `DOB ${formatDOB(dancer.birth_date)}` : null,
+              dancer.school ? dancer.school : null,
             ].filter(Boolean).join(" · ")}
           </div>
           {disciplines.length > 0 && (
@@ -234,6 +239,35 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
                 placeholder="e.g. 5 or K"
                 value={form.grade}
                 onChange={(e) => set("grade", e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={labelStyle}>
+                Student Email{" "}
+                <span style={{ color: "var(--pub-text-faint)", fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input
+                type="email"
+                value={form.secondary_email}
+                onChange={(e) => set("secondary_email", e.target.value)}
+                placeholder="student@example.com"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>
+                School{" "}
+                <span style={{ color: "var(--pub-text-faint)", fontWeight: 400 }}>(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={form.school}
+                onChange={(e) => set("school", e.target.value)}
+                placeholder="Lincoln Elementary"
                 style={inputStyle}
               />
             </div>

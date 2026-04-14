@@ -1686,3 +1686,139 @@ select.reg-input {
   text-decoration: none;
 }
 .reg-email-signin a:hover { text-decoration: underline; }
+
+/* ═══════════════════════════════════════
+   LAYOUT HELPERS — referenced by responsive
+═══════════════════════════════════════ */
+
+/* Cart drawer content push wrapper */
+.sem-content-wrap {
+  flex: 1;
+  min-width: 0;
+  transition: padding-right 0.25s ease;
+}
+.sem-content-wrap.drawer-open { padding-right: 395px; }
+
+/* Expiry bar above session list */
+.sem-expiry-bar {
+  background: var(--pub-surface);
+  border-bottom: 1px solid var(--pub-border);
+  padding: 0 40px;
+}
+
+/* Profile page padding shells */
+.profile-outer-pad  { padding: 28px 32px 0; }
+.profile-tab-bar    { padding: 0 32px; border-bottom: 1px solid var(--pub-border); background: var(--pub-surface); display: flex; }
+.profile-tab-content { padding: 28px 32px; }
+
+/* Responsive grid helpers (profile form) */
+.profile-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.profile-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+/* ═══════════════════════════════════════
+   RESPONSIVE — TABLET  ≤ 768 px
+═══════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Semester grid 3→2 cols */
+  .semester-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Footer columns 4→2 */
+  .pub-footer-top { grid-template-columns: 1fr 1fr; gap: 32px; }
+
+  /* Reg page: collapse sidebar */
+  .reg-page-layout { grid-template-columns: 1fr; }
+  .reg-summary-card { position: static; top: auto; margin-bottom: 20px; }
+}
+
+/* ═══════════════════════════════════════
+   RESPONSIVE — MOBILE  ≤ 640 px
+═══════════════════════════════════════ */
+@media (max-width: 640px) {
+
+  /* ── Navigation ───────────────────────────────────────── */
+  .topnav { padding: 0 14px; height: 58px; }
+  .topnav-logo { margin-right: auto; }
+  .topnav-links { display: none; }
+  .topnav-greeting { display: none; }
+  .topnav-btn-text { display: none; }
+  .topnav-right { gap: 5px; }
+  .btn-nav-ghost { padding: 7px 10px; }
+  .btn-nav-primary { padding: 7px 10px; }
+
+  /* ── Enrollment banner ─────────────────────────────────── */
+  .enrollment-banner { padding: 8px 16px; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .enrollment-banner-text { font-size: 12px; }
+
+  /* ── Hero ─────────────────────────────────────────────── */
+  .pub-hero { padding: 40px 20px 36px; }
+  .pub-hero-title { font-size: 34px; letter-spacing: -1px; }
+  .pub-hero-desc { font-size: 15px; margin-bottom: 28px; max-width: 100%; }
+  .pub-hero-actions { flex-direction: column; align-items: stretch; }
+  .btn-hero-primary,
+  .btn-hero-ghost { justify-content: center; }
+  .pub-hero-divider { justify-content: center; }
+
+  /* ── Sections ─────────────────────────────────────────── */
+  .pub-section { padding: 40px 20px; }
+  .pub-section-title { font-size: 26px; }
+
+  /* ── Semester grid 2→1 col ────────────────────────────── */
+  .semester-grid { grid-template-columns: 1fr; }
+
+  /* ── CTA split 2→1 col ────────────────────────────────── */
+  .cta-split { grid-template-columns: 1fr; }
+  .cta-card { padding: 28px 24px; }
+
+  /* ── Footer ───────────────────────────────────────────── */
+  .pub-footer { padding: 36px 20px 24px; }
+  .pub-footer-top { grid-template-columns: 1fr; gap: 24px; }
+  .pub-footer-bottom { flex-direction: column; align-items: flex-start; gap: 12px; }
+
+  /* ── Semester hero ────────────────────────────────────── */
+  .sem-hero { padding: 28px 20px 24px; }
+  .sem-hero-title { font-size: 26px; }
+
+  /* ── Semester filter bar (sticky top adjusted for 58px nav) */
+  .sem-filter-bar { padding: 10px 16px; top: 58px; }
+
+  /* ── Expiry bar ───────────────────────────────────────── */
+  .sem-expiry-bar { padding: 0 16px; }
+
+  /* ── Semester main content ────────────────────────────── */
+  .sem-main { padding: 20px 16px; }
+
+  /* ── Cart drawer — full-screen sheet on mobile ────────── */
+  .sem-cart-drawer {
+    width: 100%;
+    border-left: none;
+    border-radius: var(--pub-radius-xl) var(--pub-radius-xl) 0 0;
+    top: auto;
+    bottom: 0;
+    height: 90vh;
+  }
+  /* Don't shift page content when drawer opens on mobile */
+  .sem-content-wrap.drawer-open { padding-right: 0; }
+
+  /* ── Cart step indicator ──────────────────────────────── */
+  .cart-steps-bar { padding: 14px 16px; }
+  .reg-step-label { font-size: 9px; max-width: 50px; }
+
+  /* ── Cart page ────────────────────────────────────────── */
+  .cart-page-main { padding: 24px 16px 48px; }
+  .cart-page-header { flex-direction: column; gap: 10px; align-items: flex-start; }
+  .cart-ttl { width: 100%; justify-content: flex-start; }
+  .cart-cta-row { grid-template-columns: 1fr; }
+
+  /* ── Registration participants page ───────────────────── */
+  .reg-page-wrap { padding: 24px 16px 120px; }
+  .reg-page-layout { grid-template-columns: 1fr; }
+  .reg-summary-card { position: static; top: auto; order: -1; margin-bottom: 20px; }
+  .reg-grid-2 { grid-template-columns: 1fr; }
+
+  /* ── Profile page ─────────────────────────────────────── */
+  .profile-outer-pad  { padding: 16px 16px 0; }
+  .profile-tab-bar    { padding: 0 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .profile-tab-content { padding: 20px 16px; }
+  .profile-grid-2 { grid-template-columns: 1fr; }
+  .profile-grid-3 { grid-template-columns: 1fr; }
+}

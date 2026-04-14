@@ -83,7 +83,7 @@ function SemesterShell({ semester, paymentType }: ShellProps) {
       </div>
 
       {/* ── Cart expiry (shown inline above session list) ── */}
-      <div style={{ background: "var(--pub-surface)", borderBottom: "1px solid var(--pub-border)", padding: "0 40px" }}>
+      <div className="sem-expiry-bar">
         <div style={{ maxWidth: 1080, margin: "0 auto" }}>
           <CartExpiryTimer />
         </div>
@@ -91,13 +91,8 @@ function SemesterShell({ semester, paymentType }: ShellProps) {
 
       {/* ── Shifting content wrapper + drawer ─────────────── */}
       <div style={{ display: "flex", position: "relative" }}>
-        {/* Session grid — shifts left when drawer is open */}
-        <div style={{
-          flex: 1,
-          minWidth: 0,
-          paddingRight: drawerOpen ? 395 : 0,
-          transition: "padding-right 0.25s ease",
-        }}>
+        {/* Session grid — shifts left when drawer is open (desktop only) */}
+        <div className={`sem-content-wrap${drawerOpen ? " drawer-open" : ""}`}>
           <div className="sem-main">
             <div className="sem-section-head">
               <div>

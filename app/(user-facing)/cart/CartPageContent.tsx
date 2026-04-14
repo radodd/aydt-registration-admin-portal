@@ -101,9 +101,9 @@ export function CartPageContent() {
     }
   }, [isExpired, clear, router, semesterId, secondsRemaining, hydrated, itemCount]);
 
-  const subtotal = enrichedSessions.reduce(
-    (acc, s) => acc + sessionPrice(s),
-    0,
+  const subtotal = useMemo(
+    () => enrichedSessions.reduce((acc, s) => acc + sessionPrice(s), 0),
+    [enrichedSessions],
   );
 
   // Fire view_cart once when cart loads with items

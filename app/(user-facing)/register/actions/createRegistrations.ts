@@ -18,8 +18,12 @@ export interface CreateRegistrationsInput {
   batchId: string;
   /** Client-visible pricing quote — server re-computes and validates it matches. */
   pricingQuote?: PricingQuote;
-  /** Optional promo code entered by the parent at checkout. */
+  /** Optional coupon code entered by the parent at checkout. */
   couponCode?: string;
+  /** IDs of family_account_credits rows to apply toward this batch. */
+  creditIdsToApply?: string[];
+  /** Total credit amount (dollars) client computed — server validates against DB rows. */
+  creditTotal?: number;
 }
 
 export interface CreateRegistrationsResult {
@@ -208,7 +212,25 @@ export async function createRegistrations(
 
   // 7. Insert registration_batches record
   const grandTotal = serverQuote?.grandTotal ?? 0;
-  const amountDueNow = serverQuote?.amountDueNow ?? grandTotal;
+  const baseAmountDueNow = serverQuote?.amountDueNow ?? grandTotal;
+
+  // Server-validate credits: fetch rows to verify they belong to this family and are unused
+  let verifiedCreditTotal = 0;
+  let verifiedCreditIds: string[] = [];
+  if (input.creditIdsToApply?.length && familyId) {
+    const { data: creditRows } = await supabase
+      .from("family_account_credits")
+      .select("id, amount")
+      .in("id", input.creditIdsToApply)
+      .eq("family_id", familyId)
+      .is("used_in_batch_id", null)
+      .eq("is_active", true);
+    if (creditRows?.length) {
+      verifiedCreditTotal = creditRows.reduce((sum, c) => sum + Number(c.amount), 0);
+      verifiedCreditIds = creditRows.map((c) => c.id as string);
+    }
+  }
+  const amountDueNow = Math.max(0, baseAmountDueNow - verifiedCreditTotal);
 
   const { error: batchInsertError } = await supabase
     .from("registration_batches")
@@ -258,6 +280,19 @@ export async function createRegistrations(
     await supabase.rpc("increment_coupon_uses", {
       p_coupon_id: serverQuote.appliedCouponId,
     });
+  }
+
+  // 7.6. Mark account credits as used (non-fatal)
+  if (verifiedCreditIds.length > 0) {
+    await supabase
+      .from("family_account_credits")
+      .update({ used_in_batch_id: input.batchId, used_at: new Date().toISOString() })
+      .in("id", verifiedCreditIds)
+      .then(({ error }) => {
+        if (error) {
+          console.warn("[createRegistrations] Failed to mark credits as used:", error.message);
+        }
+      });
   }
 
   // 8. Insert one registration per participant

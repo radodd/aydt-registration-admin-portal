@@ -499,6 +499,11 @@ interface UserRow {
   phone_number?: string;
   sms_opt_in?: boolean;
   sms_verified?: boolean;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  zipcode?: string;
 }
 interface DancerRow {
   id: string;
@@ -566,6 +571,11 @@ async function seedFamilies() {
       role: "parent",
       status: "active",
       is_primary_parent: true,
+      address_line1: faker.location.streetAddress(),
+      address_line2: faker.datatype.boolean(0.2) ? faker.location.secondaryAddress() : null,
+      city: faker.location.city(),
+      state: faker.location.state({ abbreviated: true }),
+      zipcode: faker.location.zipCode("#####"),
     } as UserRow);
 
     // Two dancers per family: spread across age ranges for division variety

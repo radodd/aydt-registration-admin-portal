@@ -88,6 +88,11 @@ export function DancerCard({
             {activeRegs.length} enrollment{activeRegs.length !== 1 ? "s" : ""}
           </span>
         )}
+        {dancer.secondary_email && (
+          <span className="text-[11px] px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-600 whitespace-nowrap">
+            student email
+          </span>
+        )}
       </div>
     </div>
   );

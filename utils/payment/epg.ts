@@ -41,6 +41,7 @@ export interface EpgTransaction {
   state: string; // TransactionState enum from spec
   total: { amount: string; currencyCode: string };
   customReference: string | null;
+  orderReference: string | null;
   authorizationCode: string | null;
   card: {
     maskedNumber: string | null;
@@ -255,6 +256,8 @@ export async function fetchEpgTransaction(
  * POST /shoppers
  * Creates an EPG Shopper resource representing a customer.
  * customReference should be the Supabase user_id for reconciliation.
+ * billTo (primaryAddress) is set here so EPG automatically attaches it to
+ * the initial card tokenization and all future stored card charges (AVS).
  * Ref: docs/elavon/api_shoppers.md
  */
 export async function createEpgShopper(params: {
@@ -262,6 +265,15 @@ export async function createEpgShopper(params: {
   customReference: string;
   fullName?: string;
   email?: string;
+  /** Billing address for AVS — maps to EPG billTo Contact object */
+  billTo?: {
+    street1: string;
+    street2?: string | null;
+    city: string;
+    region: string;
+    postalCode: string;
+    countryCode?: string;
+  };
 }): Promise<EpgShopper> {
   const res = await fetch(`${getBaseUrl()}/shoppers`, {
     method: "POST",
@@ -270,6 +282,16 @@ export async function createEpgShopper(params: {
       customReference: params.customReference,
       fullName: params.fullName,
       email: params.email,
+      ...(params.billTo && {
+        billTo: {
+          street1: params.billTo.street1,
+          street2: params.billTo.street2 ?? "",
+          city: params.billTo.city,
+          region: params.billTo.region,
+          postalCode: params.billTo.postalCode,
+          countryCode: params.billTo.countryCode ?? "USA",
+        },
+      }),
     }),
   });
   await assertOk(res, "POST /shoppers");
@@ -394,6 +416,71 @@ export async function createEpgTransaction(params: {
     }),
   });
   await assertOk(res, "POST /transactions");
+  return res.json() as Promise<EpgTransaction>;
+}
+
+/**
+ * POST /transactions
+ * Void an unsettled transaction. Only valid when transaction state is
+ * "authorized" or "captured" (pre-settlement).
+ * Ref: docs/elavon/api_transactions.md
+ *
+ * IMPORTANT: EPG returns HTTP 201 even for declined/failed voids.
+ * Callers MUST check result.state — do not rely on HTTP status alone.
+ */
+export async function voidEpgTransaction(params: {
+  /** Full HREF of the original transaction to void */
+  transactionHref: string;
+  /** Idempotency key — use payment_refunds.id */
+  customReference: string;
+}): Promise<EpgTransaction> {
+  const res = await fetch(`${getBaseUrl()}/transactions`, {
+    method: "POST",
+    headers: defaultHeaders(),
+    body: JSON.stringify({
+      type: "void",
+      transaction: params.transactionHref,
+      customReference: params.customReference,
+    }),
+  });
+  await assertOk(res, "POST /transactions (void)");
+  return res.json() as Promise<EpgTransaction>;
+}
+
+/**
+ * POST /transactions
+ * Refund a settled transaction. Supports full and partial refunds.
+ * Only valid when transaction state is "settled".
+ * Ref: docs/elavon/api_transactions.md
+ *
+ * IMPORTANT: EPG returns HTTP 201 even for declined/failed refunds.
+ * Callers MUST check result.state — do not rely on HTTP status alone.
+ */
+export async function refundEpgTransaction(params: {
+  /** Full HREF of the original transaction to refund */
+  transactionHref: string;
+  /** Refund amount in dollars — omit for full refund */
+  amountDollars?: number;
+  currencyCode: string;
+  /** Idempotency key — use payment_refunds.id */
+  customReference: string;
+}): Promise<EpgTransaction> {
+  const res = await fetch(`${getBaseUrl()}/transactions`, {
+    method: "POST",
+    headers: defaultHeaders(),
+    body: JSON.stringify({
+      type: "refund",
+      transaction: params.transactionHref,
+      customReference: params.customReference,
+      ...(params.amountDollars != null && {
+        total: {
+          amount: params.amountDollars.toFixed(2),
+          currencyCode: params.currencyCode,
+        },
+      }),
+    }),
+  });
+  await assertOk(res, "POST /transactions (refund)");
   return res.json() as Promise<EpgTransaction>;
 }
 

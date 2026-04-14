@@ -34,6 +34,7 @@ type RecentReg = {
   registration_batches: {
     grand_total: number | null;
     family_id: string | null;
+    users: { first_name: string; last_name: string } | null;
   } | null;
 };
 
@@ -636,13 +637,25 @@ function OverviewTab({
                   {/* Name + class */}
                   <div className="flex-1 min-w-0">
                     <Link
-                      href={dancerId ? `/admin/dancers/${dancerId}` : familyId ? `/admin/families/${familyId}` : "#"}
+                      href={familyId ? `/admin/families/${familyId}` : dancerId ? `/admin/dancers/${dancerId}` : "#"}
                       className="text-[12.5px] font-medium truncate block hover:underline"
                       style={{ color: "var(--admin-text)" }}
                     >
                       {name}
                     </Link>
                     <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--admin-text-faint)", fontFamily: "var(--font-outfit)" }}>
+                      {batch?.users && familyId && (
+                        <>
+                          <Link
+                            href={`/admin/families/${familyId}`}
+                            className="hover:underline"
+                            style={{ color: "var(--admin-text-muted)" }}
+                          >
+                            {batch.users.first_name} {batch.users.last_name}
+                          </Link>
+                          {" · "}
+                        </>
+                      )}
                       {className ?? "—"}
                       {semName && <span> · {semName}</span>}
                       <span> · {timeAgo(r.created_at)}</span>
@@ -807,13 +820,22 @@ function DancersTable({ rows, search }: { rows: PeopleDancerRow[]; search: strin
                   >
                     {initials(d.first_name, d.last_name)}
                   </div>
-                  <button
-                    onClick={() => alert("Dancer profile coming soon")}
-                    className="text-[12.5px] font-medium truncate hover:underline text-left"
-                    style={{ color: "var(--admin-text)", background: "transparent", border: "none", cursor: "pointer", padding: 0, fontFamily: "var(--font-outfit)" }}
-                  >
-                    {name}
-                  </button>
+                  {d.family_id ? (
+                    <Link
+                      href={`/admin/families/${d.family_id}?focus=dancer:${d.id}`}
+                      className="text-[12.5px] font-medium truncate hover:underline text-left"
+                      style={{ color: "var(--admin-text)", fontFamily: "var(--font-outfit)" }}
+                    >
+                      {name}
+                    </Link>
+                  ) : (
+                    <span
+                      className="text-[12.5px] font-medium truncate"
+                      style={{ color: "var(--admin-text)", fontFamily: "var(--font-outfit)" }}
+                    >
+                      {name}
+                    </span>
+                  )}
                 </div>
                 <p className="w-16 text-right text-[12px]" style={{ color: "var(--admin-text-muted)", fontFamily: "var(--font-outfit)" }}>
                   {calcAge(d.birth_date)}
@@ -836,15 +858,17 @@ function DancersTable({ rows, search }: { rows: PeopleDancerRow[]; search: strin
                       Email
                     </Link>
                   )}
-                  <button
-                    onClick={() => alert("Dancer profile coming soon")}
-                    className="px-2 py-1 rounded text-[11px] font-medium"
-                    style={{ color: "var(--admin-text-muted)", border: "1px solid var(--admin-border)", background: "var(--admin-surface)", cursor: "pointer", fontFamily: "var(--font-outfit)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
-                  >
-                    View
-                  </button>
+                  {d.family_id && (
+                    <Link
+                      href={`/admin/families/${d.family_id}?focus=dancer:${d.id}`}
+                      className="px-2 py-1 rounded text-[11px] font-medium"
+                      style={{ color: "var(--admin-text-muted)", border: "1px solid var(--admin-border)", background: "var(--admin-surface)", fontFamily: "var(--font-outfit)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
+                    >
+                      View
+                    </Link>
+                  )}
                 </div>
               </li>
             );
@@ -1287,6 +1311,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     async function fetchDashboard() {
       const supabase = createClient();
+      try {
 
       // Active semesters
       const { data: semesters } = await supabase
@@ -1336,7 +1361,7 @@ export default function AdminDashboardPage() {
           `id, created_at, dancer_id,
            dancers(first_name, last_name),
            class_sessions(classes(name), semesters(name)),
-           registration_batches:registration_batch_id(grand_total, family_id)`
+           registration_batches:registration_batch_id(grand_total, family_id, users:parent_id(first_name, last_name))`
         )
         .eq("status", "confirmed")
         .order("created_at", { ascending: false })
@@ -1390,10 +1415,13 @@ export default function AdminDashboardPage() {
             : (e.recipient_count ?? 0),
         })),
       });
+    } finally {
       setLoading(false);
+    }
     }
 
     fetchDashboard();
+
   }, []);
 
   useEffect(() => {

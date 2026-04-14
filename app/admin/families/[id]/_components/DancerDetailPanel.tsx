@@ -180,6 +180,22 @@ export function DancerDetailPanel({
             </p>
             <p className="text-sm text-neutral-700">{uniqueActiveRegs.length}</p>
           </div>
+          {dancer.school && (
+            <div className="col-span-2">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mb-1">
+                School
+              </p>
+              <p className="text-sm text-neutral-700">{dancer.school}</p>
+            </div>
+          )}
+          {dancer.secondary_email && (
+            <div className="col-span-2">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mb-1">
+                Student email
+              </p>
+              <p className="text-sm text-neutral-700">{dancer.secondary_email}</p>
+            </div>
+          )}
         </div>
 
         {/* Current enrollments */}

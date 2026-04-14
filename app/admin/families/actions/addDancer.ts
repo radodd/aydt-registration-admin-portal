@@ -9,6 +9,9 @@ export interface AddDancerInput {
   lastName: string;
   birthDate: string;
   gender: string;
+  grade: string;
+  secondaryEmail: string;
+  school: string;
 }
 
 export async function addDancer(input: AddDancerInput): Promise<void> {
@@ -21,6 +24,9 @@ export async function addDancer(input: AddDancerInput): Promise<void> {
     last_name: input.lastName,
     birth_date: input.birthDate || null,
     gender: input.gender || null,
+    grade: input.grade || null,
+    secondary_email: input.secondaryEmail || null,
+    school: input.school || null,
     is_self: false,
   });
 

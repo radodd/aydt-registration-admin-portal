@@ -11,6 +11,8 @@ export default function AddDancerForm({ onSuccess }: { onSuccess?: () => void })
   const [lastName, setLastName] = useState("");
   const [birthDate, setBirthDate] = useState("");
   const [grade, setGrade] = useState("");
+  const [secondaryEmail, setSecondaryEmail] = useState("");
+  const [school, setSchool] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -26,6 +28,8 @@ export default function AddDancerForm({ onSuccess }: { onSuccess?: () => void })
       last_name: lastName,
       birth_date: birthDate || undefined,
       grade: grade || undefined,
+      secondary_email: secondaryEmail || undefined,
+      school: school || undefined,
     });
 
     setIsSubmitting(false);
@@ -108,6 +112,41 @@ export default function AddDancerForm({ onSuccess }: { onSuccess?: () => void })
             value={grade}
             onChange={(e) => setGrade(e.target.value)}
             placeholder="Optional"
+          />
+        </div>
+      </div>
+
+      {/* Optional: student email + school */}
+      <div className="grid sm:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-neutral-700">
+            Student Email{" "}
+            <span className="text-neutral-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="email"
+            className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400
+                       focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600
+                       transition"
+            value={secondaryEmail}
+            onChange={(e) => setSecondaryEmail(e.target.value)}
+            placeholder="student@example.com"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm font-medium text-neutral-700">
+            School{" "}
+            <span className="text-neutral-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400
+                       focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-primary-600
+                       transition"
+            value={school}
+            onChange={(e) => setSchool(e.target.value)}
+            placeholder="Lincoln Elementary"
           />
         </div>
       </div>
