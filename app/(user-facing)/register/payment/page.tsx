@@ -11,6 +11,7 @@ import { useCart } from "@/app/providers/CartProvider";
 import { createRegistrations } from "../actions/createRegistrations";
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
 import { createEPGPaymentSession } from "@/app/actions/createEPGPaymentSession";
+import { updateUserProfile } from "@/app/(user-facing)/profile/actions/updateUserProfile";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
 import { createClient } from "@/utils/supabase/client";
 import type { PricingQuote, FamilyAccountCredit } from "@/types";
@@ -73,6 +74,19 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
   // Account credits
   const [availableCredits, setAvailableCredits] = useState<FamilyAccountCredit[]>([]);
   const [applyCredit, setApplyCredit] = useState(false);
+
+  // Billing address
+  const [billingAddress, setBillingAddress] = useState<{
+    address_line1: string;
+    address_line2: string;
+    city: string;
+    state: string;
+    zipcode: string;
+  } | null>(null);
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressDraft, setAddressDraft] = useState({ address_line1: "", address_line2: "", city: "", state: "", zipcode: "" });
+  const [addressError, setAddressError] = useState<string | null>(null);
+  const [savingAddress, setSavingAddress] = useState(false);
 
   // Stable batchId: same cart + retry = same ID, so createRegistrations()
   // idempotency guard returns existing registrations without duplicate DB inserts.
@@ -152,6 +166,31 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                 setApplyCredit(true);
               }
             });
+        });
+    });
+  }, [state.isPreview]);
+
+  // Fetch billing address from user profile
+  useEffect(() => {
+    if (state.isPreview) return;
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase
+        .from("users")
+        .select("address_line1, address_line2, city, state, zipcode")
+        .eq("id", user.id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.address_line1) {
+            setBillingAddress({
+              address_line1: data.address_line1 ?? "",
+              address_line2: data.address_line2 ?? "",
+              city: data.city ?? "",
+              state: data.state ?? "",
+              zipcode: data.zipcode ?? "",
+            });
+          }
         });
     });
   }, [state.isPreview]);
@@ -251,6 +290,27 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       .finally(() => setQuoteLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.participants, semesterId, appliedCouponCode]);
+
+  async function handleSaveAddress() {
+    setAddressError(null);
+    if (!addressDraft.address_line1.trim()) return setAddressError("Street address is required.");
+    if (!addressDraft.city.trim()) return setAddressError("City is required.");
+    if (!addressDraft.state.trim()) return setAddressError("State is required.");
+    if (!addressDraft.zipcode.trim()) return setAddressError("ZIP code is required.");
+    setSavingAddress(true);
+    try {
+      await updateUserProfile({
+        first_name: "", last_name: "", phone_number: "",
+        ...addressDraft,
+      });
+      setBillingAddress({ ...addressDraft });
+      setEditingAddress(false);
+    } catch (e) {
+      setAddressError(e instanceof Error ? e.message : "Failed to save address.");
+    } finally {
+      setSavingAddress(false);
+    }
+  }
 
   async function handleConfirm() {
     setProcessing(true);
@@ -1360,6 +1420,158 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
         )}
       </div>
 
+      {/* ══ BILLING ADDRESS ══ */}
+      {!state.isPreview && (
+        <div
+          className="bg-white rounded-2xl overflow-hidden"
+          style={{ border: "1px solid var(--pub-border)", boxShadow: "var(--pub-shadow-card)" }}
+        >
+          <div
+            className="flex items-center justify-between px-5 py-3.5 border-b text-sm font-bold"
+            style={{ fontFamily: "var(--pub-font-secondary)", color: "var(--pub-text-primary)", background: "var(--pub-surface-warm)", borderColor: "var(--pub-border)" }}
+          >
+            <div className="flex items-center gap-2">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: "var(--plum)" }}>
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              Billing Address
+            </div>
+            {billingAddress && !editingAddress && (
+              <button
+                type="button"
+                onClick={() => { setAddressDraft({ ...billingAddress }); setAddressError(null); setEditingAddress(true); }}
+                className="text-xs font-semibold"
+                style={{ color: "var(--plum)", background: "none", border: "none", cursor: "pointer" }}
+              >
+                Edit
+              </button>
+            )}
+          </div>
+
+          <div className="px-5 py-4">
+            {!billingAddress && !editingAddress && (
+              <div>
+                <p className="text-sm mb-3" style={{ color: "var(--pub-text-muted)" }}>
+                  A billing address is required for payment. Please add one below.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setAddressDraft({ address_line1: "", address_line2: "", city: "", state: "", zipcode: "" }); setAddressError(null); setEditingAddress(true); }}
+                  className="text-sm font-semibold px-4 py-2 rounded-lg"
+                  style={{ background: "var(--plum)", color: "#fff", border: "none", cursor: "pointer" }}
+                >
+                  Add Billing Address
+                </button>
+              </div>
+            )}
+
+            {billingAddress && !editingAddress && (
+              <div className="text-sm space-y-0.5" style={{ color: "var(--pub-text-primary)" }}>
+                <p>{billingAddress.address_line1}{billingAddress.address_line2 ? `, ${billingAddress.address_line2}` : ""}</p>
+                <p>{billingAddress.city}, {billingAddress.state} {billingAddress.zipcode}</p>
+              </div>
+            )}
+
+            {editingAddress && (
+              <div className="space-y-3">
+                {addressError && (
+                  <p className="text-xs font-medium" style={{ color: "#b91c1c" }}>{addressError}</p>
+                )}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--pub-text-primary)" }}>
+                    Street Address <span style={{ color: "var(--wine)" }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addressDraft.address_line1}
+                    onChange={(e) => setAddressDraft((d) => ({ ...d, address_line1: e.target.value }))}
+                    placeholder="123 Main St"
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style={{ border: "1.5px solid var(--pub-border)", color: "var(--pub-text-primary)" }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--pub-text-primary)" }}>
+                    Apt / Suite <span style={{ color: "var(--pub-text-faint)", fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={addressDraft.address_line2}
+                    onChange={(e) => setAddressDraft((d) => ({ ...d, address_line2: e.target.value }))}
+                    placeholder="Apt 4B"
+                    className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style={{ border: "1.5px solid var(--pub-border)", color: "var(--pub-text-primary)" }}
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-1">
+                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--pub-text-primary)" }}>
+                      City <span style={{ color: "var(--wine)" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addressDraft.city}
+                      onChange={(e) => setAddressDraft((d) => ({ ...d, city: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                      style={{ border: "1.5px solid var(--pub-border)", color: "var(--pub-text-primary)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--pub-text-primary)" }}>
+                      State <span style={{ color: "var(--wine)" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addressDraft.state}
+                      onChange={(e) => setAddressDraft((d) => ({ ...d, state: e.target.value.toUpperCase().slice(0, 2) }))}
+                      placeholder="NY"
+                      maxLength={2}
+                      className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                      style={{ border: "1.5px solid var(--pub-border)", color: "var(--pub-text-primary)" }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--pub-text-primary)" }}>
+                      ZIP <span style={{ color: "var(--wine)" }}>*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addressDraft.zipcode}
+                      onChange={(e) => setAddressDraft((d) => ({ ...d, zipcode: e.target.value }))}
+                      maxLength={10}
+                      className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                      style={{ border: "1.5px solid var(--pub-border)", color: "var(--pub-text-primary)" }}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  {billingAddress && (
+                    <button
+                      type="button"
+                      onClick={() => { setEditingAddress(false); setAddressError(null); }}
+                      className="flex-1 py-2 rounded-lg text-sm font-semibold"
+                      style={{ border: "1.5px solid var(--pub-border)", background: "white", color: "var(--pub-text-muted)", cursor: "pointer" }}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleSaveAddress}
+                    disabled={savingAddress}
+                    className="flex-1 py-2 rounded-lg text-sm font-semibold"
+                    style={{ background: "var(--plum)", color: "#fff", border: "none", cursor: "pointer", opacity: savingAddress ? 0.6 : 1 }}
+                  >
+                    {savingAddress ? "Saving…" : "Save Address"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Error */}
       {error && (
         <div
@@ -1415,7 +1627,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
         <button
           type="button"
           onClick={handleConfirm}
-          disabled={processing}
+          disabled={processing || (!state.isPreview && !billingAddress)}
           className="inline-flex items-center justify-center gap-2 py-3 px-7 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-60"
           style={{
             background: "var(--plum)",

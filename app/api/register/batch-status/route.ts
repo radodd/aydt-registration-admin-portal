@@ -34,8 +34,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     .maybeSingle();
 
   if (!batch) {
+    console.log(`[batch-status] ⚠️ TEMP - batch not found for id=${batchId} user=${user.id}`); // TODO: DELETE
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  console.log(`[batch-status] ⚠️ TEMP - batch=${batchId} status=${batch.status}`); // TODO: DELETE
   return NextResponse.json({ status: batch.status });
 }

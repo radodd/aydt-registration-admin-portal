@@ -7,6 +7,8 @@ export interface FilterState {
   dayOfWeek: string;
   discipline: string;
   spotsOnly: boolean;
+  /** Selected grade label, e.g. "K", "1", "2" … "12". Empty string = no filter. */
+  grade: string;
 }
 
 interface FilterBarProps {
@@ -26,6 +28,11 @@ const DAYS: { label: string; value: string }[] = [
   { label: "Sat", value: "saturday" },
 ];
 
+/** Convert a grade label ("K", "1"…"12") to a numeric value for range comparisons. */
+function gradeToNum(label: string): number {
+  return label === "K" ? 0 : parseInt(label, 10);
+}
+
 export function applyFilters(
   sessions: PublicSession[],
   filters: FilterState,
@@ -43,15 +50,30 @@ export function applyFilters(
       if (sessionDay !== filters.dayOfWeek.toLowerCase()) return false;
     }
     if (filters.spotsOnly && s.spotsRemaining === 0) return false;
+    if (filters.grade) {
+      const g = gradeToNum(filters.grade);
+      const hasMin = s.minGrade != null;
+      const hasMax = s.maxGrade != null;
+      // Only filter if the class actually has grade constraints
+      if (hasMin || hasMax) {
+        if (hasMin && g < s.minGrade!) return false;
+        if (hasMax && g > s.maxGrade!) return false;
+      }
+    }
     return true;
   });
 }
+
+const GRADE_LABELS = ["K", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
 export function FilterBar({ sessions, groups, filters, onChange, classCount }: FilterBarProps) {
   // Derive unique disciplines from sessions
   const disciplines = Array.from(
     new Set(sessions.map((s) => s.discipline).filter(Boolean) as string[])
   ).sort();
+
+  // Only show grade filter if any sessions have grade constraints
+  const gradesInUse = sessions.some((s) => s.minGrade != null || s.maxGrade != null);
 
   function setDay(value: string) {
     onChange({ ...filters, dayOfWeek: filters.dayOfWeek === value ? "" : value });
@@ -63,6 +85,10 @@ export function FilterBar({ sessions, groups, filters, onChange, classCount }: F
 
   function setGroup(value: string) {
     onChange({ ...filters, groupId: filters.groupId === value ? "" : value });
+  }
+
+  function setGrade(value: string) {
+    onChange({ ...filters, grade: filters.grade === value ? "" : value });
   }
 
   return (
@@ -112,6 +138,34 @@ export function FilterBar({ sessions, groups, filters, onChange, classCount }: F
                   onClick={() => setDisc(d)}
                 >
                   {d}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {gradesInUse && (
+        <>
+          <div className="sem-filter-sep" />
+          <div className="sem-filter-group">
+            <div className="sem-filter-label">Grade</div>
+            <div className="sem-filter-pills">
+              <button
+                type="button"
+                className={`sem-fpill${!filters.grade ? " active" : ""}`}
+                onClick={() => onChange({ ...filters, grade: "" })}
+              >
+                Any Grade
+              </button>
+              {GRADE_LABELS.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  className={`sem-fpill${filters.grade === g ? " active" : ""}`}
+                  onClick={() => setGrade(g)}
+                >
+                  {g === "K" ? "K" : `${g}`}
                 </button>
               ))}
             </div>

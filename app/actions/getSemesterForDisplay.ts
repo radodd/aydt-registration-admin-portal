@@ -105,7 +105,8 @@ export async function getSemesterForDisplay(
     .maybeSingle();
 
   if (semesterError || !semester) {
-    throw new Error(`Semester not found: ${semesterId} ?? "unknown"}`);
+    console.error("[getSemesterForDisplay] query failed", { semesterId, semesterError, semester });
+    throw new Error(`Semester not found: ${semesterId}`);
   }
 
   // Allow published semesters always.

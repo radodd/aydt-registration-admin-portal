@@ -77,6 +77,7 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
     dayOfWeek: "",
     discipline: "",
     spotsOnly: false,
+    grade: "",
   });
 
   // Attach groupId from group membership
@@ -105,7 +106,7 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
           </p>
           <button
             type="button"
-            onClick={() => setFilters({ groupId: "", dayOfWeek: "", discipline: "", spotsOnly: false })}
+            onClick={() => setFilters({ groupId: "", dayOfWeek: "", discipline: "", spotsOnly: false, grade: "" })}
             style={{
               marginTop: 8, fontSize: 13, color: "var(--plum)", background: "none",
               border: "none", cursor: "pointer", fontFamily: "var(--pub-font-primary)",

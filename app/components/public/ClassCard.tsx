@@ -332,7 +332,7 @@ export function ClassCard({ group }: { group: GroupedClass }) {
         <div className="sem-disc-stripe" style={{ background: stripeColor }} />
 
         <div className="sem-class-info">
-          <div className="sem-class-name">{group.name}</div>
+          <div className="sem-class-name">{stripDaySuffix(group.name)}</div>
           <div className="sem-class-meta-row">
             {group.location && (
               <span className="sem-class-meta-item">
@@ -440,6 +440,12 @@ export function ClassCard({ group }: { group: GroupedClass }) {
 /* -------------------------------------------------------------------------- */
 /* Utilities                                                                    */
 /* -------------------------------------------------------------------------- */
+
+/** Strip trailing parenthetical like " (Monday)" or " (Mon/Wed)" from display names. */
+function stripDaySuffix(name: string): string {
+  return name.replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
+
 function formatCents(cents: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
 }
