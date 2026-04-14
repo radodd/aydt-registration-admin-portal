@@ -35,7 +35,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  * we NEVER trust it directly. Instead, we GET the transaction resource from EPG
  * using our secret key to obtain the authoritative state.
  *
- * Always returns 200. EPG retries on non-2xx, but we handle idempotency
+ * Always returns 201. EPG retries on non-2xx, but we handle idempotency
  * internally so retries are safe.
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -47,6 +47,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const expected = "Basic " + Buffer.from(expectedRaw).toString("base64");
 
   console.log("[EPG WEBHOOK] received");
+  console.log("[EPG WEBHOOK] ⚠️ TEMP - DELETE ME - auth header received:", request.headers.get("authorization")); // TODO: DELETE before production
 
   let authValid = false;
   try {
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     notification = await request.json();
   } catch {
     console.error("[epg-webhook] Failed to parse notification JSON");
-    return NextResponse.json({ ok: true }); // return 200 — malformed, don't retry
+    return NextResponse.json({ ok: true }, { status: 201 }); // return 201 — malformed, don't retry
   }
 
   const { eventType, resourceType, resource } = notification;
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   console.log(
     `[epg-webhook] notification id=${notification.id} eventType=${eventType} resourceType=${resourceType}`,
   );
+  console.log("[epg-webhook] ⚠️ TEMP full notification body:", JSON.stringify(notification)); // TODO: DELETE
 
   // -------------------------------------------------------------------------
   // Step 3: Ignore non-transaction or non-sale events
@@ -110,12 +112,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     !eventType ||
     !trackedEvents.includes(eventType)
   ) {
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { status: 201 });
   }
 
   if (!resource) {
     console.error("[epg-webhook] Notification missing resource URL");
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { status: 201 });
   }
 
   // -------------------------------------------------------------------------
@@ -134,12 +136,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // -------------------------------------------------------------------------
+  console.log("[epg-webhook] ⚠️ TEMP full transaction object:", JSON.stringify(transaction)); // TODO: DELETE
   // Step 5: Resolve batchId from transaction.customReference
+  // EPG does not propagate customReference to the transaction object in UAT —
+  // it appears on transaction.orderReference instead. Fall back through all
+  // known locations before giving up.
   // -------------------------------------------------------------------------
-  const batchId = transaction.customReference;
+  const batchId = transaction.customReference ?? transaction.orderReference ?? notification.customReference;
   if (!batchId) {
     console.warn("[epg-webhook] Transaction has no customReference — ignoring");
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { status: 201 });
   }
 
   // -------------------------------------------------------------------------
@@ -155,7 +161,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.warn(
       `[epg-webhook] No payment record for customReference=${batchId} — ignoring`,
     );
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { status: 201 });
   }
 
   // Skip if already in a terminal state (replay protection)
@@ -171,7 +177,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.log(
       `[epg-webhook] Payment for batch ${batchId} already in terminal state ${payment.state} — skipping`,
     );
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { status: 201 });
   }
 
   // -------------------------------------------------------------------------
@@ -182,7 +188,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.warn(
       `[epg-webhook] Unrecognised eventType=${eventType} — skipping state update`,
     );
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true }, { status: 201 });
   }
 
   // -------------------------------------------------------------------------
@@ -217,7 +223,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       console.log(
         `[epg-webhook] Batch ${batchId} already confirmed — skipping`,
       );
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true }, { status: 201 });
     }
 
     if (batchCheck.payment_plan_type === "installments") {
@@ -239,7 +245,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { status: 201 });
 }
 
 /* -------------------------------------------------------------------------- */
@@ -361,7 +367,7 @@ async function storePaymentMethodAndCaptureInstallment(params: {
     if (!epgShopper) {
       const { data: user } = await supabase
         .from("users")
-        .select("first_name, last_name, email")
+        .select("first_name, last_name, email, address_line1, address_line2, city, state, zipcode")
         .eq("id", parentId)
         .single();
 
@@ -369,6 +375,15 @@ async function storePaymentMethodAndCaptureInstallment(params: {
         customReference: parentId,
         fullName: user ? `${user.first_name} ${user.last_name}`.trim() : undefined,
         email: user?.email ?? undefined,
+        ...(user?.address_line1 && user?.city && user?.state && user?.zipcode && {
+          billTo: {
+            street1: user.address_line1,
+            street2: user.address_line2,
+            city: user.city,
+            region: user.state,
+            postalCode: user.zipcode,
+          },
+        }),
       });
     }
 
