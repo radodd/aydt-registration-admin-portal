@@ -47,7 +47,7 @@ export default async function PublicLayout({
             <NavCartButton />
             {user ? (
               <>
-                <span style={{ fontSize: 13, color: "var(--pub-nav-text)" }}>
+                <span className="topnav-greeting" style={{ fontSize: 13, color: "var(--pub-nav-text)" }}>
                   Hi, {firstName ?? "there"}
                 </span>
                 <Link href="/profile" className="btn-nav-ghost">
@@ -55,7 +55,7 @@ export default async function PublicLayout({
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                     <circle cx="12" cy="7" r="4"/>
                   </svg>
-                  My Account
+                  <span className="topnav-btn-text">My Account</span>
                 </Link>
               </>
             ) : (
@@ -66,10 +66,10 @@ export default async function PublicLayout({
                     <polyline points="10 17 15 12 10 7"/>
                     <line x1="15" y1="12" x2="3" y2="12"/>
                   </svg>
-                  Log In
+                  <span className="topnav-btn-text">Log In</span>
                 </Link>
                 <Link href="/register" className="btn-nav-primary">
-                  Create Account
+                  <span className="topnav-btn-text">Create Account</span>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <line x1="5" y1="12" x2="19" y2="12"/>
                     <polyline points="12 5 19 12 12 19"/>

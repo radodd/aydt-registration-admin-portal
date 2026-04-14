@@ -42,8 +42,16 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
   }
 
   async function handleSave() {
-    setSaving(true);
     setError(null);
+    // Required field validation
+    if (!form.first_name.trim()) return setError("First name is required.");
+    if (!form.last_name.trim()) return setError("Last name is required.");
+    if (!form.address_line1.trim()) return setError("Street address is required.");
+    if (!form.city.trim()) return setError("City is required.");
+    if (!form.state.trim()) return setError("State is required.");
+    if (!form.zipcode.trim()) return setError("ZIP code is required.");
+
+    setSaving(true);
     try {
       await updateUserProfile(form);
       setEditing(false);
@@ -138,7 +146,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
           )}
 
           {/* First / Last */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+          <div className="profile-grid-2" style={{ marginBottom: 14 }}>
             <div>
               <label style={labelStyle}>First Name</label>
               <input
@@ -183,7 +191,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
 
           {/* Street Address */}
           <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Street Address</label>
+            <label style={labelStyle}>Street Address {editing && <span style={{ color: "var(--wine)" }}>*</span>}</label>
             <input
               type="text"
               value={form.address_line1}
@@ -211,9 +219,9 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
           )}
 
           {/* City / State / ZIP */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginBottom: editing ? 14 : 0 }}>
+          <div className="profile-grid-3" style={{ marginBottom: editing ? 14 : 0 }}>
             <div>
-              <label style={labelStyle}>City</label>
+              <label style={labelStyle}>City {editing && <span style={{ color: "var(--wine)" }}>*</span>}</label>
               <input
                 type="text"
                 value={form.city}
@@ -223,7 +231,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
               />
             </div>
             <div>
-              <label style={labelStyle}>State</label>
+              <label style={labelStyle}>State {editing && <span style={{ color: "var(--wine)" }}>*</span>}</label>
               {editing ? (
                 <select
                   value={form.state}
@@ -240,7 +248,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
               )}
             </div>
             <div>
-              <label style={labelStyle}>ZIP Code</label>
+              <label style={labelStyle}>ZIP Code {editing && <span style={{ color: "var(--wine)" }}>*</span>}</label>
               <input
                 type="text"
                 value={form.zipcode}

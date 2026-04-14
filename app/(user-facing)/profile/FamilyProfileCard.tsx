@@ -290,7 +290,7 @@ export const FamilyProfileCard = ({
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
 
       {/* ── Account Card ────────────────────────────────────── */}
-      <div style={{ padding: "28px 32px 0" }}>
+      <div className="profile-outer-pad">
         <div style={{
           background: "var(--pub-surface)",
           border: "1px solid var(--pub-border)",
@@ -363,12 +363,7 @@ export const FamilyProfileCard = ({
       </div>
 
       {/* ── Tab Bar ─────────────────────────────────────────── */}
-      <div style={{
-        padding: "0 32px",
-        borderBottom: "1px solid var(--pub-border)",
-        background: "var(--pub-surface)",
-        display: "flex",
-      }}>
+      <div className="profile-tab-bar">
         {tabs.map(tab => (
           <button
             key={tab.id}
@@ -393,7 +388,7 @@ export const FamilyProfileCard = ({
           PROFILE TAB
       ══════════════════════════════════════════════════════ */}
       {activeTab === "profile" && (
-        <div style={{ padding: "28px 32px" }}>
+        <div className="profile-tab-content">
           <ParentInfoCard user={user} />
 
           {/* Dancers section */}
@@ -460,7 +455,7 @@ export const FamilyProfileCard = ({
           REGISTRATIONS TAB
       ══════════════════════════════════════════════════════ */}
       {activeTab === "registrations" && (
-        <div style={{ padding: "28px 32px" }}>
+        <div className="profile-tab-content">
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, fontFamily: "system-ui" }}>My Registrations</div>
           <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 20 }}>
             Current semester enrollments and waitlists.
@@ -576,7 +571,7 @@ export const FamilyProfileCard = ({
           PAYMENTS TAB
       ══════════════════════════════════════════════════════ */}
       {activeTab === "payments" && (
-        <div style={{ padding: "28px 32px" }}>
+        <div className="profile-tab-content">
           {/* Outstanding balance card */}
           {totalOutstanding > 0 && (
             <>
@@ -769,7 +764,7 @@ export const FamilyProfileCard = ({
           NOTIFICATIONS TAB
       ══════════════════════════════════════════════════════ */}
       {activeTab === "notifications" && (
-        <div style={{ padding: "28px 32px" }}>
+        <div className="profile-tab-content">
           {/* SMS section */}
           <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, fontFamily: "system-ui" }}>SMS Notifications</div>
           {user.phone_number && (
