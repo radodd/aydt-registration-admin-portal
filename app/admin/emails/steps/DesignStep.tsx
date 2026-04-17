@@ -113,7 +113,7 @@ export default function DesignStep({
   const previewHtml = wrapEmailLayout(applyMockTokens(htmlBody));
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-8">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4 md:p-8 space-y-6 md:space-y-8">
       <div>
         <h2 className="text-xl font-semibold text-neutral-900">Email Body</h2>
         <p className="text-sm text-neutral-500 mt-1">
@@ -144,9 +144,9 @@ export default function DesignStep({
         {/* Design tab */}
         {activeTab === "design" && (
           <div className="space-y-4">
-            <div className="flex items-start justify-between gap-6">
-              {/* Variable reference */}
-              <div className="shrink-0 bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-2 min-w-52">
+            <div className="flex flex-col-reverse md:flex-row md:items-start gap-4 md:gap-6">
+              {/* Variable reference — below editor on mobile, left panel on desktop */}
+              <div className="md:shrink-0 bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-2 md:min-w-52">
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
                   Available variables
                 </p>

@@ -386,23 +386,25 @@ export default function EmailForm({
 
   return (
     <div>
-      {/* Lifecycle header */}
-      <div className="flex items-center justify-between gap-4 mb-6 pb-5 border-b border-neutral-200">
-        <div className="flex items-center gap-3 min-w-0">
+      {/* Lifecycle header — stacked on mobile, side-by-side on desktop */}
+      <div className="mb-5 pb-4 border-b border-neutral-200 space-y-3">
+        {/* Row 1: back + status + subject */}
+        <div className="flex items-center gap-2 min-w-0">
           <button
             onClick={navigateToList}
             className="text-sm text-neutral-500 hover:text-neutral-700 transition-colors shrink-0"
           >
-            ← All Emails
+            ← Back
           </button>
-          <span className="text-neutral-300">|</span>
+          <span className="text-neutral-300 shrink-0">|</span>
           <EmailStatusBadge status={emailStatus} />
-          <span className="text-sm text-neutral-500 truncate max-w-xs">
+          <span className="text-sm text-neutral-500 truncate">
             {state.setup?.subject || "(no subject)"}
           </span>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Row 2: action buttons — wrap on mobile */}
+        <div className="flex items-center gap-2 flex-wrap">
           {headerError && (
             <span className="text-xs text-red-600">{headerError}</span>
           )}
@@ -499,8 +501,8 @@ export default function EmailForm({
         </div>
       </div>
 
-      {/* Step indicator */}
-      <div className="flex items-center gap-1 mb-8 flex-wrap">
+      {/* Step indicator — horizontally scrollable on mobile */}
+      <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-1">
         {STEPS.map((step, i) => {
           const isActive = i === currentStepIndex;
           const isPast = i < currentStepIndex;
@@ -508,7 +510,7 @@ export default function EmailForm({
             <button
               key={step.key}
               onClick={() => navigateToStep(i)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
                 ${isActive ? "bg-primary-600 text-white" : ""}
                 ${isPast && !isActive ? "bg-primary-100 text-primary-700 hover:bg-primary-200" : ""}
                 ${!isActive && !isPast ? "bg-neutral-100 text-neutral-500 hover:bg-neutral-200" : ""}
@@ -529,7 +531,7 @@ export default function EmailForm({
 
       {/* Unsaved changes toast — fixed, does not affect layout */}
       {isDirty && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-mauve/10 border border-mauve rounded-xl shadow-lg animate-fade-in">
+        <div className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 flex items-center gap-3 px-4 py-3 bg-mauve/10 border border-mauve rounded-xl shadow-lg animate-fade-in">
           <span className="text-mauve-text text-sm font-medium">
             {isSaving ? "Saving…" : "Unsaved changes"}
           </span>

@@ -125,10 +125,10 @@ function KVTable({ rows }: { rows: { label: string; value: ReactNode }[] }) {
           key={i}
           className={`flex items-start ${i < rows.length - 1 ? "border-b border-neutral-100" : ""}`}
         >
-          <div className="w-[200px] shrink-0 px-3.5 py-2.5 text-[12.5px] text-neutral-500 font-medium bg-neutral-50 border-r border-neutral-100">
+          <div className="w-[110px] md:w-[180px] shrink-0 px-3 md:px-3.5 py-2.5 text-[12px] md:text-[12.5px] text-neutral-500 font-medium bg-neutral-50 border-r border-neutral-100">
             {row.label}
           </div>
-          <div className="flex-1 px-3.5 py-2.5 text-[13px] font-semibold text-neutral-900">
+          <div className="flex-1 px-3 md:px-3.5 py-2.5 text-[12.5px] md:text-[13px] font-semibold text-neutral-900 min-w-0">
             {row.value}
           </div>
         </div>
@@ -191,8 +191,8 @@ function TuitionBandsDrawer({ bands, showInstallments }: { bands: DraftTuitionRa
         {open ? <ChevronUp size={14} className="text-neutral-400" /> : <ChevronDown size={14} className="text-neutral-400" />}
       </button>
       {open && (
-        <div className="mt-2 border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-          <table className="w-full border-collapse">
+        <div className="mt-2 border border-neutral-200 rounded-lg overflow-x-auto shadow-sm">
+          <table className="w-full border-collapse" style={{ minWidth: "480px" }}>
             <thead>
               <tr style={{ background: "var(--admin-sidebar-active)" }}>
                 {["Division", "Classes/wk", "Base tuition", "Discount", "Semester total",
@@ -256,8 +256,8 @@ function SpecialProgramsDrawer({ programs, showInstallments }: { programs: Draft
         {open ? <ChevronUp size={14} className="text-neutral-400" /> : <ChevronDown size={14} className="text-neutral-400" />}
       </button>
       {open && (
-        <div className="mt-2 border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-          <table className="w-full border-collapse">
+        <div className="mt-2 border border-neutral-200 rounded-lg overflow-x-auto shadow-sm">
+          <table className="w-full border-collapse" style={{ minWidth: "360px" }}>
             <thead>
               <tr style={{ background: "var(--admin-sidebar-active)" }}>
                 {["Program", "Semester total",
@@ -388,48 +388,85 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                 <EmptyMsg>No classes added yet.</EmptyMsg>
               ) : (
                 <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr style={{ background: "var(--admin-sidebar-active)" }}>
-                        {["Class", "Discipline", "Division", "Visibility", "Sessions"].map((h, i) => (
-                          <th
-                            key={h}
-                            className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left"
-                            style={i === 4 ? { textAlign: "right" } : {}}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {classes.map((cls, i) => {
-                        const sc = countSessions(cls.schedules ?? []);
-                        const visBadge =
-                          cls.visibility === "public"      ? <Chip variant="sage">Public</Chip> :
-                          cls.visibility === "invite_only" ? <Chip variant="mauve">Invite Only</Chip> :
-                          cls.visibility === "hidden"      ? <Chip variant="neutral">Hidden</Chip> :
-                          <Chip variant="neutral">—</Chip>;
-                        return (
-                          <tr
-                            key={cls.id ?? i}
-                            className={`border-t border-neutral-100 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
-                          >
-                            <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{cls.name}</td>
-                            <td className="px-3.5 py-2.5 text-sm text-neutral-600">{toTitle(cls.discipline)}</td>
-                            <td className="px-3.5 py-2.5 text-sm text-neutral-600">{toTitle(cls.division)}</td>
-                            <td className="px-3.5 py-2.5">{visBadge}</td>
-                            <td
-                              className="px-3.5 py-2.5 text-right text-sm font-bold"
-                              style={sc === 0 ? { color: "#dc2626" } : { color: "var(--admin-text)" }}
+                  {/* Mobile: card rows — Discipline/Division shown as sub-text */}
+                  <div className="md:hidden divide-y divide-neutral-100">
+                    {classes.map((cls, i) => {
+                      const sc = countSessions(cls.schedules ?? []);
+                      const visBadge =
+                        cls.visibility === "public"      ? <Chip variant="sage">Public</Chip> :
+                        cls.visibility === "invite_only" ? <Chip variant="mauve">Invite Only</Chip> :
+                        cls.visibility === "hidden"      ? <Chip variant="neutral">Hidden</Chip> :
+                        <Chip variant="neutral">—</Chip>;
+                      return (
+                        <div
+                          key={cls.id ?? i}
+                          className={`flex items-center gap-3 px-4 py-3 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-bold text-neutral-900 truncate">{cls.name}</p>
+                            <p className="text-[11.5px] text-neutral-500 mt-0.5 truncate">
+                              {[toTitle(cls.discipline), toTitle(cls.division)].filter((v) => v && v !== "—").join(" · ")}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {visBadge}
+                            <span
+                              className="text-[13px] font-bold tabular-nums"
+                              style={{ color: sc === 0 ? "#dc2626" : "var(--admin-text)" }}
                             >
                               {sc === 0 ? "0 ⚠" : sc}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop: full table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr style={{ background: "var(--admin-sidebar-active)" }}>
+                          {["Class", "Discipline", "Division", "Visibility", "Sessions"].map((h, i) => (
+                            <th
+                              key={h}
+                              className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left"
+                              style={i === 4 ? { textAlign: "right" } : {}}
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {classes.map((cls, i) => {
+                          const sc = countSessions(cls.schedules ?? []);
+                          const visBadge =
+                            cls.visibility === "public"      ? <Chip variant="sage">Public</Chip> :
+                            cls.visibility === "invite_only" ? <Chip variant="mauve">Invite Only</Chip> :
+                            cls.visibility === "hidden"      ? <Chip variant="neutral">Hidden</Chip> :
+                            <Chip variant="neutral">—</Chip>;
+                          return (
+                            <tr
+                              key={cls.id ?? i}
+                              className={`border-t border-neutral-100 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
+                            >
+                              <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{cls.name}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-neutral-600">{toTitle(cls.discipline)}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-neutral-600">{toTitle(cls.division)}</td>
+                              <td className="px-3.5 py-2.5">{visBadge}</td>
+                              <td
+                                className="px-3.5 py-2.5 text-right text-sm font-bold"
+                                style={sc === 0 ? { color: "#dc2626" } : { color: "var(--admin-text)" }}
+                              >
+                                {sc === 0 ? "0 ⚠" : sc}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -458,44 +495,72 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
               <EmptyMsg>No class groups configured.</EmptyMsg>
             ) : (
               <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr style={{ background: "var(--admin-sidebar-active)" }}>
-                      {["Group", "Classes included", "Sessions"].map((h, i) => (
-                        <th
-                          key={h}
-                          className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left"
-                          style={i === 2 ? { textAlign: "right" } : {}}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groups.map((g, i) => {
-                      const labels = g.sessionIds
-                        .map((sid) => scheduleMap.get(sid))
-                        .filter(Boolean) as string[];
-                      return (
-                        <tr
-                          key={g.id}
-                          className={`border-t border-neutral-100 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
-                        >
-                          <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{g.name}</td>
-                          <td className="px-3.5 py-2.5 text-sm text-neutral-600">
-                            {labels.length > 0
-                              ? labels.join(", ")
-                              : <span className="italic text-neutral-400">None assigned</span>}
-                          </td>
-                          <td className="px-3.5 py-2.5 text-right text-sm font-bold text-neutral-900">
-                            {g.sessionIds.length}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                {/* Mobile: card rows — classes shown as sub-text */}
+                <div className="md:hidden divide-y divide-neutral-100">
+                  {groups.map((g, i) => {
+                    const labels = g.sessionIds
+                      .map((sid) => scheduleMap.get(sid))
+                      .filter(Boolean) as string[];
+                    return (
+                      <div
+                        key={g.id}
+                        className={`flex items-center gap-3 px-4 py-3 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-bold text-neutral-900">{g.name}</p>
+                          <p className="text-[11.5px] text-neutral-500 mt-0.5 truncate">
+                            {labels.length > 0 ? labels.join(", ") : "No classes assigned"}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[13px] font-bold text-neutral-900 tabular-nums">
+                          {g.sessionIds.length}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Desktop: full table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr style={{ background: "var(--admin-sidebar-active)" }}>
+                        {["Group", "Classes included", "Sessions"].map((h, i) => (
+                          <th
+                            key={h}
+                            className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left"
+                            style={i === 2 ? { textAlign: "right" } : {}}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groups.map((g, i) => {
+                        const labels = g.sessionIds
+                          .map((sid) => scheduleMap.get(sid))
+                          .filter(Boolean) as string[];
+                        return (
+                          <tr
+                            key={g.id}
+                            className={`border-t border-neutral-100 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
+                          >
+                            <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{g.name}</td>
+                            <td className="px-3.5 py-2.5 text-sm text-neutral-600">
+                              {labels.length > 0
+                                ? labels.join(", ")
+                                : <span className="italic text-neutral-400">None assigned</span>}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-right text-sm font-bold text-neutral-900">
+                              {g.sessionIds.length}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -552,7 +617,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
             {feeConfig && (
               <div>
                 <SectionHd title="Fee Configuration" />
-                <div className="grid grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
                   {[
                     { label: "Registration fee",     val: feeConfig.registration_fee_per_child,      sub: "Per child",      money: true },
                     { label: "Family discount",      val: feeConfig.family_discount_amount,           sub: "2+ dancers",     money: true },
@@ -657,54 +722,83 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
               <EmptyMsg>No coupons configured for this semester.</EmptyMsg>
             ) : (
               <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr style={{ background: "var(--admin-sidebar-active)" }}>
-                      {["Name", "Code", "Value", "Max uses", "Stackable", "Status"].map((h) => (
-                        <th
-                          key={h}
-                          className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {coupons.map((c, i) => (
-                      <tr
-                        key={c._clientKey}
-                        className={`border-t border-neutral-100 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
-                      >
-                        <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{c.name}</td>
-                        <td className="px-3.5 py-2.5">
+                {/* Mobile: card rows — Code/Max uses/Stackable as sub-text */}
+                <div className="md:hidden divide-y divide-neutral-100">
+                  {coupons.map((c, i) => (
+                    <div
+                      key={c._clientKey}
+                      className={`flex items-center gap-3 px-4 py-3 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-bold text-neutral-900">{c.name}</p>
+                        <p className="text-[11.5px] text-neutral-500 mt-0.5">
                           {c.code
-                            ? <span className="font-mono text-xs bg-neutral-100 px-2 py-0.5 rounded font-bold text-neutral-700">{c.code}</span>
-                            : <span className="text-xs text-neutral-400 italic">Auto-apply</span>}
-                        </td>
-                        <td
-                          className="px-3.5 py-2.5 text-sm font-bold"
-                          style={{ color: "var(--admin-sidebar-active)" }}
-                        >
-                          {c.valueType === "percent" ? `${c.value}% off` : `${fmtMoney(c.value)} flat`}
-                        </td>
-                        <td className="px-3.5 py-2.5 text-sm text-neutral-600">
-                          {c.maxTotalUses ?? "Unlimited"}
-                        </td>
-                        <td className="px-3.5 py-2.5">
-                          <Chip variant={c.stackable ? "ok" : "neutral"}>
-                            {c.stackable ? "Yes" : "No"}
-                          </Chip>
-                        </td>
-                        <td className="px-3.5 py-2.5">
-                          <Chip variant={c.isActive ? "ok" : "neutral"}>
-                            {c.isActive ? "Active" : "Inactive"}
-                          </Chip>
-                        </td>
+                            ? <span className="font-mono bg-neutral-100 px-1.5 rounded text-neutral-700">{c.code}</span>
+                            : <span className="italic">Auto-apply</span>}
+                          {" · "}
+                          {c.maxTotalUses ? `Max ${c.maxTotalUses}` : "Unlimited"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[12.5px] font-bold" style={{ color: "var(--admin-sidebar-active)" }}>
+                          {c.valueType === "percent" ? `${c.value}%` : fmtMoney(c.value)}
+                        </span>
+                        <Chip variant={c.isActive ? "ok" : "neutral"}>
+                          {c.isActive ? "Active" : "Off"}
+                        </Chip>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop: full table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr style={{ background: "var(--admin-sidebar-active)" }}>
+                        {["Name", "Code", "Value", "Max uses", "Stackable", "Status"].map((h) => (
+                          <th
+                            key={h}
+                            className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left"
+                          >
+                            {h}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {coupons.map((c, i) => (
+                        <tr
+                          key={c._clientKey}
+                          className={`border-t border-neutral-100 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
+                        >
+                          <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{c.name}</td>
+                          <td className="px-3.5 py-2.5">
+                            {c.code
+                              ? <span className="font-mono text-xs bg-neutral-100 px-2 py-0.5 rounded font-bold text-neutral-700">{c.code}</span>
+                              : <span className="text-xs text-neutral-400 italic">Auto-apply</span>}
+                          </td>
+                          <td className="px-3.5 py-2.5 text-sm font-bold" style={{ color: "var(--admin-sidebar-active)" }}>
+                            {c.valueType === "percent" ? `${c.value}% off` : `${fmtMoney(c.value)} flat`}
+                          </td>
+                          <td className="px-3.5 py-2.5 text-sm text-neutral-600">
+                            {c.maxTotalUses ?? "Unlimited"}
+                          </td>
+                          <td className="px-3.5 py-2.5">
+                            <Chip variant={c.stackable ? "ok" : "neutral"}>
+                              {c.stackable ? "Yes" : "No"}
+                            </Chip>
+                          </td>
+                          <td className="px-3.5 py-2.5">
+                            <Chip variant={c.isActive ? "ok" : "neutral"}>
+                              {c.isActive ? "Active" : "Inactive"}
+                            </Chip>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -809,9 +903,9 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                   Preview
                 </span>
 
-                <div className="flex gap-5 items-start">
-                  {/* Desktop */}
-                  <div className="w-[345px] shrink-0">
+                <div className="flex flex-col gap-5 md:flex-row md:items-start">
+                  {/* Desktop preview */}
+                  <div className="w-full md:w-[345px] md:shrink-0">
                     <div className="flex items-center gap-1.5 mb-2">
                       <Monitor size={11} className="text-neutral-400" />
                       <span className="text-[11px] font-medium text-neutral-400">Desktop</span>
@@ -949,7 +1043,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
               <>
                 <div>
                   <SectionHd title="Configuration" />
-                  <div className="grid grid-cols-2 gap-2.5 mb-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-3">
                     {[
                       { label: "Invite expiry",       val: `${wl.inviteExpiryHours} hrs`, sub: "After invitation sent" },
                       { label: "Seat hold",            val: "30 min",                     sub: "After acceptance" },
@@ -1075,7 +1169,7 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
       </div>
 
       {/* Tab content */}
-      <div className="p-6 min-h-[200px]">{renderPanel()}</div>
+      <div className="p-4 md:p-6 min-h-[200px] overflow-x-auto">{renderPanel()}</div>
 
       {/* Optional publish / action slot (ReviewStep passes buttons here) */}
       {publishActions && <div className="px-6 pb-6">{publishActions}</div>}

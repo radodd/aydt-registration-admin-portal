@@ -284,27 +284,82 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
         </div>
       )}
 
-      {/* Toast */}
+      {/* Toast — above mobile tab bar */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-green-700 text-white text-sm px-4 py-3 rounded-lg shadow-lg">
+        <div className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 bg-green-700 text-white text-sm px-4 py-3 rounded-lg shadow-lg">
           {toast}
         </div>
       )}
 
       {rows.length === 0 ? (
-        <div className="bg-white border border-neutral-200 rounded-xl p-8 text-center text-sm text-neutral-400">
+        <div className="admin-card px-5 py-10 text-center text-sm" style={{ color: "var(--admin-text-faint)" }}>
           No active classes found.
         </div>
       ) : (
-        <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+        <div className="admin-card overflow-hidden">
+          {/* Filter bar — responsive flex-wrap row above the table */}
+          <div className="flex flex-wrap gap-2 px-4 py-3 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
+            <input
+              type="text"
+              placeholder="Search class…"
+              value={filterClass}
+              onChange={(e) => setFilterClass(e.target.value)}
+              className="admin-input text-[12px] flex-1 min-w-[140px]"
+              style={{ maxWidth: "200px" }}
+            />
+            <select
+              value={filterDiscipline}
+              onChange={(e) => setFilterDiscipline(e.target.value)}
+              className="admin-select text-[12px] flex-1 min-w-[130px]"
+              style={{ maxWidth: "180px" }}
+            >
+              <option value="">All disciplines</option>
+              {filterOptions.disciplines.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            <select
+              value={filterSemester}
+              onChange={(e) => setFilterSemester(e.target.value)}
+              className="admin-select text-[12px] flex-1 min-w-[130px]"
+              style={{ maxWidth: "200px" }}
+            >
+              <option value="">All semesters</option>
+              {filterOptions.semesters.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <select
+              value={filterDay}
+              onChange={(e) => setFilterDay(e.target.value)}
+              className="admin-select text-[12px] flex-1 min-w-[110px]"
+              style={{ maxWidth: "160px" }}
+            >
+              <option value="">All days</option>
+              {filterOptions.days.map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+            {hasFilters && (
+              <button
+                onClick={clearFilters}
+                className="admin-btn-neutral admin-btn-sm shrink-0"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+
+          {/* Table — horizontal scroll on mobile */}
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-neutral-50 border-b border-neutral-200">
-              {/* Sortable column headers */}
+            <thead className="border-b" style={{ background: "var(--admin-table-header-bg)" }}>
               <tr>
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSortClick("class")}
-                    className="flex items-center font-medium text-neutral-600 hover:text-neutral-900"
+                    className="flex items-center text-[10.5px] font-medium uppercase tracking-wide"
+                    style={{ color: "var(--admin-table-header-text)", background: "transparent", border: "none", cursor: "pointer" }}
                   >
                     Class <SortIcon col="class" sortCol={sortCol} sortDir={sortDir} />
                   </button>
@@ -312,7 +367,8 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSortClick("discipline")}
-                    className="flex items-center font-medium text-neutral-600 hover:text-neutral-900"
+                    className="flex items-center text-[10.5px] font-medium uppercase tracking-wide"
+                    style={{ color: "var(--admin-table-header-text)", background: "transparent", border: "none", cursor: "pointer" }}
                   >
                     Discipline <SortIcon col="discipline" sortCol={sortCol} sortDir={sortDir} />
                   </button>
@@ -320,7 +376,8 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSortClick("semester")}
-                    className="flex items-center font-medium text-neutral-600 hover:text-neutral-900"
+                    className="flex items-center text-[10.5px] font-medium uppercase tracking-wide"
+                    style={{ color: "var(--admin-table-header-text)", background: "transparent", border: "none", cursor: "pointer" }}
                   >
                     Semester <SortIcon col="semester" sortCol={sortCol} sortDir={sortDir} />
                   </button>
@@ -328,7 +385,8 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSortClick("day")}
-                    className="flex items-center font-medium text-neutral-600 hover:text-neutral-900"
+                    className="flex items-center text-[10.5px] font-medium uppercase tracking-wide"
+                    style={{ color: "var(--admin-table-header-text)", background: "transparent", border: "none", cursor: "pointer" }}
                   >
                     Schedule <SortIcon col="day" sortCol={sortCol} sortDir={sortDir} />
                   </button>
@@ -336,82 +394,24 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                 <th className="px-4 py-3 text-left">
                   <button
                     onClick={() => handleSortClick("enrolled")}
-                    className="flex items-center font-medium text-neutral-600 hover:text-neutral-900"
+                    className="flex items-center text-[10.5px] font-medium uppercase tracking-wide"
+                    style={{ color: "var(--admin-table-header-text)", background: "transparent", border: "none", cursor: "pointer" }}
                   >
                     Enrolled / Cap <SortIcon col="enrolled" sortCol={sortCol} sortDir={sortDir} />
                   </button>
                 </th>
-                <th className="px-4 py-3 text-right font-medium text-neutral-600">
-                  {hasFilters && (
-                    <button
-                      onClick={clearFilters}
-                      className="text-xs text-blue-600 hover:underline font-normal"
-                    >
-                      Clear filters
-                    </button>
-                  )}
-                </th>
-              </tr>
-              {/* Filter row */}
-              <tr className="border-t border-neutral-200">
-                <td className="px-4 py-2">
-                  <input
-                    type="text"
-                    placeholder="Search class…"
-                    value={filterClass}
-                    onChange={(e) => setFilterClass(e.target.value)}
-                    className="w-full rounded-md border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-700 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  />
-                </td>
-                <td className="px-4 py-2">
-                  <select
-                    value={filterDiscipline}
-                    onChange={(e) => setFilterDiscipline(e.target.value)}
-                    className="w-full rounded-md border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  >
-                    <option value="">All disciplines</option>
-                    {filterOptions.disciplines.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-4 py-2">
-                  <select
-                    value={filterSemester}
-                    onChange={(e) => setFilterSemester(e.target.value)}
-                    className="w-full rounded-md border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  >
-                    <option value="">All semesters</option>
-                    {filterOptions.semesters.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-4 py-2">
-                  <select
-                    value={filterDay}
-                    onChange={(e) => setFilterDay(e.target.value)}
-                    className="w-full rounded-md border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                  >
-                    <option value="">All days</option>
-                    {filterOptions.days.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-4 py-2" />
-                <td className="px-4 py-2" />
+                <th className="px-4 py-3" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-100">
+            <tbody>
               {filteredSorted.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-neutral-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm" style={{ color: "var(--admin-text-faint)" }}>
                     No classes match your filters.
                   </td>
                 </tr>
               ) : (
-                filteredSorted.map((session) => {
+                filteredSorted.map((session, i) => {
                   const enrolledCount = registrationCounts[session.id] ?? 0;
                   const cap = session.capacity ?? "—";
                   const isFull =
@@ -421,39 +421,43 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
                   const semesterName = (session.semesters as any)?.name ?? "—";
 
                   return (
-                    <tr key={session.id} className="hover:bg-neutral-50">
-                      <td className="px-4 py-3 font-medium text-neutral-900">{className}</td>
-                      <td className="px-4 py-3 text-neutral-600 capitalize">{discipline}</td>
-                      <td className="px-4 py-3 text-neutral-600">{semesterName}</td>
-                      <td className="px-4 py-3 text-neutral-600">
+                    <tr
+                      key={session.id}
+                      style={{ background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)")}
+                    >
+                      <td className="px-4 py-3 text-[13px] font-medium whitespace-nowrap" style={{ color: "var(--admin-text)", borderBottom: "0.5px solid var(--admin-table-border)" }}>{className}</td>
+                      <td className="px-4 py-3 text-[12px] capitalize whitespace-nowrap" style={{ color: "var(--admin-text-muted)", borderBottom: "0.5px solid var(--admin-table-border)" }}>{discipline}</td>
+                      <td className="px-4 py-3 text-[12px] whitespace-nowrap" style={{ color: "var(--admin-text-muted)", borderBottom: "0.5px solid var(--admin-table-border)" }}>{semesterName}</td>
+                      <td className="px-4 py-3 text-[12px] whitespace-nowrap" style={{ color: "var(--admin-text-muted)", borderBottom: "0.5px solid var(--admin-table-border)" }}>
                         <div>
                           {session.day_of_week}{" "}
                           {formatTime(session.start_time)}
                           {session.end_time ? ` – ${formatTime(session.end_time)}` : ""}
                         </div>
                         {(session.start_date || session.end_date) && (
-                          <div className="text-xs text-neutral-400 mt-0.5">
+                          <div className="text-[11px] mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
                             {formatDate(session.start_date)}
                             {session.end_date ? ` – ${formatDate(session.end_date)}` : ""}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={isFull ? "font-semibold text-red-600" : "text-neutral-600"}>
+                      <td className="px-4 py-3 text-[12px] whitespace-nowrap" style={{ borderBottom: "0.5px solid var(--admin-table-border)" }}>
+                        <span className={isFull ? "font-semibold" : ""} style={{ color: isFull ? "#802818" : "var(--admin-text-muted)" }}>
                           {enrolledCount} / {cap}
                         </span>
                         {isFull && (
-                          <span className="ml-2 text-xs bg-pale-rose/30 text-pale-rose-text px-1.5 py-0.5 rounded-full">
-                            Full
-                          </span>
+                          <span className="ml-2 badge badge-error">Full</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right whitespace-nowrap" style={{ borderBottom: "0.5px solid var(--admin-table-border)" }}>
                         <button
                           onClick={() => openModal(session.id)}
-                          className="text-red-600 hover:text-red-700 font-medium text-sm"
+                          className="text-[12px] font-medium"
+                          style={{ color: "#C0392B", background: "none", border: "none", cursor: "pointer" }}
                         >
-                          Cancel Class
+                          Cancel
                         </button>
                       </td>
                     </tr>
@@ -462,10 +466,11 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
               )}
             </tbody>
           </table>
+          </div>{/* end overflow-x-auto */}
 
           {/* Result count */}
           {hasFilters && (
-            <div className="px-4 py-2 border-t border-neutral-200 text-xs text-neutral-400">
+            <div className="px-5 py-2.5 border-t text-[11px]" style={{ borderColor: "var(--admin-border-sub)", color: "var(--admin-text-faint)" }}>
               Showing {filteredSorted.length} of {rows.length} classes
             </div>
           )}

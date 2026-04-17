@@ -36,14 +36,14 @@ export default function FamiliesAdmin() {
 
   if (loading) {
     return (
-      <main className="max-w-3xl mx-auto px-6 py-10">
+      <main className="max-w-3xl mx-auto">
         <div className="text-sm text-neutral-400">Loading families…</div>
       </main>
     );
   }
 
   return (
-    <main className="max-w-3xl mx-auto px-6 py-10 space-y-8">
+    <main className="max-w-3xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

@@ -57,18 +57,18 @@ export default function CreditsAdmin() {
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-6 py-10 space-y-8">
+    <main className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <header className="flex items-start justify-between gap-6">
+      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-neutral-900">Credits</h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <h1 className="text-2xl font-semibold" style={{ color: "var(--admin-text)" }}>Credits</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--admin-text-faint)" }}>
             Account credits issued to families and their usage history.
           </p>
         </div>
 
         {/* Summary tiles */}
-        <div className="flex gap-3 shrink-0">
+        <div className="flex gap-3 flex-wrap">
           <div className="bg-white border border-neutral-200 rounded-xl px-4 py-3 text-right">
             <p className="text-xs text-neutral-400 mb-0.5">Total issued</p>
             <p className="text-lg font-semibold text-neutral-900">{fmt$(totalIssued)}</p>

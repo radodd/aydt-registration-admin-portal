@@ -39,9 +39,11 @@ export default async function FamilyDetailPage({ params, searchParams }: PagePro
   }
 
   return (
-    <div className="flex gap-0 -mx-8 -my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
+    <div className="flex gap-0 md:-mx-8 md:-my-8" style={{ minHeight: "calc(100vh - 56px)" }}>
       <FamilyDetailClient family={family} initialFocus={initialFocus} />
-      <FamilyRightPanel family={family} />
+      <div className="hidden lg:block">
+        <FamilyRightPanel family={family} />
+      </div>
     </div>
   );
 }

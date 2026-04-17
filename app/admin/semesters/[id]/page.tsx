@@ -1,8 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import SemesterLifecycleActions from "./SemesterLifecycleActions";
 import SemesterDetailTabs from "./SemesterDetailTabs";
+import SemesterHeaderMenu from "./SemesterHeaderMenu";
 
 type PageProps = {
   params: {
@@ -19,58 +19,41 @@ function fmtDate(iso: string | null | undefined) {
   });
 }
 
-const STATUS_BADGE: Record<string, string> = {
-  published: "bg-green-100 text-green-700",
-  draft: "bg-neutral-100 text-neutral-600",
-  scheduled: "bg-blue-100 text-blue-700",
-  archived: "bg-red-100 text-red-600",
+const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
+  published: { bg: "rgba(125,206,194,.18)", color: "#0A5A50" },
+  draft:     { bg: "rgba(158,196,180,.18)", color: "#20503A" },
+  scheduled: { bg: "rgba(196,160,212,.18)", color: "#5A2878" },
+  archived:  { bg: "rgba(232,184,176,.18)", color: "#802818" },
 };
 
 export default async function SemesterDetailPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
 
-  // Phase 1: all independent queries in parallel
+  /* ── Data fetching (unchanged) ────────────────────────────────── */
   const [semesterResult, enrollResult, auditResult] = await Promise.all([
     supabase
       .from("semesters")
-      .select(
-        `
+      .select(`
         *,
-        classes(
-          *,
-          class_schedules (*, schedule_price_tiers(*))
-        ),
-        session_groups(
-          id, name, session_group_sessions(session_id, class_sessions(schedule_id))
-        ),
+        classes(*, class_schedules(*, schedule_price_tiers(*))),
+        session_groups(id, name, session_group_sessions(session_id, class_sessions(schedule_id))),
         semester_payment_plans(*),
         semester_payment_installments(*),
         semester_discounts(
-          semester_id,
-          discount_id,
-          discount:discounts(
-            *,
-            discount_rules(*),
-            discount_rule_sessions(session_id)
-          )
+          semester_id, discount_id,
+          discount:discounts(*, discount_rules(*), discount_rule_sessions(session_id))
         ),
         tuition_rate_bands(*),
         semester_fee_config(*),
-        semester_coupons(
-          coupon:discount_coupons(*)
-        )
-        `,
-      )
+        semester_coupons(coupon:discount_coupons(*))
+      `)
       .eq("id", id)
       .single(),
 
     supabase
       .from("registrations")
-      .select("id, class_sessions!inner(semester_id)", {
-        count: "exact",
-        head: true,
-      })
+      .select("id, class_sessions!inner(semester_id)", { count: "exact", head: true })
       .eq("class_sessions.semester_id", id)
       .eq("status", "confirmed"),
 
@@ -82,20 +65,12 @@ export default async function SemesterDetailPage({ params }: PageProps) {
       .limit(5),
   ]);
 
-  if (!semesterResult.data || semesterResult.error) {
-    notFound();
-  }
-
+  if (!semesterResult.data || semesterResult.error) notFound();
   const semester = semesterResult.data;
 
-  // Phase 2: waitlist count (needs session IDs)
-  const sessionIds =
-    (
-      await supabase
-        .from("class_sessions")
-        .select("id")
-        .eq("semester_id", id)
-    ).data?.map((s) => s.id) ?? [];
+  const sessionIds = (
+    await supabase.from("class_sessions").select("id").eq("semester_id", id)
+  ).data?.map((s) => s.id) ?? [];
 
   const waitlistResult =
     sessionIds.length > 0
@@ -110,129 +85,125 @@ export default async function SemesterDetailPage({ params }: PageProps) {
   const waitlistCount = (waitlistResult as any).count ?? 0;
   const auditLogs = auditResult.data ?? [];
 
-  // Compute date range from class schedules
-  const allSchedules = (semester.classes ?? []).flatMap(
-    (c: any) => c.class_schedules ?? [],
-  );
-  const startDates = allSchedules
-    .map((s: any) => s.start_date)
-    .filter(Boolean)
-    .sort();
-  const endDates = allSchedules
-    .map((s: any) => s.end_date)
-    .filter(Boolean)
-    .sort();
-  const regCloseDates = allSchedules
-    .map((s: any) => s.registration_close_at)
-    .filter(Boolean)
-    .sort();
+  const allSchedules = (semester.classes ?? []).flatMap((c: any) => c.class_schedules ?? []);
+  const startDates = allSchedules.map((s: any) => s.start_date).filter(Boolean).sort();
+  const endDates   = allSchedules.map((s: any) => s.end_date).filter(Boolean).sort();
+  const regCloseDates = allSchedules.map((s: any) => s.registration_close_at).filter(Boolean).sort();
 
   const semesterStart = startDates[0] ?? null;
-  const semesterEnd = endDates[endDates.length - 1] ?? null;
-  const regCloseAt = regCloseDates[0] ?? null;
+  const semesterEnd   = endDates[endDates.length - 1] ?? null;
+  const regCloseAt    = regCloseDates[0] ?? null;
 
-  // Health checks
-  const classCount = (semester.classes ?? []).length;
-  const paymentSet = (semester.semester_payment_plans ?? []).length > 0;
-  const regFormBuilt =
-    (semester.registration_form?.elements ?? []).length > 0;
-  const emailSet = !!(semester.confirmation_email?.subject);
+  const classCount    = (semester.classes ?? []).length;
+  const paymentSet    = (semester.semester_payment_plans ?? []).length > 0;
+  const regFormBuilt  = (semester.registration_form?.elements ?? []).length > 0;
+  const emailSet      = !!(semester.confirmation_email?.subject);
 
-  const statusBadge = STATUS_BADGE[semester.status] ?? STATUS_BADGE.draft;
+  const badge = STATUS_BADGE[semester.status] ?? STATUS_BADGE.draft;
 
   return (
-    <div className="p-6 text-slate-700 space-y-4 min-h-full">
-      {/* Breadcrumb */}
-      <nav className="text-sm text-neutral-500 flex items-center gap-1.5">
-        <Link href="/admin/semesters" className="hover:text-neutral-700 transition">
-          Semesters
-        </Link>
-        <span className="text-neutral-300">/</span>
-        <span className="text-neutral-700">{semester.name}</span>
-      </nav>
+    <div className="space-y-4 min-h-full">
 
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-semibold">{semester.name}</h1>
-            <span
-              className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusBadge}`}
-            >
-              {semester.status}
-            </span>
+      {/* ── Header card ───────────────────────────────────────────── */}
+      <div
+        className="admin-card overflow-hidden"
+        style={{ borderTop: "3px solid var(--admin-card-accent)" }}
+      >
+        <div className="px-5 py-4">
+
+          {/* Row 1: name + status badge + ⋯ menu */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1
+                  className="text-xl font-semibold"
+                  style={{ color: "var(--admin-text)", wordBreak: "break-word" }}
+                >
+                  {semester.name}
+                </h1>
+                <span
+                  className="shrink-0 text-[11.5px] font-semibold px-2.5 py-0.5 rounded-full capitalize"
+                  style={{ background: badge.bg, color: badge.color }}
+                >
+                  {semester.status}
+                </span>
+              </div>
+            </div>
+
+            {/* ⋯ secondary navigation menu */}
+            <div className="shrink-0">
+              <SemesterHeaderMenu semesterId={id} />
+            </div>
           </div>
-          <p className="text-sm text-neutral-400 mt-1 flex items-center gap-2 flex-wrap">
-            {semesterStart && semesterEnd && (
-              <span>
-                {fmtDate(semesterStart)} – {fmtDate(semesterEnd)}
-              </span>
-            )}
-            {regCloseAt && (
-              <>
-                <span className="text-neutral-200">·</span>
-                <span>Reg closes {fmtDate(regCloseAt)}</span>
-              </>
-            )}
-            <span className="text-neutral-200">·</span>
-            <span>{enrolledCount} enrolled</span>
-          </p>
+
+          {/* Row 2: date range + reg close */}
+          {(semesterStart || regCloseAt) && (
+            <p className="mt-1 text-[12.5px] flex items-center gap-2 flex-wrap" style={{ color: "var(--admin-text-faint)" }}>
+              {semesterStart && semesterEnd && (
+                <span>{fmtDate(semesterStart)} – {fmtDate(semesterEnd)}</span>
+              )}
+              {regCloseAt && (
+                <>
+                  <span style={{ color: "var(--admin-border)" }}>·</span>
+                  <span>Reg closes {fmtDate(regCloseAt)}</span>
+                </>
+              )}
+            </p>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/admin/semesters/${id}/dashboard`}
-            className="inline-flex items-center px-3.5 py-2 text-sm font-medium rounded-lg border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50 transition"
-          >
-            Dashboard
-          </Link>
-          <Link
-            href={`/admin/semesters/${id}/invites`}
-            className="inline-flex items-center px-3.5 py-2 text-sm font-medium rounded-lg border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50 transition"
-          >
-            Competition invites
-          </Link>
-          <Link
-            href={`/preview/semester/${id}`}
-            target="_blank"
-            className="inline-flex items-center px-3.5 py-2 text-sm font-medium rounded-lg border border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50 transition"
-          >
-            Preview page
-          </Link>
-          <Link
-            href={`/admin/semesters/${id}/edit`}
-            className="inline-flex items-center px-3.5 py-2 text-sm font-medium rounded-lg text-white transition"
-            style={{ background: "var(--admin-sidebar-active)" }}
-          >
-            Edit semester
-          </Link>
+        {/* Stat strip — compact */}
+        <div
+          className="flex items-center border-t divide-x"
+          style={{ borderColor: "var(--admin-border-sub)", background: "var(--admin-surface-sub)" }}
+        >
+          {[
+            { label: "enrolled",   value: enrolledCount.toLocaleString() },
+            { label: "classes",    value: classCount.toLocaleString() },
+            { label: "waitlisted", value: waitlistCount.toLocaleString() },
+          ].map(({ label, value }) => (
+            <div key={label} className="flex-1 px-4 py-2 flex items-center gap-1.5">
+              <span
+                className="text-[13px] font-semibold tabular-nums"
+                style={{ color: "var(--admin-text)" }}
+              >
+                {value}
+              </span>
+              <span
+                className="text-[11.5px]"
+                style={{ color: "var(--admin-text-faint)" }}
+              >
+                {label}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Two-column body */}
-      <div className="flex gap-5 items-start">
-        {/* Main content */}
-        <div className="flex-1 min-w-0">
+      {/* ── Body — tabs + sidebar ─────────────────────────────────── */}
+      {/*
+        lg+:  tabs (flex-1) | sidebar (w-68)
+        <lg:  tabs full-width, sidebar stacked below
+      */}
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-start">
+
+        {/* Tabs — takes full width on mobile/iPad */}
+        <div className="flex-1 min-w-0 w-full">
           <SemesterDetailTabs semester={semester} />
         </div>
 
-        {/* Right sidebar */}
-        <div className="w-68 shrink-0">
+        {/* Status & Publishing sidebar */}
+        <div className="w-full lg:w-68 lg:shrink-0">
           <SemesterLifecycleActions
             semesterId={id}
             status={semester.status}
             publishAt={semester.publish_at}
-            health={{
-              classCount,
-              paymentSet,
-              regFormBuilt,
-              emailSet,
-              waitlistCount,
-            }}
+            health={{ classCount, paymentSet, regFormBuilt, emailSet, waitlistCount }}
             auditLogs={auditLogs}
           />
         </div>
       </div>
+
     </div>
   );
 }

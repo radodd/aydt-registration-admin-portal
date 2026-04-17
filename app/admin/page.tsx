@@ -344,8 +344,8 @@ function OverviewTab({
     {(openMenuId || openRegMenuId) && (
       <div className="fixed inset-0 z-10" onClick={() => { setOpenMenuId(null); setConfirmArchiveId(null); setOpenRegMenuId(null); }} />
     )}
-    <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-3">
+    <div className="space-y-3 md:space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 md:gap-3">
         <MetricCard label="Registrations" value={totalEnrolled.toLocaleString()} sub="confirmed enrollments" />
         <MetricCard label="Open semesters" value={String(openSemesterCount)} sub="published" />
         <MetricCard label="Active classes" value={String(activeClassCount)} sub="across open semesters" />
@@ -380,10 +380,10 @@ function OverviewTab({
                 </button>
               ))}
             </div>
-            {/* Create semester */}
+            {/* Create semester — desktop only (mobile uses FAB) */}
             <Link
               href="/admin/semesters/new"
-              className="flex items-center gap-1 px-2.5 py-1 rounded text-[11.5px] font-medium"
+              className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded text-[11.5px] font-medium"
               style={{ background: "var(--admin-sidebar-active)", color: "#fff" }}
             >
               <Plus size={12} />
@@ -419,9 +419,9 @@ function OverviewTab({
           </div>
         </div>
 
-        {/* Table header with clickable Status */}
+        {/* Table header — desktop only */}
         <div
-          className="flex items-center px-5 py-2"
+          className="hidden md:flex items-center px-5 py-2"
           style={{ background: "var(--admin-table-header-bg)" }}
         >
           <span
@@ -463,45 +463,59 @@ function OverviewTab({
               : "No archived semesters"}
           </p>
         ) : (
-          <div className="overflow-y-auto" style={{ maxHeight: "272px" }}>
+          <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: "272px" }}>
           <ul>
             {displayed.map((s, i) => (
               <li
                 key={s.id}
                 onClick={() => router.push(`/admin/semesters/${s.id}`)}
-                className="flex items-center px-5 py-3 border-b cursor-pointer"
+                className="flex items-center px-4 md:px-5 py-3.5 md:py-3 border-t cursor-pointer"
                 style={{
                   borderColor: "var(--admin-border-sub)",
-                  background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)",
+                  background: "var(--admin-surface)",
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
               >
-                <div className="flex-1">
+                {/* Name + meta — always shown */}
+                <div className="flex-1 min-w-0">
                   <Link
                     href={`/admin/semesters/${s.id}`}
-                    className="text-[13px] font-medium hover:underline"
+                    className="text-[13.5px] md:text-[13px] font-medium truncate block hover:underline"
                     style={{ color: "var(--admin-text)" }}
                   >
                     {s.name}
                   </Link>
                   {s.publish_at && (
-                    <p className="text-[11px] mt-0.5" style={{ color: "var(--admin-text-faint)", fontFamily: "var(--font-outfit)" }}>
+                    <p className="text-[11.5px] md:text-[11px] mt-0.5 truncate" style={{ color: "var(--admin-text-faint)", fontFamily: "var(--font-outfit)" }}>
                       Published {formatDate(s.publish_at.split("T")[0])}
                     </p>
                   )}
                 </div>
-                <div className="w-28 text-right">
-                  <span className="text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>
-                    {s.reg_count != null ? s.reg_count.toLocaleString() : "—"}
-                  </span>
-                </div>
-                <div className="w-24 flex justify-end">
+
+                {/* Mobile right: badge + reg count stacked */}
+                <div className="flex flex-col items-end gap-1 ml-3 shrink-0 md:hidden">
                   <Badge status={STATUS_BADGE[s.status] ?? "neutral"}>
                     {STATUS_LABEL[s.status] ?? s.status}
                   </Badge>
+                  <span className="text-[11.5px]" style={{ color: "var(--admin-text-muted)", fontFamily: "var(--font-outfit)" }}>
+                    {s.reg_count != null ? `${s.reg_count.toLocaleString()} reg` : "—"}
+                  </span>
                 </div>
-                <div className="w-10 flex items-center justify-end relative">
+
+                {/* Desktop right: columns */}
+                <div className="hidden md:flex items-center">
+                  <div className="w-28 text-right">
+                    <span className="text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>
+                      {s.reg_count != null ? s.reg_count.toLocaleString() : "—"}
+                    </span>
+                  </div>
+                  <div className="w-24 flex justify-end">
+                    <Badge status={STATUS_BADGE[s.status] ?? "neutral"}>
+                      {STATUS_LABEL[s.status] ?? s.status}
+                    </Badge>
+                  </div>
+                  <div className="w-10 flex items-center justify-end relative">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -594,16 +608,31 @@ function OverviewTab({
                     </div>
                   )}
                 </div>
+                </div>{/* end desktop columns */}
               </li>
             ))}
           </ul>
           </div>
         )}
+
+        {/* Mobile: "View all semesters" footer */}
+        <div
+          className="md:hidden border-t py-3.5 text-center"
+          style={{ borderColor: "var(--admin-border-sub)" }}
+        >
+          <Link
+            href="/admin/semesters"
+            className="text-[13px] font-semibold"
+            style={{ color: "var(--admin-sidebar-active)" }}
+          >
+            View all semesters
+          </Link>
+        </div>
       </div>
 
       {/* Recent registrations */}
       <div className="admin-card overflow-hidden">
-        <SectionHeader title="Recent registrations" />
+        <SectionHeader title="Recent registrations" linkLabel="See all" linkHref="/admin/families" />
         {recentRegs.length === 0 ? (
           <p className="px-5 py-6 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
             No recent registrations
@@ -737,6 +766,22 @@ function OverviewTab({
             })}
           </ul>
         )}
+
+        {/* Mobile: "View all registrations" footer */}
+        {recentRegs.length > 0 && (
+          <div
+            className="md:hidden border-t py-3.5 text-center"
+            style={{ borderColor: "var(--admin-border-sub)" }}
+          >
+            <Link
+              href="/admin/families"
+              className="text-[13px] font-semibold"
+              style={{ color: "var(--admin-sidebar-active)" }}
+            >
+              View all registrations
+            </Link>
+          </div>
+        )}
       </div>
     </div>
     </>
@@ -767,8 +812,8 @@ function formatGrade(grade: string | null): string {
 }
 
 const WAITLIST_STATUS_BADGE: Record<string, BadgeStatus> = {
-  waiting:  "neutral",
-  invited:  "info",
+  waiting:  "warning",  // amber — needs action
+  invited:  "success",  // green — positive, no action needed
   expired:  "error",
   accepted: "success",
   declined: "error",
@@ -783,15 +828,19 @@ const WAITLIST_STATUS_LABEL: Record<string, string> = {
 };
 
 function DancersTable({ rows, search }: { rows: PeopleDancerRow[]; search: string }) {
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   return (
     <>
-      <TableHead cols={[
-        { label: "Dancer",  className: "flex-1" },
-        { label: "Age",     className: "w-16 text-right" },
-        { label: "Grade",   className: "w-32 pl-8" },
-        { label: "Parent",  className: "w-40" },
-        { label: "",        className: "w-28" },
-      ]} />
+      {openMenuId && <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />}
+
+      {/* Desktop header — hidden on mobile */}
+      <div className="hidden md:flex items-center px-5 py-2" style={{ background: "var(--admin-table-header-bg)" }}>
+        <span className="flex-1 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Dancer</span>
+        <span className="w-16 text-right text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Age</span>
+        <span className="w-28 pl-6 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Grade</span>
+        <span className="w-10" />
+      </div>
+
       {rows.length === 0 ? (
         <p className="px-5 py-6 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
           {search ? `No dancers matching "${search}"` : "No dancers"}
@@ -801,18 +850,18 @@ function DancersTable({ rows, search }: { rows: PeopleDancerRow[]; search: strin
           {rows.map((d, i) => {
             const name = `${d.first_name} ${d.last_name}`;
             const color = avatarColor(name);
-            const familyUsers = d.families?.users ?? [];
-            const parent = familyUsers.find((u) => u.is_primary_parent) ?? familyUsers[0];
-            const parentName = parent ? `${parent.first_name} ${parent.last_name}` : "—";
+            const age = calcAge(d.birth_date);
+            const grade = formatGrade(d.grade);
             return (
               <li
                 key={d.id}
-                className="group flex items-center px-5 py-3 border-b"
+                className="flex items-center px-4 md:px-5 py-3 border-b"
                 style={{
                   borderColor: "var(--admin-border-sub)",
                   background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)",
                 }}
               >
+                {/* Avatar + name + mobile meta */}
                 <div className="flex-1 flex items-center gap-2.5 min-w-0">
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
@@ -820,54 +869,66 @@ function DancersTable({ rows, search }: { rows: PeopleDancerRow[]; search: strin
                   >
                     {initials(d.first_name, d.last_name)}
                   </div>
-                  {d.family_id ? (
-                    <Link
-                      href={`/admin/families/${d.family_id}?focus=dancer:${d.id}`}
-                      className="text-[12.5px] font-medium truncate hover:underline text-left"
-                      style={{ color: "var(--admin-text)", fontFamily: "var(--font-outfit)" }}
-                    >
-                      {name}
-                    </Link>
-                  ) : (
-                    <span
-                      className="text-[12.5px] font-medium truncate"
-                      style={{ color: "var(--admin-text)", fontFamily: "var(--font-outfit)" }}
-                    >
-                      {name}
-                    </span>
-                  )}
+                  <div className="min-w-0">
+                    {d.family_id ? (
+                      <Link
+                        href={`/admin/families/${d.family_id}?focus=dancer:${d.id}`}
+                        className="text-[13px] font-medium truncate block hover:underline"
+                        style={{ color: "var(--admin-text)" }}
+                      >
+                        {name}
+                      </Link>
+                    ) : (
+                      <span className="text-[13px] font-medium truncate block" style={{ color: "var(--admin-text)" }}>
+                        {name}
+                      </span>
+                    )}
+                    {/* Mobile: age · grade below name */}
+                    <p className="md:hidden text-[11.5px] mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
+                      {age !== "—" ? `${age} yrs` : "—"}{grade !== "—" ? ` · ${grade} grade` : ""}
+                    </p>
+                  </div>
                 </div>
-                <p className="w-16 text-right text-[12px]" style={{ color: "var(--admin-text-muted)", fontFamily: "var(--font-outfit)" }}>
-                  {calcAge(d.birth_date)}
-                </p>
-                <p className="w-32 pl-8 text-[12px] truncate" style={{ color: "var(--admin-text-faint)", fontFamily: "var(--font-outfit)" }}>
-                  {formatGrade(d.grade)}
-                </p>
-                <p className="w-40 text-[12px] truncate" style={{ color: "var(--admin-text-muted)", fontFamily: "var(--font-outfit)" }}>
-                  {parentName}
-                </p>
-                <div className="w-28 flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {d.family_id && (
-                    <Link
-                      href={`/admin/emails/new?familyId=${d.family_id}`}
-                      className="px-2 py-1 rounded text-[11px] font-medium"
-                      style={{ color: "var(--admin-text-muted)", border: "1px solid var(--admin-border)", background: "var(--admin-surface)", fontFamily: "var(--font-outfit)" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
+
+                {/* Desktop-only columns */}
+                <p className="hidden md:block w-16 text-right text-[12px]" style={{ color: "var(--admin-text-muted)" }}>{age}</p>
+                <p className="hidden md:block w-28 pl-6 text-[12px] truncate" style={{ color: "var(--admin-text-faint)" }}>{grade}</p>
+
+                {/* ⋯ menu */}
+                <div className="relative shrink-0 ml-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === d.id ? null : d.id); }}
+                    className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
+                    style={{ color: "var(--admin-text-faint)", background: openMenuId === d.id ? "var(--admin-surface-sub)" : "transparent" }}
+                  >
+                    <MoreHorizontal size={15} />
+                  </button>
+                  {openMenuId === d.id && d.family_id && (
+                    <div
+                      className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 overflow-hidden"
+                      style={{ background: "var(--admin-surface)", border: "1px solid var(--admin-border)", minWidth: "148px" }}
                     >
-                      Email
-                    </Link>
-                  )}
-                  {d.family_id && (
-                    <Link
-                      href={`/admin/families/${d.family_id}?focus=dancer:${d.id}`}
-                      className="px-2 py-1 rounded text-[11px] font-medium"
-                      style={{ color: "var(--admin-text-muted)", border: "1px solid var(--admin-border)", background: "var(--admin-surface)", fontFamily: "var(--font-outfit)" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
-                    >
-                      View
-                    </Link>
+                      <Link
+                        href={`/admin/emails/new?familyId=${d.family_id}`}
+                        onClick={() => setOpenMenuId(null)}
+                        className="flex items-center px-3.5 py-2 text-[12px]"
+                        style={{ color: "var(--admin-text)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        Email family
+                      </Link>
+                      <Link
+                        href={`/admin/families/${d.family_id}?focus=dancer:${d.id}`}
+                        onClick={() => setOpenMenuId(null)}
+                        className="flex items-center px-3.5 py-2 text-[12px]"
+                        style={{ color: "var(--admin-text)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        View profile
+                      </Link>
+                    </div>
                   )}
                 </div>
               </li>
@@ -876,7 +937,7 @@ function DancersTable({ rows, search }: { rows: PeopleDancerRow[]; search: strin
         </ul>
       )}
       {rows.length > 0 && (
-        <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)", fontFamily: "var(--font-outfit)" }}>
+        <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
           Showing {rows.length.toLocaleString()} {rows.length === 1 ? "dancer" : "dancers"}
         </p>
       )}
@@ -885,15 +946,20 @@ function DancersTable({ rows, search }: { rows: PeopleDancerRow[]; search: strin
 }
 
 function FamiliesTable({ rows, search }: { rows: PeopleFamilyRow[]; search: string }) {
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   return (
     <>
-      <TableHead cols={[
-        { label: "Family",         className: "flex-1" },
-        { label: "Primary Parent", className: "w-40" },
-        { label: "Dancers",        className: "w-48" },
-        { label: "Classes",        className: "w-20 text-right" },
-        { label: "",               className: "w-28" },
-      ]} />
+      {openMenuId && <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />}
+
+      {/* Desktop header — hidden on mobile */}
+      <div className="hidden md:flex items-center px-5 py-2" style={{ background: "var(--admin-table-header-bg)" }}>
+        <span className="flex-1 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Family</span>
+        <span className="w-40 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Primary Parent</span>
+        <span className="w-44 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Dancers</span>
+        <span className="w-20 text-right text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Classes</span>
+        <span className="w-10" />
+      </div>
+
       {rows.length === 0 ? (
         <p className="px-5 py-6 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
           {search ? `No families matching "${search}"` : "No families"}
@@ -916,20 +982,19 @@ function FamiliesTable({ rows, search }: { rows: PeopleFamilyRow[]; search: stri
             const shownNames = f.dancer_names.slice(0, MAX_SHOWN).join(", ");
             const extra = f.dancer_names.length - MAX_SHOWN;
             const dancerNamesDisplay =
-              f.dancer_names.length === 0
-                ? "—"
-                : extra > 0
-                ? `${shownNames} +${extra} more`
-                : shownNames;
+              f.dancer_names.length === 0 ? "—"
+              : extra > 0 ? `${shownNames} +${extra} more`
+              : shownNames;
             return (
               <li
                 key={f.id}
-                className="group flex items-center px-5 py-3 border-b"
+                className="flex items-center px-4 md:px-5 py-3 border-b"
                 style={{
                   borderColor: "var(--admin-border-sub)",
                   background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)",
                 }}
               >
+                {/* Avatar + family name + mobile meta */}
                 <div className="flex-1 flex items-center gap-2.5 min-w-0">
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
@@ -937,42 +1002,62 @@ function FamiliesTable({ rows, search }: { rows: PeopleFamilyRow[]; search: stri
                   >
                     {avatarInitials}
                   </div>
-                  <Link
-                    href={`/admin/families/${f.id}`}
-                    className="text-[12.5px] font-medium truncate hover:underline"
-                    style={{ color: "var(--admin-text)" }}
-                  >
-                    {familyName}
-                  </Link>
+                  <div className="min-w-0">
+                    <Link
+                      href={`/admin/families/${f.id}`}
+                      className="text-[13px] font-medium truncate block hover:underline"
+                      style={{ color: "var(--admin-text)" }}
+                    >
+                      {familyName}
+                    </Link>
+                    {/* Mobile: primary parent below family name */}
+                    <p className="md:hidden text-[11.5px] mt-0.5 truncate" style={{ color: "var(--admin-text-faint)" }}>
+                      {primaryParentName}
+                    </p>
+                  </div>
                 </div>
-                <p className="w-40 text-[12px] truncate" style={{ color: "var(--admin-text-muted)", fontFamily: "var(--font-outfit)" }}>
-                  {primaryParentName}
-                </p>
-                <p className="w-48 text-[12px] truncate" style={{ color: "var(--admin-text-faint)", fontFamily: "var(--font-outfit)" }}>
-                  {dancerNamesDisplay}
-                </p>
-                <p className="w-20 text-right text-[12px]" style={{ color: "var(--admin-text-muted)", fontFamily: "var(--font-outfit)" }}>
-                  {f.class_count}
-                </p>
-                <div className="w-28 flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Link
-                    href={`/admin/emails/new?familyId=${f.id}`}
-                    className="px-2 py-1 rounded text-[11px] font-medium"
-                    style={{ color: "var(--admin-text-muted)", border: "1px solid var(--admin-border)", background: "var(--admin-surface)", fontFamily: "var(--font-outfit)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
+
+                {/* Desktop-only columns */}
+                <p className="hidden md:block w-40 text-[12px] truncate" style={{ color: "var(--admin-text-muted)" }}>{primaryParentName}</p>
+                <p className="hidden md:block w-44 text-[12px] truncate" style={{ color: "var(--admin-text-faint)" }}>{dancerNamesDisplay}</p>
+                <p className="hidden md:block w-20 text-right text-[12px]" style={{ color: "var(--admin-text-muted)" }}>{f.class_count}</p>
+
+                {/* ⋯ menu */}
+                <div className="relative shrink-0 ml-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === f.id ? null : f.id); }}
+                    className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
+                    style={{ color: "var(--admin-text-faint)", background: openMenuId === f.id ? "var(--admin-surface-sub)" : "transparent" }}
                   >
-                    Email
-                  </Link>
-                  <Link
-                    href={`/admin/families/${f.id}`}
-                    className="px-2 py-1 rounded text-[11px] font-medium"
-                    style={{ color: "var(--admin-text-muted)", border: "1px solid var(--admin-border)", background: "var(--admin-surface)", fontFamily: "var(--font-outfit)" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
-                  >
-                    View
-                  </Link>
+                    <MoreHorizontal size={15} />
+                  </button>
+                  {openMenuId === f.id && (
+                    <div
+                      className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 overflow-hidden"
+                      style={{ background: "var(--admin-surface)", border: "1px solid var(--admin-border)", minWidth: "148px" }}
+                    >
+                      <Link
+                        href={`/admin/emails/new?familyId=${f.id}`}
+                        onClick={() => setOpenMenuId(null)}
+                        className="flex items-center px-3.5 py-2 text-[12px]"
+                        style={{ color: "var(--admin-text)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        Email family
+                      </Link>
+                      <Link
+                        href={`/admin/families/${f.id}`}
+                        onClick={() => setOpenMenuId(null)}
+                        className="flex items-center px-3.5 py-2 text-[12px]"
+                        style={{ color: "var(--admin-text)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        View family
+                      </Link>
+                    </div>
+                  )}
                 </div>
               </li>
             );
@@ -980,7 +1065,7 @@ function FamiliesTable({ rows, search }: { rows: PeopleFamilyRow[]; search: stri
         </ul>
       )}
       {rows.length > 0 && (
-        <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)", fontFamily: "var(--font-outfit)" }}>
+        <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
           Showing {rows.length.toLocaleString()} {rows.length === 1 ? "family" : "families"}
         </p>
       )}
@@ -988,36 +1073,84 @@ function FamiliesTable({ rows, search }: { rows: PeopleFamilyRow[]; search: stri
   );
 }
 
+type WaitlistFilter = "all" | "waiting" | "invited";
+
 function WaitlistTable({ rows, search }: { rows: WaitlistRow[]; search: string }) {
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<WaitlistFilter>("all");
+
+  const visibleRows = statusFilter === "all"
+    ? rows
+    : rows.filter((w) => w.status === statusFilter);
+
   return (
     <>
-      <TableHead cols={[
-        { label: "Dancer",   className: "flex-1" },
-        { label: "Class",    className: "w-40" },
-        { label: "Semester", className: "w-36" },
-        { label: "Position", className: "w-20 text-right" },
-        { label: "Invited?", className: "w-24 text-right" },
-        { label: "",         className: "w-28" },
-      ]} />
-      {rows.length === 0 ? (
+      {openMenuId && <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />}
+
+      {/* Status filter pills */}
+      <div className="flex items-center gap-2 px-4 md:px-5 py-2.5 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
+        {(["all", "waiting", "invited"] as const).map((f) => {
+          const active = statusFilter === f;
+          const activeBg =
+            f === "waiting" ? "rgba(212,160,192,0.3)" :
+            f === "invited" ? "rgba(125,206,194,0.3)" :
+            "var(--admin-sidebar-active)";
+          const activeColor =
+            f === "waiting" ? "#702858" :
+            f === "invited" ? "#0A5A50" :
+            "#fff";
+          return (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              className="px-3 py-1 rounded-full text-[11.5px] font-medium transition-colors"
+              style={{
+                background: active ? activeBg : "transparent",
+                color: active ? activeColor : "var(--admin-text-muted)",
+                border: active ? "none" : "1px solid var(--admin-border)",
+                cursor: "pointer",
+              }}
+            >
+              {f === "all" ? "All" : f === "waiting" ? "Not yet invited" : "Invited"}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Desktop header — hidden on mobile */}
+      <div className="hidden md:flex items-center px-5 py-2" style={{ background: "var(--admin-table-header-bg)" }}>
+        <span className="flex-1 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Dancer</span>
+        <span className="w-40 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Class</span>
+        <span className="w-36 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Semester</span>
+        <span className="w-20 text-right text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Position</span>
+        <span className="w-24 text-right text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Status</span>
+        <span className="w-10" />
+      </div>
+
+      {visibleRows.length === 0 ? (
         <p className="px-5 py-6 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
-          {search ? `No waitlisted dancers matching "${search}"` : "No waitlisted dancers"}
+          {search
+            ? `No waitlisted dancers matching "${search}"`
+            : statusFilter !== "all"
+            ? `No ${statusFilter === "waiting" ? "uninvited" : "invited"} dancers`
+            : "No waitlisted dancers"}
         </p>
       ) : (
         <ul>
-          {rows.map((w, i) => {
+          {visibleRows.map((w, i) => {
             const dancer = w.dancers;
             const name = dancer ? `${dancer.first_name} ${dancer.last_name}` : "Unknown";
             const color = avatarColor(name);
             return (
               <li
                 key={w.id}
-                className="group flex items-center px-5 py-3 border-b"
+                className="flex items-center px-4 md:px-5 py-3 border-b"
                 style={{
                   borderColor: "var(--admin-border-sub)",
                   background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)",
                 }}
               >
+                {/* Avatar + name + mobile meta */}
                 <div className="flex-1 flex items-center gap-2.5 min-w-0">
                   <div
                     className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
@@ -1026,48 +1159,103 @@ function WaitlistTable({ rows, search }: { rows: WaitlistRow[]; search: string }
                     {dancer ? initials(dancer.first_name, dancer.last_name) : "?"}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[12.5px] font-medium truncate" style={{ color: "var(--admin-text)" }}>
+                    <p className="text-[13px] font-medium truncate" style={{ color: "var(--admin-text)" }}>
                       {name}
                     </p>
-                    {dancer?.family_name && (
-                      <p className="text-[11px]" style={{ color: "var(--admin-text-faint)", fontFamily: "var(--font-outfit)" }}>
-                        {dancer.family_name}
-                      </p>
-                    )}
+                    {/* Mobile: class name below name */}
+                    <p className="md:hidden text-[11.5px] mt-0.5 truncate" style={{ color: "var(--admin-text-faint)" }}>
+                      {w.class_name ?? "—"}
+                    </p>
                   </div>
                 </div>
-                <p className="w-40 text-[12px] truncate" style={{ color: "var(--admin-text-muted)", fontFamily: "var(--font-outfit)" }}>
-                  {w.class_name ?? "—"}
-                </p>
-                <p className="w-36 text-[11px] truncate" style={{ color: "var(--admin-text-faint)", fontFamily: "var(--font-outfit)" }}>
-                  {w.semester_name ?? "—"}
-                </p>
-                <p className="w-20 text-right text-[12px] font-medium" style={{ color: "var(--admin-text-muted)", fontFamily: "var(--font-outfit)" }}>
-                  #{w.position}
-                </p>
-                <div className="w-24 flex justify-end">
+
+                {/* Mobile: position badge (loud, labelled) + status badge */}
+                <div className="md:hidden flex items-center gap-2 shrink-0 ml-2">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <span
+                      className="inline-flex items-center justify-center rounded-full text-[12px] font-bold"
+                      style={{
+                        minWidth: "28px",
+                        height: "28px",
+                        padding: "0 6px",
+                        background: "rgba(142,42,35,0.1)",
+                        color: "var(--admin-sidebar-active)",
+                        border: "1.5px solid rgba(142,42,35,0.25)",
+                      }}
+                    >
+                      #{w.position}
+                    </span>
+                    <span
+                      className="text-[9px] font-medium uppercase tracking-wide"
+                      style={{ color: "var(--admin-text-faint)" }}
+                    >
+                      in queue
+                    </span>
+                  </div>
                   <Badge status={WAITLIST_STATUS_BADGE[w.status] ?? "neutral"}>
                     {WAITLIST_STATUS_LABEL[w.status] ?? w.status}
                   </Badge>
                 </div>
-                <div className="w-28 flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {w.status === "waiting" && (
-                    <button
-                      onClick={() => alert("Invite flow coming soon")}
-                      className="px-2 py-1 rounded text-[11px] font-medium"
-                      style={{ color: "#fff", background: "var(--admin-sidebar-active)", border: "none", cursor: "pointer", fontFamily: "var(--font-outfit)" }}
+
+                {/* Desktop-only columns */}
+                <p className="hidden md:block w-40 text-[12px] truncate" style={{ color: "var(--admin-text-muted)" }}>{w.class_name ?? "—"}</p>
+                <p className="hidden md:block w-36 text-[11px] truncate" style={{ color: "var(--admin-text-faint)" }}>{w.semester_name ?? "—"}</p>
+                <p className="hidden md:block w-20 text-right text-[12px] font-medium" style={{ color: "var(--admin-text-muted)" }}>#{w.position}</p>
+                <div className="hidden md:flex w-24 justify-end">
+                  <Badge status={WAITLIST_STATUS_BADGE[w.status] ?? "neutral"}>
+                    {WAITLIST_STATUS_LABEL[w.status] ?? w.status}
+                  </Badge>
+                </div>
+
+                {/* ⋯ menu */}
+                <div className="relative shrink-0 ml-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === w.id ? null : w.id); }}
+                    className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
+                    style={{ color: "var(--admin-text-faint)", background: openMenuId === w.id ? "var(--admin-surface-sub)" : "transparent" }}
+                  >
+                    <MoreHorizontal size={15} />
+                  </button>
+                  {openMenuId === w.id && (
+                    <div
+                      className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 overflow-hidden"
+                      style={{ background: "var(--admin-surface)", border: "1px solid var(--admin-border)", minWidth: "148px" }}
                     >
-                      Invite
-                    </button>
-                  )}
-                  {w.status === "invited" && (
-                    <button
-                      onClick={() => alert("View invite coming soon")}
-                      className="px-2 py-1 rounded text-[11px] font-medium"
-                      style={{ color: "var(--admin-text-muted)", border: "1px solid var(--admin-border)", background: "var(--admin-surface)", cursor: "pointer", fontFamily: "var(--font-outfit)" }}
-                    >
-                      View Invite
-                    </button>
+                      {w.status === "waiting" && (
+                        <button
+                          onClick={() => { setOpenMenuId(null); alert("Invite flow coming soon"); }}
+                          className="w-full text-left flex items-center px-3.5 py-2 text-[12px]"
+                          style={{ color: "var(--admin-sidebar-active)", background: "transparent", border: "none", cursor: "pointer" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          Send invite
+                        </button>
+                      )}
+                      {w.status === "invited" && (
+                        <button
+                          onClick={() => { setOpenMenuId(null); alert("View invite coming soon"); }}
+                          className="w-full text-left flex items-center px-3.5 py-2 text-[12px]"
+                          style={{ color: "var(--admin-text)", background: "transparent", border: "none", cursor: "pointer" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          View invite
+                        </button>
+                      )}
+                      {dancer?.family_id && (
+                        <Link
+                          href={`/admin/families/${dancer.family_id}`}
+                          onClick={() => setOpenMenuId(null)}
+                          className="flex items-center px-3.5 py-2 text-[12px]"
+                          style={{ color: "var(--admin-text)" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          View family
+                        </Link>
+                      )}
+                    </div>
                   )}
                 </div>
               </li>
@@ -1075,9 +1263,9 @@ function WaitlistTable({ rows, search }: { rows: WaitlistRow[]; search: string }
           })}
         </ul>
       )}
-      {rows.length > 0 && (
-        <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)", fontFamily: "var(--font-outfit)" }}>
-          Showing {rows.length.toLocaleString()} waitlisted
+      {visibleRows.length > 0 && (
+        <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
+          Showing {visibleRows.length.toLocaleString()}{statusFilter !== "all" ? ` (filtered from ${rows.length})` : ""} waitlisted
         </p>
       )}
     </>
@@ -1136,7 +1324,7 @@ function PeopleTab({
   return (
     <div className="space-y-4">
       {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 md:gap-3">
         <MetricCard label="Total Dancers" value={peopleData ? peopleData.totalDancers.toLocaleString() : "—"} sub="across all semesters" />
         <MetricCard label="Families" value={peopleData ? peopleData.totalFamilies.toLocaleString() : "—"} sub="active accounts" />
         <MetricCard label="Waitlisted" value={peopleData ? peopleData.totalWaitlisted.toLocaleString() : "—"} sub="across all classes" />
@@ -1225,7 +1413,7 @@ function FinanceTab({ data }: { data: DashboardData }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 md:gap-3">
         <MetricCard label="Collected (YTD)" value="—" sub="payments received" />
         <MetricCard label="Outstanding" value="—" sub="across all families" />
         <MetricCard
@@ -1536,12 +1724,12 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="flex gap-0 -mx-8 -my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
+    <div className="flex gap-0 min-w-0 md:-mx-8 md:-my-8" style={{ minHeight: "calc(100vh - 56px)" }}>
       {/* Tab content */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        {/* Secondary nav tabs */}
+      <div className="flex-1 min-w-0 w-0 overflow-y-auto overflow-x-hidden">
+        {/* Secondary nav tabs — sticky so they stay visible while scrolling */}
         <div
-          className="flex border-b px-8"
+          className="flex border-b px-0 md:px-8 overflow-x-auto sticky top-0 z-10"
           style={{
             background: "var(--admin-surface)",
             borderColor: "var(--admin-border)",
@@ -1572,7 +1760,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Tab body */}
-        <div className="px-8 py-6">
+        <div className="pt-2 pb-28 px-0 md:px-8 md:pt-6 md:pb-8">
           {activeTab === "overview" && (
             <OverviewTab
               data={data}
@@ -1595,8 +1783,10 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Right panel */}
-      <DashboardRightPanel emailsMode={activeTab === "emails"} />
+      {/* Right panel — hidden on smaller screens */}
+      <div className="hidden lg:block">
+        <DashboardRightPanel emailsMode={activeTab === "emails"} />
+      </div>
     </div>
   );
 }

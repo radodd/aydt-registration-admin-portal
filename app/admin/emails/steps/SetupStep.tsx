@@ -42,7 +42,7 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
   }
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-8">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4 md:p-8 space-y-6 md:space-y-8">
       <div>
         <h2 className="text-xl font-semibold text-neutral-900">Email Setup</h2>
         <p className="text-sm text-neutral-500 mt-1">

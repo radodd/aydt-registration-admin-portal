@@ -11,7 +11,7 @@ export default function SemesterDetailTabs({ semester }: Props) {
   const draft = mapSemesterToDraft(semester);
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-x-hidden">
       <SemesterTabs data={draft} />
     </div>
   );

@@ -182,6 +182,7 @@
     font-family: var(--font-jakarta), system-ui, sans-serif;
     background: var(--admin-page-bg);
     color: var(--admin-text);
+    overflow-x: hidden;
   }
   .admin-sidebar {
     /* width is controlled by inline style for animation */
@@ -296,7 +297,27 @@
   .admin-section-card        { background: var(--admin-surface); border: 0.5px solid var(--admin-border); @apply rounded-xl overflow-hidden; }
   .admin-section-card-header { @apply px-5 py-4 flex items-center justify-between; border-bottom: 0.5px solid var(--admin-border); }
   .admin-section-card-title  { @apply text-sm font-medium; color: var(--admin-text); }
+
+  /* ── Admin: Mobile sidebar backdrop ── */
+  .admin-sidebar-backdrop {
+    @apply fixed inset-0 z-[28] bg-black/50;
+  }
+
+  /* ── Admin: Stat card — tighter padding on mobile ── */
+  @media (max-width: 767px) {
+    .admin-card-stat {
+      padding: 12px 14px;
+    }
+    .admin-stat-value {
+      font-size: 1.5rem; /* 24px on mobile vs 1.5rem desktop */
+    }
+  }
+
+  /* ── Admin: Scrollable table container for narrow screens ── */
+  .admin-table-scroll { @apply overflow-x-auto -mx-px; }
 }
+
+
 
 
 

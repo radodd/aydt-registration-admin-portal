@@ -398,7 +398,7 @@ export function ReportsClient({
           padding: "20px 24px 0",
         }}
       >
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex flex-wrap items-start justify-between mb-4 gap-2">
           <h1
             className="text-xl font-medium"
             style={{ color: "var(--admin-text)" }}
@@ -419,15 +419,15 @@ export function ReportsClient({
 
       {/* Report content */}
       <div style={{ padding: 24 }}>
-        {/* Toolbar */}
-        <div className="flex items-center justify-between mb-4 gap-3">
+        {/* Toolbar — wraps on mobile */}
+        <div className="flex flex-wrap items-center justify-between mb-4 gap-2">
           <span
             className="text-base font-semibold"
             style={{ color: "var(--admin-text)" }}
           >
             Custom report
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleSave}
               className="admin-btn-primary admin-btn-sm cursor-pointer"
