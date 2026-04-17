@@ -7,6 +7,7 @@ import {
   updateUserProfile,
   type UpdateUserProfileInput,
 } from "./actions/updateUserProfile";
+import { formatPhone } from "@/utils/formatPhone";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
@@ -182,7 +183,7 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
             <input
               type="tel"
               value={form.phone_number}
-              onChange={(e) => set("phone_number", e.target.value)}
+              onChange={(e) => set("phone_number", formatPhone(e.target.value))}
               readOnly={!editing}
               placeholder="(555) 555-5555"
               style={editing ? inputStyle : readonlyStyle}
