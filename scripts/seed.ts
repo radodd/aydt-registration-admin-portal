@@ -42,29 +42,70 @@ faker.seed(42); // deterministic output
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const uid = () => crypto.randomUUID();
 
-/** Mirrors buildDefaultRegistrationElements() from RegistrationFormStep.tsx */
+/**
+ * Builds the default registration form for a published semester.
+ * Every question field that maps to a stored profile value carries
+ * a `profileField` key so the checkout form can pre-fill it for
+ * logged-in users automatically.
+ */
 function buildRegistrationForm() {
   return {
     elements: [
-      { id: uid(), type: "subheader", label: "Participant Questions" },
-      { id: uid(), type: "question", label: "First Name", inputType: "short_answer", required: true },
-      { id: uid(), type: "question", label: "Last Name", inputType: "short_answer", required: true },
-      { id: uid(), type: "question", label: "Date of Birth", inputType: "date", required: true },
+      // ── Dancer / Student ─────────────────────────────────────────────────
+      { id: uid(), type: "subheader", label: "Dancer / Student Info" },
+      { id: uid(), type: "question", label: "First Name",    inputType: "short_answer", required: true,  profileField: "dancer_first_name" },
+      { id: uid(), type: "question", label: "Last Name",     inputType: "short_answer", required: true,  profileField: "dancer_last_name"  },
+      { id: uid(), type: "question", label: "Date of Birth", inputType: "date",         required: true,  profileField: "dancer_birth_date" },
+      {
+        id: uid(), type: "question", label: "Grade", inputType: "select", required: false, profileField: "dancer_grade",
+        options: ["Pre-School","Kindergarten","1st","2nd","3rd","4th","5th","6th","7th","8th","9th","10th","11th","12th"],
+      },
+      { id: uid(), type: "question", label: "School Name",   inputType: "short_answer", required: false, profileField: "dancer_school"     },
+      { id: uid(), type: "question", label: "Student Email", inputType: "short_answer", required: false, profileField: "dancer_email"      },
+      { id: uid(), type: "question", label: "Student Phone", inputType: "phone_number", required: false, profileField: "dancer_phone"      },
+
+      // ── Attendance policy ─────────────────────────────────────────────────
       {
         id: uid(), type: "text_block", label: "Attendance Policy",
         htmlContent: "<p><strong>Attendance Policy</strong></p><p>Please update this section with your attendance policy details.</p>",
       },
-      { id: uid(), type: "question", label: "School Name", inputType: "short_answer", required: false },
-      {
-        id: uid(), type: "question", label: "Grade", inputType: "select", required: false,
-        options: ["Pre-School","Kindergarten","1st Grade","2nd Grade","3rd Grade","4th Grade","5th Grade","6th Grade","7th Grade","8th Grade","9th Grade","10th Grade","11th Grade","12th Grade"],
-      },
-      { id: uid(), type: "question", label: "Email Address", inputType: "short_answer", required: true },
-      { id: uid(), type: "question", label: "Phone Number", inputType: "phone_number", required: true },
-      { id: uid(), type: "question", label: "Address", inputType: "long_answer", required: false },
-      { id: uid(), type: "question", label: "Nanny / Caregiver Name (if applicable)", inputType: "short_answer", required: false },
+
+      // ── Parent / Guardian ─────────────────────────────────────────────────
+      { id: uid(), type: "subheader", label: "Parent / Guardian Info" },
+      { id: uid(), type: "question", label: "First Name",     inputType: "short_answer", required: true,  profileField: "parent_first_name"    },
+      { id: uid(), type: "question", label: "Last Name",      inputType: "short_answer", required: true,  profileField: "parent_last_name"     },
+      { id: uid(), type: "question", label: "Email Address",  inputType: "short_answer", required: true,  profileField: "parent_email"         },
+      { id: uid(), type: "question", label: "Phone Number",   inputType: "phone_number", required: true,  profileField: "parent_phone"         },
+      { id: uid(), type: "question", label: "Street Address", inputType: "short_answer", required: false, profileField: "parent_address_line1" },
+      { id: uid(), type: "question", label: "City",           inputType: "short_answer", required: false, profileField: "parent_city"          },
+      { id: uid(), type: "question", label: "State",          inputType: "short_answer", required: false, profileField: "parent_state"         },
+      { id: uid(), type: "question", label: "ZIP Code",       inputType: "short_answer", required: false, profileField: "parent_zipcode"       },
+
+      // ── Alternate Parent / Guardian ───────────────────────────────────────
+      { id: uid(), type: "subheader", label: "Alternate Parent / Guardian", subtitle: "Optional — spouse, co-parent, or second guardian." },
+      { id: uid(), type: "question", label: "First Name",    inputType: "short_answer", required: false, profileField: "alt_parent_first_name"  },
+      { id: uid(), type: "question", label: "Last Name",     inputType: "short_answer", required: false, profileField: "alt_parent_last_name"   },
+      { id: uid(), type: "question", label: "Phone Number",  inputType: "phone_number", required: false, profileField: "alt_parent_phone"       },
+      { id: uid(), type: "question", label: "Email Address", inputType: "short_answer", required: false, profileField: "alt_parent_email"       },
+      { id: uid(), type: "question", label: "Relationship",  inputType: "short_answer", required: false, profileField: "alt_parent_relationship"},
+
+      // ── Caregiver ─────────────────────────────────────────────────────────
+      { id: uid(), type: "subheader", label: "Caregiver / Nanny", subtitle: "Optional — include if someone else may pick up your dancer." },
+      { id: uid(), type: "question", label: "First Name",   inputType: "short_answer", required: false, profileField: "caregiver_first_name"  },
+      { id: uid(), type: "question", label: "Last Name",    inputType: "short_answer", required: false, profileField: "caregiver_last_name"   },
+      { id: uid(), type: "question", label: "Phone Number", inputType: "phone_number", required: false, profileField: "caregiver_phone"       },
+      { id: uid(), type: "question", label: "Email",        inputType: "short_answer", required: false, profileField: "caregiver_email"       },
+      { id: uid(), type: "question", label: "Relationship", inputType: "short_answer", required: false, profileField: "caregiver_relationship"},
+
+      // ── Emergency Contact ─────────────────────────────────────────────────
       { id: uid(), type: "subheader", label: "Emergency Contact" },
-      { id: uid(), type: "question", label: "Emergency Contact Name", inputType: "short_answer", required: true },
+      { id: uid(), type: "question", label: "First Name",   inputType: "short_answer", required: true,  profileField: "emergency_contact_first_name"  },
+      { id: uid(), type: "question", label: "Last Name",    inputType: "short_answer", required: true,  profileField: "emergency_contact_last_name"   },
+      { id: uid(), type: "question", label: "Phone Number", inputType: "phone_number", required: true,  profileField: "emergency_contact_phone"       },
+      { id: uid(), type: "question", label: "Email",        inputType: "short_answer", required: false, profileField: "emergency_contact_email"       },
+      { id: uid(), type: "question", label: "Relationship", inputType: "short_answer", required: false, profileField: "emergency_contact_relationship"},
+
+      // ── General ───────────────────────────────────────────────────────────
       {
         id: uid(), type: "question", label: "How did you hear about us?", inputType: "select", required: false,
         options: ["Social Media","Google Search","Word of Mouth","Returning Family","Flyer / Brochure","Other"],
