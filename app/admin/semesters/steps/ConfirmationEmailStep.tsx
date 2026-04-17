@@ -361,10 +361,10 @@ export default function ConfirmationEmailStep({
 
         {/* ── Design tab ────────────────────────────────────────────── */}
         {activeTab === "design" && (
-          <div className="flex h-full">
+          <div className="flex flex-col md:flex-row h-full">
 
             {/* Editor column */}
-            <div className="flex-1 min-w-0 flex flex-col overflow-hidden border-r border-neutral-200">
+            <div className="flex-1 min-w-0 flex flex-col overflow-hidden border-b md:border-b-0 md:border-r border-neutral-200">
               {savedAt && (
                 <div
                   className="shrink-0 flex items-center justify-end px-4 py-1.5 border-b border-neutral-100"
@@ -386,7 +386,7 @@ export default function ConfirmationEmailStep({
 
             {/* Preview column */}
             <div
-              className="w-[380px] shrink-0 flex flex-col overflow-hidden"
+              className="w-full md:w-[380px] md:shrink-0 flex flex-col overflow-hidden"
               style={{ background: "var(--admin-page-bg)" }}
             >
               <div
@@ -524,15 +524,15 @@ export default function ConfirmationEmailStep({
 
       {/* ── Persistent test send footer ───────────────────────────── */}
       <div
-        className="shrink-0 flex items-center gap-3 px-6 py-3 border-t border-neutral-200"
+        className="shrink-0 flex flex-col sm:flex-row sm:items-center gap-2 px-4 sm:px-6 py-3 border-t border-neutral-200"
         style={{ background: "var(--admin-surface)" }}
       >
         <span className="text-xs font-medium text-neutral-500 shrink-0">Test send</span>
-        <span className="text-xs text-neutral-400 shrink-0">
+        <span className="text-xs text-neutral-400 shrink-0 hidden sm:block">
           Uses mock data · Subject prefixed with{" "}
           <span className="font-mono bg-neutral-100 px-1 rounded">[TEST]</span>
         </span>
-        <div className="flex-1" />
+        <div className="hidden sm:block sm:flex-1" />
         {testStatus === "sent" && (
           <span className="text-xs font-medium text-green-600 shrink-0">Sent successfully</span>
         )}
@@ -541,39 +541,22 @@ export default function ConfirmationEmailStep({
             {testError ?? "Send failed"}
           </span>
         )}
-        <input
-          type="email"
-          value={testEmail}
-          onChange={(e) => { setTestEmail(e.target.value); setTestStatus("idle"); }}
-          placeholder="you@example.com"
-          className="w-52 border border-neutral-300 rounded-lg px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-600 focus:outline-none"
-        />
-        <button
-          onClick={handleTestSend}
-          disabled={!testEmail || testStatus === "sending" || !semesterId}
-          className="px-4 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-        >
-          {testStatus === "sending" ? "Sending…" : "Send test"}
-        </button>
-      </div>
-
-      {/* ── Step navigation ───────────────────────────────────────── */}
-      <div
-        className="shrink-0 flex justify-between px-6 py-4 border-t border-neutral-200"
-        style={{ background: "var(--admin-surface)" }}
-      >
-        <button
-          onClick={onBack}
-          className="px-5 py-2 rounded-xl border border-neutral-300 text-neutral-700 hover:bg-neutral-50 transition text-sm font-medium"
-        >
-          Back
-        </button>
-        <button
-          onClick={onNext}
-          className="px-5 py-2 rounded-xl bg-primary-600 text-white hover:bg-primary-700 transition text-sm font-medium"
-        >
-          Continue
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="email"
+            value={testEmail}
+            onChange={(e) => { setTestEmail(e.target.value); setTestStatus("idle"); }}
+            placeholder="you@example.com"
+            className="flex-1 sm:flex-none sm:w-52 border border-neutral-300 rounded-lg px-3 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-600 focus:outline-none"
+          />
+          <button
+            onClick={handleTestSend}
+            disabled={!testEmail || testStatus === "sending" || !semesterId}
+            className="px-4 py-1.5 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          >
+            {testStatus === "sending" ? "Sending…" : "Send test"}
+          </button>
+        </div>
       </div>
     </div>
   );

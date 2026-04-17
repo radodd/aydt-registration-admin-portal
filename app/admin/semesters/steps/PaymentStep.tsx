@@ -1089,7 +1089,7 @@ export default function PaymentStep({
         {activeSubStep === "programs" && (
           <div className="space-y-5">
             <div
-              className="rounded-xl px-4 py-3 text-sm flex items-start justify-between gap-4"
+              className="rounded-xl px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
               style={{
                 background: "#EEF2FF",
                 border: "0.5px solid #C7D2FE",

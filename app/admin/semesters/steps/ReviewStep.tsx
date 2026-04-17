@@ -1287,20 +1287,20 @@ export default function ReviewStep({
 
       {/* ── Publish footer ────────────────────────────────────────────────── */}
       <div
-        className="shrink-0 px-6 py-3.5 flex items-center justify-between gap-4 bg-white border-t border-neutral-200"
+        className="shrink-0 px-4 sm:px-6 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white border-t border-neutral-200"
         style={{ boxShadow: "0 -2px 8px rgba(0,0,0,0.05)" }}
       >
         {/* Back */}
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:border-neutral-300 hover:text-neutral-700"
+          className="flex items-center gap-1.5 h-9 px-4 text-sm font-semibold rounded-lg border border-neutral-200 text-neutral-500 transition-colors hover:border-neutral-300 hover:text-neutral-700 self-start sm:self-auto"
         >
           <ChevronLeft size={13} />
           Back
         </button>
 
         {/* Schedule + Save + Publish */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2">
             <span className="text-[11.5px] font-bold text-neutral-400 whitespace-nowrap">
               Publish on
@@ -1321,7 +1321,7 @@ export default function ReviewStep({
             Schedule
           </button>
 
-          <div className="w-px h-5 bg-neutral-200" />
+          <div className="w-px h-5 bg-neutral-200 hidden sm:block" />
 
           <button
             onClick={onSaveDraft}

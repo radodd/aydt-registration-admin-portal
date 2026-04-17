@@ -392,7 +392,7 @@ export default function SessionsStep({
   /* ---------------------------------------------------------------------- */
 
   return (
-    <div className="flex gap-4" style={{ minHeight: 560 }}>
+    <div className="flex flex-col md:flex-row gap-4 md:min-h-[560px]">
       {/* ------------------------------------------------------------------ */}
       {/* Left: class list                                                    */}
       {/* ------------------------------------------------------------------ */}
@@ -728,7 +728,7 @@ function ClassEditPanel({
 
   return (
     <div
-      className="w-[560px] shrink-0 flex flex-col bg-white border border-neutral-200 rounded-2xl overflow-hidden sticky top-0"
+      className="w-full md:w-[560px] md:shrink-0 flex flex-col bg-white border border-neutral-200 rounded-2xl overflow-hidden sticky top-0"
       style={{ maxHeight: "calc(100vh - 160px)" }}
     >
       {/* Panel header */}

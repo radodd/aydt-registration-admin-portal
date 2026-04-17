@@ -656,7 +656,7 @@ export default function DiscountsStep({
             )}
 
             {/* Name + Type */}
-            <div className="grid grid-cols-[1fr_200px] gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-4">
               <div>
                 <label className={labelCls}>Discount name</label>
                 <input
@@ -701,6 +701,7 @@ export default function DiscountsStep({
                       setDiscountDraftField(id, "eligibleSessionsMode", "all")
                     }
                     className="h-4 w-4 text-primary-600 border-neutral-300 focus:ring-primary-600"
+                    style={{ accentColor: "var(--admin-sidebar-active)" }}
                   />
                   All sessions
                 </label>
@@ -716,6 +717,7 @@ export default function DiscountsStep({
                       )
                     }
                     className="h-4 w-4 text-primary-600 border-neutral-300 focus:ring-primary-600"
+                    style={{ accentColor: "var(--admin-sidebar-active)" }}
                   />
                   Selected sessions
                 </label>
@@ -743,6 +745,7 @@ export default function DiscountsStep({
                             )
                           }
                           className="h-4 w-4 text-primary-600 border-neutral-300"
+                          style={{ accentColor: "var(--admin-sidebar-active)" }}
                         />
                         {s.name}
                       </label>
@@ -1091,7 +1094,7 @@ export default function DiscountsStep({
             )}
 
             {/* Name + Coupon code */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Name</label>
                 <input
@@ -1129,7 +1132,7 @@ export default function DiscountsStep({
             </div>
 
             {/* Discount amount + Type + Max per family */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className={labelCls}>Discount amount</label>
                 <input
@@ -1183,7 +1186,7 @@ export default function DiscountsStep({
             </div>
 
             {/* Valid from + Expires */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Valid from (optional)</label>
                 <InlineDatePicker
@@ -1213,7 +1216,7 @@ export default function DiscountsStep({
             </div>
 
             {/* Max total uses */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Max total uses (optional)</label>
                 <input
@@ -1267,6 +1270,7 @@ export default function DiscountsStep({
                           )
                         }
                         className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
+                        style={{ accentColor: "var(--admin-sidebar-active)" }}
                       />
                       {label}
                     </label>
@@ -1285,6 +1289,7 @@ export default function DiscountsStep({
                     setCouponDraftField(couponKey, "stackable", e.target.checked)
                   }
                   className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
+                  style={{ accentColor: "var(--admin-sidebar-active)" }}
                 />
                 Can stack with multi-class discounts
               </label>
@@ -1300,6 +1305,7 @@ export default function DiscountsStep({
                     )
                   }
                   className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
+                  style={{ accentColor: "var(--admin-sidebar-active)" }}
                 />
                 Apply to most expensive eligible item only
               </label>
@@ -1311,6 +1317,7 @@ export default function DiscountsStep({
                     setCouponDraftField(couponKey, "isActive", e.target.checked)
                   }
                   className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
+                  style={{ accentColor: "var(--admin-sidebar-active)" }}
                 />
                 Active
               </label>
