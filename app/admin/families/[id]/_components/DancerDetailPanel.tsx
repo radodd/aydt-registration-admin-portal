@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { FamilyDetailDancer } from "@/types";
+import { getInstructorNotesForDancer, type AdminInstructorNote } from "@/queries/admin";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
@@ -281,6 +283,9 @@ export function DancerDetailPanel({
           </div>
         )}
 
+        {/* Instructor notes */}
+        <InstructorNotesSection dancerId={dancer.id} />
+
         {/* Remove dancer */}
         <div className="px-6 py-4 flex justify-end">
           <button
@@ -290,6 +295,57 @@ export function DancerDetailPanel({
             Remove dancer
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* InstructorNotesSection                                                      */
+/* -------------------------------------------------------------------------- */
+
+function InstructorNotesSection({ dancerId }: { dancerId: string }) {
+  const [notes,   setNotes]   = useState<AdminInstructorNote[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getInstructorNotesForDancer(dancerId)
+      .then(setNotes)
+      .finally(() => setLoading(false));
+  }, [dancerId]);
+
+  if (loading) return null;
+  if (notes.length === 0) return null;
+
+  return (
+    <div className="px-6 py-5 space-y-3">
+      <p className="text-sm font-semibold text-neutral-900">
+        Instructor Notes
+        <span className="ml-2 text-xs font-normal text-neutral-400">(private)</span>
+      </p>
+
+      <div className="space-y-2">
+        {notes.map((n) => {
+          const instructorName = n.instructor
+            ? `${n.instructor.first_name} ${n.instructor.last_name}`
+            : "Unknown Instructor";
+          const updatedAt = new Date(n.updated_at).toLocaleDateString("en-US", {
+            month: "short", day: "numeric", year: "numeric",
+          });
+
+          return (
+            <div
+              key={n.id}
+              className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 space-y-1"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-neutral-700">{instructorName}</p>
+                <p className="text-[10px] text-neutral-400 shrink-0">{updatedAt}</p>
+              </div>
+              <p className="text-sm text-neutral-700 whitespace-pre-wrap">{n.note}</p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

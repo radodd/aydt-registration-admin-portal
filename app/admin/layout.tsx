@@ -13,15 +13,19 @@ import {
   UserCircle,
   LogOut,
   LayoutDashboard,
+  Plus,
+  UserCheck,
 } from "lucide-react";
 import { TopBar } from "./_components/TopBar";
+import { MobileNav } from "./_components/MobileNav";
 
-/* ── Nav structure ──────────────────────────────────────────────── */
+/* ── Desktop sidebar nav structure ─────────────────────────────── */
 const NAV_GROUPS = [
   {
     label: "Studio",
     items: [
-      { href: "/admin/classes",   label: "Classes",    icon: GraduationCap },
+      { href: "/admin/classes",      label: "Classes",     icon: GraduationCap },
+      { href: "/admin/instructors",  label: "Instructors", icon: UserCheck },
     ],
   },
   {
@@ -52,8 +56,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router   = useRouter();
   const pathname = usePathname();
   const supabase = createClient();
-  const [isAdmin,  setIsAdmin]  = useState<boolean | null>(null);
-  const [expanded, setExpanded] = useState(false);
+
+  const [isAdmin,      setIsAdmin]      = useState<boolean | null>(null);
+  const [expanded,     setExpanded]     = useState(false);
+  const [isMobile,     setIsMobile]     = useState(false);
+  const [adminInitial, setAdminInitial] = useState("A");
+
+  // JS-based breakpoint detection — drives sidebar transform + margin without CSS fights
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 767px)");
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mql.matches);
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -62,7 +78,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       const { data: user } = await supabase
         .from("users")
-        .select("role")
+        .select("role, first_name")
         .eq("id", authUser.id)
         .single();
 
@@ -70,6 +86,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         router.push("/");
       } else {
         setIsAdmin(true);
+        if (user.first_name) setAdminInitial(user.first_name[0].toUpperCase());
       }
     })();
   }, [router, supabase]);
@@ -96,13 +113,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="admin-shell flex">
 
-      {/* ── Sidebar ─────────────────────────────────────────────── */}
+      {/* ── Desktop sidebar (hidden on mobile via transform) ─────── */}
       <aside
         className="admin-sidebar overflow-hidden"
-        onMouseEnter={() => setExpanded(true)}
-        onMouseLeave={() => setExpanded(false)}
+        onMouseEnter={() => !isMobile && setExpanded(true)}
+        onMouseLeave={() => !isMobile && setExpanded(false)}
         style={{
-          width: expanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH,
+          width: isMobile ? EXPANDED_WIDTH : (expanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH),
+          transform: isMobile ? "translateX(-100%)" : "translateX(0)",
           transition: "width 200ms ease",
           boxShadow: expanded ? "4px 0 20px rgba(0,0,0,0.18)" : "none",
           overflow: "hidden",
@@ -125,7 +143,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Nav */}
         <nav className="admin-sidebar-nav">
-          {/* Dashboard home link */}
           <div className="mb-4">
             <div className="flex flex-col gap-0.5">
               <Link
@@ -170,7 +187,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ))}
         </nav>
 
-        {/* Bottom — profile + sign out */}
+        {/* Profile + sign out */}
         <div className="admin-sidebar-footer flex flex-col gap-0.5">
           <Link
             href="/admin/profile"
@@ -191,20 +208,43 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* ── Main content ────────────────────────────────────────── */}
-      {/* marginLeft is always the collapsed width — sidebar overlays when expanded */}
+      {/* ── Main content ─────────────────────────────────────────── */}
+      {/* min-w-0 prevents flex-1 from growing past its container.
+          overflow-x-hidden is intentionally NOT set here — it would create
+          a scroll container in iOS Safari that blocks natural vertical scroll.
+          Horizontal overflow is handled by overflow-x:hidden on .admin-shell. */}
       <div
-        className="flex flex-col flex-1"
-        style={{ marginLeft: COLLAPSED_WIDTH, minHeight: "100vh" }}
+        className="flex flex-col flex-1 min-w-0"
+        style={{ marginLeft: isMobile ? 0 : COLLAPSED_WIDTH, minHeight: "100vh" }}
       >
-        <TopBar />
+        <TopBar adminInitial={adminInitial} />
         <main
-          className="flex-1 px-8 py-8"
+          className="flex-1 px-4 py-4 md:px-8 md:py-8"
           style={{ background: "var(--admin-page-bg)" }}
         >
           {children}
         </main>
       </div>
+
+      {/* ── Mobile: FAB + bottom nav (hidden on desktop via CSS) ── */}
+      <Link
+        href="/admin/register"
+        aria-label="Register dancer"
+        className="fixed z-20 flex items-center justify-center rounded-full md:hidden"
+        style={{
+          width: "56px",
+          height: "56px",
+          bottom: "88px",
+          right: "20px",
+          background: "var(--admin-sidebar-active)",
+          color: "#fff",
+          boxShadow: "0 6px 16px rgba(142,42,35,0.35), 0 2px 4px rgba(0,0,0,0.1)",
+        }}
+      >
+        <Plus size={24} strokeWidth={2.5} />
+      </Link>
+
+      <MobileNav />
 
     </div>
   );

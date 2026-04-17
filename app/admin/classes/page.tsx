@@ -14,7 +14,10 @@ import { cancelEntireClass } from "./actions/cancelEntireClass";
 import { updateClassMeta, type ClassMetaUpdate } from "./actions/updateClassMeta";
 import { initEmailForClass } from "./actions/initEmailForClass";
 import { listTemplates } from "@/app/admin/emails/actions/listTemplates";
+import { assignInstructorToSession } from "./actions/assignInstructor";
+import { removeInstructorFromSession } from "./actions/removeInstructor";
 import type { TemplateListRow } from "@/types";
+import type { SessionInstructorAssignment, InstructorRow } from "@/queries/admin";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
@@ -661,8 +664,103 @@ function ClassDetailPanel({
       )
   );
 
-  const [sessionsExpanded, setSessionsExpanded] = useState(false);
-  const [rosterExpanded, setRosterExpanded] = useState(false);
+  const [sessionsExpanded,    setSessionsExpanded]    = useState(false);
+  const [rosterExpanded,      setRosterExpanded]      = useState(false);
+  const [attendanceExpanded,  setAttendanceExpanded]  = useState(false);
+  const [attendanceData,      setAttendanceData]      = useState<import("@/queries/admin").AdminSessionAttendance[] | null>(null);
+  const [attendanceLoading,   setAttendanceLoading]   = useState(false);
+
+  // Instructor assignments
+  const [assignments,          setAssignments]          = useState<SessionInstructorAssignment[] | null>(null);
+  const [assignmentsLoading,   setAssignmentsLoading]   = useState(true);
+  const [availableInstructors, setAvailableInstructors] = useState<InstructorRow[] | null>(null);
+  const [addingToSessionId,    setAddingToSessionId]    = useState<string | null>(null);
+  const [actionLoading,        setActionLoading]        = useState<string | null>(null);
+  const [instructorError,      setInstructorError]      = useState<string | null>(null);
+
+  useEffect(() => {
+    setAssignments(null);
+    setAssignmentsLoading(true);
+    setAddingToSessionId(null);
+    import("@/queries/admin").then(({ getSessionInstructorsForClass }) =>
+      getSessionInstructorsForClass(detail.id).then((data) => {
+        setAssignments(data);
+        setAssignmentsLoading(false);
+      })
+    );
+  }, [detail.id]);
+
+  async function loadAvailableInstructors() {
+    if (availableInstructors !== null) return;
+    const { getInstructors } = await import("@/queries/admin");
+    const data = await getInstructors();
+    setAvailableInstructors(data);
+  }
+
+  async function handleAssignInstructor(sessionId: string, userId: string, isLead: boolean) {
+    setActionLoading(`assign-${sessionId}-${userId}`);
+    setInstructorError(null);
+    const result = await assignInstructorToSession(sessionId, userId, isLead);
+    if (!result.success) {
+      setInstructorError(result.error ?? "Failed to assign instructor");
+      setActionLoading(null);
+      return;
+    }
+    const instructor = availableInstructors?.find((i) => i.id === userId);
+    if (instructor) {
+      setAssignments((prev) =>
+        prev
+          ? prev.map((s) =>
+              s.sessionId === sessionId
+                ? {
+                    ...s,
+                    instructors: [
+                      ...s.instructors,
+                      { userId, firstName: instructor.first_name, lastName: instructor.last_name, isLead },
+                    ],
+                  }
+                : s,
+            )
+          : prev,
+      );
+    }
+    setAddingToSessionId(null);
+    setActionLoading(null);
+  }
+
+  async function handleRemoveInstructor(sessionId: string, userId: string) {
+    setActionLoading(`remove-${sessionId}-${userId}`);
+    setInstructorError(null);
+    const result = await removeInstructorFromSession(sessionId, userId);
+    if (!result.success) {
+      setInstructorError(result.error ?? "Failed to remove instructor");
+      setActionLoading(null);
+      return;
+    }
+    setAssignments((prev) =>
+      prev
+        ? prev.map((s) =>
+            s.sessionId === sessionId
+              ? { ...s, instructors: s.instructors.filter((i) => i.userId !== userId) }
+              : s,
+          )
+        : prev,
+    );
+    setActionLoading(null);
+  }
+
+  // Lazy-load attendance data on first expand
+  const handleAttendanceToggle = async () => {
+    const next = !attendanceExpanded;
+    setAttendanceExpanded(next);
+    if (next && attendanceData === null) {
+      setAttendanceLoading(true);
+      const { getAdminClassAttendance } = await import("@/queries/admin");
+      const data = await getAdminClassAttendance(detail.id);
+      setAttendanceData(data);
+      setAttendanceLoading(false);
+    }
+  };
 
   // ── Cancel session state ──
   const [cancellingSessionId, setCancellingSessionId] = useState<string | null>(null);
@@ -1152,6 +1250,180 @@ function ClassDetailPanel({
         </div>
       </div>
 
+      {/* ── Instructors ──────────────────────────────────────────── */}
+      {addingToSessionId && (
+        <div
+          className="fixed inset-0 z-[5]"
+          onClick={() => setAddingToSessionId(null)}
+        />
+      )}
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
+      >
+        <div
+          className="px-4 py-3"
+          style={{ borderBottom: "0.5px solid #DDD9D2" }}
+        >
+          <p className="text-[12px] font-medium" style={{ color: "#201D18" }}>
+            Instructors
+          </p>
+        </div>
+
+        {assignmentsLoading ? (
+          <div className="px-4 py-4 text-[12px]" style={{ color: "#9E9890" }}>
+            Loading…
+          </div>
+        ) : (
+          <div>
+            {instructorError && (
+              <div className="px-4 py-2.5 text-[12px] text-red-600 bg-red-50 border-b" style={{ borderColor: "#FEE2E2" }}>
+                {instructorError}
+              </div>
+            )}
+            {(assignments ?? []).length === 0 ? (
+              <div className="px-4 py-4 text-[12px]" style={{ color: "#9E9890" }}>
+                No active sessions found.
+              </div>
+            ) : (
+              (assignments ?? []).map((session, idx) => {
+                const dayStr = session.dayOfWeek.slice(0, 3).toUpperCase();
+                const timeStr = session.startTime
+                  ? `${formatTime(session.startTime)}–${formatTime(session.endTime)}`
+                  : "";
+                const isAddingHere = addingToSessionId === session.sessionId;
+                const availableToAdd = (availableInstructors ?? [])
+                  .filter((i) => i.status === "active")
+                  .filter((i) => !session.instructors.some((a) => a.userId === i.id));
+
+                return (
+                  <div
+                    key={session.sessionId}
+                    className="px-4 py-3"
+                    style={{
+                      borderBottom:
+                        idx < (assignments ?? []).length - 1
+                          ? "0.5px solid #F7F5F2"
+                          : undefined,
+                    }}
+                  >
+                    {/* Session label */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <span
+                        className="shrink-0 text-[10px] font-medium text-white rounded-md"
+                        style={{ background: "#8E2A23", padding: "2px 7px" }}
+                      >
+                        {dayStr}
+                      </span>
+                      {timeStr && (
+                        <span className="text-[11px]" style={{ color: "#736D65" }}>
+                          {timeStr}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Instructor pills + Add button */}
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      {session.instructors.map((instructor) => (
+                        <div
+                          key={instructor.userId}
+                          className="flex items-center gap-1 rounded-full pl-1.5 pr-2 py-0.5"
+                          style={{ background: "#F7F5F2", border: "0.5px solid #DDD9D2" }}
+                        >
+                          <span
+                            className="text-[9px] font-semibold text-white rounded-full px-1.5 py-px"
+                            style={{ background: instructor.isLead ? "#8E2A23" : "#736D65" }}
+                          >
+                            {instructor.isLead ? "Lead" : "Asst"}
+                          </span>
+                          <span className="text-[11px]" style={{ color: "#201D18" }}>
+                            {instructor.firstName} {instructor.lastName}
+                          </span>
+                          <button
+                            onClick={() => handleRemoveInstructor(session.sessionId, instructor.userId)}
+                            disabled={actionLoading !== null}
+                            className="ml-0.5 text-[15px] leading-none transition hover:text-red-500 disabled:opacity-40"
+                            style={{ color: "#9E9890" }}
+                            title="Remove instructor"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Add dropdown trigger */}
+                      <div className="relative z-[6]">
+                        <button
+                          onClick={() => {
+                            if (isAddingHere) {
+                              setAddingToSessionId(null);
+                            } else {
+                              setAddingToSessionId(session.sessionId);
+                              setInstructorError(null);
+                              loadAvailableInstructors();
+                            }
+                          }}
+                          disabled={actionLoading !== null}
+                          className="rounded-full text-[11px] px-2.5 py-0.5 transition hover:opacity-70 disabled:opacity-40"
+                          style={{
+                            border: "0.5px solid #DDD9D2",
+                            color: isAddingHere ? "#C14B3B" : "#8E2A23",
+                          }}
+                        >
+                          {isAddingHere ? "✕ Cancel" : "+ Add"}
+                        </button>
+
+                        {isAddingHere && (
+                          <div
+                            className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-lg z-[6] min-w-[200px] max-h-52 overflow-y-auto"
+                            style={{ border: "0.5px solid #DDD9D2" }}
+                          >
+                            {availableInstructors === null ? (
+                              <p className="px-3 py-2.5 text-[12px]" style={{ color: "#9E9890" }}>
+                                Loading instructors…
+                              </p>
+                            ) : availableToAdd.length === 0 ? (
+                              <p className="px-3 py-2.5 text-[12px]" style={{ color: "#9E9890" }}>
+                                All active instructors assigned.
+                              </p>
+                            ) : (
+                              availableToAdd.map((instructor) => {
+                                const willBeLead = session.instructors.length === 0;
+                                return (
+                                  <button
+                                    key={instructor.id}
+                                    onClick={() =>
+                                      handleAssignInstructor(session.sessionId, instructor.id, willBeLead)
+                                    }
+                                    disabled={actionLoading !== null}
+                                    className="w-full text-left px-3 py-2.5 flex items-center justify-between gap-3 transition disabled:opacity-50 hover:bg-[#F7F5F2]"
+                                    style={{ borderBottom: "0.5px solid #F7F5F2" }}
+                                  >
+                                    <span className="text-[12px]" style={{ color: "#201D18" }}>
+                                      {instructor.first_name} {instructor.last_name}
+                                    </span>
+                                    <span
+                                      className="text-[9px] font-semibold text-white rounded-full px-1.5 py-px shrink-0"
+                                      style={{ background: willBeLead ? "#8E2A23" : "#736D65" }}
+                                    >
+                                      {willBeLead ? "Lead" : "Asst"}
+                                    </span>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Registered dancers roster */}
       <div
         className="rounded-xl p-4"
@@ -1274,6 +1546,105 @@ function ClassDetailPanel({
           </>
         )}
       </div>
+      {/* ── Attendance ──────────────────────────────────────────── */}
+      <div
+        className="rounded-xl"
+        style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
+      >
+        <button
+          onClick={handleAttendanceToggle}
+          className="w-full flex items-center justify-between px-4 py-3 text-left"
+        >
+          <p className="text-[12px] font-medium" style={{ color: "#201D18" }}>
+            Attendance records
+          </p>
+          <span className="text-[11px]" style={{ color: "#8E2A23" }}>
+            {attendanceExpanded ? "Collapse ↑" : "View ↓"}
+          </span>
+        </button>
+
+        {attendanceExpanded && (
+          <div style={{ borderTop: "0.5px solid #DDD9D2" }}>
+            {attendanceLoading ? (
+              <div className="px-4 py-6 text-center text-[12px]" style={{ color: "#9E9890" }}>
+                Loading…
+              </div>
+            ) : !attendanceData || attendanceData.length === 0 ? (
+              <div className="px-4 py-6 text-center text-[12px]" style={{ color: "#9E9890" }}>
+                No attendance records found for this class.
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: "#F7F5F2" }}>
+                {attendanceData.map((session) => {
+                  const dayLabel = session.dayOfWeek.charAt(0).toUpperCase() + session.dayOfWeek.slice(1, 3);
+                  const timeLabel = session.startTime
+                    ? `${formatTime(session.startTime)}–${formatTime(session.endTime)}`
+                    : "";
+                  const datesWithRecords = session.dates.filter((d) => d.markedCount > 0);
+
+                  if (datesWithRecords.length === 0) return null;
+
+                  return (
+                    <div key={session.sessionId} className="px-4 py-3">
+                      <p className="text-[11px] font-semibold mb-2" style={{ color: "#736D65" }}>
+                        {dayLabel} {timeLabel && `· ${timeLabel}`}
+                      </p>
+
+                      <div className="space-y-2">
+                        {datesWithRecords.map((d) => {
+                          const dateLabel = new Date(d.date + "T12:00:00").toLocaleDateString("en-US", {
+                            weekday: "short", month: "short", day: "numeric",
+                          });
+                          const pct = d.enrolledCount > 0
+                            ? Math.round((d.markedCount / d.enrolledCount) * 100)
+                            : 0;
+
+                          const STATUS_COLORS: Record<string, string> = {
+                            present: "#22c55e",
+                            absent:  "#ef4444",
+                            tardy:   "#f97316",
+                            excused: "#3b82f6",
+                          };
+
+                          return (
+                            <div key={d.dateId} className="rounded-lg p-3" style={{ background: "#F7F5F2" }}>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-[11px] font-medium" style={{ color: "#201D18" }}>
+                                  {dateLabel}
+                                </p>
+                                <p className="text-[10px]" style={{ color: "#736D65" }}>
+                                  {d.markedCount}/{d.enrolledCount} marked · {pct}%
+                                </p>
+                              </div>
+
+                              {/* Status pills */}
+                              <div className="flex flex-wrap gap-1">
+                                {d.records.map((r, i) => (
+                                  <span
+                                    key={i}
+                                    title={`${r.dancerName}${r.note ? ` — ${r.note}` : ""} (marked by ${r.markedBy})`}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-white"
+                                    style={{ background: STATUS_COLORS[r.status] ?? "#9E9890" }}
+                                  >
+                                    {r.dancerName.split(" ")[0]}
+                                    {" · "}
+                                    {r.status[0].toUpperCase()}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
     </div>
     </>
   );

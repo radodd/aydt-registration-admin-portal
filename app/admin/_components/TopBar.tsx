@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Upload, Search } from "lucide-react";
 import { NotificationBell } from "./NotificationBell";
 
 const PAGE_TITLES: Record<string, string> = {
-  "/admin":              "Dashboard",
+  "/admin":              "AYDT Admin",
   "/admin/semesters":   "Semesters",
   "/admin/classes":     "Classes",
   "/admin/sessions":    "Sessions",
@@ -39,25 +39,38 @@ function formatDate(): string {
   });
 }
 
-export function TopBar() {
+export function TopBar({ adminInitial }: { adminInitial?: string }) {
   const pathname = usePathname();
   const title = getPageTitle(pathname);
+  const initial = adminInitial ?? "A";
 
   return (
     <div
-      className="sticky top-0 z-20 flex items-center justify-between px-8"
+      className="sticky top-0 z-20 flex items-center justify-between px-4 md:px-8 min-w-0 overflow-x-hidden"
       style={{
-        height: "52px",
+        height: "56px",
         background: "var(--admin-surface)",
-        borderBottom: "1px solid var(--admin-border)",
+        borderBottom: "0.5px solid var(--admin-border)",
         flexShrink: 0,
       }}
     >
-      <div className="flex items-center gap-3">
-        <span
-          className="text-[15px] font-medium"
-          style={{ color: "var(--admin-text)" }}
+
+      {/* ── Mobile left: avatar + page title ────────────────────── */}
+      <div className="flex items-center gap-3 md:hidden">
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+          style={{ background: "var(--admin-sidebar-bg)", color: "#fff", letterSpacing: "0.02em" }}
         >
+          {initial}
+        </div>
+        <span className="text-[17px] font-medium" style={{ color: "var(--admin-text)", letterSpacing: "-0.01em" }}>
+          {title}
+        </span>
+      </div>
+
+      {/* ── Desktop left: page title + date badge ───────────────── */}
+      <div className="hidden md:flex items-center gap-3">
+        <span className="text-[15px] font-medium" style={{ color: "var(--admin-text)" }}>
           {title}
         </span>
         <span
@@ -73,7 +86,20 @@ export function TopBar() {
         </span>
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* ── Mobile right: search + bell ─────────────────────────── */}
+      <div className="flex items-center gap-1 md:hidden">
+        <button
+          className="w-9 h-9 flex items-center justify-center rounded-full transition-colors"
+          style={{ color: "var(--admin-text-muted)", background: "transparent" }}
+          aria-label="Search"
+        >
+          <Search size={20} strokeWidth={2} />
+        </button>
+        <NotificationBell />
+      </div>
+
+      {/* ── Desktop right: bell + action button ─────────────────── */}
+      <div className="hidden md:flex items-center gap-2">
         <NotificationBell />
         {pathname === "/admin/media" ? (
           <button
@@ -96,6 +122,7 @@ export function TopBar() {
           </Link>
         )}
       </div>
+
     </div>
   );
 }
