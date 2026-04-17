@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import Link from "next/link";
 import { useCart } from "@/app/providers/CartProvider";
 import { useSemesterData } from "@/app/providers/SemesterDataProvider";
@@ -51,6 +51,18 @@ export function CartDrawer({ isOpen = false, onClose = () => {} }: CartDrawerPro
   const { sessionIds, remove, itemCount, isExpired, preview, secondsRemaining } = useCart();
   const { semester } = useSemesterData();
 
+  // Touch swipe-down-to-close
+  const touchStartY = useRef<number | null>(null);
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartY.current = e.touches[0]!.clientY;
+  }
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartY.current === null) return;
+    const delta = e.changedTouches[0]!.clientY - touchStartY.current;
+    if (delta > 60) onClose(); // swiped down ≥ 60px → close
+    touchStartY.current = null;
+  }
+
   // Map sessionId → session object
   const sessionMap = useMemo(() => {
     const map = new Map<string, PublicSession>();
@@ -79,6 +91,15 @@ export function CartDrawer({ isOpen = false, onClose = () => {} }: CartDrawerPro
 
   return (
     <div className={`sem-cart-drawer${isOpen ? "" : " hidden"}`}>
+      {/* Drag handle — visible on mobile, triggers swipe-down-to-close */}
+      <div
+        className="sem-cd-drag-handle"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <div className="sem-cd-drag-handle-bar" />
+      </div>
+
       {/* Header */}
       <div className="sem-cd-header">
         <div className="sem-cd-title">Your Cart</div>
@@ -144,11 +165,23 @@ export function CartDrawer({ isOpen = false, onClose = () => {} }: CartDrawerPro
           return (
             <div key={session.id} className="sem-cd-item">
               <div className="sem-cd-item-top">
+                {/* Discipline badge */}
                 <div className="sem-cd-disc">{abbrev}</div>
+
+                {/* Info: name → time/day → location → date range */}
                 <div className="sem-cd-info">
                   <div className="sem-cd-name">{session.name}</div>
+                  {(dayLabel || timeLabel) && (
+                    <div className="sem-cd-detail-row" style={{ marginTop: 3 }}>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <circle cx="12" cy="12" r="10"/>
+                        <polyline points="12 6 12 12 16 14"/>
+                      </svg>
+                      {[dayLabel, timeLabel].filter(Boolean).join(" · ")}
+                    </div>
+                  )}
                   {session.location && (
-                    <div className="sem-cd-location">
+                    <div className="sem-cd-detail-row" style={{ marginTop: 2 }}>
                       <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
                         <circle cx="12" cy="10" r="3"/>
@@ -156,9 +189,21 @@ export function CartDrawer({ isOpen = false, onClose = () => {} }: CartDrawerPro
                       {session.location}
                     </div>
                   )}
+                  {dateRangeLabel && (
+                    <div className="sem-cd-detail-row" style={{ marginTop: 2 }}>
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                      </svg>
+                      {dateRangeLabel}
+                    </div>
+                  )}
                 </div>
+
+                {/* Right: Remove at top, price below */}
                 <div className="sem-cd-right">
-                  <div className="sem-cd-price">{price > 0 ? fmtCurrency(price) : "—"}</div>
                   <button className="sem-cd-remove" onClick={() => remove(session.id)}>
                     <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <line x1="18" y1="6" x2="6" y2="18"/>
@@ -166,30 +211,8 @@ export function CartDrawer({ isOpen = false, onClose = () => {} }: CartDrawerPro
                     </svg>
                     Remove
                   </button>
+                  <div className="sem-cd-price">{price > 0 ? fmtCurrency(price) : "—"}</div>
                 </div>
-              </div>
-
-              <div className="sem-cd-item-details">
-                {(dayLabel || timeLabel) && (
-                  <div className="sem-cd-detail-row">
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="12 6 12 12 16 14"/>
-                    </svg>
-                    {[dayLabel, timeLabel].filter(Boolean).join(" · ")}
-                  </div>
-                )}
-                {dateRangeLabel && (
-                  <div className="sem-cd-detail-row">
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <rect x="3" y="4" width="18" height="18" rx="2"/>
-                      <line x1="16" y1="2" x2="16" y2="6"/>
-                      <line x1="8" y1="2" x2="8" y2="6"/>
-                      <line x1="3" y1="10" x2="21" y2="10"/>
-                    </svg>
-                    {dateRangeLabel}
-                  </div>
-                )}
               </div>
             </div>
           );

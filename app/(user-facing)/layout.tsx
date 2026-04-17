@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { AuthProvider } from "@/app/providers/AuthProvider";
 import ConditionalFooter from "./ConditionalFooter";
 import { NavCartButton } from "@/app/components/public/NavCartButton";
+import { ScrollToTop } from "./ScrollToTop";
 import "./portal.css";
 
 export default async function PublicLayout({
@@ -27,6 +28,7 @@ export default async function PublicLayout({
 
   return (
     <AuthProvider>
+      <ScrollToTop />
       <div className="pub-portal-shell">
 
         {/* ── Top Navigation ──────────────────────────────────── */}

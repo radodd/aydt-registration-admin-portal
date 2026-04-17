@@ -45,11 +45,12 @@ function fmtTimer(seconds: number): string {
 }
 
 const STEPS = [
-  { label: "Select\nSessions" },
+  { label: "Sessions" },
   { label: "Review\nCart" },
   { label: "Dancer\nInfo" },
+  { label: "Reg.\nInfo" },
   { label: "Payment" },
-  { label: "Confirmation" },
+  { label: "Confirm" },
 ];
 
 export function CartPageContent() {
@@ -234,16 +235,6 @@ export function CartPageContent() {
       <div className="cart-page-main">
         <div className="cart-page-inner">
 
-          {/* Breadcrumb */}
-          <div className="cart-breadcrumb">
-            <Link href={semesterLink}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-              {semesterName || "Back"}
-            </Link>
-          </div>
-
           {/* Page header */}
           <div className="cart-page-header">
             <div>
@@ -304,11 +295,6 @@ export function CartPageContent() {
                   </div>
                 </div>
                 <div className="cart-item-right">
-                  {price > 0 ? (
-                    <div className="cart-item-price">{formatCurrency(price)}</div>
-                  ) : (
-                    <div className="cart-item-price-tbd">Priced at checkout</div>
-                  )}
                   <button
                     type="button"
                     className="cart-item-remove"
@@ -333,6 +319,11 @@ export function CartPageContent() {
                     </svg>
                     Remove
                   </button>
+                  {price > 0 ? (
+                    <div className="cart-item-price">{formatCurrency(price)}</div>
+                  ) : (
+                    <div className="cart-item-price-tbd">Priced at checkout</div>
+                  )}
                 </div>
               </div>
             );
@@ -438,7 +429,7 @@ export function CartPageContent() {
               Add more sessions
             </Link>
             <Link href={continueLink} className="btn-continue">
-              Continue to Registration
+              Continue to Dancer Info
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="5" y1="12" x2="19" y2="12"/>
                 <polyline points="12 5 19 12 12 19"/>

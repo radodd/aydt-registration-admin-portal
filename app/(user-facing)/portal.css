@@ -935,9 +935,26 @@ html { scroll-behavior: smooth; }
   gap: 12px;
   margin-top: 8px;
 }
+
+/* Shared CTA row for registration steps (form, payment) */
+.reg-cta-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+/* ── Payment options grid (Pay in Full / Installment) ── */
+.pay-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 640px) {
+  .pay-options-grid { grid-template-columns: 1fr; }
+}
 .btn-back {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  padding: 13px 20px; border-radius: var(--pub-radius-md);
+  padding: 11px 20px; border-radius: var(--pub-radius-md);
   border: 1.5px solid var(--pub-border);
   background: var(--pub-surface);
   color: var(--pub-text-muted);
@@ -951,7 +968,7 @@ html { scroll-behavior: smooth; }
 }
 .btn-continue {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 13px 28px; border-radius: var(--pub-radius-md);
+  padding: 11px 28px; border-radius: var(--pub-radius-md);
   border: 2px solid var(--plum);
   background: var(--plum);
   color: #fff;
@@ -1388,7 +1405,10 @@ select.reg-input {
   display: flex; justify-content: center;
   z-index: 50;
 }
-.reg-bottom-inner { display: flex; gap: 12px; width: 100%; max-width: 860px; }
+.reg-bottom-inner {
+  display: flex; flex-direction: row; gap: 12px;
+  width: 100%; max-width: 860px;
+}
 
 /* Disabled continue button state */
 .btn-continue:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -1427,6 +1447,21 @@ select.reg-input {
   z-index: 150; transition: transform .25s ease;
 }
 .sem-cart-drawer.hidden { transform: translateX(100%); }
+
+/* Drag handle (hidden on desktop, shown on mobile via media query) */
+.sem-cd-drag-handle {
+  display: none;
+  justify-content: center;
+  padding: 10px 0 4px;
+  flex-shrink: 0;
+  cursor: grab;
+  touch-action: none;
+}
+.sem-cd-drag-handle-bar {
+  width: 36px; height: 4px;
+  border-radius: 2px;
+  background: var(--pub-border);
+}
 
 /* Header */
 .sem-cd-header {
@@ -1589,12 +1624,14 @@ select.reg-input {
 .reg-timer-bar {
   background: #FEF3C7;
   border-bottom: 1px solid #FDE68A;
-  padding: 9px 24px;
+  padding: 10px 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  text-align: center;
 }
 .reg-timer-bar.urgent {
   background: #FEE2E2;
@@ -1747,24 +1784,34 @@ select.reg-input {
   font-size: 12px; color: var(--pub-text-faint); margin-left: auto;
 }
 
-/* Animated wrapper — grid-template-rows trick gives smooth height transition */
+/* Animated wrapper — grid-template-rows trick gives smooth height transition.
+   The border-bottom lives here so it disappears with the panel.
+   IMPORTANT: .sem-filter-panel-inner (no padding) is the actual grid item.
+   The .sem-filter-bar (which has padding) lives INSIDE it and is clipped by
+   overflow:hidden on the inner div. Without this extra wrapper, the bar's
+   padding bleeds through even when the track collapses to 0fr. */
 .sem-filter-panel-wrap {
   display: grid;
   grid-template-rows: 1fr;
   transition: grid-template-rows 0.25s ease;
-  overflow: hidden;
+  border-bottom: 1px solid var(--pub-border);
+  transition: grid-template-rows 0.25s ease, border-bottom-width 0.25s ease;
 }
 .sem-filter-panel-wrap.collapsed {
   grid-template-rows: 0fr;
+  border-bottom-width: 0;
 }
-.sem-filter-panel-wrap > .sem-filter-bar {
-  min-height: 0; /* required for the grid trick */
+/* Padding-free grid item — must have min-height:0 AND overflow:hidden */
+.sem-filter-panel-inner {
+  min-height: 0;
+  overflow: hidden;
 }
 
-/* The old sticky filter bar sits below the toggle bar */
+/* Filter bar strips its own border (wrapper owns it) */
 .sem-filter-bar {
-  top: calc(66px + 41px); /* nav + toggle bar */
-  position: static; /* override sticky when inside the animated wrapper */
+  border-bottom: none;
+  top: calc(66px + 41px); /* used when position is sticky; overridden to static inside wrapper */
+  position: static;
 }
 
 /* Per-section collapse */
@@ -1846,7 +1893,7 @@ select.reg-input {
   .topnav { padding: 0 14px; height: 58px; }
   .topnav-logo { margin-right: auto; }
   .topnav-links { display: none; }
-  .topnav-greeting { display: none; }
+  /* topnav-greeting stays visible on mobile — shows "Hi, [Name]" next to profile icon */
   .topnav-btn-text { display: none; }
   .topnav-right { gap: 5px; }
   .btn-nav-ghost { padding: 7px 10px; }
@@ -1896,14 +1943,24 @@ select.reg-input {
   /* ── Semester main content ────────────────────────────── */
   .sem-main { padding: 20px 16px; }
 
-  /* ── Cart drawer — full-screen sheet on mobile ────────── */
+  /* ── Cart drawer — bottom sheet on mobile ─────────────── */
   .sem-cart-drawer {
     width: 100%;
     border-left: none;
     border-radius: var(--pub-radius-xl) var(--pub-radius-xl) 0 0;
     top: auto;
     bottom: 0;
-    height: 90vh;
+    height: 92vh;
+    /* Override the right-slide; use bottom-slide instead */
+    transform: translateY(0);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .sem-cart-drawer.hidden {
+    transform: translateY(100%);
+  }
+  /* Drag handle visible on mobile */
+  .sem-cd-drag-handle {
+    display: flex;
   }
   /* Don't shift page content when drawer opens on mobile */
   .sem-content-wrap.drawer-open { padding-right: 0; }
@@ -1917,9 +1974,11 @@ select.reg-input {
   .cart-page-header { flex-direction: column; gap: 10px; align-items: flex-start; }
   .cart-ttl { width: 100%; justify-content: flex-start; }
   .cart-cta-row { grid-template-columns: 1fr; }
+  .reg-cta-row   { grid-template-columns: 1fr; }
+  .reg-bottom-inner { flex-direction: column; gap: 10px; }
 
   /* ── Registration participants page ───────────────────── */
-  .reg-page-wrap { padding: 24px 16px 120px; }
+  .reg-page-wrap { padding: 24px 16px 140px; }
   .reg-page-layout { grid-template-columns: 1fr; }
   .reg-summary-card { position: static; top: auto; order: -1; margin-bottom: 20px; }
   .reg-grid-2 { grid-template-columns: 1fr; }

@@ -3,11 +3,15 @@ import { CartProvider, useCart } from "@/app/providers/CartProvider";
 import { RegistrationProvider } from "@/app/providers/RegistrationProvider";
 import { useSearchParams, usePathname } from "next/navigation";
 
+// 6-step flow: Sessions → Review Cart → Dancer Info → Reg. Info → Payment → Confirm
+// Steps 0–1 are always "done" by the time the user enters /register/*.
 const STEPS = [
-  { key: "email", label: "Account" },
-  { key: "participants", label: "Dancers" },
-  { key: "form", label: "Information" },
-  { key: "payment", label: "Payment" },
+  { key: "sessions",  label: "Sessions" },
+  { key: "cart",      label: "Review\nCart" },
+  { key: "dancers",   label: "Dancer\nInfo" },
+  { key: "reginfo",   label: "Reg.\nInfo" },
+  { key: "payment",   label: "Payment" },
+  { key: "confirm",   label: "Confirm" },
 ];
 
 function CartTimerBar() {
@@ -22,19 +26,19 @@ function CartTimerBar() {
   return (
     <div className={`reg-timer-bar${urgent ? " urgent" : ""}`}>
       <svg
-        width="15"
-        height="15"
+        width="14"
+        height="14"
         viewBox="0 0 24 24"
         fill="none"
         stroke={urgent ? "#991B1B" : "#92400E"}
         strokeWidth="2.2"
+        style={{ flexShrink: 0 }}
       >
         <circle cx="12" cy="12" r="9" />
         <polyline points="12 7 12 12 15.5 13.5" />
       </svg>
-      <span className="reg-timer-text">Your cart is reserved for</span>
+      <span className="reg-timer-text">Cart reserved for</span>
       <span className="reg-timer-count">{display}</span>
-      <span className="reg-timer-text">— complete checkout to secure your spot.</span>
     </div>
   );
 }
@@ -48,18 +52,20 @@ export default function RegisterLayout({
   const pathname = usePathname();
   const semesterId = params.get("semester") ?? "";
 
+  // Map current URL segment to the active step index (0-based).
+  // Steps 0–1 (Sessions, Review Cart) are always "done" on entry to /register/*.
   const activeStep = pathname.includes("/register/payment")
-    ? 3
+    ? 4  // Payment (step 5)
     : pathname.includes("/register/form")
-      ? 2
+      ? 3  // Reg. Info (step 4)
       : pathname.includes("/register/participants")
-        ? 1
-        : 0;
+        ? 2  // Dancer Info (step 3)
+        : 1; // fallback
 
   return (
     <CartProvider semesterId={semesterId}>
       <div>
-        {/* Step indicator bar */}
+        {/* ── Step indicator — matches cart page 5-step layout ── */}
         <div className="cart-steps-bar">
           <div className="cart-steps-inner">
             <div className="reg-steps">
@@ -86,7 +92,11 @@ export default function RegisterLayout({
                         i + 1
                       )}
                     </div>
-                    <div className="reg-step-label">{step.label}</div>
+                    <div className="reg-step-label">
+                      {step.label.split("\n").map((line, li) => (
+                        <span key={li}>{li > 0 && <br />}{line}</span>
+                      ))}
+                    </div>
                   </div>
                 );
               })}
@@ -94,10 +104,10 @@ export default function RegisterLayout({
           </div>
         </div>
 
-        {/* Cart reservation timer */}
+        {/* ── Cart reservation timer ── */}
         <CartTimerBar />
 
-        {/* Page content */}
+        {/* ── Page content ── */}
         <RegistrationProvider semesterId={semesterId}>
           <div className="max-w-[860px] mx-auto px-6 py-10">{children}</div>
         </RegistrationProvider>

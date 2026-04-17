@@ -155,13 +155,18 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
 
       {/* ── Collapsible filter panel (animated) ─────────── */}
       <div className={`sem-filter-panel-wrap${filtersOpen ? "" : " collapsed"}`}>
-        <FilterBar
-          sessions={sessions}
-          groups={groups}
-          filters={filters}
-          onChange={setFilters}
-          classCount={grouped.length}
-        />
+        {/* sem-filter-panel-inner is the padding-free grid item.
+            The FilterBar's own padding lives inside it and gets
+            clipped cleanly when the track collapses to 0fr. */}
+        <div className="sem-filter-panel-inner">
+          <FilterBar
+            sessions={sessions}
+            groups={groups}
+            filters={filters}
+            onChange={setFilters}
+            classCount={grouped.length}
+          />
+        </div>
       </div>
 
       {grouped.length === 0 ? (
