@@ -32,6 +32,9 @@ export interface User {
   zipcode?: string | null;
   sms_opt_in?: boolean;
   sms_verified?: boolean;
+  phone_number_alt?: string | null;
+  cc_alternate_parent?: boolean;
+  referral_source?: string | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -57,7 +60,6 @@ export interface Dancer {
   state: string | null;
   zipcode: string | null;
   is_self: boolean;
-  is_student_contact_priority?: boolean;
   created_at: string;
   users: {
     id: string;
@@ -1022,6 +1024,7 @@ export type SemesterDraft = {
 
   details?: {
     name: string;
+    location?: string;
     trackingMode: boolean;
     capacityWarningThreshold?: number;
     publishAt?: Date;

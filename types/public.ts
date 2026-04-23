@@ -86,6 +86,16 @@ export interface PublicSession {
   groupId?: string | null;
   waitlistEnabled: boolean;
 
+  /** Prerequisites and other requirements shown on the class card */
+  prerequisites?: Array<{
+    id: string;
+    requirementType: string;
+    description: string;
+    enforcement: "soft_warn" | "hard_block";
+  }> | null;
+  /** Freeform informational note shown to families (e.g. mandatory rehearsal dates) */
+  registrationNote?: string | null;
+
   /** Phase 6: true when the class is part of the competition program */
   isCompetitionTrack?: boolean;
 }
@@ -117,16 +127,27 @@ export interface PublicPaymentPlan {
 /* Semester                                                                    */
 /* -------------------------------------------------------------------------- */
 
+export interface PublicFeeConfig {
+  registrationFeePerChild: number;
+  familyDiscountAmount: number;
+  juniorCostumeFeePerClass: number;
+  seniorCostumeFeePerClass: number;
+  seniorVideoFeePerRegistrant: number;
+}
+
 export interface PublicSemester {
   id: string;
   name: string;
   status: "draft" | "scheduled" | "published" | "archived";
   description?: string | null;
+  location?: string | null;
+  capacityWarningThreshold?: number | null;
   startDate?: string | null;
   endDate?: string | null;
   /** When set, the class catalog is hidden until this timestamp is reached. */
   registrationOpenAt?: string | null;
   paymentPlan?: PublicPaymentPlan | null;
+  feeConfig?: PublicFeeConfig | null;
   registrationForm: RegistrationFormElement[];
   sessions: PublicSession[];
   sessionGroups: PublicSessionGroup[];
