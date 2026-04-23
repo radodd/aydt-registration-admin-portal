@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 
 type AlertItem = {
-  type: "draft" | "overdue" | "registration";
+  type: "draft" | "overdue" | "registration" | "warning";
   message: string;
   dotColor: string;
   href: string;
@@ -65,6 +65,20 @@ export function NotificationBell() {
           message: `${recentCount} new registration${recentCount !== 1 ? "s" : ""} in last 24h`,
           dotColor: "#0A5A50",
           href: "/admin/classes",
+        });
+      }
+
+      // Unreviewed enrollment warnings (soft warns + hard blocks)
+      const { count: warnCount } = await supabase
+        .from("enrollment_warnings")
+        .select("*", { count: "exact", head: true })
+        .eq("is_reviewed", false);
+      if (warnCount && warnCount > 0) {
+        items.push({
+          type: "warning",
+          message: `${warnCount} unreviewed enrollment warning${warnCount !== 1 ? "s" : ""}`,
+          dotColor: "#7A4E08",
+          href: "/admin/warnings",
         });
       }
 

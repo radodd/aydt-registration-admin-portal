@@ -7,6 +7,7 @@ export async function updateSemesterDetails(
   semesterId: string,
   details?: {
     name: string;
+    location?: string;
     trackingMode: boolean;
     capacityWarningThreshold?: number;
     publishAt?: Date;
@@ -21,6 +22,7 @@ export async function updateSemesterDetails(
     .from("semesters")
     .update({
       name: details.name,
+      location: details.location ?? null,
       tracking_mode: details.trackingMode,
       capacity_warning_threshold: details.capacityWarningThreshold ?? null,
       publish_at: details.publishAt ?? null,

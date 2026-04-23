@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   Plus,
   UserCheck,
+  AlertTriangle,
 } from "lucide-react";
 import { TopBar } from "./_components/TopBar";
 import { MobileNav } from "./_components/MobileNav";
@@ -39,6 +40,7 @@ const NAV_GROUPS = [
     label: "Finance & Comms",
     items: [
       { href: "/admin/payments",  label: "Payments",   icon: CreditCard },
+      { href: "/admin/warnings",  label: "Warnings",   icon: AlertTriangle },
     ],
   },
   {
