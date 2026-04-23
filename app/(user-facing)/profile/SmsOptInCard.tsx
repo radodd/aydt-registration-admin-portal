@@ -13,53 +13,12 @@ interface Props {
   user: User;
 }
 
-function ToggleRow({
-  label,
-  desc,
-  checked = true,
-}: {
-  label: string;
-  desc: string;
-  checked?: boolean;
-}) {
-  const [on, setOn] = useState(checked);
-  return (
-    <div style={{
-      display: "flex", alignItems: "flex-start", gap: 14,
-      padding: "14px 0",
-      borderBottom: "1px solid var(--pub-border-subtle)",
-    }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--pub-text-primary)" }}>{label}</div>
-        <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginTop: 2, lineHeight: 1.5 }}>{desc}</div>
-      </div>
-      <div
-        role="switch"
-        aria-checked={on}
-        onClick={() => setOn(v => !v)}
-        style={{
-          position: "relative", width: 38, height: 22,
-          flexShrink: 0, marginTop: 1, cursor: "pointer", userSelect: "none",
-        }}
-      >
-        <div style={{
-          position: "absolute", inset: 0, borderRadius: 11,
-          background: on ? "var(--plum)" : "var(--pub-border)",
-          transition: "background .2s",
-        }} />
-        <div style={{
-          position: "absolute",
-          top: 3,
-          left: on ? 19 : 3,
-          width: 16, height: 16, borderRadius: "50%",
-          background: "#fff",
-          transition: "left .2s",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
-        }} />
-      </div>
-    </div>
-  );
-}
+const SMS_MESSAGE_TYPES = [
+  "Class cancellations",
+  "Schedule changes",
+  "Recital updates",
+  "Registration information",
+];
 
 export function SmsOptInCard({ user }: Props) {
   const router = useRouter();
@@ -155,8 +114,8 @@ export function SmsOptInCard({ user }: Props) {
           <div style={{ fontSize: 14, fontWeight: 700 }}>Text Message Alerts</div>
           <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginTop: 1 }}>
             {alreadyVerified
-              ? `SMS is active for ${user.phone_number}`
-              : "Receive urgent alerts via SMS"}
+              ? `SMS active · ${user.phone_number}`
+              : "Opt in to receive urgent class alerts by text"}
           </div>
         </div>
         {alreadyVerified && (
@@ -183,25 +142,80 @@ export function SmsOptInCard({ user }: Props) {
           </div>
         )}
 
-        {/* Already opted in — show toggle rows */}
+        {/* Opted in — single toggle + message list */}
         {alreadyVerified && state === "idle" && (
-          <>
-            <ToggleRow
-              label="Class cancellations & schedule changes"
-              desc="Immediate SMS if a class is cancelled or moved."
-            />
-            <ToggleRow
-              label="Waitlist openings"
-              desc="Get notified the moment a spot opens in a waitlisted class."
-            />
-            <ToggleRow
-              label="Payment reminders"
-              desc="Reminder 5 days before each installment due date."
-            />
-          </>
+          <div>
+            {/* Toggle row */}
+            <div style={{
+              display: "flex", alignItems: "flex-start", gap: 14,
+              paddingBottom: 16,
+              borderBottom: "1px solid var(--pub-border-subtle)",
+              marginBottom: 16,
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--pub-text-primary)" }}>
+                  Receive text message alerts
+                </div>
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  marginTop: 6, padding: "4px 10px", borderRadius: 6,
+                  background: "var(--pub-badge-mint-bg)",
+                  border: "1px solid #A8DDD0",
+                }}>
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
+                    <path d="M13 6.5A5 5 0 1 1 3 6.5a5 5 0 0 1 10 0z" stroke="var(--pub-badge-mint-text)" strokeWidth="1.4" />
+                    <path d="M8 4.5v2.5l1.5 1.5" stroke="var(--pub-badge-mint-text)" strokeWidth="1.4" strokeLinecap="round" />
+                  </svg>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--pub-badge-mint-text)", lineHeight: 1.4 }}>
+                    Texts are limited to information pertinent to your child&apos;s classes.
+                  </span>
+                </div>
+              </div>
+              {/* Toggle — clicking opts out */}
+              <div
+                role="switch"
+                aria-checked={true}
+                onClick={handleOptOut}
+                style={{
+                  position: "relative", width: 38, height: 22,
+                  flexShrink: 0, marginTop: 1,
+                  cursor: isPending ? "not-allowed" : "pointer",
+                  userSelect: "none",
+                  opacity: isPending ? 0.5 : 1,
+                }}
+              >
+                <div style={{
+                  position: "absolute", inset: 0, borderRadius: 11,
+                  background: "var(--plum)",
+                  transition: "background .2s",
+                }} />
+                <div style={{
+                  position: "absolute", top: 3, left: 19,
+                  width: 16, height: 16, borderRadius: "50%",
+                  background: "#fff",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                }} />
+              </div>
+            </div>
+
+            {/* Message type list */}
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px", color: "var(--pub-text-faint)", marginBottom: 8 }}>
+              You will receive texts for
+            </div>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 6 }}>
+              {SMS_MESSAGE_TYPES.map((type) => (
+                <li key={type} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--pub-text-primary)" }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--plum)" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  {type}
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
 
-        {/* Not opted in — idle state */}
+        {/* Not opted in — idle */}
         {!alreadyVerified && state === "idle" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div>
@@ -225,9 +239,9 @@ export function SmsOptInCard({ user }: Props) {
                 style={{ marginTop: 2, width: 14, height: 14, flexShrink: 0, accentColor: "var(--plum)" }}
               />
               <span style={{ fontSize: 12, color: "var(--pub-text-muted)", lineHeight: 1.5 }}>
-                I agree to receive SMS notifications from AYDT about registration updates,
-                waitlist invitations, and payment reminders. Message and data rates may apply.
-                Reply STOP to opt out.
+                I agree to receive SMS alerts from AYDT about class cancellations, schedule changes,
+                recital updates, and registration information (texts are limited to information
+                pertinent to my child&apos;s classes). Message and data rates may apply. Reply STOP to opt out.
               </span>
             </label>
 
@@ -304,32 +318,11 @@ export function SmsOptInCard({ user }: Props) {
             border: "1px solid #A8DDD0",
             padding: "12px 14px", fontSize: 13, color: "var(--pub-badge-mint-text)",
           }}>
-            Phone verified. You will now receive SMS notifications for urgent updates.
+            Phone verified. You will now receive text alerts for class cancellations, schedule changes,
+            recital updates, and registration information.
           </div>
         )}
       </div>
-
-      {/* Footer — opt out link (only when verified) */}
-      {alreadyVerified && state === "idle" && (
-        <div style={{
-          padding: "12px 20px",
-          borderTop: "1px solid var(--pub-border-subtle)",
-          background: "var(--pub-surface-warm)",
-        }}>
-          <button
-            onClick={handleOptOut}
-            disabled={isPending}
-            style={{
-              fontSize: 12, fontWeight: 600,
-              color: "var(--wine)", background: "none", border: "none",
-              cursor: "pointer", fontFamily: "inherit",
-              opacity: isPending ? 0.5 : 1,
-            }}
-          >
-            {isPending ? "Opting out…" : "Opt out of all SMS"}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -878,58 +878,9 @@ export const FamilyProfileCard = ({
       {activeTab === "notifications" && (
         <div className="profile-tab-content">
           {/* SMS section */}
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, fontFamily: "system-ui" }}>SMS Notifications</div>
-          {user.phone_number && (
-            <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
-              Alerts sent to <strong>{user.phone_number}</strong>.
-            </div>
-          )}
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, fontFamily: "system-ui" }}>SMS Notifications</div>
           <div style={{ marginBottom: 20 }}>
             <SmsOptInCard user={user} />
-          </div>
-
-          {/* Email section */}
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, fontFamily: "system-ui" }}>Email Communications</div>
-          <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
-            Sent to <strong>{user.email}</strong>.
-          </div>
-          <div style={CARD_STYLE}>
-            <div style={{
-              padding: "14px 20px", background: "var(--pub-surface-warm)",
-              borderBottom: "1px solid var(--pub-border-subtle)",
-            }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>Email Preferences</div>
-            </div>
-            <div style={{ padding: 20 }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--pub-text-primary)" }}>AYDT newsletter</div>
-                  <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginTop: 2, lineHeight: 1.5 }}>
-                    Monthly studio news, student spotlights, and class highlights.
-                  </div>
-                </div>
-                <ToggleSwitch checked={newsletter} onChange={setNewsletter} />
-              </div>
-            </div>
-            <div style={{
-              padding: "12px 20px",
-              borderTop: "1px solid var(--pub-border-subtle)",
-              background: "var(--pub-surface-warm)",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-            }}>
-              <span style={{ fontSize: 11, color: "var(--pub-text-faint)" }}>
-                Transactional emails (receipts, confirmations) are always sent.
-              </span>
-              <button style={{
-                display: "inline-flex", alignItems: "center",
-                fontSize: 11, fontWeight: 600, borderRadius: 7,
-                border: "1.5px solid var(--plum)", cursor: "pointer",
-                padding: "5px 11px", background: "var(--plum)", color: "#fff",
-                fontFamily: "inherit",
-              }}>
-                Save Preferences
-              </button>
-            </div>
           </div>
         </div>
       )}
