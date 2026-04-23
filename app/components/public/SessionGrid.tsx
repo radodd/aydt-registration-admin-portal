@@ -16,6 +16,8 @@ export type GroupedClass = {
   maxAge?: number | null;
   minGrade?: number | null;
   maxGrade?: number | null;
+  prerequisites?: PublicSession["prerequisites"];
+  registrationNote?: string | null;
   sessions: PublicSession[];
 };
 
@@ -37,6 +39,8 @@ function groupByClass(sessions: PublicSession[]): GroupedClass[] {
         maxAge: session.maxAge,
         minGrade: session.minGrade,
         maxGrade: session.maxGrade,
+        prerequisites: session.prerequisites,
+        registrationNote: session.registrationNote,
         sessions: [],
       });
     }
@@ -56,6 +60,7 @@ function groupByClass(sessions: PublicSession[]): GroupedClass[] {
 interface SessionGridProps {
   sessions: PublicSession[];
   groups: PublicSessionGroup[];
+  capacityWarningThreshold?: number;
 }
 
 function buildGroupMap(
@@ -82,7 +87,7 @@ function activeFilterCount(filters: FilterState): number {
   return n;
 }
 
-export function SessionGrid({ sessions, groups }: SessionGridProps) {
+export function SessionGrid({ sessions, groups, capacityWarningThreshold }: SessionGridProps) {
   const [filters, setFilters] = useState<FilterState>({
     groupId: "",
     dayOfWeek: "",
@@ -188,7 +193,7 @@ export function SessionGrid({ sessions, groups }: SessionGridProps) {
       ) : (
         <div style={{ paddingTop: 12 }}>
           {grouped.map((group) => (
-            <ClassCard key={group.classId} group={group} />
+            <ClassCard key={group.classId} group={group} spotsThreshold={capacityWarningThreshold} />
           ))}
         </div>
       )}

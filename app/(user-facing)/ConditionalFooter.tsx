@@ -45,7 +45,7 @@ export default function ConditionalFooter({ isLoggedIn = false, firstName }: Con
                   <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
                   <polyline points="22,6 12,13 2,6"/>
                 </svg>
-                info@aydt.nyc
+                admin@aydt.nyc
               </div>
             </div>
             <div className="pub-footer-social">
@@ -68,11 +68,12 @@ export default function ConditionalFooter({ isLoggedIn = false, firstName }: Con
           <div>
             <div className="pub-footer-col-title">Programs</div>
             <div className="pub-footer-links">
-              <Link href="/#semesters" className="pub-footer-link">Spring 2026</Link>
-              <Link href="/#semesters" className="pub-footer-link">Fall 2026</Link>
-              <Link href="/#semesters" className="pub-footer-link">All Semesters</Link>
-              <Link href="/#semesters" className="pub-footer-link">Discipline Guide</Link>
-              <Link href="/#semesters" className="pub-footer-link">Tuition &amp; Fees</Link>
+              <a href="https://aydt.nyc/early-childhood/" target="_blank" rel="noopener" className="pub-footer-link">Early Childhood</a>
+              <a href="https://aydt.nyc/junior-division/" target="_blank" rel="noopener" className="pub-footer-link">Junior Division</a>
+              <a href="https://aydt.nyc/senior-division/" target="_blank" rel="noopener" className="pub-footer-link">Senior Division</a>
+              <a href="https://aydt.nyc/summer/" target="_blank" rel="noopener" className="pub-footer-link">Summer</a>
+              <a href="https://aydt.nyc/adult/" target="_blank" rel="noopener" className="pub-footer-link">Adult</a>
+              <a href="https://aydt.nyc/events/" target="_blank" rel="noopener" className="pub-footer-link">Events</a>
             </div>
           </div>
 
@@ -84,7 +85,7 @@ export default function ConditionalFooter({ isLoggedIn = false, firstName }: Con
             <div className="pub-footer-links">
               {isLoggedIn ? (
                 <>
-                  <Link href="/profile" className="pub-footer-link">My Dashboard</Link>
+                  <Link href="/profile" className="pub-footer-link">My Account</Link>
                   <Link href="/profile" className="pub-footer-link">My Registrations</Link>
                   <Link href="/profile" className="pub-footer-link">Payment History</Link>
                   <Link href="/auth/request-password-reset" className="pub-footer-link">Reset Password</Link>
@@ -92,10 +93,8 @@ export default function ConditionalFooter({ isLoggedIn = false, firstName }: Con
               ) : (
                 <>
                   <Link href="/auth/login" className="pub-footer-link">Log In</Link>
-                  <Link href="/register" className="pub-footer-link">Create Account</Link>
+                  <Link href="/auth?tab=signup" className="pub-footer-link">Create Account</Link>
                   <Link href="/auth/request-password-reset" className="pub-footer-link">Reset Password</Link>
-                  <Link href="/profile" className="pub-footer-link">My Dashboard</Link>
-                  <Link href="/profile" className="pub-footer-link">My Registrations</Link>
                 </>
               )}
             </div>
@@ -125,6 +124,7 @@ export default function ConditionalFooter({ isLoggedIn = false, firstName }: Con
                 <span>4140 Broadway, Fl 2 @ NoMAA</span>
                 <span>New York, NY 10033</span>
                 <span>O: (212) 717-5419</span>
+                <span>F: (866) 679-8943</span>
                 <span>Español: (646) 586-8661</span>
               </div>
               <div className="pub-footer-location-hours">
@@ -141,8 +141,8 @@ export default function ConditionalFooter({ isLoggedIn = false, firstName }: Con
             © {new Date().getFullYear()} American Youth Dance Theater. All rights reserved. · Est. 1996, New York City.
           </div>
           <div className="pub-footer-bottom-links">
-            <Link href="#" className="pub-footer-bottom-link">Privacy Policy</Link>
-            <Link href="#" className="pub-footer-bottom-link">Terms of Use</Link>
+            <a href="https://aydt.nyc/privacy-policy/" target="_blank" rel="noopener" className="pub-footer-bottom-link">Privacy Policy</a>
+            <a href="https://aydt.nyc/terms-of-use/" target="_blank" rel="noopener" className="pub-footer-bottom-link">Terms of Use</a>
             <Link href="#" className="pub-footer-bottom-link">Accessibility</Link>
           </div>
         </div>

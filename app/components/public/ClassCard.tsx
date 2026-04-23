@@ -91,9 +91,11 @@ function groupBySchedule(sessions: PublicSession[]): ScheduleGroup[] {
 function ScCard({
   group,
   discStripeColor,
+  spotsThreshold,
 }: {
   group: ScheduleGroup;
   discStripeColor: string;
+  spotsThreshold: number;
 }) {
   const { add, remove, sessionIds } = useCart();
   const rep = group.representative;
@@ -101,10 +103,6 @@ function ScCard({
   // Use representative session's ID for cart operations
   const inCart = sessionIds.includes(rep.id);
   const isFull = rep.spotsRemaining <= 0;
-  const capacity = rep.capacity;
-  const enrolled = rep.enrolledCount;
-  const pct = capacity > 0 ? Math.round((enrolled / capacity) * 100) : 0;
-  const fillClass = pct >= 100 ? "danger" : pct >= 80 ? "warn" : "";
 
   // Availability badge
   let badgeClass = "sem-badge-sage";
@@ -115,9 +113,9 @@ function ScCard({
   } else if (isFull && rep.waitlistEnabled) {
     badgeClass = "sem-badge-rose";
     badgeLabel = "Waitlist";
-  } else if (rep.spotsRemaining <= 3) {
+  } else if (rep.spotsRemaining <= spotsThreshold) {
     badgeClass = "sem-badge-amber";
-    badgeLabel = `${rep.spotsRemaining} spot${rep.spotsRemaining !== 1 ? "s" : ""}`;
+    badgeLabel = `${rep.spotsRemaining} spot${rep.spotsRemaining !== 1 ? "s" : ""} left`;
   }
 
   // Price display
@@ -202,14 +200,6 @@ function ScCard({
         )}
       </div>
 
-      {capacity > 0 && (
-        <>
-          <div className="sem-cap-label">{enrolled} of {capacity} enrolled</div>
-          <div className="sem-cap-bar">
-            <div className={`sem-cap-fill${fillClass ? ` ${fillClass}` : ""}`} style={{ width: `${pct}%` }} />
-          </div>
-        </>
-      )}
 
       <div className="sem-sc-footer">
         <div>
@@ -268,7 +258,7 @@ function ScCard({
 /* -------------------------------------------------------------------------- */
 /* ClassCard — accordion                                                        */
 /* -------------------------------------------------------------------------- */
-export function ClassCard({ group }: { group: GroupedClass }) {
+export function ClassCard({ group, spotsThreshold = 0 }: { group: GroupedClass; spotsThreshold?: number }) {
   const { sessionIds } = useCart();
   const cartCount = group.sessions.filter((s) => sessionIds.includes(s.id)).length;
   const [isOpen, setIsOpen] = useState(cartCount > 0);
@@ -280,8 +270,8 @@ export function ClassCard({ group }: { group: GroupedClass }) {
   const allFull = scheduleGroups.every(
     (sg) => sg.representative.spotsRemaining <= 0 && !sg.representative.waitlistEnabled
   );
-  const anyLow = !allFull && scheduleGroups.some(
-    (sg) => sg.representative.spotsRemaining > 0 && sg.representative.spotsRemaining <= 3
+  const anyLow = spotsThreshold > 0 && !allFull && scheduleGroups.some(
+    (sg) => sg.representative.spotsRemaining > 0 && sg.representative.spotsRemaining <= spotsThreshold
   );
 
   let headerBadgeClass = "sem-badge-sage";
@@ -299,6 +289,17 @@ export function ClassCard({ group }: { group: GroupedClass }) {
   if (group.minAge != null && group.maxAge != null) ageLabel = `Ages ${group.minAge}–${group.maxAge}`;
   else if (group.minAge != null) ageLabel = `Ages ${group.minAge}+`;
   else if (group.maxAge != null) ageLabel = `Ages up to ${group.maxAge}`;
+
+  // Grade range label (only shown when grade params set, not age)
+  let gradeLabel = "";
+  if (group.minGrade != null || group.maxGrade != null) {
+    if (group.minGrade != null && group.maxGrade != null)
+      gradeLabel = `Grades ${numToGrade(group.minGrade)}–${numToGrade(group.maxGrade)}`;
+    else if (group.minGrade != null)
+      gradeLabel = `Grades ${numToGrade(group.minGrade)}+`;
+    else
+      gradeLabel = `Grades up to ${numToGrade(group.maxGrade!)}`;
+  }
 
   // Preview details derived from first schedule group
   const firstSG = scheduleGroups[0];
@@ -345,6 +346,11 @@ export function ClassCard({ group }: { group: GroupedClass }) {
             {ageLabel && (
               <span className="sem-badge" style={{ background: "var(--plum-50)", color: "var(--plum-700)" }}>
                 {ageLabel}
+              </span>
+            )}
+            {gradeLabel && (
+              <span className="sem-badge" style={{ background: "var(--plum-50)", color: "var(--plum-700)" }}>
+                {gradeLabel}
               </span>
             )}
             <span className={`sem-badge ${headerBadgeClass}`}>
@@ -422,6 +428,25 @@ export function ClassCard({ group }: { group: GroupedClass }) {
               {group.description}
             </div>
           )}
+          {group.prerequisites && group.prerequisites.length > 0 && (
+            <div className="sem-prereq-block">
+              {group.prerequisites.map((req) => (
+                <div key={req.id} className="sem-prereq-row">
+                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+                    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4"/>
+                    <path d="M8 5v4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                    <circle cx="8" cy="11.5" r="0.75" fill="currentColor"/>
+                  </svg>
+                  <span>{req.description}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {group.registrationNote && (
+            <div className="sem-reg-note">
+              {group.registrationNote}
+            </div>
+          )}
           <div className="sem-sessions-intro">
             <span className="sem-sessions-intro-label">
               {scheduleGroups.length} available option{scheduleGroups.length !== 1 ? "s" : ""}
@@ -430,7 +455,7 @@ export function ClassCard({ group }: { group: GroupedClass }) {
           </div>
           <div className="sem-sessions-grid">
             {scheduleGroups.map((sg) => (
-              <ScCard key={sg.key} group={sg} discStripeColor={stripeColor} />
+              <ScCard key={sg.key} group={sg} discStripeColor={stripeColor} spotsThreshold={spotsThreshold} />
             ))}
           </div>
         </div>
@@ -442,6 +467,10 @@ export function ClassCard({ group }: { group: GroupedClass }) {
 /* -------------------------------------------------------------------------- */
 /* Utilities                                                                    */
 /* -------------------------------------------------------------------------- */
+
+function numToGrade(n: number): string {
+  return n === 0 ? "K" : String(n);
+}
 
 /** Strip trailing parenthetical like " (Monday)" or " (Mon/Wed)" from display names. */
 function stripDaySuffix(name: string): string {

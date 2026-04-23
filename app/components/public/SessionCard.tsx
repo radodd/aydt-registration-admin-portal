@@ -129,12 +129,11 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
           {/* Grade range */}
           {(session.minGrade != null || session.maxGrade != null) && (
             <span>
-              Grade{" "}
               {session.minGrade != null && session.maxGrade != null
-                ? `${session.minGrade}–${session.maxGrade}`
+                ? `Grades ${numToGrade(session.minGrade)}–${numToGrade(session.maxGrade)}`
                 : session.minGrade != null
-                  ? `${session.minGrade}+`
-                  : `up to ${session.maxGrade}`}
+                  ? `Grades ${numToGrade(session.minGrade)}+`
+                  : `Grades up to ${numToGrade(session.maxGrade!)}`}
             </span>
           )}
         </div>
@@ -152,16 +151,18 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
             className={`font-medium ${
               isFull
                 ? "text-red-600"
-                : session.spotsRemaining <= 5
+                : session.spotsRemaining <= 2
                   ? "text-mauve-text"
-                  : "text-green-600"
+                  : ""
             }`}
           >
             {isFull
               ? "Full"
               : session.waitlistEnabled && session.spotsRemaining === 0
                 ? "Waitlist available"
-                : `${session.spotsRemaining} spot${session.spotsRemaining !== 1 ? "s" : ""} remaining`}
+                : session.spotsRemaining <= 2
+                  ? `${session.spotsRemaining} spot${session.spotsRemaining !== 1 ? "s" : ""} left`
+                  : ""}
           </span>
 
           {price > 0 && (
@@ -230,6 +231,10 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
       </div>
     </div>
   );
+}
+
+function numToGrade(n: number): string {
+  return n === 0 ? "K" : String(n);
 }
 
 function fmtDate(d: string): string {

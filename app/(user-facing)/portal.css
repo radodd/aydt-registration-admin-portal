@@ -1108,6 +1108,10 @@ html { scroll-behavior: smooth; }
 .sem-class-meta-row { display: flex; align-items: center; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
 .sem-class-meta-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--pub-text-muted); }
 .sem-class-desc { font-size: 12px; color: var(--pub-text-muted); margin-top: 4px; line-height: 1.5; }
+.sem-prereq-block { display: flex; flex-direction: column; gap: 4px; padding: 8px 0 4px; border-bottom: 1px solid var(--pub-border-subtle); margin-bottom: 4px; }
+.sem-prereq-row { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--plum-600, #6b3fa0); line-height: 1.4; }
+.sem-prereq-row svg { color: var(--plum-600, #6b3fa0); }
+.sem-reg-note { font-size: 12px; color: var(--pub-text-muted); padding: 6px 10px; background: var(--pub-surface-warm); border-radius: 6px; border: 1px solid var(--pub-border-subtle); margin-bottom: 4px; line-height: 1.5; }
 .sem-class-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .sem-session-count { text-align: right; }
 .sem-session-num { font-family: var(--pub-font-secondary); font-size: 18px; font-weight: 700; color: var(--pub-text-primary); }

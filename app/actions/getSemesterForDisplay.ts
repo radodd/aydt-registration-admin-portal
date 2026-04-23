@@ -7,6 +7,7 @@ import type {
   PublicSession,
   PublicSessionGroup,
   PublicPaymentPlan,
+  PublicFeeConfig,
   PublicAvailableDay,
 } from "@/types/public";
 import type { HydratedDiscount, RegistrationFormElement } from "@/types";
@@ -43,6 +44,8 @@ export async function getSemesterForDisplay(
       name,
       status,
       description,
+      location,
+      capacity_warning_threshold,
       publish_at,
       registration_form,
       waitlist_settings,
@@ -52,6 +55,7 @@ export async function getSemesterForDisplay(
         discipline,
         division,
         description,
+        registration_note,
         min_age,
         max_age,
         min_grade,
@@ -60,6 +64,7 @@ export async function getSemesterForDisplay(
         is_competition_track,
         visibility,
         enrollment_type,
+        class_requirements!class_requirements_class_id_fkey ( id, requirement_type, description, enforcement ),
         class_sessions (
           id,
           schedule_id,
@@ -91,6 +96,13 @@ export async function getSemesterForDisplay(
         session_group_sessions ( session_id )
       ),
       semester_payment_plans (*),
+      semester_fee_config (
+        registration_fee_per_child,
+        family_discount_amount,
+        junior_costume_fee_per_class,
+        senior_video_fee_per_registrant,
+        senior_costume_fee_per_class
+      ),
       semester_discounts (
         discount_id,
         discount:discounts (
@@ -263,6 +275,13 @@ export async function getSemesterForDisplay(
             priceTiers,
             dropInPrice: cs.drop_in_price ?? null,
             isCompetitionTrack: c.is_competition_track ?? false,
+            prerequisites: ((c.class_requirements ?? []) as ClassRequirementRow[]).map((r) => ({
+              id: r.id,
+              requirementType: r.requirement_type,
+              description: r.description,
+              enforcement: r.enforcement as "soft_warn" | "hard_block",
+            })),
+            registrationNote: c.registration_note ?? null,
           } satisfies PublicSession;
         }),
   );
@@ -295,6 +314,19 @@ export async function getSemesterForDisplay(
         depositPercent: plan.deposit_percent,
         installmentCount: plan.installment_count,
         dueDate: plan.due_date,
+      }
+    : null;
+
+  const rawFeeConfig = Array.isArray(semester.semester_fee_config)
+    ? (semester.semester_fee_config[0] as FeeConfigRow | undefined)
+    : (semester.semester_fee_config as FeeConfigRow | null);
+  const publicFeeConfig: PublicFeeConfig | null = rawFeeConfig
+    ? {
+        registrationFeePerChild: Number(rawFeeConfig.registration_fee_per_child ?? 40),
+        familyDiscountAmount: Number(rawFeeConfig.family_discount_amount ?? 50),
+        juniorCostumeFeePerClass: Number(rawFeeConfig.junior_costume_fee_per_class ?? 55),
+        seniorCostumeFeePerClass: Number(rawFeeConfig.senior_costume_fee_per_class ?? 65),
+        seniorVideoFeePerRegistrant: Number(rawFeeConfig.senior_video_fee_per_registrant ?? 15),
       }
     : null;
 
@@ -343,6 +375,8 @@ export async function getSemesterForDisplay(
     name: semester.name,
     status: semester.status,
     description: semester.description ?? null,
+    location: (semester.location as string | null) ?? null,
+    capacityWarningThreshold: (semester.capacity_warning_threshold as number | null) ?? null,
     startDate,
     endDate,
     // For scheduled semesters, publish_at is the registration open time.
@@ -352,6 +386,7 @@ export async function getSemesterForDisplay(
         ? ((semester.publish_at as string | null) ?? null)
         : null,
     paymentPlan: publicPaymentPlan,
+    feeConfig: publicFeeConfig,
     registrationForm: registrationFormElements,
     sessions: publicSessions,
     sessionGroups: publicGroups,
@@ -418,12 +453,20 @@ interface ClassSessionRow {
   class_schedules: ClassScheduleRow | null;
 }
 
+interface ClassRequirementRow {
+  id: string;
+  requirement_type: string;
+  description: string;
+  enforcement: string;
+}
+
 interface ClassRow {
   id: string;
   name: string;
   discipline: string;
   division: string;
   description: string | null;
+  registration_note?: string | null;
   min_age: number | null;
   max_age: number | null;
   min_grade: number | null;
@@ -432,6 +475,7 @@ interface ClassRow {
   is_competition_track: boolean;
   visibility?: string;
   enrollment_type?: string;
+  class_requirements?: ClassRequirementRow[];
   class_sessions: ClassSessionRow[];
 }
 
@@ -447,4 +491,12 @@ interface PaymentPlanRow {
   deposit_percent: number | null;
   installment_count: number | null;
   due_date: string | null;
+}
+
+interface FeeConfigRow {
+  registration_fee_per_child: number | null;
+  family_discount_amount: number | null;
+  junior_costume_fee_per_class: number | null;
+  senior_video_fee_per_registrant: number | null;
+  senior_costume_fee_per_class: number | null;
 }

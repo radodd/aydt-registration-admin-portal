@@ -6,6 +6,8 @@ export interface UpdateUserProfileInput {
   first_name: string;
   last_name: string;
   phone_number: string;
+  phone_number_alt: string;
+  cc_alternate_parent: boolean;
   address_line1: string;
   address_line2: string;
   city: string;
@@ -30,6 +32,8 @@ export async function updateUserProfile(
       first_name: input.first_name,
       last_name: input.last_name,
       phone_number: input.phone_number,
+      phone_number_alt: input.phone_number_alt || null,
+      cc_alternate_parent: input.cc_alternate_parent,
       address_line1: input.address_line1 || null,
       address_line2: input.address_line2 || null,
       city: input.city || null,

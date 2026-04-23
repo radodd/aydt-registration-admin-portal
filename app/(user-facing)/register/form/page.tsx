@@ -15,6 +15,17 @@ import { createClient } from "@/utils/supabase/client";
 import { formatPhone } from "@/utils/formatPhone";
 import type { FamilyContact, RegistrationFormElement, ProfileFieldKey } from "@/types";
 import type { PublicSemester } from "@/types/public";
+import { saveReferralSource } from "../actions/saveReferralSource";
+
+const REFERRAL_OPTIONS = [
+  "Word of mouth (friend or family)",
+  "Social media (Instagram, Facebook, TikTok)",
+  "Online search (Google, etc.)",
+  "Flyer or printed ad",
+  "School or community center",
+  "Returning student / family",
+  "Other",
+];
 
 /* -------------------------------------------------------------------------- */
 /* Field renderer — portal design system                                       */
@@ -187,6 +198,10 @@ export function FormContent({
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  const isFirstRegistration = !userRecord?.referral_source;
+  const [referralSource, setReferralSource] = useState("");
+  const [referralError, setReferralError] = useState(false);
+
   // Family contacts + dancers for profile auto-fill
   const [familyContacts, setFamilyContacts] = useState<FamilyContact[]>([]);
   const [firstDancer, setFirstDancer] = useState<{
@@ -346,7 +361,14 @@ export function FormContent({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [semester, contactsLoaded]);
 
-  function onSubmit(data: Record<string, unknown>) {
+  async function onSubmit(data: Record<string, unknown>) {
+    if (isFirstRegistration && !referralSource) {
+      setReferralError(true);
+      return;
+    }
+    if (isFirstRegistration && referralSource) {
+      await saveReferralSource(referralSource);
+    }
     setFormData(data);
     router.push(continueUrl);
   }
@@ -394,8 +416,8 @@ export function FormContent({
     );
   }
 
-  /* ── No form elements — skip this step ── */
-  if (elements.length === 0) {
+  /* ── No form elements — show referral question if first registration, else skip ── */
+  if (elements.length === 0 && !isFirstRegistration) {
     return (
       <div style={{ textAlign: "center", padding: "40px 0" }}>
         <div style={{
@@ -443,6 +465,30 @@ export function FormContent({
         <h1 className="reg-page-title">Registration Information</h1>
         <p className="reg-page-desc">Please complete all required fields before continuing to payment.</p>
       </div>
+
+      {/* How did you hear about us — first-time families only */}
+      {isFirstRegistration && (
+        <div className="reg-field" style={{ marginBottom: 4 }}>
+          <label className="reg-label">
+            How did you hear about us?
+            <span style={{ color: "var(--wine)", marginLeft: 3 }}>*</span>
+          </label>
+          <select
+            className="reg-input"
+            value={referralSource}
+            onChange={(e) => { setReferralSource(e.target.value); setReferralError(false); }}
+            style={referralError ? { borderColor: "var(--wine)" } : undefined}
+          >
+            <option value="">— Select one —</option>
+            {REFERRAL_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+          {referralError && (
+            <span className="reg-error">Please let us know how you heard about us.</span>
+          )}
+        </div>
+      )}
 
       {/* Form fields */}
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

@@ -36,42 +36,12 @@ const DISCIPLINE_LABELS: Record<string, string> = {
   broadway: "Broadway", technique: "Technique", pointe: "Pointe", acro: "Acro",
 };
 
-/* ── Toggle switch ───────────────────────────────────────────── */
-
-function ToggleSwitch({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      style={{
-        position: "relative", width: 38, height: 22, flexShrink: 0,
-        marginTop: 1, cursor: "pointer", userSelect: "none",
-      }}
-    >
-      <div style={{
-        position: "absolute", inset: 0, borderRadius: 11,
-        background: checked ? "var(--plum)" : "var(--pub-border)",
-        transition: "background .2s",
-      }} />
-      <div style={{
-        position: "absolute",
-        top: 3,
-        left: checked ? 19 : 3,
-        width: 16, height: 16, borderRadius: "50%",
-        background: "#fff",
-        transition: "left .2s",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
-      }} />
-    </div>
-  );
-}
+const GRADE_OPTIONS = [
+  "N/A", "Pre-K", "K",
+  "1", "2", "3", "4", "5", "6",
+  "7", "8", "9", "10", "11", "12",
+  "College / Adult",
+];
 
 /* ── Shared input styles ─────────────────────────────────────── */
 
@@ -124,16 +94,25 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
     school: dancer.school ?? "",
     secondary_email: dancer.secondary_email ?? "",
     phone_number: dancer.phone_number ?? "",
-    is_student_contact_priority: dancer.is_student_contact_priority ?? false,
   });
 
-  function set(field: keyof typeof form, value: string | boolean) {
+  function set(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
   async function handleSave() {
     setSaving(true);
     setError(null);
+    if (!form.grade.trim()) {
+      setError("Grade is required. Enter a grade or select N/A.");
+      setSaving(false);
+      return;
+    }
+    if (!form.school.trim()) {
+      setError("School is required. Enter a school name or N/A.");
+      setSaving(false);
+      return;
+    }
     try {
       await updateDancer({ id: dancer.id, ...form });
       setEditing(false);
@@ -154,7 +133,6 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
       school: dancer.school ?? "",
       secondary_email: dancer.secondary_email ?? "",
       phone_number: dancer.phone_number ?? "",
-      is_student_contact_priority: dancer.is_student_contact_priority ?? false,
     });
     setError(null);
     setEditing(false);
@@ -201,15 +179,6 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
               <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>
                 {dancer.first_name} {dancer.last_name}
               </div>
-              {dancer.is_student_contact_priority && (
-                <span style={{
-                  padding: "2px 7px", borderRadius: 999, fontSize: 10, fontWeight: 700,
-                  background: "var(--plum-50)", color: "var(--plum-700)",
-                  border: "1px solid var(--plum-100)",
-                }}>
-                  Student Contact
-                </span>
-              )}
             </div>
 
             {/* Metadata pills */}
@@ -314,7 +283,7 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
           )}
         </div>
 
-        {/* Student contact info row (view mode, only when not editing) */}
+        {/* Student contact info row (view mode) */}
         {hasStudentContact && !editing && (
           <div style={{
             marginTop: 10,
@@ -379,24 +348,58 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
               <input type="date" value={form.birth_date} onChange={(e) => set("birth_date", e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Grade <span style={optionalLabel}>(optional)</span></label>
-              <input type="text" placeholder="e.g. 5 or K" value={form.grade} onChange={(e) => set("grade", e.target.value)} style={inputStyle} />
+              <label style={labelStyle}>
+                Grade <span style={{ color: "var(--wine)" }}>*</span>
+              </label>
+              <select
+                value={form.grade}
+                onChange={(e) => set("grade", e.target.value)}
+                style={{ ...inputStyle, cursor: "pointer" }}
+              >
+                <option value="">— Select —</option>
+                {GRADE_OPTIONS.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
             </div>
           </div>
 
           <div style={{ marginBottom: 0 }}>
-            <label style={labelStyle}>School <span style={optionalLabel}>(optional)</span></label>
-            <input type="text" placeholder="Lincoln Elementary" value={form.school} onChange={(e) => set("school", e.target.value)} style={inputStyle} />
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>
+                School <span style={{ color: "var(--wine)" }}>*</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => set("school", "N/A")}
+                style={{
+                  fontSize: 11, fontWeight: 600,
+                  color: "var(--pub-text-faint)",
+                  background: "none", border: "1px solid var(--pub-border-subtle)",
+                  borderRadius: 5, padding: "1px 7px",
+                  cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                N/A
+              </button>
+            </div>
+            <input
+              type="text"
+              placeholder="Lincoln Elementary — or click N/A"
+              value={form.school}
+              onChange={(e) => set("school", e.target.value)}
+              style={inputStyle}
+            />
           </div>
 
-          {/* — Student Account — */}
+          {/* — Student Contact — */}
           <div style={sectionDivider}>
-            <div style={sectionHeading}>Student Account</div>
+            <div style={sectionHeading}>Student Contact</div>
             <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 12 }}>
               For older students who manage their own communications.
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div>
                 <label style={labelStyle}>Student Email <span style={optionalLabel}>(optional)</span></label>
                 <input
@@ -417,27 +420,6 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
                   style={inputStyle}
                 />
               </div>
-            </div>
-
-            <div style={{
-              display: "flex", alignItems: "flex-start", gap: 12,
-              padding: "12px 14px",
-              background: "var(--plum-50)",
-              border: "1px solid var(--plum-100)",
-              borderRadius: 8,
-            }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--pub-text-primary)" }}>
-                  Student is primary contact
-                </div>
-                <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginTop: 2, lineHeight: 1.5 }}>
-                  When enabled, the student&#39;s email and phone are prioritized over the parent&#39;s for non-emergency communications.
-                </div>
-              </div>
-              <ToggleSwitch
-                checked={form.is_student_contact_priority}
-                onChange={(v) => set("is_student_contact_priority", v)}
-              />
             </div>
           </div>
 
