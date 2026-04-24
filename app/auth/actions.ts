@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { signUpSchema } from "../lib/validation/auth";
 
 export async function login(formData: FormData) {
@@ -31,7 +32,6 @@ export async function login(formData: FormData) {
 }
 
 export async function signUp(formData: FormData) {
-  console.log(...formData);
   const values = signUpSchema.safeParse({
     first_name: formData.get("first_name"),
     last_name: formData.get("last_name"),
@@ -44,24 +44,27 @@ export async function signUp(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const adminSupabase = createAdminClient();
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const first_name = formData.get("first_name") as string;
   const last_name = formData.get("last_name") as string;
 
+  const next = formData.get("next") as string | null;
+  const callbackNext = next?.startsWith("/") ? next : "/";
+
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      // emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback`,
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?next=${encodeURIComponent(callbackNext)}`,
       data: {
         first_name,
         last_name,
       },
     },
   });
-  console.log("Auth Data", authData);
 
   if (authError) {
     console.error("Auth signup error:", authError.message);
@@ -74,8 +77,8 @@ export async function signUp(formData: FormData) {
     redirect("/error");
   }
 
-  // 🧠 3. Create family record (optional)
-  const { data: family, error: familyError } = await supabase
+  // Use service role client to bypass RLS — new users have no insert permissions yet
+  const { data: family, error: familyError } = await adminSupabase
     .from("families")
     .insert([{ family_name: `${last_name} Family` }])
     .select()
@@ -85,10 +88,9 @@ export async function signUp(formData: FormData) {
     console.warn("Family creation error (non-blocking):", familyError.message);
   }
 
-  // 🧠 4. Create matching user row
-  const { error: userError } = await supabase.from("users").insert([
+  const { error: userError } = await adminSupabase.from("users").insert([
     {
-      id: authUser.id, // match with auth.users UUID
+      id: authUser.id,
       family_id: family?.id || null,
       first_name,
       last_name,
@@ -104,11 +106,8 @@ export async function signUp(formData: FormData) {
     redirect("/error");
   }
 
-  // 5. Revalidate and redirect
   revalidatePath("/", "layout");
-  const next = formData.get("next") as string | null;
-  const safePath = next?.startsWith("/") ? next : "/";
-  redirect(safePath);
+  redirect(`/auth?message=check_email&email=${encodeURIComponent(email)}`);
 }
 
 export async function signOut() {
