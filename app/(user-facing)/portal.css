@@ -1,3 +1,12 @@
+@font-face {
+  font-family: 'Mayonice';
+  src: url('/fonts/Mayonice.otf') format('opentype'),
+       url('/fonts/Mayonice.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ═══════════════════════════════════════
    DESIGN TOKENS — USER PORTAL v2
    Public-facing registration portal.

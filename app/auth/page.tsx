@@ -14,6 +14,9 @@ function AuthForm() {
   const tabParam = searchParams.get("tab");
   const errorParam = searchParams.get("error");
 
+  const messageParam = searchParams.get("message");
+  const prefillEmailFromMessage = searchParams.get("email") ?? "";
+
   const [activeTab, setActiveTab] = useState<"login" | "signup">(
     tabParam === "signup" ? "signup" : "login"
   );
@@ -78,8 +81,31 @@ function AuthForm() {
       {/* Form panel */}
       <div className="aydt-form-panel">
         <div className="aydt-form-inner">
+          {/* Check email confirmation screen */}
+          {messageParam === "check_email" && (
+            <div>
+              <h2 className="aydt-auth-heading">Check your email</h2>
+              <p className="aydt-auth-subhead">
+                We sent a confirmation link to{" "}
+                {prefillEmailFromMessage ? <strong>{prefillEmailFromMessage}</strong> : "your email address"}.
+                Click the link to activate your account.
+              </p>
+              <p style={{ fontSize: 14, color: "var(--color-text-muted, #6b7280)", marginTop: 12 }}>
+                Didn&apos;t get it? Check your spam folder, or{" "}
+                <button
+                  type="button"
+                  className="aydt-auth-link"
+                  onClick={() => setActiveTab("signup")}
+                >
+                  try signing up again
+                </button>
+                .
+              </p>
+            </div>
+          )}
+
           {/* Login screen */}
-          {activeTab === "login" && (
+          {!messageParam && activeTab === "login" && (
             <div>
               <h2 className="aydt-auth-heading">Welcome back</h2>
               <p className="aydt-auth-subhead">Sign in to manage your family&apos;s registrations.</p>
@@ -155,7 +181,7 @@ function AuthForm() {
           )}
 
           {/* Signup screen */}
-          {activeTab === "signup" && (
+          {!messageParam && activeTab === "signup" && (
             <div>
               <h2 className="aydt-auth-heading">Create your account</h2>
               <p className="aydt-auth-subhead">Set up your family account to get started.</p>
