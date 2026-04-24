@@ -16,7 +16,7 @@ export default async function Profile() {
   const { data: user } = await supabase
     .from("users")
     .select(
-      "id, family_id, email, first_name, middle_name, last_name, phone_number, is_primary_parent, role, status, created_at, address_line1, address_line2, city, state, zipcode, sms_opt_in, sms_verified",
+      "id, family_id, email, first_name, middle_name, last_name, phone_number, phone_number_alt, cc_alternate_parent, referral_source, is_primary_parent, role, status, created_at, address_line1, address_line2, city, state, zipcode, sms_opt_in, sms_verified",
     )
     .eq("id", authUser.id)
     .single();
@@ -27,7 +27,13 @@ export default async function Profile() {
 
   const { data: dancers } = await supabase
     .from("dancers")
-    .select("id, first_name, last_name, birth_date, grade")
+    .select("id, first_name, last_name, birth_date, grade, school, secondary_email, phone_number")
+    .eq("family_id", user.family_id)
+    .order("created_at", { ascending: true });
+
+  const { data: contacts } = await supabase
+    .from("family_contacts")
+    .select("id, family_id, type, first_name, last_name, phone, email, relationship, is_authorized_pickup, notes, created_at, updated_at")
     .eq("family_id", user.family_id)
     .order("created_at", { ascending: true });
 
@@ -62,6 +68,8 @@ export default async function Profile() {
       registrations={registrations as any}
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       batches={batches as any}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      contacts={contacts as any}
     />
   );
 }

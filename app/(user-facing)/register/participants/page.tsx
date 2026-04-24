@@ -203,31 +203,44 @@ function DancerSelector({
 
       {/* Eligibility criteria note */}
       {hasCriteria && (
-        <p style={{ fontSize: 12, color: "var(--pub-text-faint)", marginBottom: 12 }}>
-          {(minAge != null || maxAge != null) && (
-            <span>
-              Ages{" "}
-              {minAge != null && maxAge != null
-                ? `${minAge}–${maxAge}`
-                : minAge != null
-                  ? `${minAge}+`
-                  : `up to ${maxAge}`}
-            </span>
-          )}
-          {(minAge != null || maxAge != null) && (minGrade != null || maxGrade != null) && (
-            <span> or </span>
-          )}
-          {(minGrade != null || maxGrade != null) && (
-            <span>
-              Grade{" "}
-              {minGrade != null && maxGrade != null
-                ? `${minGrade}–${maxGrade}`
-                : minGrade != null
-                  ? `${minGrade}+`
-                  : `up to ${maxGrade}`}
-            </span>
-          )}
-        </p>
+        <div style={{
+          display: "flex", alignItems: "flex-start", gap: 8,
+          padding: "8px 12px", marginBottom: 12,
+          background: "var(--plum-50)", border: "1px solid var(--plum-100)",
+          borderRadius: 8, fontSize: 12, color: "var(--plum-700)",
+        }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, marginTop: 1 }}>
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>
+            <strong>Class requirement: </strong>
+            {(minAge != null || maxAge != null) && (
+              <span>
+                Ages{" "}
+                {minAge != null && maxAge != null
+                  ? `${minAge}–${maxAge}`
+                  : minAge != null
+                    ? `${minAge}+`
+                    : `up to ${maxAge}`}
+              </span>
+            )}
+            {(minAge != null || maxAge != null) && (minGrade != null || maxGrade != null) && (
+              <span> or </span>
+            )}
+            {(minGrade != null || maxGrade != null) && (
+              <span>
+                Grade{" "}
+                {minGrade != null && maxGrade != null
+                  ? `${minGrade}–${maxGrade}`
+                  : minGrade != null
+                    ? `${minGrade}+`
+                    : `up to ${maxGrade}`}
+              </span>
+            )}
+          </span>
+        </div>
       )}
 
       {/* Existing dancer cards */}
@@ -445,38 +458,46 @@ function DancerSelector({
       )}
 
       {/* Eligibility messages */}
-      {assignment?.dancerId && ageStatus === "warning" && (
-        <div
-          style={{
-            marginTop: 10,
-            padding: "8px 12px",
-            background: "var(--plum-50)",
-            border: "1px solid var(--plum-100)",
-            borderRadius: 8,
-            fontSize: 12,
-            color: "var(--plum-700)",
-          }}
-        >
-          This dancer is near the age limit. Please confirm eligibility.
-        </div>
-      )}
-      {assignment?.dancerId && ageStatus === "error" && (
-        <div
-          style={{
-            marginTop: 10,
-            padding: "8px 12px",
-            background: "#FDE8E8",
-            border: "1px solid #F5AEAE",
-            borderRadius: 8,
-            fontSize: 12,
-            color: "#7A2018",
-          }}
-        >
-          This dancer does not meet the{" "}
-          {minGrade != null || maxGrade != null ? "age or grade" : "age"}{" "}
-          requirement for this session.
-        </div>
-      )}
+      {assignment?.dancerId && (ageStatus === "warning" || ageStatus === "error") && (() => {
+        const dancer = existingDancers.find((d) => d.id === assignment.dancerId);
+        const name = dancer?.first_name ?? "This dancer";
+
+        const agePart =
+          minAge != null && maxAge != null ? `Ages ${minAge}–${maxAge}` :
+          minAge != null ? `Ages ${minAge}+` :
+          maxAge != null ? `Ages up to ${maxAge}` : null;
+
+        const gradePart =
+          minGrade != null && maxGrade != null ? `Grade ${minGrade}–${maxGrade}` :
+          minGrade != null ? `Grade ${minGrade}+` :
+          maxGrade != null ? `Grade up to ${maxGrade}` : null;
+
+        const req = [agePart, gradePart].filter(Boolean).join(" or ");
+
+        if (ageStatus === "warning") {
+          return (
+            <div style={{
+              marginTop: 10, padding: "8px 12px",
+              background: "var(--plum-50)", border: "1px solid var(--plum-100)",
+              borderRadius: 8, fontSize: 12, color: "var(--plum-700)",
+            }}>
+              <strong>{name}</strong> is near the age limit for this class{req ? ` (${req})` : ""}.
+              Please confirm their eligibility before continuing.
+            </div>
+          );
+        }
+
+        return (
+          <div style={{
+            marginTop: 10, padding: "8px 12px",
+            background: "#FDE8E8", border: "1px solid #F5AEAE",
+            borderRadius: 8, fontSize: 12, color: "#7A2018",
+          }}>
+            <strong>{name}</strong> does not meet the requirement for this class
+            {req ? `: ${req}` : ""}.
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -716,7 +737,7 @@ export function ParticipantsContent({
         <div className="reg-page-layout">
           {/* ── LEFT: main content ─────────────────────────────────────────── */}
           <div>
-            <div className="reg-page-eyebrow">Step 2 of 4</div>
+            <div className="reg-page-eyebrow">Step 3 of 6 — Dancer Info</div>
             <h1 className="reg-page-title">
               {firstName ? `${firstName}'s dancers` : "Assign dancers"}
             </h1>
@@ -760,7 +781,7 @@ export function ParticipantsContent({
                 {sessionIds.map((sid) => {
                   const info = scheduleMap.get(sid);
                   return (
-                    <div key={sid} style={{ position: "relative" }}>
+                    <div key={sid}>
                       <DancerSelector
                         sessionId={sid}
                         sessionName={info?.className ?? sid}
@@ -777,48 +798,6 @@ export function ParticipantsContent({
                         maxGrade={info?.maxGrade}
                         showSessionLabel={showSessionLabel}
                       />
-                      {/* Remove session button */}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSession(sid)}
-                        style={{
-                          position: "absolute",
-                          top: showSessionLabel ? 26 : 0,
-                          right: 0,
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          color: "var(--pub-text-faint)",
-                          padding: 4,
-                          borderRadius: 6,
-                          transition: "color .12s",
-                          lineHeight: 0,
-                        }}
-                        aria-label="Remove session"
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.color = "#7A2018")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.color = "var(--pub-text-faint)")
-                        }
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6M14 11v6" />
-                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                        </svg>
-                      </button>
                     </div>
                   );
                 })}
@@ -963,7 +942,7 @@ export function ParticipantsContent({
             className="btn-continue"
             style={{ flex: 2 }}
           >
-            Continue to Information
+            Continue to Registration Info
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
               <path
                 d="M6 3l5 5-5 5"

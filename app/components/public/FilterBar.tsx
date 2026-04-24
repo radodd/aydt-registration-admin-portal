@@ -156,7 +156,6 @@ export function FilterBar({ sessions, groups, filters, onChange, classCount }: F
 
       {disciplines.length > 0 && (
         <>
-          <div className="sem-filter-sep" />
           <FilterSection label="Discipline">
             <button
               type="button"
@@ -181,7 +180,6 @@ export function FilterBar({ sessions, groups, filters, onChange, classCount }: F
 
       {gradesInUse && (
         <>
-          <div className="sem-filter-sep" />
           <FilterSection label="Grade">
             <button
               type="button"
@@ -206,7 +204,6 @@ export function FilterBar({ sessions, groups, filters, onChange, classCount }: F
 
       {groups.length > 0 && (
         <>
-          <div className="sem-filter-sep" />
           <FilterSection label="Group">
             <button
               type="button"
@@ -228,8 +225,6 @@ export function FilterBar({ sessions, groups, filters, onChange, classCount }: F
           </FilterSection>
         </>
       )}
-
-      <div className="sem-filter-sep" />
 
       <label className="sem-spots-check">
         <input

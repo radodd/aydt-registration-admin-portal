@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Dancer } from "@/types";
 import { updateDancer } from "./actions/updateDancer";
+import { formatPhone } from "@/utils/formatPhone";
 
 interface DancerCardProps {
   dancer: Dancer;
@@ -35,6 +36,50 @@ const DISCIPLINE_LABELS: Record<string, string> = {
   broadway: "Broadway", technique: "Technique", pointe: "Pointe", acro: "Acro",
 };
 
+const GRADE_OPTIONS = [
+  "N/A", "Pre-K", "K",
+  "1", "2", "3", "4", "5", "6",
+  "7", "8", "9", "10", "11", "12",
+  "College / Adult",
+];
+
+/* ── Shared input styles ─────────────────────────────────────── */
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "8px 12px",
+  border: "1.5px solid var(--pub-border)",
+  borderRadius: 7,
+  fontFamily: "inherit",
+  fontSize: 13,
+  color: "var(--pub-text-primary)",
+  background: "var(--pub-surface)",
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 12, fontWeight: 600,
+  color: "var(--pub-text-primary)",
+  marginBottom: 4, display: "block",
+};
+
+const optionalLabel: React.CSSProperties = {
+  color: "var(--pub-text-faint)",
+  fontWeight: 400,
+};
+
+const sectionDivider: React.CSSProperties = {
+  borderTop: "1px solid var(--pub-border-subtle)",
+  margin: "14px 0 12px",
+  paddingTop: 12,
+};
+
+const sectionHeading: React.CSSProperties = {
+  fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+  letterSpacing: "0.6px", color: "var(--pub-text-faint)", marginBottom: 10,
+};
+
 export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: DancerCardProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -46,8 +91,9 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
     last_name: dancer.last_name ?? "",
     birth_date: dancer.birth_date ?? "",
     grade: dancer.grade ?? "",
-    secondary_email: dancer.secondary_email ?? "",
     school: dancer.school ?? "",
+    secondary_email: dancer.secondary_email ?? "",
+    phone_number: dancer.phone_number ?? "",
   });
 
   function set(field: keyof typeof form, value: string) {
@@ -57,6 +103,16 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
   async function handleSave() {
     setSaving(true);
     setError(null);
+    if (!form.grade.trim()) {
+      setError("Grade is required. Enter a grade or select N/A.");
+      setSaving(false);
+      return;
+    }
+    if (!form.school.trim()) {
+      setError("School is required. Enter a school name or N/A.");
+      setSaving(false);
+      return;
+    }
     try {
       await updateDancer({ id: dancer.id, ...form });
       setEditing(false);
@@ -74,8 +130,9 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
       last_name: dancer.last_name ?? "",
       birth_date: dancer.birth_date ?? "",
       grade: dancer.grade ?? "",
-      secondary_email: dancer.secondary_email ?? "",
       school: dancer.school ?? "",
+      secondary_email: dancer.secondary_email ?? "",
+      phone_number: dancer.phone_number ?? "",
     });
     setError(null);
     setEditing(false);
@@ -84,30 +141,15 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
   const initials = `${dancer.first_name?.[0] ?? ""}${dancer.last_name?.[0] ?? ""}`.toUpperCase();
   const age = getAge(dancer.birth_date);
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%",
-    padding: "8px 12px",
-    border: "1.5px solid var(--pub-border)",
-    borderRadius: 7,
-    fontFamily: "inherit",
-    fontSize: 13,
-    color: "var(--pub-text-primary)",
-    background: "var(--pub-surface)",
-    outline: "none",
-    boxSizing: "border-box",
-  };
-  const labelStyle: React.CSSProperties = {
-    fontSize: 12, fontWeight: 600,
-    color: "var(--pub-text-primary)",
-    marginBottom: 4, display: "block",
-  };
-
-  /* ── Metadata pills ── */
+  /* ── Metadata pills for view mode ── */
   const metaPills = [
     age !== null ? `Age ${age}` : null,
     dancer.grade ? `Grade ${dancer.grade}` : null,
     dancer.school ?? null,
   ].filter(Boolean) as string[];
+
+  /* ── Student contact info for view mode ── */
+  const hasStudentContact = !!(dancer.secondary_email || dancer.phone_number);
 
   return (
     <div style={{
@@ -133,8 +175,10 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
 
           {/* Name + meta */}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.2, marginBottom: 4 }}>
-              {dancer.first_name} {dancer.last_name}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>
+                {dancer.first_name} {dancer.last_name}
+              </div>
             </div>
 
             {/* Metadata pills */}
@@ -154,7 +198,7 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
               </div>
             )}
 
-            {/* DOB — smaller, secondary line */}
+            {/* DOB */}
             {dancer.birth_date && (
               <div style={{ fontSize: 11, color: "var(--pub-text-faint)", marginTop: 2 }}>
                 DOB {formatDOB(dancer.birth_date)}
@@ -178,7 +222,7 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
             )}
           </div>
 
-          {/* Action buttons — top-right */}
+          {/* Action buttons */}
           {!editing && (
             <div style={{ display: "flex", gap: 5, flexShrink: 0, marginTop: 1 }}>
               {onViewRegistrations && (
@@ -202,7 +246,6 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
                     (e.currentTarget as HTMLButtonElement).style.color = "var(--pub-text-muted)";
                   }}
                 >
-                  {/* Classes icon */}
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                     <rect x="3" y="4" width="18" height="18" rx="2"/>
                     <line x1="16" y1="2" x2="16" y2="6"/>
@@ -231,7 +274,6 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
                   (e.currentTarget as HTMLButtonElement).style.color = "var(--pub-text-muted)";
                 }}
               >
-                {/* Edit pencil icon */}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -240,12 +282,40 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
             </div>
           )}
         </div>
+
+        {/* Student contact info row (view mode) */}
+        {hasStudentContact && !editing && (
+          <div style={{
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: "1px solid var(--pub-border-subtle)",
+            display: "flex", flexWrap: "wrap", gap: "4px 16px",
+          }}>
+            {dancer.secondary_email && (
+              <span style={{ fontSize: 11, color: "var(--pub-text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: 0.6 }}>
+                  <rect x="1" y="3" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+                  <path d="M1 5l7 5 7-5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+                {dancer.secondary_email}
+              </span>
+            )}
+            {dancer.phone_number && (
+              <span style={{ fontSize: 11, color: "var(--pub-text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: 0.6 }}>
+                  <path d="M3 2h3l1.5 3.5L6 7s1 2 3 3l1.5-1.5L14 10v3c0 .5-.5 1-1 1C5 13.5 2 6.5 2 3c0-.5.5-1 1-1z" stroke="currentColor" strokeWidth="1.4"/>
+                </svg>
+                {dancer.phone_number}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Inline edit form ── */}
       {editing && (
         <div style={{
-          padding: "16px 16px",
+          padding: "16px",
           borderTop: "1px solid var(--pub-border-subtle)",
           background: "var(--pub-surface-warm)",
         }}>
@@ -258,79 +328,103 @@ export function DancerCard({ dancer, disciplines = [], onViewRegistrations }: Da
             </div>
           )}
 
+          {/* — Basic Info — */}
+          <div style={sectionHeading}>Basic Info</div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
               <label style={labelStyle}>First Name</label>
-              <input
-                type="text"
-                value={form.first_name}
-                onChange={(e) => set("first_name", e.target.value)}
-                style={inputStyle}
-              />
+              <input type="text" value={form.first_name} onChange={(e) => set("first_name", e.target.value)} style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Last Name</label>
-              <input
-                type="text"
-                value={form.last_name}
-                onChange={(e) => set("last_name", e.target.value)}
-                style={inputStyle}
-              />
+              <input type="text" value={form.last_name} onChange={(e) => set("last_name", e.target.value)} style={inputStyle} />
             </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
               <label style={labelStyle}>Date of Birth</label>
-              <input
-                type="date"
-                value={form.birth_date}
-                onChange={(e) => set("birth_date", e.target.value)}
-                style={inputStyle}
-              />
+              <input type="date" value={form.birth_date} onChange={(e) => set("birth_date", e.target.value)} style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Grade</label>
-              <input
-                type="text"
-                placeholder="e.g. 5 or K"
+              <label style={labelStyle}>
+                Grade <span style={{ color: "var(--wine)" }}>*</span>
+              </label>
+              <select
                 value={form.grade}
                 onChange={(e) => set("grade", e.target.value)}
-                style={inputStyle}
-              />
+                style={{ ...inputStyle, cursor: "pointer" }}
+              >
+                <option value="">— Select —</option>
+                {GRADE_OPTIONS.map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-            <div>
-              <label style={labelStyle}>
-                Student Email{" "}
-                <span style={{ color: "var(--pub-text-faint)", fontWeight: 400 }}>(optional)</span>
+          <div style={{ marginBottom: 0 }}>
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>
+                School <span style={{ color: "var(--wine)" }}>*</span>
               </label>
-              <input
-                type="email"
-                value={form.secondary_email}
-                onChange={(e) => set("secondary_email", e.target.value)}
-                placeholder="student@example.com"
-                style={inputStyle}
-              />
+              <button
+                type="button"
+                onClick={() => set("school", "N/A")}
+                style={{
+                  fontSize: 11, fontWeight: 600,
+                  color: "var(--pub-text-faint)",
+                  background: "none", border: "1px solid var(--pub-border-subtle)",
+                  borderRadius: 5, padding: "1px 7px",
+                  cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                N/A
+              </button>
             </div>
-            <div>
-              <label style={labelStyle}>
-                School{" "}
-                <span style={{ color: "var(--pub-text-faint)", fontWeight: 400 }}>(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={form.school}
-                onChange={(e) => set("school", e.target.value)}
-                placeholder="Lincoln Elementary"
-                style={inputStyle}
-              />
+            <input
+              type="text"
+              placeholder="Lincoln Elementary — or click N/A"
+              value={form.school}
+              onChange={(e) => set("school", e.target.value)}
+              style={inputStyle}
+            />
+          </div>
+
+          {/* — Student Contact — */}
+          <div style={sectionDivider}>
+            <div style={sectionHeading}>Student Contact</div>
+            <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 12 }}>
+              For older students who manage their own communications.
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Student Email <span style={optionalLabel}>(optional)</span></label>
+                <input
+                  type="email"
+                  placeholder="student@example.com"
+                  value={form.secondary_email}
+                  onChange={(e) => set("secondary_email", e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Student Phone <span style={optionalLabel}>(optional)</span></label>
+                <input
+                  type="tel"
+                  placeholder="(555) 555-5555"
+                  value={form.phone_number}
+                  onChange={(e) => set("phone_number", formatPhone(e.target.value))}
+                  style={inputStyle}
+                />
+              </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8 }}>
+          {/* Save / Cancel */}
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <button
               type="button"
               onClick={handleCancel}

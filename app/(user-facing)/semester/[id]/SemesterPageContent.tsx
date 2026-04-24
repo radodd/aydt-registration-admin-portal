@@ -48,7 +48,17 @@ function SemesterShell({ semester, paymentType }: ShellProps) {
       {/* ── Hero ──────────────────────────────────────────── */}
       <div className="sem-hero">
         <div className="sem-hero-inner">
-          {dateRange && (
+          {semester.location && (
+            <div className="sem-hero-eyebrow" style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ opacity: 0.7 }}>
+                <path d="M8 2C5.8 2 4 3.8 4 6c0 3 4 8 4 8s4-5 4-8c0-2.2-1.8-4-4-4z" stroke="currentColor" strokeWidth="1.4"/>
+              </svg>
+              {semester.location}
+              {dateRange && <span style={{ opacity: 0.5 }}>·</span>}
+              {dateRange && <span>{dateRange}</span>}
+            </div>
+          )}
+          {!semester.location && dateRange && (
             <div className="sem-hero-eyebrow">{dateRange}</div>
           )}
           <h1 className="sem-hero-title">{semester.name}</h1>
@@ -113,6 +123,7 @@ function SemesterShell({ semester, paymentType }: ShellProps) {
               <SessionGrid
                 sessions={semester.sessions}
                 groups={semester.sessionGroups}
+                capacityWarningThreshold={semester.capacityWarningThreshold ?? undefined}
               />
             )}
           </div>

@@ -80,12 +80,12 @@ export default async function AdminSessionsPage() {
   uniqueDays.sort((a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b));
 
   return (
-    <div className="flex gap-0 -mx-8 -my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
-      <div className="flex-1 overflow-y-auto px-8 py-8 space-y-6">
+    <div className="flex gap-0 md:-mx-8 md:-my-8" style={{ minHeight: "calc(100vh - 56px)" }}>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 md:px-8 md:py-8 space-y-5">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Class Sessions</h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            All active classes across semesters. Cancelling a class will notify all enrolled families by email and SMS.
+          <h1 className="text-2xl font-bold" style={{ color: "var(--admin-text)" }}>Class Sessions</h1>
+          <p className="text-sm mt-1" style={{ color: "var(--admin-text-faint)" }}>
+            All active classes across semesters. Cancelling a class will notify all enrolled families.
           </p>
         </div>
 
@@ -95,7 +95,9 @@ export default async function AdminSessionsPage() {
           filterOptions={{ semesters: uniqueSemesters, disciplines: uniqueDisciplines, days: uniqueDays }}
         />
       </div>
-      <SessionsRightPanel />
+      <div className="hidden lg:block">
+        <SessionsRightPanel />
+      </div>
     </div>
   );
 }

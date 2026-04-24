@@ -231,7 +231,7 @@ export async function validateEnrollment(
             if (!hasCompleted) {
               issues.push({
                 type: "prerequisite_completed",
-                enforcement: req.enforcement,
+                enforcement: "soft_warn",
                 message: req.description,
                 dancerId,
                 requirementId: req.id,
@@ -239,7 +239,6 @@ export async function validateEnrollment(
               });
             }
           } else if (req.requirement_type === "concurrent_enrollment") {
-            // Check if the required class is also being enrolled in this batch.
             const isEnrolled =
               req.required_class_id &&
               dancerClassIds.includes(req.required_class_id);
@@ -247,7 +246,7 @@ export async function validateEnrollment(
             if (!isEnrolled) {
               issues.push({
                 type: "concurrent_enrollment",
-                enforcement: req.enforcement,
+                enforcement: "soft_warn",
                 message: req.description,
                 dancerId,
                 requirementId: req.id,
@@ -255,8 +254,6 @@ export async function validateEnrollment(
               });
             }
           } else if (req.requirement_type === "teacher_recommendation") {
-            // Also check the per-requirement approved-dancer list.
-            // If the dancer is in class_requirement_approved_dancers, skip the warning.
             const { count: approvedCount } = await supabase
               .from("class_requirement_approved_dancers")
               .select("dancer_id", { count: "exact", head: true })
@@ -267,17 +264,16 @@ export async function validateEnrollment(
 
             issues.push({
               type: "teacher_recommendation",
-              enforcement: req.enforcement,
+              enforcement: "soft_warn",
               message: req.description,
               dancerId,
               requirementId: req.id,
               isWaivable: req.is_waivable,
             });
           } else if (req.requirement_type === "audition_required") {
-            // audition_required always blocks unless a requirement_waiver exists (checked above).
             issues.push({
               type: "audition_required",
-              enforcement: req.enforcement,
+              enforcement: "soft_warn",
               message: req.description,
               dancerId,
               requirementId: req.id,

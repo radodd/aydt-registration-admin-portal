@@ -112,7 +112,7 @@ function Spinner() {
 function TableHead({ cols }: { cols: { label: string; className?: string }[] }) {
   return (
     <div
-      className="flex items-center px-5 py-2"
+      className="hidden md:flex items-center px-5 py-2"
       style={{ background: "var(--admin-table-header-bg)" }}
     >
       {cols.map((c) => (
@@ -203,14 +203,14 @@ function BroadcastsSubTab({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 md:gap-3">
         <MetricCard label="Drafts" value={counts ? counts.draft.toString() : "—"} sub="awaiting send" />
         <MetricCard label="Scheduled" value={counts ? counts.scheduled.toString() : "—"} sub={counts && counts.scheduled > 0 ? "queued" : "none queued"} />
         <MetricCard label="Sent (30 days)" value={counts ? counts.sent.toString() : "—"} sub="last 30 days" />
         <MetricCard label="Failed" value={counts ? counts.failed.toString() : "—"} sub={counts && counts.failed > 0 ? "needs attention" : "none"} />
       </div>
 
-      <div className="admin-card overflow-hidden">
+      <div className="admin-card overflow-x-auto overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
           <p className="text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>All drafts</p>
           <Link href="/admin/emails/new" className="text-[11px] font-medium" style={{ color: "var(--admin-sidebar-active)" }}>
@@ -237,6 +237,7 @@ function BroadcastsSubTab({
                   className="flex items-center px-5 py-3 border-b"
                   style={{ borderColor: "var(--admin-border-sub)", background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)" }}
                 >
+                  {/* Subject — always visible */}
                   <div className="flex-1 min-w-0">
                     <Link
                       href={`/admin/emails/${e.id}/edit`}
@@ -245,19 +246,27 @@ function BroadcastsSubTab({
                     >
                       {e.subject || "(no subject)"}
                     </Link>
+                    {/* Mobile: updated time + status below subject */}
+                    <p className="md:hidden text-[11.5px] mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
+                      {timeAgo(e.updated_at)} ·{" "}
+                      <span style={{ color: "var(--admin-text-muted)" }}>
+                        {e.status.charAt(0).toUpperCase() + e.status.slice(1)}
+                      </span>
+                    </p>
                   </div>
-                  <p className="w-28 text-right text-[12px]" style={{ color: "var(--admin-text-muted)", fontFamily: "var(--font-outfit)" }}>
+                  {/* Desktop-only columns */}
+                  <p className="hidden md:block w-28 text-right text-[12px]" style={{ color: "var(--admin-text-muted)", fontFamily: "var(--font-outfit)" }}>
                     {timeAgo(e.updated_at)}
                   </p>
-                  <p className="w-24 text-right text-[12px]" style={{ color: "var(--admin-text-muted)" }}>
+                  <p className="hidden md:block w-24 text-right text-[12px]" style={{ color: "var(--admin-text-muted)" }}>
                     {(e.recipient_count as unknown as number) > 0 ? (e.recipient_count as unknown as number).toLocaleString() : "—"}
                   </p>
-                  <div className="w-20 flex justify-end">
+                  <div className="hidden md:flex w-20 justify-end">
                     <Badge status={EMAIL_STATUS_BADGE[e.status] ?? "neutral"}>
                       {e.status.charAt(0).toUpperCase() + e.status.slice(1)}
                     </Badge>
                   </div>
-                  <div className="w-28 flex items-center justify-end gap-2">
+                  <div className="hidden md:flex w-28 items-center justify-end gap-2">
                     <button
                       onClick={() => onClone(e.id)}
                       disabled={cloningId === e.id}
@@ -274,6 +283,16 @@ function BroadcastsSubTab({
                     >
                       {deletingId === e.id ? "Deleting…" : "Delete"}
                     </button>
+                  </div>
+                  {/* Mobile: Clone/Delete as icon-less text buttons */}
+                  <div className="md:hidden flex items-center gap-2 shrink-0 ml-2">
+                    <Link
+                      href={`/admin/emails/${e.id}/edit`}
+                      className="text-[11.5px] font-medium"
+                      style={{ color: "var(--admin-sidebar-active)" }}
+                    >
+                      Edit
+                    </Link>
                   </div>
                 </li>
               ))}
@@ -310,7 +329,7 @@ function ScheduledSubTab({
   const data = result?.data ?? [];
 
   return (
-    <div className="admin-card overflow-hidden">
+    <div className="admin-card overflow-x-auto overflow-hidden">
       <div className="flex items-center px-5 py-3 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
         <p className="text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>Scheduled broadcasts</p>
       </div>
@@ -402,13 +421,13 @@ function SentSubTab({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 md:gap-3">
         <MetricCard label="Avg open rate" value={stats?.avgOpenRate != null ? `${stats.avgOpenRate.toFixed(1)}%` : "—"} sub="+vs industry 21%" />
         <MetricCard label="Avg click rate" value={stats?.avgClickRate != null ? `${stats.avgClickRate.toFixed(1)}%` : "—"} sub="last 30 days" />
         <MetricCard label="Total sent" value={stats ? stats.totalSent.toLocaleString() : "—"} sub="emails this month" />
       </div>
 
-      <div className="admin-card overflow-hidden">
+      <div className="admin-card overflow-x-auto overflow-hidden">
         <div className="flex items-center px-5 py-3 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
           <p className="text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>Sent broadcasts</p>
         </div>
@@ -518,7 +537,7 @@ function FailedSubTab({
         </div>
       )}
 
-      <div className="admin-card overflow-hidden">
+      <div className="admin-card overflow-x-auto overflow-hidden">
         <div className="flex items-center px-5 py-3 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
           <p className="text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>Failed broadcasts</p>
         </div>
@@ -661,7 +680,7 @@ function TemplatesSubTab({
         <div className="admin-card px-5 py-8 text-center text-sm" style={{ color: "var(--admin-text-faint)" }}>No templates yet</div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {data.map((t) => (
               <div key={t.id} className="admin-card p-4 flex flex-col gap-2" style={{ outline: "1px solid var(--admin-border-sub)" }}>
                 <div className="flex items-start justify-between gap-2">
@@ -705,7 +724,7 @@ function TemplatesSubTab({
             </Link>
           </div>
           {result && result.totalPages > 1 && (
-            <div className="admin-card overflow-hidden">
+            <div className="admin-card overflow-x-auto overflow-hidden">
               <Pagination page={result.page} totalPages={result.totalPages} onPrev={() => onPageChange(result.page - 1)} onNext={() => onPageChange(result.page + 1)} />
             </div>
           )}
@@ -735,7 +754,7 @@ function UnsubscribedSubTab({
   const data = result?.data ?? [];
 
   return (
-    <div className="admin-card overflow-hidden">
+    <div className="admin-card overflow-x-auto overflow-hidden">
       <div className="flex items-center px-5 py-3 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
         <p className="text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>Unsubscribed users</p>
       </div>
@@ -801,7 +820,7 @@ function SubscribedSubTab({
   const data = result?.data ?? [];
 
   return (
-    <div className="admin-card overflow-hidden">
+    <div className="admin-card overflow-x-auto overflow-hidden">
       <div className="flex items-center px-5 py-3 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
         <p className="text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>Subscribed users</p>
       </div>
@@ -896,7 +915,7 @@ function ExternalSubscribersSubTab({
         />
       </div>
 
-      <div className="admin-card overflow-hidden">
+      <div className="admin-card overflow-x-auto overflow-hidden">
         <div className="flex items-center px-5 py-3 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
           <p className="text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>External subscribers</p>
         </div>
@@ -947,7 +966,7 @@ function ExternalSubscribersSubTab({
       {/* Add subscriber form */}
       <div className="admin-card p-5">
         <p className="text-[13px] font-medium mb-3" style={{ color: "var(--admin-text)" }}>Add external subscriber</p>
-        <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
           <div>
             <label className="admin-stat-label block mb-1">Name</label>
             <input
@@ -1402,9 +1421,9 @@ export function EmailsTabSection() {
         </div>
       )}
 
-      {/* Sub-tab nav */}
+      {/* Sub-tab nav — horizontal scroll on mobile */}
       <div
-        className="flex border-b flex-wrap"
+        className="flex border-b overflow-x-auto"
         style={{ background: "var(--admin-surface)", borderColor: "var(--admin-border)" }}
       >
         {SUB_TABS.map((t) => {
@@ -1415,7 +1434,7 @@ export function EmailsTabSection() {
             <button
               key={t.key}
               onClick={() => setActiveTab(t.key)}
-              className="px-3.5 py-2.5 text-[12px] transition-colors flex items-center gap-1.5"
+              className="px-3.5 py-2.5 text-[12px] transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap"
               style={{
                 borderBottom: `2px solid ${active ? "var(--admin-sidebar-active)" : "transparent"}`,
                 color: active ? "var(--admin-sidebar-active)" : (isFailed || isUnsub) ? "#C0392B" : "var(--admin-text-muted)",

@@ -105,15 +105,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ── Available Semesters ────────────────────────────── */}
+      {/* ── Available Programs ────────────────────────────── */}
       <section className="pub-section" id="semesters">
         <div className="pub-section-inner">
           <div className="pub-section-head-row">
             <div>
               <div className="pub-section-eyebrow">Enrollment</div>
-              <h2 className="pub-section-title">Available Semesters</h2>
+              <h2 className="pub-section-title">Available Programs</h2>
               <p className="pub-section-desc">
-                Select a semester to browse sessions, schedules, and pricing.
+                Select a program to browse classes, schedules, and pricing.
                 Register as many dancers as you need under one account.
               </p>
             </div>
@@ -195,7 +195,7 @@ export default async function HomePage() {
                           <div className={`semester-stat-val${isOpen ? " plum" : ""}`}>
                             {sessions.length}
                           </div>
-                          <div className="semester-stat-label">Sessions</div>
+                          <div className="semester-stat-label">Classes</div>
                         </div>
                       </div>
                       {isOpen ? (
@@ -203,7 +203,7 @@ export default async function HomePage() {
                           href={`/semester/${semester.id}`}
                           className="btn-view-sessions"
                         >
-                          View Sessions
+                          View Classes
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                             <line x1="5" y1="12" x2="19" y2="12"/>
                             <polyline points="12 5 19 12 12 19"/>
@@ -257,7 +257,7 @@ export default async function HomePage() {
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                         <circle cx="12" cy="7" r="4"/>
                       </svg>
-                      Go to My Dashboard
+                      Go to My Account
                     </Link>
                   </div>
                 </>
@@ -325,7 +325,7 @@ export default async function HomePage() {
                     any open program.
                   </div>
                   <div className="cta-actions">
-                    <Link href="/register" className="btn-cta-plum">
+                    <Link href="/auth?tab=signup" className="btn-cta-plum">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                         <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                         <circle cx="8.5" cy="7" r="4"/>

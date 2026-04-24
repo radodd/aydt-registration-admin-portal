@@ -7,9 +7,10 @@ export interface UpdateDancerInput {
   first_name: string;
   last_name: string;
   birth_date: string;
-  grade?: string;
+  grade: string;
+  school: string;
   secondary_email?: string;
-  school?: string;
+  phone_number?: string;
 }
 
 export async function updateDancer(input: UpdateDancerInput): Promise<void> {
@@ -21,7 +22,6 @@ export async function updateDancer(input: UpdateDancerInput): Promise<void> {
 
   if (!authUser) throw new Error("Not authenticated");
 
-  // Verify the dancer belongs to the authenticated user's family
   const { data: userRow } = await supabase
     .from("users")
     .select("family_id")
@@ -36,8 +36,9 @@ export async function updateDancer(input: UpdateDancerInput): Promise<void> {
       first_name: input.first_name,
       last_name: input.last_name,
       birth_date: input.birth_date || null,
-      grade: input.grade ?? null,
+      grade: input.grade || null,
       secondary_email: input.secondary_email || null,
+      phone_number: input.phone_number || null,
       school: input.school || null,
     })
     .eq("id", input.id)

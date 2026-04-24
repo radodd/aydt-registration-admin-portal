@@ -150,7 +150,7 @@ export default function CustomQuestionModal({
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl border border-neutral-200 p-8 space-y-6">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl border border-neutral-200 p-6 sm:p-8 space-y-6 mx-4 sm:mx-0">
         {/* Header */}
         <div>
           <h2 className="text-xl font-semibold text-neutral-900">
@@ -261,16 +261,53 @@ export default function CustomQuestionModal({
             }
             className="w-full border border-neutral-300 rounded-xl px-4 py-2 text-sm text-slate-700 focus:ring-2 focus:ring-primary-600 focus:outline-none"
           >
-            <option value="">(none)</option>
-            <option value="parent_first_name">Parent — First Name</option>
-            <option value="parent_last_name">Parent — Last Name</option>
-            <option value="parent_email">Parent — Email</option>
-            <option value="parent_phone">Parent — Phone Number</option>
-            <option value="parent_address_line1">Parent — Address Line 1</option>
-            <option value="parent_address_line2">Parent — Address Line 2</option>
-            <option value="parent_city">Parent — City</option>
-            <option value="parent_state">Parent — State</option>
-            <option value="parent_zipcode">Parent — Zip Code</option>
+            <option value="">(none — no auto-fill)</option>
+
+            <optgroup label="Dancer / Student">
+              <option value="dancer_first_name">First Name</option>
+              <option value="dancer_last_name">Last Name</option>
+              <option value="dancer_birth_date">Date of Birth</option>
+              <option value="dancer_grade">Grade</option>
+              <option value="dancer_school">School Name</option>
+              <option value="dancer_email">Student Email</option>
+              <option value="dancer_phone">Student Phone</option>
+            </optgroup>
+
+            <optgroup label="Primary Parent / Guardian">
+              <option value="parent_first_name">First Name</option>
+              <option value="parent_last_name">Last Name</option>
+              <option value="parent_email">Email</option>
+              <option value="parent_phone">Phone Number</option>
+              <option value="parent_address_line1">Address Line 1</option>
+              <option value="parent_address_line2">Address Line 2</option>
+              <option value="parent_city">City</option>
+              <option value="parent_state">State</option>
+              <option value="parent_zipcode">Zip Code</option>
+            </optgroup>
+
+            <optgroup label="Alternate Parent / Guardian">
+              <option value="alt_parent_first_name">First Name</option>
+              <option value="alt_parent_last_name">Last Name</option>
+              <option value="alt_parent_phone">Phone Number</option>
+              <option value="alt_parent_email">Email</option>
+              <option value="alt_parent_relationship">Relationship</option>
+            </optgroup>
+
+            <optgroup label="Caregiver / Nanny">
+              <option value="caregiver_first_name">First Name</option>
+              <option value="caregiver_last_name">Last Name</option>
+              <option value="caregiver_phone">Phone Number</option>
+              <option value="caregiver_email">Email</option>
+              <option value="caregiver_relationship">Relationship</option>
+            </optgroup>
+
+            <optgroup label="Emergency Contact">
+              <option value="emergency_contact_first_name">First Name</option>
+              <option value="emergency_contact_last_name">Last Name</option>
+              <option value="emergency_contact_phone">Phone Number</option>
+              <option value="emergency_contact_email">Email</option>
+              <option value="emergency_contact_relationship">Relationship</option>
+            </optgroup>
           </select>
           <p className="text-xs text-neutral-400">
             When a registered user fills out this form, this field will be pre-filled with the value from their profile.

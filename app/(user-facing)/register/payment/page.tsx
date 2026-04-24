@@ -485,57 +485,27 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
         >
           {/* Card header */}
           <div
-            className="flex items-center justify-between px-5 py-3.5 border-b"
+            className="flex items-center gap-2 px-5 py-3.5 border-b text-sm font-bold"
             style={{
+              fontFamily: "var(--pub-font-secondary)",
+              color: "var(--pub-text-primary)",
               background: "var(--pub-surface-warm)",
               borderColor: "var(--pub-border)",
             }}
           >
-            <div
-              className="flex items-center gap-2 text-sm font-bold"
-              style={{
-                fontFamily: "var(--pub-font-secondary)",
-                color: "var(--pub-text-primary)",
-              }}
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              style={{ color: "var(--plum)" }}
             >
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                style={{ color: "var(--plum)" }}
-              >
-                <line x1="12" y1="1" x2="12" y2="23" />
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-              </svg>
-              Pricing Breakdown
-            </div>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="flex items-center gap-1 text-xs font-semibold transition-opacity hover:opacity-70"
-              style={{
-                color: "var(--plum)",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-              Edit cart
-            </button>
+              <line x1="12" y1="1" x2="12" y2="23" />
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+            Pricing Breakdown
           </div>
 
           {/* Loading */}
@@ -981,59 +951,29 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       >
         {/* Card header */}
         <div
-          className="flex items-center justify-between px-5 py-3.5 border-b"
+          className="flex items-center gap-2 px-5 py-3.5 border-b text-sm font-bold"
           style={{
+            fontFamily: "var(--pub-font-secondary)",
+            color: "var(--pub-text-primary)",
             background: "var(--pub-surface-warm)",
             borderColor: "var(--pub-border)",
           }}
         >
-          <div
-            className="flex items-center gap-2 text-sm font-bold"
-            style={{
-              fontFamily: "var(--pub-font-secondary)",
-              color: "var(--pub-text-primary)",
-            }}
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            style={{ color: "var(--plum)" }}
           >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              style={{ color: "var(--plum)" }}
-            >
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-              <line x1="16" y1="2" x2="16" y2="6" />
-              <line x1="8" y1="2" x2="8" y2="6" />
-              <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            Sessions &amp; Participants
-          </div>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex items-center gap-1 text-xs font-semibold transition-opacity hover:opacity-70"
-            style={{
-              color: "var(--plum)",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-            }}
-          >
-            <svg
-              width="11"
-              height="11"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-            >
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-            Edit
-          </button>
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+          Sessions &amp; Participants
         </div>
 
         {state.participants.map((p, idx) => {
@@ -1211,7 +1151,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       >
         {/* Card header */}
         <div
-          className="flex items-center gap-2 px-5 py-3.5 border-b text-sm font-bold"
+          className="flex items-center justify-between px-5 py-3.5 border-b text-sm font-bold"
           style={{
             fontFamily: "var(--pub-font-secondary)",
             color: "var(--pub-text-primary)",
@@ -1219,19 +1159,30 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
             borderColor: "var(--pub-border)",
           }}
         >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            style={{ color: "var(--plum)" }}
+          <div className="flex items-center gap-2">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              style={{ color: "var(--plum)" }}
+            >
+              <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+              <line x1="1" y1="10" x2="23" y2="10" />
+            </svg>
+            Payment
+          </div>
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+            style={{ background: "var(--pub-badge-sage-bg)", color: "var(--pub-badge-sage-text)" }}
           >
-            <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-            <line x1="1" y1="10" x2="23" y2="10" />
-          </svg>
-          Payment
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            Secure
+          </span>
         </div>
 
         {state.isPreview ? (
@@ -1243,19 +1194,19 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
           <>
             {/* Elavon provider row */}
             <div
-              className="flex items-center gap-3.5 px-5 py-4 border-b"
+              className="flex items-start gap-3 px-5 py-4 border-b"
               style={{ borderColor: "var(--pub-border-subtle)" }}
             >
               <div
-                className="w-11 h-11 rounded-lg shrink-0 flex items-center justify-center"
+                className="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center mt-0.5"
                 style={{
                   background: "var(--pub-surface-warm)",
                   border: "1px solid var(--pub-border)",
                 }}
               >
                 <svg
-                  width="20"
-                  height="20"
+                  width="16"
+                  height="16"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -1266,44 +1217,25 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                   <line x1="1" y1="10" x2="23" y2="10" />
                 </svg>
               </div>
-              <div className="flex-1 min-w-0">
+              <div>
                 <div
-                  className="text-sm font-bold mb-0.5"
+                  className="text-sm font-bold mb-1"
                   style={{ color: "var(--pub-text-primary)" }}
                 >
-                  Secure Payment via Elavon
+                  Powered by Elavon
                 </div>
                 <div
                   className="text-xs leading-relaxed"
                   style={{ color: "var(--pub-text-muted)" }}
                 >
-                  You&apos;ll be redirected to a secure Elavon page to complete
-                  your purchase. Card details are never stored on this portal.
+                  You&apos;ll be redirected to Elavon&apos;s secure checkout page to enter your
+                  card details. Nothing is stored on this portal.
                 </div>
-              </div>
-              <div
-                className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold"
-                style={{
-                  background: "var(--pub-badge-sage-bg)",
-                  color: "var(--pub-badge-sage-text)",
-                }}
-              >
-                <svg
-                  width="9"
-                  height="9"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                >
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-                Secure
               </div>
             </div>
 
             {/* Payment options */}
-            <div className="grid grid-cols-2">
+            <div className="pay-options-grid">
               <div className="flex items-start gap-2.5 p-5">
                 <div
                   className="w-8 h-8 rounded shrink-0 flex items-center justify-center mt-0.5"
@@ -1587,39 +1519,14 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       )}
 
       {/* CTA row */}
-      <div
-        className="grid gap-3 mt-2"
-        style={{ gridTemplateColumns: "1fr 2fr" }}
-      >
+      <div className="reg-cta-row">
         <button
           type="button"
           onClick={() => router.back()}
           disabled={processing}
-          className="inline-flex items-center justify-center gap-1.5 py-3 px-5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
-          style={{
-            border: "1.5px solid var(--pub-border)",
-            background: "white",
-            color: "var(--pub-text-muted)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = "var(--plum-200)";
-            e.currentTarget.style.color = "var(--plum)";
-            e.currentTarget.style.background = "var(--plum-50)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = "var(--pub-border)";
-            e.currentTarget.style.color = "var(--pub-text-muted)";
-            e.currentTarget.style.background = "white";
-          }}
+          className="btn-back"
         >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-          >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="15 18 9 12 15 6" />
           </svg>
           Back
@@ -1628,36 +1535,15 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
           type="button"
           onClick={handleConfirm}
           disabled={processing || (!state.isPreview && !billingAddress)}
-          className="inline-flex items-center justify-center gap-2 py-3 px-7 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-60"
-          style={{
-            background: "var(--plum)",
-            border: "2px solid var(--plum)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "var(--plum-700)";
-            e.currentTarget.style.borderColor = "var(--plum-700)";
-            e.currentTarget.style.boxShadow = "var(--pub-shadow-plum)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "var(--plum)";
-            e.currentTarget.style.borderColor = "var(--plum)";
-            e.currentTarget.style.boxShadow = "none";
-          }}
+          className="btn-continue"
         >
           {processing
-            ? "Processing…"
+            ? "Redirecting to payment…"
             : state.isPreview
-              ? "Simulate Registration"
-              : "Confirm Registration"}
+              ? "Simulate Payment"
+              : "Proceed to Payment"}
           {!processing && (
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-            >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="5" y1="12" x2="19" y2="12" />
               <polyline points="12 5 19 12 12 19" />
             </svg>

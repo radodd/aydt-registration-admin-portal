@@ -422,7 +422,7 @@ export default function RecipientsStep({
   // ── Render ──────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-8">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4 md:p-8 space-y-6 md:space-y-8">
       <div>
         <h2 className="text-xl font-semibold text-neutral-900">Recipients</h2>
         <p className="text-sm text-neutral-500 mt-1">
@@ -790,7 +790,7 @@ export default function RecipientsStep({
 
           {resolvedFamilies.length > 0 && (
             <div className="border border-neutral-200 rounded-xl overflow-hidden">
-              <div className="grid grid-cols-[1fr_1fr_auto] text-xs font-medium text-neutral-500 bg-neutral-50 px-4 py-2 border-b border-neutral-200">
+              <div className="hidden md:grid grid-cols-[1fr_1fr_auto] text-xs font-medium text-neutral-500 bg-neutral-50 px-4 py-2 border-b border-neutral-200">
                 <span>Email / Parent</span>
                 <span>Dancer(s) & Classes</span>
                 <span />
@@ -884,7 +884,7 @@ function FamilyRow({
 
   return (
     <div
-      className={`grid grid-cols-[1fr_1fr_auto] items-start px-4 py-3 gap-3 transition ${
+      className={`flex flex-col md:grid md:grid-cols-[1fr_1fr_auto] items-start px-4 py-3 gap-2 md:gap-3 transition ${
         isExcluded ? "opacity-40 bg-red-50" : "hover:bg-neutral-50"
       }`}
     >

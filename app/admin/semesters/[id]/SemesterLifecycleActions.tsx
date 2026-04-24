@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 import {
   publishSemesterNow,
@@ -10,7 +11,7 @@ import {
 import { archiveSemester } from "../actions/archiveSemester";
 import { unpublishSemester } from "../actions/unpublishSemester";
 import { restoreSemester } from "../actions/restoreSemester";
-import { Check, AlertTriangle } from "lucide-react";
+import { Check, AlertTriangle, Pencil } from "lucide-react";
 
 type HealthData = {
   classCount: number;
@@ -35,41 +36,35 @@ type Props = {
   auditLogs: AuditLog[];
 };
 
-const STATUS_BADGE: Record<string, string> = {
-  published: "bg-green-100 text-green-700",
-  draft: "bg-neutral-100 text-neutral-600",
-  scheduled: "bg-blue-100 text-blue-700",
-  archived: "bg-red-100 text-red-600",
+const STATUS_BADGE: Record<string, { bg: string; color: string }> = {
+  published: { bg: "rgba(125,206,194,.18)", color: "#0A5A50" },
+  draft:     { bg: "rgba(158,196,180,.18)", color: "#20503A" },
+  scheduled: { bg: "rgba(196,160,212,.18)", color: "#5A2878" },
+  archived:  { bg: "rgba(232,184,176,.18)", color: "#802818" },
 };
 
 function fmtAuditDate(iso: string) {
   return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+    month: "short", day: "numeric",
+    hour: "numeric", minute: "2-digit",
   });
 }
 
 function auditLabel(action: string): string {
   const map: Record<string, string> = {
-    published_now: "Semester published",
-    saved_draft: "Saved as draft",
-    scheduled_publish: "Scheduled to publish",
-    archived: "Semester archived",
-    restored: "Semester restored",
-    unpublished: "Semester unpublished",
-    discount_updated: "Discount rule updated",
+    published_now:      "Published",
+    saved_draft:        "Saved as draft",
+    scheduled_publish:  "Scheduled",
+    archived:           "Archived",
+    restored:           "Restored",
+    unpublished:        "Unpublished",
+    discount_updated:   "Discount updated",
   };
   return map[action] ?? action.replace(/_/g, " ");
 }
 
 export default function SemesterLifecycleActions({
-  semesterId,
-  status,
-  publishAt,
-  health,
-  auditLogs,
+  semesterId, status, publishAt, health, auditLogs,
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [scheduledDate, setScheduledDate] = useState<string>("");
@@ -78,74 +73,82 @@ export default function SemesterLifecycleActions({
   function run(fn: () => Promise<any>) {
     setActionError(null);
     startTransition(async () => {
-      try {
-        await fn();
-      } catch (e) {
-        setActionError(e instanceof Error ? e.message : "Action failed.");
-      }
+      try { await fn(); }
+      catch (e) { setActionError(e instanceof Error ? e.message : "Action failed."); }
     });
   }
 
-  const statusBadge = STATUS_BADGE[status] ?? STATUS_BADGE.draft;
+  const badge = STATUS_BADGE[status] ?? STATUS_BADGE.draft;
 
   const healthRows = [
-    {
-      label: "Classes",
-      ok: health.classCount > 0,
-      warn: false,
-      value: health.classCount > 0 ? String(health.classCount) : "None",
-    },
-    {
-      label: "Payment plan",
-      ok: health.paymentSet,
-      warn: false,
-      value: health.paymentSet ? "Set" : "Not set",
-    },
-    {
-      label: "Reg form",
-      ok: health.regFormBuilt,
-      warn: false,
-      value: health.regFormBuilt ? "Built" : "Empty",
-    },
-    {
-      label: "Conf. email",
-      ok: health.emailSet,
-      warn: false,
-      value: health.emailSet ? "Set" : "Not set",
-    },
+    { label: "Classes",      ok: health.classCount > 0,  value: health.classCount > 0 ? String(health.classCount) : "None" },
+    { label: "Payment plan", ok: health.paymentSet,       value: health.paymentSet    ? "Set"   : "Not set" },
+    { label: "Reg form",     ok: health.regFormBuilt,     value: health.regFormBuilt  ? "Built" : "Empty" },
+    { label: "Conf. email",  ok: health.emailSet,         value: health.emailSet      ? "Set"   : "Not set" },
   ];
 
   return (
     <div className="space-y-3">
-      {/* ── Lifecycle Controls ───────────────────────────────────────── */}
-      <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4 space-y-4">
-        <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-          Lifecycle Controls
+
+      {/* ── Status & Publishing ───────────────────────────────────── */}
+      <div className="admin-card p-4 space-y-4">
+        {/* Card header */}
+        <h3
+          className="text-[10px] font-bold uppercase tracking-widest"
+          style={{ color: "var(--admin-text-faint)" }}
+        >
+          Status &amp; Publishing
         </h3>
 
         {actionError && (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+          <div
+            className="rounded-lg px-3 py-2 text-xs"
+            style={{
+              background: "rgba(192,57,43,.06)",
+              border: "1px solid rgba(192,57,43,.2)",
+              color: "#7A1C12",
+            }}
+          >
             {actionError}
           </div>
         )}
 
         {/* Current status */}
         <div className="flex items-center justify-between">
-          <span className="text-xs text-neutral-500">Current status</span>
+          <span className="text-[12px]" style={{ color: "var(--admin-text-muted)" }}>
+            Current status
+          </span>
           <span
-            className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${statusBadge}`}
+            className="text-[11.5px] font-semibold px-2.5 py-0.5 rounded-full capitalize"
+            style={{ background: badge.bg, color: badge.color }}
           >
             {status}
           </span>
         </div>
 
-        {/* Primary action buttons */}
+        {/* Primary actions */}
         <div className="space-y-2">
+          {/* Edit semester — always first, outlined */}
+          <Link
+            href={`/admin/semesters/${semesterId}/edit`}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12.5px] font-medium transition-colors"
+            style={{
+              border: "1px solid var(--admin-sidebar-active)",
+              color: "var(--admin-sidebar-active)",
+              background: "transparent",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(142,42,35,.06)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <Pencil size={13} />
+            Edit semester
+          </Link>
+
           {(status === "draft" || status === "scheduled") && (
             <button
               onClick={() => run(() => publishSemesterNow(semesterId))}
               disabled={pending}
-              className="w-full px-3 py-2 rounded-lg text-xs font-medium text-white disabled:opacity-50"
+              className="w-full px-3 py-2 rounded-lg text-[12.5px] font-semibold text-white disabled:opacity-50 transition-colors"
               style={{ background: "var(--admin-sidebar-active)" }}
             >
               Publish Now
@@ -157,7 +160,14 @@ export default function SemesterLifecycleActions({
               <button
                 onClick={() => run(() => saveSemesterDraft(semesterId))}
                 disabled={pending}
-                className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
+                style={{
+                  border: "1px solid var(--admin-border)",
+                  color: "var(--admin-text-muted)",
+                  background: "var(--admin-surface)",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
               >
                 Revert to draft
               </button>
@@ -165,7 +175,14 @@ export default function SemesterLifecycleActions({
                 <button
                   onClick={() => run(() => unpublishSemester(semesterId))}
                   disabled={pending}
-                  className="flex-1 px-3 py-2 rounded-lg border border-neutral-300 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                  className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
+                  style={{
+                    border: "1px solid var(--admin-border)",
+                    color: "var(--admin-text-muted)",
+                    background: "var(--admin-surface)",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
                 >
                   Unpublish
                 </button>
@@ -177,7 +194,14 @@ export default function SemesterLifecycleActions({
             <button
               onClick={() => run(() => archiveSemester(semesterId))}
               disabled={pending}
-              className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+              className="w-full px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
+              style={{
+                border: "1px solid var(--admin-border-sub)",
+                color: "var(--admin-text-faint)",
+                background: "var(--admin-surface)",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
             >
               Archive semester
             </button>
@@ -187,53 +211,52 @@ export default function SemesterLifecycleActions({
             <button
               onClick={() => run(() => restoreSemester(semesterId))}
               disabled={pending}
-              className="w-full px-3 py-2 rounded-lg border border-neutral-300 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              className="w-full px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
+              style={{
+                border: "1px solid var(--admin-border)",
+                color: "var(--admin-text-muted)",
+                background: "var(--admin-surface)",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
             >
-              Restore
+              Restore semester
             </button>
           )}
         </div>
 
         {/* Schedule publish */}
         {status !== "archived" && (
-          <div className="space-y-2 pt-2 border-t border-neutral-100">
-            <div className="text-xs font-medium text-neutral-600">
+          <div className="space-y-2 pt-2 border-t" style={{ borderColor: "var(--admin-border-sub)" }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--admin-text-faint)" }}>
               Schedule publish
-            </div>
+            </p>
             <div className="flex gap-2">
-              <InlineDatePicker
-                value={scheduledDate}
-                onChange={setScheduledDate}
-              />
+              <InlineDatePicker value={scheduledDate} onChange={setScheduledDate} />
               <button
                 onClick={() => {
                   if (!scheduledDate) return;
-                  run(() =>
-                    scheduleSemester(
-                      semesterId,
-                      new Date(scheduledDate + "T00:00:00").toISOString(),
-                    ),
-                  );
+                  run(() => scheduleSemester(semesterId, new Date(scheduledDate + "T00:00:00").toISOString()));
                 }}
                 disabled={!scheduledDate || pending}
-                className="px-3 py-1.5 rounded-lg border text-xs font-medium disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-80"
+                className="px-3 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 style={{
-                  borderColor: "var(--admin-sidebar-active)",
+                  border: "1px solid var(--admin-sidebar-active)",
                   color: "var(--admin-sidebar-active)",
+                  background: "transparent",
                 }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(142,42,35,.06)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 {status === "scheduled" ? "Reschedule" : "Schedule"}
               </button>
             </div>
             {publishAt && status === "scheduled" && (
-              <p className="text-[11px] text-neutral-400">
+              <p className="text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
                 Scheduled for{" "}
                 {new Date(publishAt).toLocaleString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                  hour: "numeric",
-                  minute: "2-digit",
+                  month: "short", day: "numeric", year: "numeric",
+                  hour: "numeric", minute: "2-digit",
                 })}
               </p>
             )}
@@ -241,30 +264,28 @@ export default function SemesterLifecycleActions({
         )}
       </div>
 
-      {/* ── Semester Health ──────────────────────────────────────────── */}
-      <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4 space-y-3">
-        <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-          Semester Health
+      {/* ── Readiness Check ───────────────────────────────────────── */}
+      <div className="admin-card p-4 space-y-3">
+        <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--admin-text-faint)" }}>
+          Readiness Check
         </h3>
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {healthRows.map(({ label, ok, value }) => (
-            <div key={label} className="flex items-center justify-between text-xs">
-              <span className="text-neutral-500">{label}</span>
+            <div key={label} className="flex items-center justify-between text-[12px]">
+              <span style={{ color: "var(--admin-text-muted)" }}>{label}</span>
               <span
-                className={`flex items-center gap-1 font-medium ${
-                  ok ? "text-green-600" : "text-neutral-400"
-                }`}
+                className="flex items-center gap-1 font-medium"
+                style={{ color: ok ? "#0A5A50" : "var(--admin-text-faint)" }}
               >
                 {ok && <Check className="w-3 h-3" strokeWidth={3} />}
                 {value}
               </span>
             </div>
           ))}
-
           {health.waitlistCount > 0 && (
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-neutral-500">Waitlist</span>
-              <span className="flex items-center gap-1 font-medium text-amber-600">
+            <div className="flex items-center justify-between text-[12px]">
+              <span style={{ color: "var(--admin-text-muted)" }}>Waitlist</span>
+              <span className="flex items-center gap-1 font-medium" style={{ color: "#7A4E08" }}>
                 <AlertTriangle className="w-3 h-3" strokeWidth={2.5} />
                 {health.waitlistCount} waiting
               </span>
@@ -273,22 +294,19 @@ export default function SemesterLifecycleActions({
         </div>
       </div>
 
-      {/* ── Recent Activity ──────────────────────────────────────────── */}
+      {/* ── Recent Activity ───────────────────────────────────────── */}
       {auditLogs.length > 0 && (
-        <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4 space-y-3">
-          <h3 className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+        <div className="admin-card p-4 space-y-3">
+          <h3 className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--admin-text-faint)" }}>
             Recent Activity
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {auditLogs.map((log) => (
-              <div
-                key={log.id}
-                className="flex items-start justify-between gap-3 text-xs"
-              >
-                <span className="text-neutral-700 font-medium leading-snug">
+              <div key={log.id} className="flex items-start justify-between gap-3 text-[12px]">
+                <span style={{ color: "var(--admin-text)", fontWeight: 500 }}>
                   {auditLabel(log.action)}
                 </span>
-                <span className="text-neutral-400 shrink-0 text-[11px]">
+                <span className="shrink-0 text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
                   {fmtAuditDate(log.created_at)}
                 </span>
               </div>

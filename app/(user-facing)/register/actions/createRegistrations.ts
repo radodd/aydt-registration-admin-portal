@@ -82,6 +82,14 @@ export async function createRegistrations(
     };
   }
 
+  // 2.5. Look up family_id early so it's available for warning logging
+  const { data: userProfileEarly } = await supabase
+    .from("users")
+    .select("family_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  const earlyFamilyId = (userProfileEarly as any)?.family_id ?? null;
+
   // 3. Validate that all sessionIds belong to the given semester
   const sessionIds = input.participants.map((p) => p.sessionId);
   const { data: sessions, error: sessionError } = await supabase
@@ -109,6 +117,23 @@ export async function createRegistrations(
   });
 
   if (validationResult.hasHardBlock) {
+    // Log the block so admins can see which families are hitting hard blocks.
+    const blockRows = validationResult.issues
+      .filter((i) => i.enforcement === "hard_block")
+      .map((issue) => ({
+        batch_id: null,
+        family_id: earlyFamilyId,
+        dancer_id: issue.dancerId || null,
+        session_id: issue.sessionId ?? null,
+        semester_id: input.semesterId,
+        warning_type: issue.type,
+        enforcement: "hard_block",
+        message: issue.message,
+        requirement_id: (issue as any).requirementId ?? null,
+      }));
+    if (blockRows.length > 0) {
+      await supabase.from("enrollment_warnings").insert(blockRows as any[]);
+    }
     const firstBlock = validationResult.issues.find(
       (i) => i.enforcement === "hard_block",
     );
@@ -177,14 +202,8 @@ export async function createRegistrations(
     }
   }
 
-  // 6. Look up user's family_id
-  const { data: userProfile } = await supabase
-    .from("users")
-    .select("family_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const familyId = (userProfile as any)?.family_id ?? null;
+  // 6. family_id already fetched above (earlyFamilyId)
+  const familyId = earlyFamilyId;
 
   // 6.5. Cancel any stale pending batches for this parent+semester
   // This prevents the time-conflict trigger from firing when the user retries
@@ -380,6 +399,32 @@ export async function createRegistrations(
             "[createRegistrations] Failed to insert installments:",
             error.message,
           );
+        }
+      });
+  }
+
+  // 11. Log any soft warnings so admins can review flagged enrollments.
+  const softWarnings = validationResult.issues.filter(
+    (i) => i.enforcement === "soft_warn",
+  );
+  if (softWarnings.length > 0) {
+    const warnRows = softWarnings.map((issue) => ({
+      batch_id: input.batchId,
+      family_id: familyId,
+      dancer_id: issue.dancerId || null,
+      session_id: issue.sessionId ?? null,
+      semester_id: input.semesterId,
+      warning_type: issue.type,
+      enforcement: "soft_warn",
+      message: issue.message,
+      requirement_id: (issue as any).requirementId ?? null,
+    }));
+    await supabase
+      .from("enrollment_warnings")
+      .insert(warnRows as any[])
+      .then(({ error }) => {
+        if (error) {
+          console.warn("[createRegistrations] Failed to log enrollment warnings:", error.message);
         }
       });
   }

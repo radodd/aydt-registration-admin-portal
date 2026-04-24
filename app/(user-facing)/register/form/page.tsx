@@ -1,9 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import {
   RegistrationProvider,
   useRegistration,
@@ -12,11 +11,24 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { CartRestoreGuard } from "../CartRestoreGuard";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
 import { buildDynamicFormSchema } from "@/lib/schemas/registration";
-import type { RegistrationFormElement, ProfileFieldKey } from "@/types";
+import { createClient } from "@/utils/supabase/client";
+import { formatPhone } from "@/utils/formatPhone";
+import type { FamilyContact, RegistrationFormElement, ProfileFieldKey } from "@/types";
 import type { PublicSemester } from "@/types/public";
+import { saveReferralSource } from "../actions/saveReferralSource";
+
+const REFERRAL_OPTIONS = [
+  "Word of mouth (friend or family)",
+  "Social media (Instagram, Facebook, TikTok)",
+  "Online search (Google, etc.)",
+  "Flyer or printed ad",
+  "School or community center",
+  "Returning student / family",
+  "Other",
+];
 
 /* -------------------------------------------------------------------------- */
-/* Field renderer                                                              */
+/* Field renderer — portal design system                                       */
 /* -------------------------------------------------------------------------- */
 
 function renderField(
@@ -30,10 +42,19 @@ function renderField(
 ) {
   if (el.type === "subheader") {
     return (
-      <div key={el.id} className="pt-4">
-        <h2 className="text-base font-bold text-neutral-900">{el.label}</h2>
+      <div key={el.id} style={{ paddingTop: 8 }}>
+        <div style={{
+          fontFamily: "var(--pub-font-secondary)",
+          fontSize: 15, fontWeight: 700,
+          color: "var(--pub-text-primary)",
+          marginBottom: el.subtitle ? 3 : 0,
+        }}>
+          {el.label}
+        </div>
         {el.subtitle && (
-          <p className="text-sm text-neutral-500 mt-0.5">{el.subtitle}</p>
+          <div style={{ fontSize: 12, color: "var(--pub-text-muted)", lineHeight: 1.5 }}>
+            {el.subtitle}
+          </div>
         )}
       </div>
     );
@@ -44,13 +65,13 @@ function renderField(
       return (
         <div
           key={el.id}
-          className="text-sm text-neutral-600 prose prose-sm max-w-none"
+          style={{ fontSize: 13, color: "var(--pub-text-muted)", lineHeight: 1.6 }}
           dangerouslySetInnerHTML={{ __html: el.htmlContent }}
         />
       );
     }
     return (
-      <p key={el.id} className="text-sm text-neutral-600">
+      <p key={el.id} style={{ fontSize: 13, color: "var(--pub-text-muted)", lineHeight: 1.6 }}>
         {el.label}
       </p>
     );
@@ -60,41 +81,34 @@ function renderField(
   const error = errors[el.id]?.message as string | undefined;
 
   return (
-    <div key={el.id} className="space-y-1.5">
-      <label className="block text-sm font-medium text-neutral-700">
+    <div key={el.id} className="reg-field">
+      <label className="reg-label">
         {el.label}
-        {el.required && <span className="text-red-500 ml-1">*</span>}
+        {el.required && <span style={{ color: "var(--wine)", marginLeft: 3 }}>*</span>}
       </label>
 
       {el.instructionalText && (
-        <p className="text-xs text-neutral-400">{el.instructionalText}</p>
+        <span className="reg-hint">{el.instructionalText}</span>
       )}
 
       {el.inputType === "short_answer" && (
-        <input
-          {...register(el.id)}
-          className="w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400"
-        />
+        <input {...register(el.id)} className="reg-input" />
       )}
 
       {el.inputType === "long_answer" && (
         <textarea
           {...register(el.id)}
           rows={4}
-          className="w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none"
+          className="reg-input"
+          style={{ resize: "none", height: "auto" }}
         />
       )}
 
       {el.inputType === "select" && (
-        <select
-          {...register(el.id)}
-          className="w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400"
-        >
+        <select {...register(el.id)} className="reg-input">
           <option value="">— Select —</option>
           {el.options?.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
+            <option key={opt} value={opt}>{opt}</option>
           ))}
         </select>
       )}
@@ -105,11 +119,14 @@ function renderField(
           control={control}
           defaultValue={[]}
           render={({ field }) => (
-            <div className="space-y-2">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 2 }}>
               {el.options?.map((opt) => (
                 <label
                   key={opt}
-                  className="flex items-center gap-2.5 cursor-pointer"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 9,
+                    cursor: "pointer", fontSize: 13, color: "var(--pub-text-primary)",
+                  }}
                 >
                   <input
                     type="checkbox"
@@ -123,9 +140,9 @@ function renderField(
                           : current.filter((v) => v !== opt),
                       );
                     }}
-                    className="w-4 h-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
+                    style={{ accentColor: "var(--plum)", width: 15, height: 15, cursor: "pointer" }}
                   />
-                  <span className="text-sm text-neutral-700">{opt}</span>
+                  {opt}
                 </label>
               ))}
             </div>
@@ -134,22 +151,28 @@ function renderField(
       )}
 
       {el.inputType === "date" && (
-        <input
-          type="date"
-          {...register(el.id)}
-          className="w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400"
-        />
+        <input type="date" {...register(el.id)} className="reg-input" />
       )}
 
       {el.inputType === "phone_number" && (
-        <input
-          type="tel"
-          {...register(el.id)}
-          className="w-full border border-neutral-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-400"
+        <Controller
+          name={el.id}
+          control={control}
+          render={({ field }) => (
+            <input
+              type="tel"
+              className="reg-input"
+              placeholder="(555) 555-5555"
+              value={field.value ?? ""}
+              onChange={(e) => field.onChange(formatPhone(e.target.value))}
+              onBlur={field.onBlur}
+              name={field.name}
+            />
+          )}
         />
       )}
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <span className="reg-error">{error}</span>}
     </div>
   );
 }
@@ -175,37 +198,91 @@ export function FormContent({
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  const isFirstRegistration = !userRecord?.referral_source;
+  const [referralSource, setReferralSource] = useState("");
+  const [referralError, setReferralError] = useState(false);
+
+  // Family contacts + dancers for profile auto-fill
+  const [familyContacts, setFamilyContacts] = useState<FamilyContact[]>([]);
+  const [firstDancer, setFirstDancer] = useState<{
+    first_name: string | null;
+    last_name: string | null;
+    birth_date: string | null;
+    grade: string | null;
+    school: string | null;
+    secondary_email: string | null;
+    phone_number: string | null;
+  } | null>(null);
+  const [contactsLoaded, setContactsLoaded] = useState(false);
+
+  // Prevent re-seeding after the user has started editing
+  const hasSeededProfile = useRef(false);
+
   useEffect(() => {
     if (!semesterId) {
-      console.error("[FormContent] No semesterId provided");
       setFetchError("No semester selected.");
       setLoading(false);
       return;
     }
     getSemesterForDisplay(semesterId, mode)
-      .then((data) => {
-        console.log(
-          "[FormContent] Semester loaded. registrationForm element count:",
-          data.registrationForm?.length ?? 0,
-          "| raw registrationForm:",
-          JSON.stringify(data.registrationForm),
-        );
-        setSemester(data);
-      })
+      .then(setSemester)
       .catch((err: unknown) => {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error("[FormContent] Failed to load semester:", msg);
-        setFetchError(msg);
+        setFetchError(err instanceof Error ? err.message : String(err));
       })
       .finally(() => setLoading(false));
   }, [semesterId, mode]);
 
-  const elements = semester?.registrationForm ?? [];
+  // Fetch family contacts + first assigned dancer's school once on mount
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) { setContactsLoaded(true); return; }
+      const { data: userRow } = await supabase
+        .from("users").select("family_id").eq("id", user.id).single();
+      if (!userRow?.family_id) { setContactsLoaded(true); return; }
 
-  // Build the schema only once data has loaded so the resolver reflects the
-  // actual form shape. Re-compute on every render so that react-hook-form
-  // always validates against the latest schema.
-  const schema = buildDynamicFormSchema(elements);
+      const [{ data: contactRows }, { data: dancerRows }] = await Promise.all([
+        supabase
+          .from("family_contacts")
+          .select("id, family_id, type, first_name, last_name, phone, email, relationship, is_authorized_pickup, notes, created_at, updated_at")
+          .eq("family_id", userRow.family_id),
+        supabase
+          .from("dancers")
+          .select("id, first_name, last_name, birth_date, grade, school, secondary_email, phone_number")
+          .eq("family_id", userRow.family_id)
+          .order("created_at", { ascending: true }),
+      ]);
+
+      setFamilyContacts((contactRows as FamilyContact[]) ?? []);
+
+      // Prefer the first dancer assigned in this registration;
+      // fall back to the first dancer on the account.
+      const assignedIds = state.participants
+        .map(p => p.dancerId)
+        .filter((id): id is string => !!id);
+      const dancers = (dancerRows ?? []) as {
+        id: string;
+        first_name: string | null;
+        last_name: string | null;
+        birth_date: string | null;
+        grade: string | null;
+        school: string | null;
+        secondary_email: string | null;
+        phone_number: string | null;
+      }[];
+      const firstAssigned = assignedIds.length > 0
+        ? dancers.find(d => d.id === assignedIds[0])
+        : null;
+      setFirstDancer(firstAssigned ?? dancers[0] ?? null);
+
+      setContactsLoaded(true);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const elements = semester?.registrationForm ?? [];
+  // DEV: schema unused while resolver is disabled
+  // const schema = buildDynamicFormSchema(elements);
 
   const {
     register,
@@ -214,17 +291,32 @@ export function FormContent({
     reset,
     formState: { errors },
   } = useForm({
-    resolver: zodResolver(schema),
+    // DEV: resolver removed so all fields are optional — remove before launch
+    // resolver: zodResolver(schema),
     defaultValues: state.formData as Record<string, unknown>,
   });
 
-  // After semester loads, seed any profileField-mapped questions from the
-  // logged-in user's profile. state.formData takes precedence so previously
-  // entered answers are never overwritten.
+  // Seed form fields from profile once both semester and contacts are ready
   useEffect(() => {
     if (!semester || elements.length === 0) return;
+    if (!contactsLoaded) return;
+    if (hasSeededProfile.current) return;
+    hasSeededProfile.current = true;
+
+    const emergencyContact = familyContacts.find(c => c.type === "emergency_contact") ?? null;
+    const alternateParent  = familyContacts.find(c => c.type === "alternate_parent")  ?? null;
+    const caregiver        = familyContacts.find(c => c.type === "caregiver")         ?? null;
 
     const profileMap: Partial<Record<ProfileFieldKey, string | undefined>> = {
+      // Dancer / student
+      dancer_first_name: firstDancer?.first_name ?? undefined,
+      dancer_last_name:  firstDancer?.last_name  ?? undefined,
+      dancer_birth_date: firstDancer?.birth_date ?? undefined,
+      dancer_grade:      firstDancer?.grade      ?? undefined,
+      dancer_school:     firstDancer?.school     ?? undefined,
+      dancer_email:      firstDancer?.secondary_email ?? undefined,
+      dancer_phone:      firstDancer?.phone_number   ?? undefined,
+      // Primary parent
       parent_first_name:    userRecord?.first_name    ?? undefined,
       parent_last_name:     userRecord?.last_name     ?? undefined,
       parent_email:         userRecord?.email         ?? undefined,
@@ -234,48 +326,89 @@ export function FormContent({
       parent_city:          userRecord?.city          ?? undefined,
       parent_state:         userRecord?.state         ?? undefined,
       parent_zipcode:       userRecord?.zipcode       ?? undefined,
+      // Alternate parent
+      alt_parent_first_name:  alternateParent?.first_name  ?? undefined,
+      alt_parent_last_name:   alternateParent?.last_name   ?? undefined,
+      alt_parent_phone:       alternateParent?.phone       ?? undefined,
+      alt_parent_email:       alternateParent?.email       ?? undefined,
+      alt_parent_relationship: alternateParent?.relationship ?? undefined,
+      // Caregiver
+      caregiver_first_name:  caregiver?.first_name  ?? undefined,
+      caregiver_last_name:   caregiver?.last_name   ?? undefined,
+      caregiver_phone:       caregiver?.phone       ?? undefined,
+      caregiver_email:       caregiver?.email       ?? undefined,
+      caregiver_relationship: caregiver?.relationship ?? undefined,
+      // Emergency contact
+      emergency_contact_first_name:  emergencyContact?.first_name  ?? undefined,
+      emergency_contact_last_name:   emergencyContact?.last_name   ?? undefined,
+      emergency_contact_phone:       emergencyContact?.phone       ?? undefined,
+      emergency_contact_email:       emergencyContact?.email       ?? undefined,
+      emergency_contact_relationship: emergencyContact?.relationship ?? undefined,
     };
 
     const profileSeeded: Record<string, unknown> = {};
     for (const el of elements) {
-      if (el.profileField && profileMap[el.profileField]) {
-        profileSeeded[el.id] = profileMap[el.profileField];
+      if (el.profileField) {
+        const val = profileMap[el.profileField];
+        if (val) profileSeeded[el.id] = val;
       }
     }
 
-    // Only reset if there's actually something to seed
     if (Object.keys(profileSeeded).length > 0) {
+      // state.formData takes priority — don't overwrite fields the user already touched
       reset({ ...profileSeeded, ...state.formData });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [semester]);
+  }, [semester, contactsLoaded]);
 
-  function onSubmit(data: Record<string, unknown>) {
+  async function onSubmit(data: Record<string, unknown>) {
+    if (isFirstRegistration && !referralSource) {
+      setReferralError(true);
+      return;
+    }
+    if (isFirstRegistration && referralSource) {
+      await saveReferralSource(referralSource);
+    }
     setFormData(data);
     router.push(continueUrl);
   }
 
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div className="space-y-4 animate-pulse">
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-14 bg-neutral-200 rounded-xl" />
+          <div key={i} style={{
+            height: 52, borderRadius: 10,
+            background: "var(--pub-border)",
+            animation: "pulse 1.5s ease-in-out infinite",
+          }} />
         ))}
       </div>
     );
   }
 
+  /* ── Error ── */
   if (fetchError) {
     return (
-      <div className="text-center py-10">
-        <p className="text-red-600 mb-2 font-medium">
+      <div style={{
+        background: "#FEF2F2", border: "1px solid #FEE2E2",
+        borderRadius: 12, padding: "24px 20px", textAlign: "center",
+      }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "#B91C1C", marginBottom: 6 }}>
           Could not load registration form
-        </p>
-        <p className="text-neutral-400 text-sm mb-4">{fetchError}</p>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 14 }}>
+          {fetchError}
+        </div>
         <button
           type="button"
           onClick={() => router.back()}
-          className="text-primary-600 hover:underline text-sm"
+          style={{
+            fontSize: 13, fontWeight: 600, color: "var(--plum)",
+            background: "none", border: "none", cursor: "pointer",
+            fontFamily: "var(--pub-font-primary)",
+          }}
         >
           ← Go back
         </button>
@@ -283,54 +416,103 @@ export function FormContent({
     );
   }
 
-  if (elements.length === 0) {
-    // No form elements configured — skip this step
-    console.log(
-      "[FormContent] registrationForm is empty — showing skip screen. semesterId:",
-      semesterId,
-    );
+  /* ── No form elements — show referral question if first registration, else skip ── */
+  if (elements.length === 0 && !isFirstRegistration) {
     return (
-      <div className="text-center py-10">
-        <p className="text-neutral-500 mb-4">
-          No additional information required.
-        </p>
+      <div style={{ textAlign: "center", padding: "40px 0" }}>
+        <div style={{
+          width: 52, height: 52, borderRadius: "50%",
+          background: "var(--pub-badge-sage-bg)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          margin: "0 auto 16px",
+        }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--pub-badge-sage-text)" strokeWidth="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <div style={{
+          fontFamily: "var(--pub-font-secondary)",
+          fontSize: 18, fontWeight: 700,
+          color: "var(--pub-text-primary)", marginBottom: 6,
+        }}>
+          No additional information required
+        </div>
+        <div style={{ fontSize: 13, color: "var(--pub-text-muted)", marginBottom: 24 }}>
+          You&apos;re all set — continue to the payment step.
+        </div>
         <button
           type="button"
           onClick={() => router.push(continueUrl)}
-          className="bg-primary-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors text-sm"
+          className="btn-continue"
+          style={{ display: "inline-flex" }}
         >
           Continue to Payment
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
         </button>
       </div>
     );
   }
 
+  /* ── Main form ── */
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900 mb-1">
-          Registration Information
-        </h1>
-        <p className="text-neutral-500 text-sm">
-          Please complete all required fields.
-        </p>
+    <form onSubmit={handleSubmit(onSubmit)}>
+      {/* Page header */}
+      <div style={{ marginBottom: 28 }}>
+        <div className="reg-page-eyebrow">Step 4 of 6 — Registration Info</div>
+        <h1 className="reg-page-title">Registration Information</h1>
+        <p className="reg-page-desc">Please complete all required fields before continuing to payment.</p>
       </div>
 
-      {elements.map((el) => renderField(el, register, control, errors))}
+      {/* How did you hear about us — first-time families only */}
+      {isFirstRegistration && (
+        <div className="reg-field" style={{ marginBottom: 4 }}>
+          <label className="reg-label">
+            How did you hear about us?
+            <span style={{ color: "var(--wine)", marginLeft: 3 }}>*</span>
+          </label>
+          <select
+            className="reg-input"
+            value={referralSource}
+            onChange={(e) => { setReferralSource(e.target.value); setReferralError(false); }}
+            style={referralError ? { borderColor: "var(--wine)" } : undefined}
+          >
+            <option value="">— Select one —</option>
+            {REFERRAL_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+          {referralError && (
+            <span className="reg-error">Please let us know how you heard about us.</span>
+          )}
+        </div>
+      )}
 
-      <div className="flex gap-3 pt-4">
+      {/* Form fields */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        {elements.map((el) => renderField(el, register, control, errors))}
+      </div>
+
+      {/* CTAs */}
+      <div className="reg-cta-row" style={{ marginTop: 32 }}>
         <button
           type="button"
           onClick={() => router.back()}
-          className="flex-1 py-3 rounded-xl border border-neutral-200 text-neutral-600 hover:bg-neutral-50 transition-colors text-sm font-medium"
+          className="btn-back"
         >
-          ← Back
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          Back
         </button>
-        <button
-          type="submit"
-          className="flex-1 py-3 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors text-sm"
-        >
+        <button type="submit" className="btn-continue">
           Continue to Payment
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
         </button>
       </div>
     </form>
@@ -347,12 +529,10 @@ function FormPageInner() {
 
   return (
     <CartRestoreGuard semesterId={semesterId}>
-      {/* <RegistrationProvider semesterId={semesterId}> */}
       <FormContent
         semesterId={semesterId}
         continueUrl={`/register/payment?semester=${semesterId}`}
       />
-      {/* </RegistrationProvider> */}
     </CartRestoreGuard>
   );
 }

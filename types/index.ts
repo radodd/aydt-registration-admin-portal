@@ -32,6 +32,9 @@ export interface User {
   zipcode?: string | null;
   sms_opt_in?: boolean;
   sms_verified?: boolean;
+  phone_number_alt?: string | null;
+  cc_alternate_parent?: boolean;
+  referral_source?: string | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -115,6 +118,27 @@ export interface Family {
       } | null;
     }[];
   }[];
+}
+
+/* -------------------------------------------------------------------------- */
+/* Family Contacts Domain                                                      */
+/* -------------------------------------------------------------------------- */
+
+export type FamilyContactType = 'emergency_contact' | 'alternate_parent' | 'caregiver';
+
+export interface FamilyContact {
+  id: string;
+  family_id: string;
+  type: FamilyContactType;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  email: string | null;
+  relationship: string | null;
+  is_authorized_pickup: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -914,6 +938,15 @@ export type TextBlockFormatting = {
 };
 
 export type ProfileFieldKey =
+  // Dancer / student
+  | "dancer_first_name"
+  | "dancer_last_name"
+  | "dancer_birth_date"
+  | "dancer_grade"
+  | "dancer_school"
+  | "dancer_email"
+  | "dancer_phone"
+  // Primary parent / guardian
   | "parent_first_name"
   | "parent_last_name"
   | "parent_email"
@@ -922,7 +955,25 @@ export type ProfileFieldKey =
   | "parent_address_line2"
   | "parent_city"
   | "parent_state"
-  | "parent_zipcode";
+  | "parent_zipcode"
+  // Alternate parent / guardian
+  | "alt_parent_first_name"
+  | "alt_parent_last_name"
+  | "alt_parent_phone"
+  | "alt_parent_email"
+  | "alt_parent_relationship"
+  // Caregiver
+  | "caregiver_first_name"
+  | "caregiver_last_name"
+  | "caregiver_phone"
+  | "caregiver_email"
+  | "caregiver_relationship"
+  // Emergency contact
+  | "emergency_contact_first_name"
+  | "emergency_contact_last_name"
+  | "emergency_contact_phone"
+  | "emergency_contact_email"
+  | "emergency_contact_relationship";
 
 export type RegistrationFormElement = {
   id: string;
@@ -973,6 +1024,7 @@ export type SemesterDraft = {
 
   details?: {
     name: string;
+    location?: string;
     trackingMode: boolean;
     capacityWarningThreshold?: number;
     publishAt?: Date;
@@ -1890,4 +1942,54 @@ export interface ReportSemester {
   created_at: string;
   start_date?: string | null;
   end_date?: string | null;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Instructor Domain                                                           */
+/* -------------------------------------------------------------------------- */
+
+/** Maps to the attendance_status enum in the DB. */
+export type AttendanceStatus = "present" | "absent" | "tardy" | "excused";
+
+/** A row in the `attendance` table. */
+export interface AttendanceRecord {
+  id: string;
+  session_id: string;
+  occurrence_date_id: string | null;
+  dancer_id: string;
+  status: AttendanceStatus;
+  note: string | null;
+  marked_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A row in the `class_session_instructors` junction table. */
+export interface SessionInstructor {
+  id: string;
+  session_id: string;
+  user_id: string;
+  is_lead: boolean;
+  created_at: string;
+  /** Populated when queried with a user join. */
+  user?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+}
+
+/** A row in the `instructor_student_notes` table. */
+export interface InstructorStudentNote {
+  id: string;
+  instructor_id: string;
+  dancer_id: string;
+  note: string;
+  created_at: string;
+  updated_at: string;
+  /** Populated when queried with an instructor join (admin view). */
+  instructor?: {
+    first_name: string;
+    last_name: string;
+  };
 }

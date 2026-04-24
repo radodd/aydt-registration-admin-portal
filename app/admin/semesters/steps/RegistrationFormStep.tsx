@@ -6,7 +6,7 @@ import CustomQuestionModal from "@/app/components/semester-flow/CustomQuestionMo
 import SubheaderModal from "@/app/components/semester-flow/SubheaderModal";
 import TextBlockModal from "@/app/components/semester-flow/TextBlockModal";
 import { autosaveSemesterField } from "../actions/autosaveSemesterField";
-import { ChevronDown, ChevronRight, GripVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, MoreHorizontal, Plus } from "lucide-react";
 import {
   DndContext,
   DragEndEvent,
@@ -119,6 +119,20 @@ function SortableFieldRowItem({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: el.id });
 
+  const [rowMenuOpen, setRowMenuOpen] = useState(false);
+  const rowMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!rowMenuOpen) return;
+    function onOutside(e: MouseEvent) {
+      if (rowMenuRef.current && !rowMenuRef.current.contains(e.target as Node)) {
+        setRowMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [rowMenuOpen]);
+
   const typeLabel = el.type === "text_block" ? "text block" : inputTypeLabel(el.inputType);
 
   return (
@@ -154,13 +168,29 @@ function SortableFieldRowItem({
       </div>
 
       {!isLocked && (
-        <div className="hidden group-hover:flex items-center gap-1 ml-3 shrink-0">
-          <button onClick={onEdit} className="px-2 py-1 text-xs text-primary-600 hover:text-primary-700 font-medium rounded transition-colors">
-            Edit
+        <div className="relative ml-3 shrink-0" ref={rowMenuRef}>
+          <button
+            onClick={() => setRowMenuOpen((o) => !o)}
+            className="p-1.5 rounded text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors"
+          >
+            <MoreHorizontal size={14} />
           </button>
-          <button onClick={onDelete} className="px-2 py-1 text-xs text-red-400 hover:text-red-600 font-medium rounded transition-colors">
-            Remove
-          </button>
+          {rowMenuOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[100px]">
+              <button
+                onClick={() => { onEdit(); setRowMenuOpen(false); }}
+                className="w-full text-left px-3 py-1.5 text-sm text-primary-600 hover:bg-neutral-50"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => { onDelete(); setRowMenuOpen(false); }}
+                className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-neutral-50"
+              >
+                Remove
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -196,6 +226,8 @@ function SortableSectionCard({
 
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const [sectionMenuOpen, setSectionMenuOpen] = useState(false);
+  const sectionMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!addMenuOpen) return;
@@ -207,6 +239,17 @@ function SortableSectionCard({
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
   }, [addMenuOpen]);
+
+  useEffect(() => {
+    if (!sectionMenuOpen) return;
+    function onOutside(e: MouseEvent) {
+      if (sectionMenuRef.current && !sectionMenuRef.current.contains(e.target as Node)) {
+        setSectionMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [sectionMenuOpen]);
 
   const lastIndex =
     section.fields.length > 0
@@ -257,14 +300,30 @@ function SortableSectionCard({
         </span>
 
         {!isLocked && (
-          <>
-            <button onClick={onEditHeader} className="p-1 rounded text-neutral-400 hover:text-neutral-700 transition-colors">
-              <Pencil size={13} />
+          <div className="relative shrink-0" ref={sectionMenuRef}>
+            <button
+              onClick={() => setSectionMenuOpen((o) => !o)}
+              className="p-1.5 rounded text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors"
+            >
+              <MoreHorizontal size={14} />
             </button>
-            <button onClick={onDeleteHeader} className="p-1 rounded text-neutral-400 hover:text-red-500 transition-colors">
-              <Trash2 size={13} />
-            </button>
-          </>
+            {sectionMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[130px]">
+                <button
+                  onClick={() => { onEditHeader(); setSectionMenuOpen(false); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
+                >
+                  Edit section
+                </button>
+                <button
+                  onClick={() => { onDeleteHeader(); setSectionMenuOpen(false); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-neutral-50"
+                >
+                  Delete section
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 

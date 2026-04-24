@@ -83,7 +83,7 @@ export default function PreviewScheduleStep({
     .slice(0, 16);
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-8">
+    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-4 md:p-8 space-y-6 md:space-y-8">
       <div>
         <h2 className="text-xl font-semibold text-neutral-900">
           Preview &amp; Schedule

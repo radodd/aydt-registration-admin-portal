@@ -178,6 +178,9 @@ export default function SemesterForm({
     initialState ?? ({} as SemesterDraft),
   );
 
+  // Ref for the mobile horizontal step bar — used to auto-scroll active step into view
+  const mobileStepBarRef = useRef<HTMLDivElement>(null);
+
   // stateRef always holds the most recent state, even within the same event loop tick
   // before React has processed the queued dispatch and re-rendered. This is critical
   // for navigateToStep: steps call dispatch(action) + onNext() in the same event
@@ -249,6 +252,16 @@ export default function SemesterForm({
   useEffect(() => {
     stepSubmitRef.current = undefined;
   }, [activeStepKey]);
+
+  // Auto-scroll the mobile step bar so the active step is always visible
+  useEffect(() => {
+    const bar = mobileStepBarRef.current;
+    if (!bar) return;
+    const activeBtn = bar.children[activeStepIndex] as HTMLElement | undefined;
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    }
+  }, [activeStepIndex]);
 
   function registerStepSubmit(fn: () => void) {
     stepSubmitRef.current = fn;
@@ -466,9 +479,9 @@ export default function SemesterForm({
       className="fixed inset-0 flex"
       style={{ zIndex: 40 }}
     >
-      {/* ── Left wizard sidebar ─────────────────────────────────────── */}
+      {/* ── Left wizard sidebar — desktop only ────────────────────── */}
       <aside
-        className="shrink-0 flex flex-col overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+        className="hidden md:flex shrink-0 flex-col overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
         style={{
           width: "var(--admin-sidebar-width)",
           background: "var(--admin-sidebar-bg)",
@@ -515,7 +528,7 @@ export default function SemesterForm({
 
         {/* Top bar */}
         <div
-          className="shrink-0 flex items-center justify-between px-6"
+          className="shrink-0 flex items-center justify-between px-4 md:px-6 gap-2"
           style={{
             height: 52,
             background: "var(--admin-surface)",
@@ -525,16 +538,16 @@ export default function SemesterForm({
           <button
             onClick={handleBackToSemesters}
             disabled={isSaving}
-            className="flex items-center gap-1 text-sm transition-colors hover:opacity-80 disabled:opacity-50"
+            className="flex items-center gap-1 text-sm transition-colors hover:opacity-80 disabled:opacity-50 shrink-0"
             style={{ color: "var(--admin-text-faint)" }}
           >
             <ChevronLeft size={15} strokeWidth={2} />
-            Semesters
+            <span className="hidden sm:inline">Semesters</span>
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1 justify-center">
             <span
-              className="text-sm font-semibold"
+              className="text-sm font-semibold truncate"
               style={{ color: "var(--admin-text)" }}
             >
               {semesterTitle}
@@ -542,12 +555,13 @@ export default function SemesterForm({
             <Badge status={statusBadge}>{statusLabel}</Badge>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Preview — desktop only */}
             <Link
               href={state.id ? `/preview/semester/${state.id}` : "#"}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm rounded-lg px-3 py-1.5 transition-colors hover:bg-neutral-50"
+              className="hidden md:inline-flex items-center gap-1.5 text-sm rounded-lg px-3 py-1.5 transition-colors hover:bg-neutral-50"
               style={{
                 border: "1px solid var(--admin-border)",
                 color: "var(--admin-text-faint)",
@@ -555,16 +569,16 @@ export default function SemesterForm({
               onClick={(e) => !state.id && e.preventDefault()}
             >
               <Eye size={13} strokeWidth={2} />
-              Preview semester
+              Preview
             </Link>
 
             <button
               onClick={handleSaveDraft}
               disabled={isSaving}
-              className="relative inline-flex items-center justify-center text-sm font-medium text-white rounded-lg px-4 py-1.5 transition-colors hover:opacity-90 disabled:opacity-60"
+              className="relative inline-flex items-center justify-center text-sm font-medium text-white rounded-lg px-3 md:px-4 py-1.5 transition-colors hover:opacity-90 disabled:opacity-60"
               style={{ background: "var(--admin-sidebar-active)" }}
             >
-              <span className={isSaving ? "invisible" : ""}>Save draft</span>
+              <span className={isSaving ? "invisible" : ""}>{isSaving ? "Saving…" : "Save"}</span>
               {isSaving && (
                 <span className="absolute inset-0 flex items-center justify-center">Saving…</span>
               )}
@@ -572,9 +586,46 @@ export default function SemesterForm({
           </div>
         </div>
 
+        {/* Mobile: horizontal step nav (hidden on desktop — sidebar handles it) */}
+        <div
+          ref={mobileStepBarRef}
+          className="md:hidden flex overflow-x-auto border-b [&::-webkit-scrollbar]:hidden"
+          style={{ background: "var(--admin-sidebar-bg)", borderColor: "var(--admin-sidebar-border)" }}
+        >
+          {STEPS.map((step, index) => {
+            const isActive = index === activeStepIndex;
+            return (
+              <button
+                key={step.key}
+                onClick={() => navigateToStep(index)}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-[12px] font-medium whitespace-nowrap transition-colors border-b-2"
+                style={{
+                  color: isActive ? "#fff" : "var(--admin-sidebar-text)",
+                  borderBottomColor: isActive ? "var(--admin-sidebar-active)" : "transparent",
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: `2px solid ${isActive ? "var(--admin-sidebar-active)" : "transparent"}`,
+                  cursor: "pointer",
+                }}
+              >
+                <span
+                  className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
+                  style={{
+                    background: isActive ? "var(--admin-sidebar-active)" : "rgba(255,255,255,0.15)",
+                    color: isActive ? "#fff" : "rgba(255,255,255,0.4)",
+                  }}
+                >
+                  {index + 1}
+                </span>
+                {step.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Content area */}
         <div
-          className={`flex-1 min-h-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none] ${activeStepKey === "sessions" || activeStepKey === "sessionGroups" || activeStepKey === "confirmationEmail" || activeStepKey === "waitlist" || activeStepKey === "review" ? "overflow-hidden flex flex-col" : "overflow-y-auto p-8"}`}
+          className={`flex-1 min-h-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none] ${activeStepKey === "sessions" || activeStepKey === "sessionGroups" || activeStepKey === "confirmationEmail" || activeStepKey === "waitlist" || activeStepKey === "review" ? "overflow-hidden flex flex-col" : "overflow-y-auto p-4 md:p-8"}`}
           style={{ background: "var(--admin-page-bg)" }}
         >
           {/* Step indicator — hidden on full-bleed steps */}
@@ -593,7 +644,7 @@ export default function SemesterForm({
               {stepRenderers[activeStepKey]}
             </div>
           ) : activeStepKey === "sessionGroups" ? (
-            <div className="flex-1 min-h-0 overflow-hidden flex">
+            <div className="flex-1 min-h-0 overflow-y-auto md:overflow-hidden flex [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
               {stepRenderers[activeStepKey]}
             </div>
           ) : activeStepKey === "confirmationEmail" || activeStepKey === "waitlist" ? (
@@ -610,47 +661,50 @@ export default function SemesterForm({
         </div>
 
         {/* Footer navigation — hidden on steps that manage their own navigation */}
-        {activeStepKey !== "review" && activeStepKey !== "sessionGroups" && activeStepKey !== "payment" && <div
-          className="shrink-0 flex items-center justify-between px-6 py-4"
-          style={{
-            background: "var(--admin-surface)",
-            borderTop: "1px solid var(--admin-border)",
-          }}
-        >
-          <span
-            className="text-sm"
-            style={{ color: "var(--admin-text-faint)" }}
+        {activeStepKey !== "review" && activeStepKey !== "sessionGroups" && activeStepKey !== "payment" && (
+          <div
+            className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 md:px-6 py-3 md:py-4"
+            style={{
+              background: "var(--admin-surface)",
+              borderTop: "1px solid var(--admin-border)",
+            }}
           >
-            Step {activeStepIndex + 1} of {STEPS.length} —{" "}
-            {STEPS[activeStepIndex].label}
-          </span>
+            <span
+              className="text-xs sm:text-sm hidden sm:block"
+              style={{ color: "var(--admin-text-faint)" }}
+            >
+              Step {activeStepIndex + 1} of {STEPS.length} —{" "}
+              {STEPS[activeStepIndex].label}
+            </span>
 
-          <div className="flex items-center gap-3">
-            {activeStepIndex > 0 && (
-              <button
-                onClick={previousStep}
-                className="text-sm rounded-lg px-4 py-2 transition-colors hover:bg-neutral-50"
-                style={{
-                  border: "1px solid var(--admin-border)",
-                  color: "var(--admin-text-faint)",
-                }}
-              >
-                ← Back
-              </button>
-            )}
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+              {activeStepIndex > 0 && (
+                <button
+                  onClick={previousStep}
+                  className="flex-1 sm:flex-none text-sm rounded-lg px-3 sm:px-4 py-2 transition-colors hover:bg-neutral-50"
+                  style={{
+                    border: "1px solid var(--admin-border)",
+                    color: "var(--admin-text-faint)",
+                  }}
+                >
+                  ← Back
+                </button>
+              )}
 
-            {activeStepIndex < STEPS.length - 1 && (
-              <button
-                onClick={handleFooterNext}
-                disabled={isSaving}
-                className="inline-flex items-center gap-2 text-sm font-semibold text-white rounded-xl px-5 py-2.5 transition-colors hover:opacity-90 disabled:opacity-60"
-                style={{ background: "var(--admin-sidebar-active)" }}
-              >
-                Next — {STEPS[activeStepIndex + 1].label} →
-              </button>
-            )}
+              {activeStepIndex < STEPS.length - 1 && (
+                <button
+                  onClick={handleFooterNext}
+                  disabled={isSaving}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 text-sm font-semibold text-white rounded-xl px-4 sm:px-5 py-2 sm:py-2.5 transition-colors hover:opacity-90 disabled:opacity-60 truncate"
+                  style={{ background: "var(--admin-sidebar-active)" }}
+                >
+                  <span className="truncate">{STEPS[activeStepIndex + 1].label}</span>
+                  <span className="shrink-0">→</span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>}
+        )}
       </div>
 
     </div>

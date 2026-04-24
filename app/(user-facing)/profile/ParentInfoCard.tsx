@@ -7,6 +7,7 @@ import {
   updateUserProfile,
   type UpdateUserProfileInput,
 } from "./actions/updateUserProfile";
+import { formatPhone } from "@/utils/formatPhone";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
@@ -30,6 +31,8 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
     first_name: user.first_name ?? "",
     last_name: user.last_name ?? "",
     phone_number: user.phone_number ?? "",
+    phone_number_alt: user.phone_number_alt ?? "",
+    cc_alternate_parent: user.cc_alternate_parent ?? false,
     address_line1: user.address_line1 ?? "",
     address_line2: user.address_line2 ?? "",
     city: user.city ?? "",
@@ -37,13 +40,12 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
     zipcode: user.zipcode ?? "",
   });
 
-  function set(field: keyof UpdateUserProfileInput, value: string) {
+  function set(field: keyof UpdateUserProfileInput, value: string | boolean) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
   async function handleSave() {
     setError(null);
-    // Required field validation
     if (!form.first_name.trim()) return setError("First name is required.");
     if (!form.last_name.trim()) return setError("Last name is required.");
     if (!form.address_line1.trim()) return setError("Street address is required.");
@@ -68,6 +70,8 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
       first_name: user.first_name ?? "",
       last_name: user.last_name ?? "",
       phone_number: user.phone_number ?? "",
+      phone_number_alt: user.phone_number_alt ?? "",
+      cc_alternate_parent: user.cc_alternate_parent ?? false,
       address_line1: user.address_line1 ?? "",
       address_line2: user.address_line2 ?? "",
       city: user.city ?? "",
@@ -176,17 +180,33 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
             <span style={{ fontSize: 11, color: "var(--pub-text-faint)" }}>Email cannot be changed here.</span>
           </div>
 
-          {/* Phone */}
-          <div style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>Phone Number</label>
-            <input
-              type="tel"
-              value={form.phone_number}
-              onChange={(e) => set("phone_number", e.target.value)}
-              readOnly={!editing}
-              placeholder="(555) 555-5555"
-              style={editing ? inputStyle : readonlyStyle}
-            />
+          {/* Phone — cell + alternate */}
+          <div className="profile-grid-2" style={{ marginBottom: 14 }}>
+            <div>
+              <label style={labelStyle}>Cell Phone</label>
+              <input
+                type="tel"
+                value={form.phone_number}
+                onChange={(e) => set("phone_number", formatPhone(e.target.value))}
+                readOnly={!editing}
+                placeholder="(555) 555-5555"
+                style={editing ? inputStyle : readonlyStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>
+                Additional Phone Number{" "}
+                {editing && <span style={{ color: "var(--pub-text-faint)", fontWeight: 400 }}>(optional)</span>}
+              </label>
+              <input
+                type="tel"
+                value={form.phone_number_alt}
+                onChange={(e) => set("phone_number_alt", formatPhone(e.target.value))}
+                readOnly={!editing}
+                placeholder="(555) 555-5555"
+                style={editing ? inputStyle : readonlyStyle}
+              />
+            </div>
           </div>
 
           {/* Street Address */}
@@ -260,9 +280,64 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
             </div>
           </div>
 
+          {/* Notification preference */}
+          {editing && (
+            <div style={{
+              display: "flex", alignItems: "flex-start", gap: 12,
+              padding: "12px 14px",
+              background: "var(--plum-50)",
+              border: "1px solid var(--plum-100)",
+              borderRadius: 8,
+              marginTop: 14,
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--pub-text-primary)" }}>
+                  Copy alternate parent / guardian on notifications
+                </div>
+                <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginTop: 2, lineHeight: 1.5 }}>
+                  When enabled, the alternate parent / guardian on your account will also receive class reminders and announcements.
+                </div>
+              </div>
+              <div
+                role="switch"
+                aria-checked={form.cc_alternate_parent}
+                onClick={() => set("cc_alternate_parent", !form.cc_alternate_parent)}
+                style={{
+                  position: "relative", width: 38, height: 22, flexShrink: 0,
+                  marginTop: 1, cursor: "pointer", userSelect: "none",
+                }}
+              >
+                <div style={{
+                  position: "absolute", inset: 0, borderRadius: 11,
+                  background: form.cc_alternate_parent ? "var(--plum)" : "var(--pub-border)",
+                  transition: "background .2s",
+                }} />
+                <div style={{
+                  position: "absolute", top: 3,
+                  left: form.cc_alternate_parent ? 19 : 3,
+                  width: 16, height: 16, borderRadius: "50%",
+                  background: "#fff", transition: "left .2s",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                }} />
+              </div>
+            </div>
+          )}
+
+          {/* Read-mode: show notification preference if enabled */}
+          {!editing && form.cc_alternate_parent && (
+            <div style={{
+              marginTop: 14,
+              fontSize: 12, color: "var(--pub-text-muted)",
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--plum)", flexShrink: 0 }} />
+              Alternate parent / guardian is copied on notifications
+            </div>
+          )}
+
           {/* Save / Cancel buttons */}
           {editing && (
-            <div style={{ display: "flex", gap: 8, paddingTop: 6 }}>
+            <div style={{ display: "flex", gap: 8, paddingTop: 14 }}>
               <button
                 type="button"
                 onClick={handleCancel}

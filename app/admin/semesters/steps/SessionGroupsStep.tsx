@@ -319,11 +319,11 @@ export default function SessionsGroupsStep({
   /* ------------------------------------------------------------------------ */
 
   return (
-    <div className="flex h-full w-full min-h-0 gap-8 p-6">
+    <div className="flex flex-col md:flex-row w-full gap-4 md:gap-8 p-4 md:p-6 md:h-full md:min-h-0">
       {/* ------------------------------------------------------------------ */}
       {/* Left: Sessions card                                                 */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col bg-white border border-neutral-200 rounded-2xl overflow-hidden flex-1 min-w-0">
+      <div className="flex flex-col bg-white border border-neutral-200 rounded-2xl overflow-hidden min-w-0 h-72 md:h-auto md:flex-1">
         {/* Card header */}
         <div className="px-6 py-4 border-b border-neutral-200 shrink-0">
           <h2 className="text-base font-semibold text-neutral-900">
@@ -486,7 +486,7 @@ export default function SessionsGroupsStep({
       {/* ------------------------------------------------------------------ */}
       {/* Right: Groups                                                       */}
       {/* ------------------------------------------------------------------ */}
-      <div className="relative flex-1 min-h-0">
+      <div className="relative md:flex-1 md:min-h-0">
         {groupsFades.topFade && (
           <div
             className="absolute top-0 left-0 right-0 h-10 pointer-events-none z-10"
@@ -500,7 +500,7 @@ export default function SessionsGroupsStep({
         <div
           ref={groupsRef}
           onScroll={groupsFades.onScroll}
-          className="h-full overflow-y-auto space-y-4 pl-2 pr-1 [&::-webkit-scrollbar]:w-0"
+          className="md:h-full overflow-y-auto space-y-4 pl-2 pr-1 [&::-webkit-scrollbar]:w-0"
           style={{ scrollbarWidth: "none" }}
         >
           {/* Header */}

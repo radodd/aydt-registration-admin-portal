@@ -5,8 +5,10 @@ import type { Dancer, User } from "@/types";
 import { ParentInfoCard } from "./ParentInfoCard";
 import { DancerCard } from "./DancerCard";
 import AddDancerForm from "./AddDancerForm";
+import { FamilyContactCard, type PrefillOption } from "./FamilyContactCard";
 import { SmsOptInCard } from "./SmsOptInCard";
 import { signOut } from "@/app/auth/actions";
+import type { FamilyContact } from "@/types";
 
 /* ── Data types from Supabase queries ─────────────────────── */
 
@@ -55,6 +57,7 @@ interface FamilyProfileCardProps {
   dancers?: Dancer[] | null;
   registrations?: RegRow[] | null;
   batches?: BatchRow[] | null;
+  contacts?: FamilyContact[] | null;
 }
 
 /* ── Helper functions ─────────────────────────────────────── */
@@ -228,11 +231,12 @@ const CHIP_STYLE: React.CSSProperties = {
 /* ── Main component ──────────────────────────────────────── */
 
 export const FamilyProfileCard = ({
-  user, dancers, registrations, batches,
+  user, dancers, registrations, batches, contacts,
 }: FamilyProfileCardProps) => {
-  type Tab = "profile" | "registrations" | "payments" | "notifications";
+  type Tab = "profile" | "dancers" | "registrations" | "payments" | "notifications";
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [showAddDancer, setShowAddDancer] = useState(false);
+  const [showAddEmergency, setShowAddEmergency] = useState(false);
   const [newsletter, setNewsletter] = useState(false);
 
   /* ── Derived stats ─────────────────────────────────────── */
@@ -260,6 +264,38 @@ export const FamilyProfileCard = ({
     ? Math.ceil((new Date(nextDueInstallment.due_date + "T00:00:00").getTime() - Date.now()) / 86400000)
     : null;
 
+  /* ── Contact lookups ───────────────────────────────────── */
+  const emergencyContacts = (contacts ?? []).filter(c => c.type === "emergency_contact");
+  const alternateParent = (contacts ?? []).find(c => c.type === "alternate_parent") ?? null;
+  const caregiver = (contacts ?? []).find(c => c.type === "caregiver") ?? null;
+
+  /* Build prefill options for emergency contact from filled-in alt parent / caregiver */
+  const emergencyPrefillOptions: PrefillOption[] = [];
+  if (alternateParent && (alternateParent.first_name || alternateParent.last_name)) {
+    emergencyPrefillOptions.push({
+      label: [alternateParent.first_name, alternateParent.last_name].filter(Boolean).join(" "),
+      data: {
+        first_name: alternateParent.first_name,
+        last_name: alternateParent.last_name,
+        phone: alternateParent.phone,
+        email: alternateParent.email,
+        relationship: alternateParent.relationship,
+      },
+    });
+  }
+  if (caregiver && (caregiver.first_name || caregiver.last_name)) {
+    emergencyPrefillOptions.push({
+      label: [caregiver.first_name, caregiver.last_name].filter(Boolean).join(" "),
+      data: {
+        first_name: caregiver.first_name,
+        last_name: caregiver.last_name,
+        phone: caregiver.phone,
+        email: caregiver.email,
+        relationship: caregiver.relationship,
+      },
+    });
+  }
+
   /* ── Disciplines per dancer (for profile tab chips) ─────── */
   const disciplinesByDancer = new Map<string, string[]>();
   for (const r of (registrations ?? [])) {
@@ -281,6 +317,7 @@ export const FamilyProfileCard = ({
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "profile", label: "Profile" },
+    { id: "dancers", label: "Dancers" },
     { id: "registrations", label: "Registrations" },
     { id: "payments", label: "Payments" },
     { id: "notifications", label: "Notifications" },
@@ -391,63 +428,138 @@ export const FamilyProfileCard = ({
         <div className="profile-tab-content">
           <ParentInfoCard user={user} />
 
-          {/* Dancers section */}
+          {/* ── Alternate Parent / Guardian ── */}
+          <div style={{ marginTop: 28 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "system-ui", marginBottom: 4 }}>Alternate Parent / Guardian</div>
+            <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
+              Spouse, co-parent, or second guardian — additional email and contact info stored here.
+            </div>
+            <FamilyContactCard type="alternate_parent" contact={alternateParent} />
+          </div>
+
+          {/* ── Caregiver ── */}
+          <div style={{ marginTop: 28 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "system-ui", marginBottom: 4 }}>Caregiver</div>
+            <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
+              Nanny, grandparent, or other regular caregiver. Can be designated as an authorized pickup person.
+            </div>
+            <FamilyContactCard type="caregiver" contact={caregiver} />
+          </div>
+
+          {/* ── Emergency Contacts ── */}
           <div style={{ marginTop: 28 }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "system-ui" }}>Dancers</div>
-              <button
-                onClick={() => setShowAddDancer(v => !v)}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
-                  fontSize: 11, fontWeight: 600, borderRadius: 7,
-                  border: "1.5px solid var(--plum)", cursor: "pointer",
-                  padding: "5px 11px", color: "var(--plum)",
-                  background: "transparent", fontFamily: "inherit",
-                  transition: "background .12s",
-                }}
-              >
-                {showAddDancer ? "Cancel" : "+ Add Dancer"}
-              </button>
+              <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "system-ui" }}>Emergency Contacts</div>
+              {!showAddEmergency && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddEmergency(true)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 5,
+                    fontSize: 11, fontWeight: 600, borderRadius: 7,
+                    border: "1.5px solid var(--plum)", cursor: "pointer",
+                    padding: "5px 11px", color: "var(--plum)",
+                    background: "transparent", fontFamily: "inherit",
+                  }}
+                >
+                  + Add Another
+                </button>
+              )}
             </div>
             <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
-              Dancer info is used to pre-fill registration forms and track enrollments.
+              People to reach if you can&apos;t be contacted in an emergency.
             </div>
 
-            {(dancers ?? []).length === 0 && !showAddDancer && (
-              <div style={{
-                background: "var(--pub-surface-warm)", border: "1px solid var(--pub-border)",
-                borderRadius: 12, padding: 24, textAlign: "center",
-                color: "var(--pub-text-faint)", fontSize: 14,
-              }}>
-                No dancers added yet.
-              </div>
+            {emergencyContacts.length === 0 && !showAddEmergency && (
+              <FamilyContactCard
+                type="emergency_contact"
+                contact={null}
+                prefillOptions={emergencyPrefillOptions}
+              />
             )}
 
-            {(dancers ?? []).map(dancer => (
-              <DancerCard
-                key={dancer.id}
-                dancer={dancer}
-                disciplines={disciplinesByDancer.get(dancer.id) ?? []}
-                onViewRegistrations={() => setActiveTab("registrations")}
+            {emergencyContacts.map((ec) => (
+              <FamilyContactCard
+                key={ec.id}
+                type="emergency_contact"
+                contact={ec}
+                prefillOptions={emergencyPrefillOptions}
               />
             ))}
 
-            {showAddDancer && (
-              <div style={CARD_STYLE}>
-                <div style={{
-                  padding: "14px 20px", background: "var(--pub-surface-warm)",
-                  borderBottom: "1px solid var(--pub-border-subtle)",
-                }}>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>Add a Dancer</div>
-                </div>
-                <div style={{ padding: 20 }}>
-                  <AddDancerForm
-                    onSuccess={() => setShowAddDancer(false)}
-                  />
-                </div>
-              </div>
+            {showAddEmergency && (
+              <FamilyContactCard
+                type="emergency_contact"
+                contact={null}
+                prefillOptions={emergencyPrefillOptions}
+                defaultEditing
+                onSaved={() => setShowAddEmergency(false)}
+                onCancelNew={() => setShowAddEmergency(false)}
+              />
             )}
           </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════
+          DANCERS TAB
+      ══════════════════════════════════════════════════════ */}
+      {activeTab === "dancers" && (
+        <div className="profile-tab-content">
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, fontFamily: "system-ui" }}>Dancers</div>
+            <button
+              onClick={() => setShowAddDancer(v => !v)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                fontSize: 11, fontWeight: 600, borderRadius: 7,
+                border: "1.5px solid var(--plum)", cursor: "pointer",
+                padding: "5px 11px", color: "var(--plum)",
+                background: "transparent", fontFamily: "inherit",
+                transition: "background .12s",
+              }}
+            >
+              {showAddDancer ? "Cancel" : "+ Add Dancer"}
+            </button>
+          </div>
+          <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
+            Dancer info is used to pre-fill registration forms and track enrollments.
+          </div>
+
+          {(dancers ?? []).length === 0 && !showAddDancer && (
+            <div style={{
+              background: "var(--pub-surface-warm)", border: "1px solid var(--pub-border)",
+              borderRadius: 12, padding: 24, textAlign: "center",
+              color: "var(--pub-text-faint)", fontSize: 14,
+            }}>
+              No dancers added yet.
+            </div>
+          )}
+
+          {(dancers ?? []).map(dancer => (
+            <DancerCard
+              key={dancer.id}
+              dancer={dancer}
+              disciplines={disciplinesByDancer.get(dancer.id) ?? []}
+              onViewRegistrations={() => setActiveTab("registrations")}
+            />
+          ))}
+
+          {showAddDancer && (
+            <div style={CARD_STYLE}>
+              <div style={{
+                padding: "14px 20px", background: "var(--pub-surface-warm)",
+                borderBottom: "1px solid var(--pub-border-subtle)",
+              }}>
+                <div style={{ fontSize: 14, fontWeight: 700 }}>Add a Dancer</div>
+              </div>
+              <div style={{ padding: 20 }}>
+                <AddDancerForm
+                  onSuccess={() => setShowAddDancer(false)}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -766,58 +878,9 @@ export const FamilyProfileCard = ({
       {activeTab === "notifications" && (
         <div className="profile-tab-content">
           {/* SMS section */}
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, fontFamily: "system-ui" }}>SMS Notifications</div>
-          {user.phone_number && (
-            <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
-              Alerts sent to <strong>{user.phone_number}</strong>.
-            </div>
-          )}
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, fontFamily: "system-ui" }}>SMS Notifications</div>
           <div style={{ marginBottom: 20 }}>
             <SmsOptInCard user={user} />
-          </div>
-
-          {/* Email section */}
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4, fontFamily: "system-ui" }}>Email Communications</div>
-          <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginBottom: 16 }}>
-            Sent to <strong>{user.email}</strong>.
-          </div>
-          <div style={CARD_STYLE}>
-            <div style={{
-              padding: "14px 20px", background: "var(--pub-surface-warm)",
-              borderBottom: "1px solid var(--pub-border-subtle)",
-            }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>Email Preferences</div>
-            </div>
-            <div style={{ padding: 20 }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--pub-text-primary)" }}>AYDT newsletter</div>
-                  <div style={{ fontSize: 12, color: "var(--pub-text-muted)", marginTop: 2, lineHeight: 1.5 }}>
-                    Monthly studio news, student spotlights, and class highlights.
-                  </div>
-                </div>
-                <ToggleSwitch checked={newsletter} onChange={setNewsletter} />
-              </div>
-            </div>
-            <div style={{
-              padding: "12px 20px",
-              borderTop: "1px solid var(--pub-border-subtle)",
-              background: "var(--pub-surface-warm)",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-            }}>
-              <span style={{ fontSize: 11, color: "var(--pub-text-faint)" }}>
-                Transactional emails (receipts, confirmations) are always sent.
-              </span>
-              <button style={{
-                display: "inline-flex", alignItems: "center",
-                fontSize: 11, fontWeight: 600, borderRadius: 7,
-                border: "1.5px solid var(--plum)", cursor: "pointer",
-                padding: "5px 11px", background: "var(--plum)", color: "#fff",
-                fontFamily: "inherit",
-              }}>
-                Save Preferences
-              </button>
-            </div>
           </div>
         </div>
       )}

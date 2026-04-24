@@ -28,6 +28,7 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
 
     details: {
       name: semester.name,
+      location: semester.location ?? undefined,
       trackingMode: semester.tracking_mode,
       capacityWarningThreshold: semester.capacity_warning_threshold,
       publishAt: semester.publish_at,

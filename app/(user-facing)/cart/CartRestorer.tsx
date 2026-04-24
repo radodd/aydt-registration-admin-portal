@@ -74,10 +74,10 @@ export function CartRestorer() {
         </div>
         <div className="cart-empty-title">Your cart is empty</div>
         <div className="cart-empty-desc">
-          Browse available semesters to add sessions.
+          Browse available programs to add classes.
         </div>
         <Link href="/" className="btn-continue">
-          Browse Semesters
+          Browse Classes
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="5" y1="12" x2="19" y2="12"/>
             <polyline points="12 5 19 12 12 19"/>

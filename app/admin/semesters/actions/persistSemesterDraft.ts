@@ -88,6 +88,7 @@ export async function persistSemesterDraft(
       .from("semesters")
       .insert({
         name: state.details?.name ?? "Untitled Semester",
+        location: state.details?.location ?? null,
         tracking_mode: state.details?.trackingMode ?? false,
         capacity_warning_threshold:
           state.details?.capacityWarningThreshold ?? null,

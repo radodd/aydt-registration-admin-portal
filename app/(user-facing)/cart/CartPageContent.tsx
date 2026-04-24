@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCart } from "@/app/providers/CartProvider";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
 import { gaEvent } from "@/utils/analytics";
-import type { PublicSession } from "@/types/public";
+import type { PublicSession, PublicFeeConfig } from "@/types/public";
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -45,11 +45,12 @@ function fmtTimer(seconds: number): string {
 }
 
 const STEPS = [
-  { label: "Select\nSessions" },
+  { label: "Sessions" },
   { label: "Review\nCart" },
   { label: "Dancer\nInfo" },
+  { label: "Reg.\nInfo" },
   { label: "Payment" },
-  { label: "Confirmation" },
+  { label: "Confirm" },
 ];
 
 export function CartPageContent() {
@@ -69,6 +70,7 @@ export function CartPageContent() {
 
   const [semesterSessions, setSemesterSessions] = useState<PublicSession[]>([]);
   const [semesterName, setSemesterName] = useState<string>("");
+  const [feeConfig, setFeeConfig] = useState<PublicFeeConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -82,6 +84,7 @@ export function CartPageContent() {
       (semester) => {
         setSemesterSessions(semester.sessions);
         setSemesterName(semester.name);
+        setFeeConfig(semester.feeConfig ?? null);
         setLoading(false);
       },
     );
@@ -180,10 +183,10 @@ export function CartPageContent() {
         </div>
         <div className="cart-empty-title">Your cart is empty</div>
         <div className="cart-empty-desc">
-          Browse available semesters to add sessions.
+          Browse available programs to add classes.
         </div>
         <Link href="/" className="btn-continue">
-          Browse Semesters
+          Browse Classes
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="5" y1="12" x2="19" y2="12"/>
             <polyline points="12 5 19 12 12 19"/>
@@ -233,16 +236,6 @@ export function CartPageContent() {
       {/* ── Main ── */}
       <div className="cart-page-main">
         <div className="cart-page-inner">
-
-          {/* Breadcrumb */}
-          <div className="cart-breadcrumb">
-            <Link href={semesterLink}>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <polyline points="15 18 9 12 15 6"/>
-              </svg>
-              {semesterName || "Back"}
-            </Link>
-          </div>
 
           {/* Page header */}
           <div className="cart-page-header">
@@ -304,11 +297,6 @@ export function CartPageContent() {
                   </div>
                 </div>
                 <div className="cart-item-right">
-                  {price > 0 ? (
-                    <div className="cart-item-price">{formatCurrency(price)}</div>
-                  ) : (
-                    <div className="cart-item-price-tbd">Priced at checkout</div>
-                  )}
                   <button
                     type="button"
                     className="cart-item-remove"
@@ -333,6 +321,11 @@ export function CartPageContent() {
                     </svg>
                     Remove
                   </button>
+                  {price > 0 ? (
+                    <div className="cart-item-price">{formatCurrency(price)}</div>
+                  ) : (
+                    <div className="cart-item-price-tbd">Priced at checkout</div>
+                  )}
                 </div>
               </div>
             );
@@ -389,21 +382,51 @@ export function CartPageContent() {
                   <div className="order-line-label">Registration fee</div>
                   <div className="order-line-sub">Per dancer enrolled</div>
                 </div>
-                <div className="order-line-amount pending">Applied at payment</div>
+                <div className="order-line-amount">
+                  {feeConfig
+                    ? `${formatCurrency(feeConfig.registrationFeePerChild * 100)} / dancer`
+                    : "—"}
+                </div>
               </div>
               <div className="order-line">
                 <div>
-                  <div className="order-line-label">Family &amp; multi-class discounts</div>
-                  <div className="order-line-sub">Automatically applied when eligible</div>
+                  <div className="order-line-label">Costume fee</div>
+                  <div className="order-line-sub">
+                    {feeConfig
+                      ? `Junior: ${formatCurrency(feeConfig.juniorCostumeFeePerClass * 100)}/class · Senior: ${formatCurrency(feeConfig.seniorCostumeFeePerClass * 100)}/class`
+                      : "Per dancer, per class (varies by division)"}
+                  </div>
                 </div>
-                <div className="order-line-amount pending">Applied at payment</div>
+                <div className="order-line-amount pending">Per class</div>
+              </div>
+              {feeConfig && feeConfig.seniorVideoFeePerRegistrant > 0 && (
+                <div className="order-line">
+                  <div>
+                    <div className="order-line-label">Senior video fee</div>
+                    <div className="order-line-sub">Senior division dancers only</div>
+                  </div>
+                  <div className="order-line-amount">
+                    {formatCurrency(feeConfig.seniorVideoFeePerRegistrant * 100)} / dancer
+                  </div>
+                </div>
+              )}
+              <div className="order-line">
+                <div>
+                  <div className="order-line-label">Family discount</div>
+                  <div className="order-line-sub">
+                    {feeConfig
+                      ? `${formatCurrency(feeConfig.familyDiscountAmount * 100)} off — applied when enrolling 2+ dancers`
+                      : "Applied automatically when eligible"}
+                  </div>
+                </div>
+                <div className="order-line-amount pending">Auto-applied</div>
               </div>
               <div className="order-line order-line-last">
                 <div>
                   <div className="order-line-label">Coupon code</div>
                   <div className="order-line-sub">Enter at the payment step</div>
                 </div>
-                <div className="order-line-amount pending">Applied at payment</div>
+                <div className="order-line-amount pending">At payment</div>
               </div>
             </div>
 
@@ -438,7 +461,7 @@ export function CartPageContent() {
               Add more sessions
             </Link>
             <Link href={continueLink} className="btn-continue">
-              Continue to Registration
+              Continue to Dancer Info
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <line x1="5" y1="12" x2="19" y2="12"/>
                 <polyline points="12 5 19 12 12 19"/>

@@ -224,11 +224,11 @@ export function FamilyDetailClient({
   /* ── Render ──────────────────────────────────────────────────────────── */
 
   return (
-    <main className="flex-1 overflow-y-auto px-8 py-8 space-y-6">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 md:px-8 md:py-8 space-y-6">
 
-      {/* Toast */}
+      {/* Toast — above mobile tab bar */}
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-green-700 text-white text-sm px-4 py-3 rounded-lg shadow-lg">
+        <div className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 bg-green-700 text-white text-sm px-4 py-3 rounded-lg shadow-lg">
           {toast}
         </div>
       )}
@@ -252,8 +252,8 @@ export function FamilyDetailClient({
           </p>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Action buttons — wrap on mobile */}
+        <div className="flex items-center gap-2 flex-wrap">
           <button className="px-3 py-1.5 text-sm font-medium border border-neutral-200 rounded-xl text-neutral-700 hover:bg-neutral-50 transition-colors">
             Download statement
           </button>
@@ -275,8 +275,8 @@ export function FamilyDetailClient({
         </div>
       </div>
 
-      {/* Two-column cards: Parents left, Dancers right */}
-      <div className="grid grid-cols-2 gap-6">
+      {/* Parents + Dancers: stacked on mobile, side-by-side on desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
 
         {/* Parents & Guardians */}
         <section className="space-y-3">
@@ -592,6 +592,6 @@ export function FamilyDetailClient({
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }

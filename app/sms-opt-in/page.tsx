@@ -160,47 +160,64 @@ export default function SmsOptInPage() {
         {/* Page header */}
         <div style={{ marginBottom: 36, textAlign: "center" }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: C.textPrimary, marginBottom: 6 }}>
-            AYDT SMS Notifications
+            American Youth Dance Theater — SMS Notifications
           </div>
           <p style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.6, margin: 0 }}>
-            AYDT (Academy of Youth Dance and Theater) sends SMS alerts only to
-            parents and guardians who explicitly opt in and verify their phone
-            number. The screens below show exactly how consent is collected,
-            how preferences are managed, and how subscribers can opt out.
+            American Youth Dance Theater (AYDT) sends SMS notifications to parents
+            and guardians who explicitly opt in during account registration and verify
+            their phone number. The screens below show exactly how consent is collected
+            during signup, how verified subscribers manage their preferences, and how
+            they can opt out at any time.
           </p>
         </div>
 
         {/* ── Step 1: Opt-In Form ─────────────────────────────────────────── */}
         <StepLabel n={1} label="Opt-In — Profile › Text Message Alerts" />
+
+        {/* Registration context note */}
+        <div style={{
+          display: "flex", alignItems: "flex-start", gap: 10,
+          padding: "11px 14px", borderRadius: 8, marginBottom: 14,
+          background: "#EEF2FF", border: "1px solid #C7D2FE",
+          fontSize: 12, color: "#3730A3", lineHeight: 1.5,
+        }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
+            <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.4"/>
+            <path d="M8 5v3.5M8 11h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <span>
+            This screen appears during account registration on the AYDT parent portal.
+            SMS opt-in is optional and not required to complete registration.
+          </span>
+        </div>
+
         <Card>
           <CardHeader
             title="Text Message Alerts"
-            subtitle="Receive urgent alerts via SMS"
+            subtitle="Stay informed about class cancellations, waitlist openings, and payment reminders"
           />
           <CardBody>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <FakeInput label="Mobile phone number" placeholder="(212) 555-1234" />
 
-              {/* Consent checkbox */}
+              {/* Consent checkbox — unchecked by default */}
               <label style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                 <div style={{
                   width: 14, height: 14, flexShrink: 0, marginTop: 2,
-                  border: `2px solid ${C.plum}`, borderRadius: 3,
-                  background: C.plum,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
-                  <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-                    <path d="M1 3.5L3.5 6L8 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
+                  border: `2px solid ${C.border}`, borderRadius: 3,
+                  background: C.surface,
+                }} />
                 <span style={{ fontSize: 12, color: C.textMuted, lineHeight: 1.5 }}>
-                  I agree to receive SMS notifications from AYDT about registration
-                  updates, waitlist invitations, and payment reminders. Message and
-                  data rates may apply. Reply STOP to opt out.
+                  I agree to receive recurring SMS notifications from{" "}
+                  <strong style={{ color: C.textPrimary }}>American Youth Dance Theater</strong>{" "}
+                  about my account, class enrollment, waitlist openings, schedule changes, and payment
+                  reminders. Message frequency varies. Message and data rates may apply. Reply{" "}
+                  <strong style={{ color: C.textPrimary }}>HELP</strong> for help,{" "}
+                  <strong style={{ color: C.textPrimary }}>STOP</strong> to opt out.
                 </span>
               </label>
 
-              <FakeButton label="Send Verification Code" />
+              <FakeButton label="Send Verification Code" disabled />
             </div>
           </CardBody>
         </Card>
@@ -228,8 +245,22 @@ export default function SmsOptInPage() {
           </CardBody>
         </Card>
 
+        {/* ── Post-opt-in divider ─────────────────────────────────────────── */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 12, margin: "8px 0 28px",
+        }}>
+          <div style={{ flex: 1, height: 1, background: C.border }} />
+          <span style={{
+            fontSize: 11, fontWeight: 700, color: C.textMuted,
+            textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap",
+          }}>
+            After opt-in — subscriber experience
+          </span>
+          <div style={{ flex: 1, height: 1, background: C.border }} />
+        </div>
+
         {/* ── Step 3: Manage Preferences ──────────────────────────────────── */}
-        <StepLabel n={3} label="Manage Notification Preferences" />
+        <StepLabel n={3} label="Managing Preferences (Subscriber View)" />
         <Card>
           <CardHeader
             title="Text Message Alerts"
@@ -256,7 +287,7 @@ export default function SmsOptInPage() {
         </Card>
 
         {/* ── Step 4: Opt-Out ─────────────────────────────────────────────── */}
-        <StepLabel n={4} label="Opt-Out" />
+        <StepLabel n={4} label="Opting Out (Subscriber View)" />
         <Card>
           <CardHeader
             title="Text Message Alerts"

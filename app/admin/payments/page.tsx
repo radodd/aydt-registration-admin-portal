@@ -603,8 +603,8 @@ export default function PaymentsAdmin() {
 
   if (loading) {
     return (
-      <div className="flex gap-0 -mx-8 -my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
-        <main className="flex-1 px-7 py-6">
+      <div className="flex gap-0 md:-mx-8 md:-my-8" style={{ minHeight: "calc(100vh - 56px)" }}>
+        <main className="flex-1 px-4 py-4 md:px-7 md:py-6">
           <div
             className="rounded-xl p-8 text-sm"
             style={{
@@ -616,14 +616,16 @@ export default function PaymentsAdmin() {
             Loading payments…
           </div>
         </main>
-        <PaymentsRightPanel />
+        <div className="hidden lg:block">
+          <PaymentsRightPanel />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex gap-0 -mx-8 -my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
-      <main className="flex-1 overflow-y-auto px-7 py-6 min-w-0">
+    <div className="flex gap-0 -mx-4 -my-4 md:-mx-8 md:-my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
+      <main className="flex-1 overflow-y-auto py-4 md:px-7 md:py-6 min-w-0">
 
         {/* Toast */}
         {toast && (
@@ -1810,7 +1812,9 @@ export default function PaymentsAdmin() {
           )}
         </div>
       </main>
-      <PaymentsRightPanel />
+      <div className="hidden lg:block">
+        <PaymentsRightPanel />
+      </div>
     </div>
   );
 }

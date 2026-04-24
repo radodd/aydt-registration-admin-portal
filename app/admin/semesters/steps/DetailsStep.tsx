@@ -14,7 +14,9 @@ export default function DetailsStep({
   onRegisterSubmit,
 }: DetailsStepProps & { onRegisterSubmit?: (fn: () => void) => void }) {
   const name = state.details?.name ?? "";
+  const location = state.details?.location ?? "";
   const trackingMode = state.details?.trackingMode ?? false;
+  const capacityWarningThreshold = state.details?.capacityWarningThreshold ?? "";
 
   /* ------------------------------------------------------------------------ */
   /* Register submit handler with parent footer                               */
@@ -32,23 +34,26 @@ export default function DetailsStep({
   /* Handlers                                                                 */
   /* ------------------------------------------------------------------------ */
 
-  function updateName(value: string) {
+  function patch(partial: Partial<NonNullable<typeof state.details>>) {
     dispatch({
       type: "SET_DETAILS",
-      payload: { name: value, trackingMode },
-    });
-  }
-
-  function updateTracking(value: boolean) {
-    dispatch({
-      type: "SET_DETAILS",
-      payload: { name, trackingMode: value },
+      payload: {
+        name,
+        location: location || undefined,
+        trackingMode,
+        capacityWarningThreshold: capacityWarningThreshold !== "" ? Number(capacityWarningThreshold) : undefined,
+        ...partial,
+      },
     });
   }
 
   function handleDetailsNext() {
     if (!name.trim()) {
       alert("Semester name is required");
+      return;
+    }
+    if (!location.trim()) {
+      alert("Location is required");
       return;
     }
     onNext();
@@ -95,7 +100,7 @@ export default function DetailsStep({
             type="text"
             placeholder="e.g. Fall 2026"
             value={name}
-            onChange={(e) => updateName(e.target.value)}
+            onChange={(e) => patch({ name: e.target.value })}
             className="admin-input w-full text-sm"
           />
           <p
@@ -103,6 +108,74 @@ export default function DetailsStep({
             style={{ color: "var(--admin-text-faint)" }}
           >
             Shown to families in the registration portal.
+          </p>
+        </div>
+
+        {/* Location */}
+        <div
+          className="rounded-xl p-5"
+          style={{
+            background: "var(--admin-surface)",
+            border: "0.5px solid var(--admin-border)",
+          }}
+        >
+          <label
+            htmlFor="semester-location"
+            className="block text-sm font-medium mb-2"
+            style={{ color: "var(--admin-text)" }}
+          >
+            Location{" "}
+            <span style={{ color: "var(--admin-sidebar-active)" }}>*</span>
+          </label>
+          <input
+            id="semester-location"
+            type="text"
+            placeholder="e.g. Upper East Side"
+            value={location}
+            onChange={(e) => patch({ location: e.target.value })}
+            className="admin-input w-full text-sm"
+          />
+          <p
+            className="text-xs mt-2"
+            style={{ color: "var(--admin-text-faint)" }}
+          >
+            Campus for this semester. All classes belong to this location — keeps UES and Washington Heights programs separate.
+          </p>
+        </div>
+
+        {/* Capacity Warning Threshold */}
+        <div
+          className="rounded-xl p-5"
+          style={{
+            background: "var(--admin-surface)",
+            border: "0.5px solid var(--admin-border)",
+          }}
+        >
+          <label
+            htmlFor="semester-threshold"
+            className="block text-sm font-medium mb-2"
+            style={{ color: "var(--admin-text)" }}
+          >
+            Availability warning threshold
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              id="semester-threshold"
+              type="number"
+              min={1}
+              max={20}
+              placeholder="e.g. 3"
+              value={capacityWarningThreshold}
+              onChange={(e) => patch({ capacityWarningThreshold: e.target.value ? Number(e.target.value) : undefined })}
+              className="admin-input w-24 text-sm"
+            />
+            <span className="text-sm" style={{ color: "var(--admin-text-faint)" }}>spots remaining</span>
+          </div>
+          <p
+            className="text-xs mt-2"
+            style={{ color: "var(--admin-text-faint)" }}
+          >
+            When a class has this many spots left, families see &ldquo;X spots left&rdquo; on the enrollment card. Leave blank to hide availability counts entirely.
           </p>
         </div>
 
@@ -134,7 +207,7 @@ export default function DetailsStep({
             type="button"
             role="switch"
             aria-checked={trackingMode}
-            onClick={() => updateTracking(!trackingMode)}
+            onClick={() => patch({ trackingMode: !trackingMode })}
             className="shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
             style={{
               background: trackingMode

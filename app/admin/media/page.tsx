@@ -304,10 +304,26 @@ export default function MediaLibraryPage() {
   );
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col md:flex-row gap-4 md:gap-6">
 
-      {/* Left sidebar — folder navigation */}
-      <aside className="w-48 shrink-0 bg-white rounded-2xl border border-neutral-100 p-4 self-start">
+      {/* Mobile: folder select dropdown */}
+      <div className="md:hidden">
+        <select
+          className="admin-select text-[12.5px] w-full"
+          value={folder}
+          onChange={(e) => setFolder(e.target.value)}
+        >
+          <option value="">All Media ({allImages.length})</option>
+          {folders.map((f) => (
+            <option key={f.name} value={f.name}>
+              {f.label || f.name} ({folderCounts[f.name] ?? 0})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Left sidebar — desktop only */}
+      <aside className="hidden md:block w-48 shrink-0 bg-white rounded-2xl border border-neutral-100 p-4 self-start">
         <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-widest px-3 mb-2">
           Folders
         </p>
