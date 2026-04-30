@@ -137,27 +137,27 @@ export default function AdminRegisterFlow({
         <div className="flex justify-center">
           <CheckCircle className="w-14 h-14 text-green-500" />
         </div>
-        <h2 className="text-xl font-semibold text-slate-800">Registration complete</h2>
-        <p className="text-sm text-slate-500">
+        <h2 className="text-xl font-semibold text-[#201D18]">Registration complete</h2>
+        <p className="text-sm text-[#736D65]">
           {state.dancerName} has been registered for {state.semesterName}.
         </p>
         <div className="flex flex-col gap-2 pt-4">
           <Link
             href={`/admin/dancers/${success.dancerId}`}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#8E2A23] text-white rounded-xl text-sm font-medium hover:bg-[#7A2420] transition"
           >
             View dancer profile
             <ExternalLink className="w-3.5 h-3.5" />
           </Link>
           <Link
             href={`/admin/payments`}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 border border-neutral-200 text-slate-600 rounded-lg text-sm hover:bg-slate-50 transition"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 border border-[#DDD9D2] text-[#736D65] rounded-xl text-sm hover:bg-[#F7F5F2] transition"
           >
             Go to payment dashboard
           </Link>
           <button
             onClick={handleStartOver}
-            className="text-sm text-slate-400 hover:text-slate-600 mt-1"
+            className="text-sm text-[#9E9890] hover:text-[#736D65] mt-1"
           >
             Register another dancer
           </button>
@@ -234,17 +234,17 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition ${
                   isDone
-                    ? "bg-blue-600 text-white"
+                    ? "bg-[#8E2A23] text-white"
                     : isActive
-                    ? "bg-blue-600 text-white ring-4 ring-blue-100"
-                    : "bg-slate-100 text-slate-400"
+                    ? "bg-[#8E2A23] text-white ring-4 ring-[#8E2A23]/10"
+                    : "bg-[#F7F5F2] text-[#9E9890]"
                 }`}
               >
                 {isDone ? <CheckCircle className="w-4 h-4" /> : s.n}
               </div>
               <span
                 className={`text-sm font-medium hidden sm:block ${
-                  isActive ? "text-slate-800" : isDone ? "text-slate-500" : "text-slate-400"
+                  isActive ? "text-[#201D18]" : isDone ? "text-[#736D65]" : "text-[#9E9890]"
                 }`}
               >
                 {s.label}
@@ -253,7 +253,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
             {i < STEPS.length - 1 && (
               <div
                 className={`w-8 sm:w-16 h-px mx-2 ${
-                  isDone ? "bg-blue-400" : "bg-neutral-200"
+                  isDone ? "bg-[#C8A09D]" : "bg-[#DDD9D2]"
                 }`}
               />
             )}

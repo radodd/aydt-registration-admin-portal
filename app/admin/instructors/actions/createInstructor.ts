@@ -13,17 +13,24 @@ export interface CreateInstructorInput {
  * Invite a new instructor via Supabase's built-in invite flow.
  *
  * Flow:
- *  1. Creates the auth.users row and emails the instructor a magic link
- *     to set their own password.
+ *  1. Creates the auth.users row and emails the instructor a magic link.
+ *     The email template is configured in Supabase Dashboard → Auth → Email Templates
+ *     → Invite User to use /auth/confirm?token_hash=...&type=invite&next=/instructor/setup
+ *     so the instructor lands on the dedicated password-setup page.
  *  2. The handle_new_user() DB trigger fires synchronously, inserting a
  *     public.users row with role = 'instructor' (no family).
- *  3. We update that row to ensure status = 'active'.
+ *  3. We update that row to status = 'invited' so the admin list shows the
+ *     correct pending state until the instructor completes setup.
  */
 export async function createInstructor(input: CreateInstructorInput) {
   await requireAdmin();
 
   const adminClient = createAdminClient();
 
+  // No redirectTo needed — the Supabase "Invite User" email template is configured
+  // to use /auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/instructor/setup
+  // so the app handles OTP verification directly rather than relying on the
+  // Supabase /auth/v1/verify redirect (which sends the session as an unreadable hash fragment).
   const { data, error } = await adminClient.auth.admin.inviteUserByEmail(
     input.email,
     {
@@ -36,18 +43,15 @@ export async function createInstructor(input: CreateInstructorInput) {
   );
 
   if (error) {
-    // Surface a readable message for the most common failure (duplicate email).
     if (error.message.toLowerCase().includes("already been registered")) {
       throw new Error("An account with this email already exists.");
     }
     throw new Error(error.message);
   }
 
-  // The trigger creates the public.users row synchronously, but doesn't set
-  // status. Update it to 'active' so the instructor appears correctly in the UI.
   const { error: updateErr } = await adminClient
     .from("users")
-    .update({ status: "active" })
+    .update({ status: "invited" })
     .eq("id", data.user.id);
 
   if (updateErr) {

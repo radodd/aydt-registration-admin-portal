@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, UserCircle } from "lucide-react";
+import { Home, BookOpen, UserCircle } from "lucide-react";
 
 const NAV_ITEMS = [
-  { href: "/instructor/classes", label: "Classes", icon: BookOpen },
-  { href: "/instructor/profile", label: "Profile", icon: UserCircle },
+  { href: "/instructor",         label: "Home",    icon: Home,       exact: true  },
+  { href: "/instructor/classes", label: "Classes", icon: BookOpen,   exact: false },
+  { href: "/instructor/profile", label: "Profile", icon: UserCircle, exact: false },
 ];
 
 export function InstructorMobileNav() {
@@ -22,8 +23,10 @@ export function InstructorMobileNav() {
       }}
     >
       <div className="flex items-stretch pt-2 pb-6">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href || pathname.startsWith(href + "/");
+        {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
+          const isActive = exact
+          ? pathname === href
+          : pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}

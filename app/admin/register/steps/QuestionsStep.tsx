@@ -45,7 +45,6 @@ export default function QuestionsStep({
     load();
   }, [semesterId]);
 
-  // Filter elements applicable to any of the selected sessions
   const visibleElements = elements.filter((el) => {
     if (!el.sessionIds || el.sessionIds.length === 0) return true;
     return el.sessionIds.some((sid) => sessionIds.includes(sid));
@@ -80,7 +79,7 @@ export default function QuestionsStep({
 
   if (loading) {
     return (
-      <div className="py-12 text-center text-sm text-slate-400">
+      <div className="py-12 text-center text-sm text-[#9E9890]">
         Loading questions…
       </div>
     );
@@ -89,22 +88,22 @@ export default function QuestionsStep({
   if (visibleElements.filter((el) => el.type === "question").length === 0) {
     return (
       <div className="space-y-6">
-        <div className="bg-white border border-neutral-200 rounded-xl p-8 text-center">
-          <p className="text-slate-500 text-sm">
+        <div className="bg-white border border-[#DDD9D2] rounded-xl p-8 text-center">
+          <p className="text-[#736D65] text-sm">
             No additional questions for this semester.
           </p>
         </div>
         <div className="flex items-center justify-between">
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm text-slate-500 hover:text-slate-700 transition"
+            className="flex items-center gap-1.5 px-4 py-2 text-sm text-[#736D65] hover:text-[#201D18] transition"
           >
             <ChevronLeft className="w-4 h-4" />
             Back
           </button>
           <button
             onClick={() => onNext(formData)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#8E2A23] text-white rounded-xl text-sm font-medium hover:bg-[#7A2420] transition"
           >
             Continue
             <ChevronRight className="w-4 h-4" />
@@ -116,10 +115,10 @@ export default function QuestionsStep({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-neutral-200 rounded-xl p-5 space-y-5">
-        <div className="pb-3 border-b border-neutral-200">
-          <p className="text-sm text-slate-500">
-            Answering on behalf of <span className="font-medium text-slate-700">{dancerName}</span>
+      <div className="bg-white border border-[#DDD9D2] rounded-xl p-5 space-y-5">
+        <div className="pb-3 border-b border-[#DDD9D2]">
+          <p className="text-sm text-[#736D65]">
+            Answering on behalf of <span className="font-medium text-[#201D18]">{dancerName}</span>
           </p>
         </div>
 
@@ -137,14 +136,14 @@ export default function QuestionsStep({
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm text-slate-500 hover:text-slate-700 transition"
+          className="flex items-center gap-1.5 px-4 py-2 text-sm text-[#736D65] hover:text-[#201D18] transition"
         >
           <ChevronLeft className="w-4 h-4" />
           Back
         </button>
         <button
           onClick={handleNext}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+          className="flex items-center gap-2 px-5 py-2.5 bg-[#8E2A23] text-white rounded-xl text-sm font-medium hover:bg-[#7A2420] transition"
         >
           Continue
           <ChevronRight className="w-4 h-4" />
@@ -168,8 +167,8 @@ function FormElement({
   if (el.type === "subheader") {
     return (
       <div className="pt-2">
-        <h3 className="text-sm font-semibold text-slate-700">{el.label}</h3>
-        {el.subtitle && <p className="text-xs text-slate-400 mt-0.5">{el.subtitle}</p>}
+        <h3 className="text-sm font-semibold text-[#201D18]">{el.label}</h3>
+        {el.subtitle && <p className="text-xs text-[#9E9890] mt-0.5">{el.subtitle}</p>}
       </div>
     );
   }
@@ -178,29 +177,28 @@ function FormElement({
     if (el.htmlContent) {
       return (
         <div
-          className="text-sm text-slate-600 prose prose-sm max-w-none"
+          className="text-sm text-[#736D65] prose prose-sm max-w-none"
           dangerouslySetInnerHTML={{ __html: el.htmlContent }}
         />
       );
     }
-    return <p className="text-sm text-slate-600">{el.label}</p>;
+    return <p className="text-sm text-[#736D65]">{el.label}</p>;
   }
 
-  // question
   const inputId = `q-${el.id}`;
   const strVal = typeof value === "string" ? value : "";
-  const baseInputClass = `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-    error ? "border-red-300" : "border-neutral-200"
+  const baseInputClass = `w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23] ${
+    error ? "border-red-300" : "border-[#DDD9D2]"
   }`;
 
   return (
     <div className="space-y-1">
-      <label htmlFor={inputId} className="block text-sm font-medium text-slate-700">
+      <label htmlFor={inputId} className="block text-sm font-medium text-[#201D18]">
         {el.label}
         {el.required && <span className="text-red-500 ml-0.5">*</span>}
       </label>
       {el.instructionalText && (
-        <p className="text-xs text-slate-400">{el.instructionalText}</p>
+        <p className="text-xs text-[#9E9890]">{el.instructionalText}</p>
       )}
 
       {el.inputType === "long_answer" ? (
@@ -240,9 +238,9 @@ function FormElement({
                       e.target.checked ? [...prev, opt] : prev.filter((v) => v !== opt)
                     );
                   }}
-                  className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-[#DDD9D2] text-[#8E2A23] focus:ring-[#8E2A23]"
                 />
-                <span className="text-sm text-slate-700">{opt}</span>
+                <span className="text-sm text-[#201D18]">{opt}</span>
               </label>
             );
           })}
@@ -264,7 +262,6 @@ function FormElement({
           className={baseInputClass}
         />
       ) : (
-        // short_answer (default)
         <input
           id={inputId}
           type="text"

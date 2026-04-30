@@ -35,7 +35,7 @@ const sb = createClient(
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ETHAN_ID = "64ebf65c-e32f-4e22-9440-e7bb5a0fee8d";
 const NEVER_UUID = "00000000-0000-0000-0000-000000000001"; // guaranteed absent
-const TODAY = new Date("2026-03-06");
+const TODAY = new Date("2026-04-30");
 
 faker.seed(42); // deterministic output
 
@@ -353,8 +353,11 @@ const SEMS: SemCfg[] = [
     status: "published",
     publish_at: new Date("2026-01-05").toISOString(),
     published_at: new Date("2026-01-05").toISOString(),
-    startDate: new Date("2026-01-12"),
-    endDate: new Date("2026-05-08"),
+    // Window straddles TODAY (2026-04-30) so generated weekly dates include
+    // ~6 occurrences before today, one near today, and ~7 after — gives the
+    // instructor portal real past + upcoming class data to test against.
+    startDate: new Date("2026-03-09"),
+    endDate: new Date("2026-06-26"),
   },
   {
     id: uid(),
@@ -407,6 +410,10 @@ async function clearDatabase() {
     ["email_recipients"],
     ["email_activity_logs"],
     ["email_recipient_selections"],
+    ["instructor_student_notes"],
+    ["attendance"],
+    ["family_contacts"],
+    ["class_session_instructors"],
     ["registration_line_items"],
     ["schedule_enrollments"],
     ["batch_payment_installments"],
@@ -433,6 +440,7 @@ async function clearDatabase() {
     ["class_session_price_rows"],
     ["class_session_options"],
     ["class_session_excluded_dates"],
+    ["session_occurrence_dates"],
     ["schedule_price_tiers"],
     ["class_schedule_excluded_dates"],
     ["class_sessions"],
@@ -452,15 +460,23 @@ async function clearDatabase() {
 
   for (const [table, col] of tables) await del(table, col ?? "id");
 
-  // Auth users created for seed families — delete before re-seeding
+  // Auth users created for seed families + instructors — delete before re-seeding
   const SEED_PARENT_EMAILS = Array.from(
     { length: 6 },
     (_, i) => `ethanf.flores+${i + 1}@gmail.com`,
   );
+  const SEED_INSTRUCTOR_EMAILS = Array.from(
+    { length: 4 },
+    (_, i) => `ethanf.flores+inst${i + 1}@gmail.com`,
+  );
+  const SEED_AUTH_EMAILS = new Set([
+    ...SEED_PARENT_EMAILS,
+    ...SEED_INSTRUCTOR_EMAILS,
+  ]);
   const { data: authList } = await sb.auth.admin.listUsers({ perPage: 200 });
   if (authList) {
     for (const u of authList.users) {
-      if (SEED_PARENT_EMAILS.includes(u.email ?? "")) {
+      if (SEED_AUTH_EMAILS.has(u.email ?? "")) {
         await sb.auth.admin.deleteUser(u.id);
       }
     }
@@ -522,6 +538,81 @@ async function seedAdmin(): Promise<string> {
   });
   console.log("  ✓ Created: Sarah Mitchell (admin)\n");
   return id;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 2b.  INSTRUCTORS (auth users + public.users rows)
+// ─────────────────────────────────────────────────────────────────────────────
+interface InstructorRow {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+}
+
+const INSTRUCTOR_PROFILES: Omit<InstructorRow, "id">[] = [
+  { email: "ethanf.flores+inst1@gmail.com", first_name: "Elena",  last_name: "Rodriguez" },
+  { email: "ethanf.flores+inst2@gmail.com", first_name: "Marcus", last_name: "Johnson"   },
+  { email: "ethanf.flores+inst3@gmail.com", first_name: "Priya",  last_name: "Patel"     },
+  { email: "ethanf.flores+inst4@gmail.com", first_name: "Aisha",  last_name: "Williams"  },
+];
+
+async function seedInstructors(): Promise<InstructorRow[]> {
+  console.log("🎓  Seeding 4 instructors with auth accounts…");
+
+  const instructors: InstructorRow[] = [];
+
+  for (const profile of INSTRUCTOR_PROFILES) {
+    const { data: authData, error: authErr } = await sb.auth.admin.createUser({
+      email: profile.email,
+      email_confirm: true,
+      password: "SeedInstructor123!",
+      user_metadata: {
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        role: "instructor",
+      },
+    });
+    if (authErr) throw new Error(`[CREATE INSTRUCTOR AUTH] ${authErr.message}`);
+    const id = authData.user.id;
+
+    // The handle_new_user trigger creates a throwaway family for new auth
+    // users — instructors don't have one, so remove it before upserting.
+    const { data: triggerUser } = await sb
+      .from("users")
+      .select("family_id")
+      .eq("id", id)
+      .single();
+    if (triggerUser?.family_id) {
+      await sb.from("families").delete().eq("id", triggerUser.family_id);
+    }
+
+    // Upsert to set role + contact info and clear any throwaway family_id.
+    const { error: upsertErr } = await sb.from("users").upsert(
+      {
+        id,
+        email: profile.email,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        role: "instructor",
+        status: "active",
+        family_id: null,
+        is_primary_parent: false,
+        sms_opt_in: false,
+        sms_verified: false,
+        display_name: `Ms. ${profile.first_name} ${profile.last_name}`,
+      },
+      { onConflict: "id" },
+    );
+    if (upsertErr) throw new Error(`[UPSERT INSTRUCTOR] ${upsertErr.message}`);
+
+    instructors.push({ id, ...profile });
+  }
+
+  console.log(
+    `  ✓ ${instructors.length} instructors: ${instructors.map((i) => `${i.first_name} ${i.last_name}`).join(", ")}\n`,
+  );
+  return instructors;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1232,13 +1323,14 @@ interface TierRow {
 
 async function seedClasses() {
   console.log(
-    "🩰  Seeding 8 classes × 8 semesters with schedules, sessions, price tiers…",
+    "🩰  Seeding 8 classes × 8 semesters with schedules, sessions, occurrence dates, price tiers…",
   );
 
   const classes: ClassRow[] = [];
   const schedules: ScheduleRow[] = [];
   const tiers: TierRow[] = [];
   const sessions: SessionRow[] = [];
+  const occurrenceDates: Record<string, unknown>[] = [];
 
   for (const sem of SEMS) {
     // Published & archived → full 14 occurrences; others → 4 (skeleton data)
@@ -1248,6 +1340,7 @@ async function seedClasses() {
     for (const tmpl of TEMPLATES) {
       const classId = uid();
       const schedId = uid();
+      const sessionId = uid();
       const instructorName = faker.person.fullName();
 
       classes.push({
@@ -1292,6 +1385,29 @@ async function seedClasses() {
         is_default: true,
       } as TierRow);
 
+      // ONE class_sessions row per schedule (the abstract recurring class).
+      // schedule_date is left NULL — calendar dates live in
+      // session_occurrence_dates so the instructor portal can list them.
+      sessions.push({
+        id: sessionId,
+        class_id: classId,
+        semester_id: sem.id,
+        schedule_id: schedId,
+        schedule_date: null as unknown as string,
+        day_of_week: tmpl.day,
+        start_time: tmpl.start_time,
+        end_time: tmpl.end_time,
+        start_date: isoDate(sem.startDate),
+        end_date: isoDate(sem.endDate),
+        location: tmpl.location,
+        instructor_name: instructorName,
+        capacity: tmpl.capacity,
+        is_active: true,
+        drop_in_price: null,
+        cloned_from_session_id: null,
+        registration_close_at: null,
+      } as SessionRow);
+
       const dates = weeklyDates(
         tmpl.day,
         sem.startDate,
@@ -1299,25 +1415,12 @@ async function seedClasses() {
         sessionCount,
       );
       for (const date of dates) {
-        sessions.push({
+        occurrenceDates.push({
           id: uid(),
-          class_id: classId,
-          semester_id: sem.id,
-          schedule_id: schedId,
-          schedule_date: isoDate(date),
-          day_of_week: tmpl.day,
-          start_time: tmpl.start_time,
-          end_time: tmpl.end_time,
-          start_date: isoDate(sem.startDate),
-          end_date: isoDate(sem.endDate),
-          location: tmpl.location,
-          instructor_name: instructorName,
-          capacity: tmpl.capacity,
-          is_active: true,
-          drop_in_price: null,
-          cloned_from_session_id: null,
-          registration_close_at: null,
-        } as SessionRow);
+          session_id: sessionId,
+          date: isoDate(date),
+          is_cancelled: false,
+        });
       }
     }
   }
@@ -1332,12 +1435,55 @@ async function seedClasses() {
     await ins("schedule_price_tiers", tiers.slice(i, i + CHUNK));
   for (let i = 0; i < sessions.length; i += CHUNK)
     await ins("class_sessions", sessions.slice(i, i + CHUNK));
+  for (let i = 0; i < occurrenceDates.length; i += CHUNK)
+    await ins("session_occurrence_dates", occurrenceDates.slice(i, i + CHUNK));
 
   console.log(
     `  ✓ ${classes.length} classes, ${schedules.length} schedules, ` +
-      `${tiers.length} price tiers, ${sessions.length} sessions\n`,
+      `${tiers.length} price tiers, ${sessions.length} sessions, ` +
+      `${occurrenceDates.length} occurrence dates\n`,
   );
   return { classes, schedules, tiers, sessions };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 6b.  CLASS_SESSION_INSTRUCTORS (assign instructors to every weekly date)
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedClassSessionInstructors(
+  instructors: InstructorRow[],
+  _schedules: ScheduleRow[],
+  sessions: SessionRow[],
+) {
+  if (instructors.length === 0) return;
+  console.log("🎯  Assigning instructors to class sessions…");
+
+  // Skip draft semesters — those classes shouldn't appear in the portal yet.
+  const activeSemIds = new Set(
+    SEMS.filter((s) => s.status !== "draft").map((s) => s.id),
+  );
+  const activeSessions = sessions.filter((s) => activeSemIds.has(s.semester_id));
+
+  // One class_sessions row per schedule, so this is a 1:1 assignment loop.
+  // Round-robin lead across the four instructors; the next instructor in
+  // rotation acts as assistant. Each instructor ends up leading roughly
+  // (active_sessions / 4) classes.
+  const rows: Record<string, unknown>[] = [];
+  activeSessions.forEach((sess, idx) => {
+    const lead   = instructors[idx % instructors.length]!.id;
+    const assist = instructors[(idx + 1) % instructors.length]!.id;
+    rows.push({ id: uid(), session_id: sess.id, user_id: lead,   is_lead: true  });
+    rows.push({ id: uid(), session_id: sess.id, user_id: assist, is_lead: false });
+  });
+
+  const CHUNK = 100;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    await ins("class_session_instructors", rows.slice(i, i + CHUNK));
+  }
+
+  console.log(
+    `  ✓ ${rows.length / 2} sessions assigned ` +
+      `(${rows.length / 2} lead + ${rows.length / 2} assistant)\n`,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1362,24 +1508,12 @@ async function seedRegistrations(
 
   for (const sem of activeSems) {
     const semSchedules = schedules.filter((s) => s.semester_id === sem.id);
-    const semSessions = sessions.filter((s) => s.semester_id === sem.id);
     const semTiers = tiers.filter((t) =>
       semSchedules.some((s) => s.id === t.schedule_id),
     );
 
-    // Group sessions by schedule, sorted ascending by date (first occurrence = enrollment target)
-    const sessionsBySchedule = new Map<string, SessionRow[]>();
-    for (const sess of semSessions) {
-      const arr = sessionsBySchedule.get(sess.schedule_id) ?? [];
-      arr.push(sess);
-      sessionsBySchedule.set(sess.schedule_id, arr);
-    }
-    for (const arr of sessionsBySchedule.values()) {
-      arr.sort((a, b) => a.schedule_date.localeCompare(b.schedule_date));
-    }
-
     const batches: Record<string, unknown>[] = [];
-    const regs: Record<string, unknown>[] = [];
+    const scheduleEnrollments: Record<string, unknown>[] = [];
     const lineItems: Record<string, unknown>[] = [];
     const installments: Record<string, unknown>[] = [];
     const payments: Record<string, unknown>[] = [];
@@ -1407,7 +1541,7 @@ async function seedRegistrations(
         dancerId: string;
         userId: string;
         schedId: string;
-        sessionId: string;
+        tierId: string | null;
         tuition: number;
         tmplIdx: number;
       };
@@ -1424,15 +1558,13 @@ async function seedRegistrations(
           (t) => t.schedule_id === sched.id && t.is_default,
         );
         const tuition = tier?.amount ?? 560.0;
-        const firstSess = sessionsBySchedule.get(sched.id)?.[0];
-        if (!firstSess) continue;
 
         tuitionTotal += tuition;
         enrollments.push({
           dancerId: dancer.id,
           userId: parent.id,
           schedId: sched.id,
-          sessionId: firstSess.id,
+          tierId: tier?.id ?? null,
           tuition,
           tmplIdx: schedIdx,
         });
@@ -1465,26 +1597,16 @@ async function seedRegistrations(
       });
 
       for (const e of enrollments) {
-        regs.push({
-          id: uid(),
+        const enrollmentId = uid();
+        scheduleEnrollments.push({
+          id: enrollmentId,
+          schedule_id: e.schedId,
+          batch_id: batchId,
           dancer_id: e.dancerId,
-          user_id: e.userId,
-          session_id: e.sessionId,
-          registration_batch_id: batchId,
-          // batch_id has a partial UNIQUE index (WHERE NOT NULL) — leave null
-          status: isConfirmed ? "confirmed" : "pending_payment",
-          form_data: {
-            emergencyContact: {
-              name: faker.person.fullName(),
-              phone: faker.phone.number("(555) ###-####"),
-              relation: "Parent",
-            },
-          },
-          total_amount: e.tuition + REG_FEE,
+          price_tier_id: e.tierId,
+          price_snapshot: e.tuition,
+          status: isConfirmed ? "confirmed" : "pending",
           created_at: regAt.toISOString(),
-          hold_expires_at: !isConfirmed
-            ? new Date(TODAY.getTime() + 15 * 60 * 1000).toISOString()
-            : null,
         });
 
         lineItems.push(
@@ -1492,8 +1614,8 @@ async function seedRegistrations(
             id: uid(),
             batch_id: batchId,
             dancer_id: e.dancerId,
-            session_id: e.sessionId,
-            schedule_enrollment_id: null,
+            session_id: null,
+            schedule_enrollment_id: enrollmentId,
             item_type: "full_schedule",
             label: `${TEMPLATES[e.tmplIdx]!.name} — ${sem.name}`,
             unit_amount: e.tuition,
@@ -1585,18 +1707,397 @@ async function seedRegistrations(
     }
 
     await ins("registration_batches", batches);
-    await ins("registrations", regs);
+    await ins("schedule_enrollments", scheduleEnrollments);
     await ins("registration_line_items", lineItems);
     await ins("batch_payment_installments", installments);
     if (payments.length) await ins("payments", payments);
 
     console.log(
-      `  ✓ ${sem.name}: ${batches.length} batches, ${regs.length} registrations, ` +
+      `  ✓ ${sem.name}: ${batches.length} batches, ${scheduleEnrollments.length} enrollments, ` +
         `${installments.length} installments, ${payments.length} payments`,
     );
   }
 
   console.log();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7b.  SHOWCASE CLASS — fill one Spring 2026 class with all 12 dancers
+//      so the instructor portal has a populated roster to inspect.
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedShowcaseClass(
+  families: FamilyRow[],
+  users: UserRow[],
+  dancers: DancerRow[],
+  schedules: ScheduleRow[],
+  tiers: TierRow[],
+) {
+  console.log("⭐  Seeding showcase class with all 12 dancers…");
+
+  const spring2026 = SEMS.find((s) => s.name === "Spring 2026")!;
+  const semSchedules = schedules.filter((s) => s.semester_id === spring2026.id);
+
+  // TEMPLATES index 4 = Broadway 1 (capacity 14). Schedules are inserted in
+  // template order, so semSchedules[4] is the Broadway 1 schedule.
+  const showcaseSched = semSchedules[4];
+  if (!showcaseSched) {
+    console.warn("  ⚠ Could not find Broadway 1 schedule — skipping showcase.");
+    return;
+  }
+
+  const tier = tiers.find(
+    (t) => t.schedule_id === showcaseSched.id && t.is_default,
+  );
+  const tuition = tier?.amount ?? 775.93;
+
+  // Seed time: a few days after Spring 2026 publication.
+  const regAt = new Date(spring2026.published_at!);
+  regAt.setDate(regAt.getDate() + 5);
+
+  // Pull existing enrollments for this schedule (written by seedRegistrations'
+  // round-robin pass). The unique constraint on (schedule_id, dancer_id)
+  // means we have to skip any dancer already placed here.
+  const { data: existingRows } = await sb
+    .from("schedule_enrollments")
+    .select("dancer_id")
+    .eq("schedule_id", showcaseSched.id);
+  const alreadyEnrolledIds = new Set(
+    (existingRows ?? []).map((r) => r.dancer_id as string),
+  );
+
+  const batches: Record<string, unknown>[] = [];
+  const enrollments: Record<string, unknown>[] = [];
+  const lineItems: Record<string, unknown>[] = [];
+  const installments: Record<string, unknown>[] = [];
+
+  for (const fam of families) {
+    const parent = users.find((u) => u.family_id === fam.id);
+    const famDancers = dancers.filter((d) => d.family_id === fam.id);
+    if (!parent || famDancers.length === 0) continue;
+
+    const batchId = uid();
+    const familyEnrollments: { dancerId: string; enrollmentId: string }[] = [];
+
+    for (const dancer of famDancers) {
+      if (alreadyEnrolledIds.has(dancer.id)) continue;
+
+      const enrollmentId = uid();
+      familyEnrollments.push({ dancerId: dancer.id, enrollmentId });
+
+      enrollments.push({
+        id: enrollmentId,
+        schedule_id: showcaseSched.id,
+        batch_id: batchId,
+        dancer_id: dancer.id,
+        price_tier_id: tier?.id ?? null,
+        price_snapshot: tuition,
+        status: "confirmed",
+        created_at: regAt.toISOString(),
+      });
+    }
+
+    if (familyEnrollments.length === 0) continue;
+
+    const tuitionTotal = tuition * familyEnrollments.length;
+    const grandTotal   = tuitionTotal;
+
+    batches.push({
+      id: batchId,
+      parent_id: parent.id,
+      family_id: fam.id,
+      semester_id: spring2026.id,
+      status: "confirmed",
+      created_at: regAt.toISOString(),
+      confirmed_at: regAt.toISOString(),
+      cart_snapshot: [],
+      tuition_total: tuitionTotal,
+      registration_fee_total: 0,
+      recital_fee_total: 0,
+      family_discount_amount: 0,
+      auto_pay_admin_fee_total: 0,
+      grand_total: grandTotal,
+      payment_plan_type: "pay_in_full",
+      amount_due_now: grandTotal,
+      payment_reference_id: `AYDT-Spring2026-SHOWCASE-${fam.family_name.replace(/\s+/g, "").toUpperCase()}`,
+    });
+
+    for (const fe of familyEnrollments) {
+      lineItems.push({
+        id: uid(),
+        batch_id: batchId,
+        dancer_id: fe.dancerId,
+        session_id: null,
+        schedule_enrollment_id: fe.enrollmentId,
+        item_type: "full_schedule",
+        label: `Broadway 1 — Spring 2026 (Showcase)`,
+        unit_amount: tuition,
+        quantity: 1,
+        amount: tuition,
+      });
+    }
+
+    installments.push({
+      id: uid(),
+      batch_id: batchId,
+      installment_number: 1,
+      amount_due: grandTotal,
+      due_date: isoDate(spring2026.startDate),
+      status: "paid",
+      paid_at: regAt.toISOString(),
+      paid_amount: grandTotal,
+    });
+  }
+
+  if (batches.length === 0) {
+    console.warn("  ⚠ All dancers already enrolled in Broadway 1 — nothing added.");
+    return;
+  }
+
+  await ins("registration_batches", batches);
+  await ins("schedule_enrollments", enrollments);
+  await ins("registration_line_items", lineItems);
+  await ins("batch_payment_installments", installments);
+
+  console.log(
+    `  ✓ Broadway 1 (Spring 2026) — ${enrollments.length} dancers enrolled\n` +
+      `    Lead: Elena Rodriguez (ethanf.flores+inst1@gmail.com)\n` +
+      `    Assistant: Marcus Johnson (ethanf.flores+inst2@gmail.com)\n`,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7c.  ATTENDANCE — mark all past occurrence dates for every active enrollment
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedAttendance(instructors: InstructorRow[]) {
+  if (instructors.length === 0) return;
+  console.log("📋  Seeding attendance for past sessions…");
+
+  const todayIso = isoDate(TODAY);
+
+  // Pull every (session, dancer) pair where the dancer is enrolled in the
+  // schedule and the session has past occurrence dates.
+  const { data: enrollmentRows } = await sb
+    .from("schedule_enrollments")
+    .select("dancer_id, schedule_id, status")
+    .neq("status", "cancelled");
+
+  if (!enrollmentRows || enrollmentRows.length === 0) {
+    console.log("  ⚠ No enrollments — skipping.\n");
+    return;
+  }
+
+  // schedule_id → list of dancer_ids
+  const dancersBySchedule = new Map<string, string[]>();
+  for (const e of enrollmentRows) {
+    const arr = dancersBySchedule.get(e.schedule_id as string) ?? [];
+    arr.push(e.dancer_id as string);
+    dancersBySchedule.set(e.schedule_id as string, arr);
+  }
+
+  // Pull sessions + their occurrence dates and lead instructor.
+  const { data: sessionRows } = await sb
+    .from("class_sessions")
+    .select(`
+      id, schedule_id,
+      session_occurrence_dates ( id, date, is_cancelled ),
+      class_session_instructors ( user_id, is_lead )
+    `)
+    .in("schedule_id", [...dancersBySchedule.keys()]);
+
+  type AttRow = Record<string, unknown>;
+  const attendance: AttRow[] = [];
+
+  // Deterministic per-dancer status pattern so re-runs are stable.
+  // 80% present, 10% absent, 7% tardy, 3% excused.
+  const pickStatus = (seed: number): "present" | "absent" | "tardy" | "excused" => {
+    const r = (seed * 9301 + 49297) % 233280 / 233280;
+    if (r < 0.80) return "present";
+    if (r < 0.90) return "absent";
+    if (r < 0.97) return "tardy";
+    return "excused";
+  };
+
+  for (const row of sessionRows ?? []) {
+    const sessionId  = row.id as string;
+    const scheduleId = row.schedule_id as string;
+    const dancers    = dancersBySchedule.get(scheduleId) ?? [];
+    const occurrences = (row.session_occurrence_dates ?? []) as Array<{
+      id: string; date: string; is_cancelled: boolean;
+    }>;
+    const leads = (row.class_session_instructors ?? []).filter((i) => i.is_lead) as Array<{ user_id: string }>;
+    const markedBy = leads[0]?.user_id ?? instructors[0]!.id;
+
+    for (const occ of occurrences) {
+      if (occ.is_cancelled) continue;
+      if (occ.date >= todayIso) continue;  // future — skip
+
+      for (let di = 0; di < dancers.length; di++) {
+        const dancerId = dancers[di]!;
+        const status = pickStatus(
+          // hash dancer position + date day-of-month + session prefix
+          di + parseInt(occ.date.replace(/-/g, "").slice(-4), 10) + sessionId.charCodeAt(0),
+        );
+        const note = status === "tardy"
+          ? "Arrived 10 minutes late."
+          : status === "absent"
+          ? "Out sick."
+          : null;
+        attendance.push({
+          id: uid(),
+          session_id:         sessionId,
+          occurrence_date_id: occ.id,
+          dancer_id:          dancerId,
+          status,
+          note,
+          marked_by:          markedBy,
+        });
+      }
+    }
+  }
+
+  if (attendance.length === 0) {
+    console.log("  ⚠ No past dates to mark.\n");
+    return;
+  }
+
+  const CHUNK = 200;
+  for (let i = 0; i < attendance.length; i += CHUNK) {
+    await ins("attendance", attendance.slice(i, i + CHUNK));
+  }
+
+  console.log(`  ✓ ${attendance.length} attendance rows\n`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7d.  INSTRUCTOR NOTES — a few tagged notes per enrolled dancer
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedInstructorNotes(instructors: InstructorRow[]) {
+  if (instructors.length === 0) return;
+  console.log("📝  Seeding instructor notes…");
+
+  const NOTE_TEMPLATES: Array<{ tag: "progress" | "behavior" | "goal"; text: string }> = [
+    { tag: "progress", text: "Showing real focus this week — confident on the new combination." },
+    { tag: "progress", text: "Coordination has improved noticeably since last month." },
+    { tag: "behavior", text: "Recovered well after a slow start. Keep an eye on energy at the top of class." },
+    { tag: "behavior", text: "Engaged and asking thoughtful questions. Great example for the group." },
+    { tag: "goal",     text: "Working on holding 2nd position throughout the longer combinations." },
+    { tag: "goal",     text: "Next focus: stamina for the back half of the routine." },
+  ];
+
+  // Pick all dancers that are enrolled in any schedule taught by an instructor.
+  const { data: enrollmentRows } = await sb
+    .from("schedule_enrollments")
+    .select("dancer_id, schedule_id")
+    .neq("status", "cancelled");
+
+  if (!enrollmentRows || enrollmentRows.length === 0) {
+    console.log("  ⚠ No enrollments — skipping.\n");
+    return;
+  }
+
+  // schedule → instructor user_ids (lead first)
+  const { data: csi } = await sb
+    .from("class_session_instructors")
+    .select(`user_id, is_lead, class_sessions:session_id ( schedule_id )`);
+
+  const instructorsBySchedule = new Map<string, string[]>();
+  for (const row of csi ?? []) {
+    const cs = Array.isArray(row.class_sessions) ? row.class_sessions[0] : row.class_sessions;
+    const schedId = (cs as { schedule_id?: string } | null)?.schedule_id;
+    if (!schedId) continue;
+    const arr = instructorsBySchedule.get(schedId) ?? [];
+    if (row.is_lead) arr.unshift(row.user_id as string);
+    else arr.push(row.user_id as string);
+    instructorsBySchedule.set(schedId, arr);
+  }
+
+  // Deduplicate dancer → set of instructor ids who teach them
+  const dancerToInstructors = new Map<string, Set<string>>();
+  for (const e of enrollmentRows) {
+    const dancerId = e.dancer_id as string;
+    const schedId  = e.schedule_id as string;
+    const teachers = instructorsBySchedule.get(schedId) ?? [];
+    const set = dancerToInstructors.get(dancerId) ?? new Set<string>();
+    teachers.forEach((id) => set.add(id));
+    dancerToInstructors.set(dancerId, set);
+  }
+
+  const rows: Record<string, unknown>[] = [];
+  let dancerIdx = 0;
+  for (const [dancerId, teachers] of dancerToInstructors.entries()) {
+    const teacherList = [...teachers];
+    if (teacherList.length === 0) continue;
+
+    // 2–3 notes per dancer, rotating through templates and authors.
+    const noteCount = 2 + (dancerIdx % 2);
+    for (let i = 0; i < noteCount; i++) {
+      const tmpl   = NOTE_TEMPLATES[(dancerIdx * 3 + i) % NOTE_TEMPLATES.length]!;
+      const author = teacherList[i % teacherList.length]!;
+      const daysBack = (i + 1) * 7 + (dancerIdx % 5);
+      const created = new Date(TODAY);
+      created.setDate(created.getDate() - daysBack);
+      rows.push({
+        id: uid(),
+        instructor_id: author,
+        dancer_id:     dancerId,
+        note:          tmpl.text,
+        tag:           tmpl.tag,
+        created_at:    created.toISOString(),
+      });
+    }
+    dancerIdx++;
+  }
+
+  if (rows.length === 0) {
+    console.log("  ⚠ No notes generated.\n");
+    return;
+  }
+
+  const CHUNK = 100;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    await ins("instructor_student_notes", rows.slice(i, i + CHUNK));
+  }
+
+  console.log(`  ✓ ${rows.length} notes across ${dancerToInstructors.size} dancers\n`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7e.  FAMILY CONTACTS — a couple of contacts per family for roster testing
+// ─────────────────────────────────────────────────────────────────────────────
+async function seedFamilyContacts(families: FamilyRow[]) {
+  console.log("👪  Seeding family contacts…");
+
+  const rows: Record<string, unknown>[] = [];
+  for (const fam of families) {
+    const lastName = fam.family_name.replace(" Family", "");
+    rows.push(
+      {
+        id: uid(),
+        family_id:   fam.id,
+        type:        "alternate_parent",
+        first_name:  faker.person.firstName("male"),
+        last_name:   lastName,
+        phone:       `(555) ${String(faker.number.int({ min: 100, max: 999 }))}-${String(faker.number.int({ min: 1000, max: 9999 }))}`,
+        email:       faker.internet.email(),
+        relationship: "Father",
+        is_authorized_pickup: true,
+      },
+      {
+        id: uid(),
+        family_id:   fam.id,
+        type:        "emergency_contact",
+        first_name:  faker.person.firstName(),
+        last_name:   lastName,
+        phone:       `(555) ${String(faker.number.int({ min: 100, max: 999 }))}-${String(faker.number.int({ min: 1000, max: 9999 }))}`,
+        email:       null,
+        relationship: faker.helpers.arrayElement(["Grandmother", "Grandfather", "Aunt", "Uncle"]),
+        is_authorized_pickup: false,
+      },
+    );
+  }
+
+  await ins("family_contacts", rows);
+  console.log(`  ✓ ${rows.length} family contacts (2 per family)\n`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1608,24 +2109,9 @@ async function seedWaitlist(sessions: SessionRow[], dancers: DancerRow[]) {
   const spring2026 = SEMS.find((s) => s.name === "Spring 2026")!;
   const semSessions = sessions.filter((s) => s.semester_id === spring2026.id);
 
-  // Group by schedule, sorted by date
-  const bySchedule = new Map<string, SessionRow[]>();
-  for (const sess of semSessions) {
-    const arr = bySchedule.get(sess.schedule_id) ?? [];
-    arr.push(sess);
-    bySchedule.set(sess.schedule_id, arr);
-  }
-  for (const arr of bySchedule.values()) {
-    arr.sort((a, b) => a.schedule_date.localeCompare(b.schedule_date));
-  }
-
-  // Pick the 8th occurrence for 2 different classes (indices 0 = Creative Movement, 6 = Contemporary)
-  const scheduleIds = [...bySchedule.keys()];
-  const targetSchedId1 = scheduleIds[0]; // Creative Movement
-  const targetSchedId2 = scheduleIds[6]; // Contemporary & Lyrical
-
-  const targetSess1 = bySchedule.get(targetSchedId1!)?.[7]; // 8th session
-  const targetSess2 = bySchedule.get(targetSchedId2!)?.[7];
+  // One class_sessions row per schedule now — pick two distinct sessions.
+  const targetSess1 = semSessions[0];
+  const targetSess2 = semSessions[6];
 
   if (!targetSess1 || !targetSess2) {
     console.warn("  ⚠ Could not find target sessions for waitlist — skipping.");
@@ -3315,6 +3801,7 @@ async function main() {
 
   await clearDatabase();
   await seedAdmin();
+  const instructors = await seedInstructors();
   await seedEthanDancers();
 
   const { families, users, dancers } = await seedFamilies();
@@ -3326,7 +3813,12 @@ async function main() {
 
   const { classes, schedules, tiers, sessions } = await seedClasses();
 
+  await seedClassSessionInstructors(instructors, schedules, sessions);
   await seedRegistrations(families, users, dancers, schedules, sessions, tiers);
+  await seedShowcaseClass(families, users, dancers, schedules, tiers);
+  await seedFamilyContacts(families);
+  await seedAttendance(instructors);
+  await seedInstructorNotes(instructors);
   await seedWaitlist(sessions, dancers);
   await seedEmails(users);
   await seedSessionGroups(sessions);
@@ -3342,8 +3834,9 @@ async function main() {
     "  Semesters   : 8 (2 draft, 2 scheduled, 2 published, 2 archived)",
   );
   console.log("  Classes     : 64 (8 per semester × 8 semesters)");
-  console.log("  Sessions    : 224+ class_sessions across all semesters");
+  console.log("  Sessions    : 64 class_sessions (1 per schedule) + occurrence dates per session");
   console.log("  Families    : 6 (6 parents + 12 dancers)");
+  console.log("  Instructors : 4 (Elena, Marcus, Priya, Aisha) — login: SeedInstructor123!");
   console.log(
     "  Batches     : 24 registration batches (6/semester × 4 active semesters)",
   );

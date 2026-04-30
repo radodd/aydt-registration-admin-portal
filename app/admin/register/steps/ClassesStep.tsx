@@ -14,7 +14,7 @@ import type { PricingQuote, LineItem } from "@/types";
 /** Per-row state in the fee editor */
 type FeeRowState = {
   included: boolean;
-  amountStr: string; // string for controlled input; parsed on use
+  amountStr: string;
 };
 
 export type ClassInfo = {
@@ -89,33 +89,26 @@ export default function ClassesStep({
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Class-level selection (classId → Set of sessionIds are auto-selected)
   const [selectedClassIds, setSelectedClassIds] = useState<Set<string>>(() => {
-    // Restore previously selected classes from initialSessionIds
     return new Set<string>();
   });
 
-  // Pricing preview
   const [quote, setQuote] = useState<PricingQuote | null>(null);
   const [pricingLoading, setPricingLoading] = useState(false);
 
-  // Per-line-item fee editor state (index-aligned with filteredLineItems derived from quote)
   const [feeRows, setFeeRows] = useState<FeeRowState[]>([]);
 
-  // Load semester list if no pre-selected semester
   useEffect(() => {
     if (!initialSemesterId) {
       fetchActiveSemesters().then(setSemesters);
     }
   }, [initialSemesterId]);
 
-  // Load classes when semesterId is set; restore prior selections
   useEffect(() => {
     if (!semesterId) return;
     setLoading(true);
     fetchSemesterClasses(semesterId).then((data) => {
       setClasses(data);
-      // Restore selections from initialScheduleIds
       if (initialScheduleIds.length > 0) {
         const restoredClassIds = new Set<string>();
         data.forEach((cls) => {
@@ -129,7 +122,6 @@ export default function ClassesStep({
     });
   }, [semesterId]);
 
-  // Compute pricing preview whenever class selection changes
   useEffect(() => {
     const scheduleIds = getSelectedScheduleIds();
     if (scheduleIds.length === 0 || !semesterId) {
@@ -152,7 +144,6 @@ export default function ClassesStep({
     })
       .then((q) => {
         setQuote(q);
-        // Initialise fee rows aligned with the non-zero line items
         setFeeRows(
           q.lineItems
             .filter((li) => li.amount !== 0)
@@ -191,12 +182,10 @@ export default function ClassesStep({
     });
   }
 
-  /** The non-zero line items that populate the fee editor */
   const filteredLineItems: LineItem[] = quote
     ? quote.lineItems.filter((li) => li.amount !== 0)
     : [];
 
-  /** Computed custom total from feeRows; null = use server grandTotal */
   function computeCustomTotal(): number | null {
     if (!quote || feeRows.length === 0) return null;
     const isModified = feeRows.some(
@@ -204,14 +193,14 @@ export default function ClassesStep({
         !row.included ||
         parseFloat(row.amountStr) !== Math.abs(filteredLineItems[i]?.amount ?? 0)
     );
-    if (!isModified) return null; // no changes — use server total
+    if (!isModified) return null;
     let total = 0;
     feeRows.forEach((row, i) => {
       if (!row.included) return;
       const li = filteredLineItems[i];
       if (!li) return;
       const amt = parseFloat(row.amountStr) || 0;
-      total += li.amount < 0 ? -amt : amt; // preserve sign direction
+      total += li.amount < 0 ? -amt : amt;
     });
     return Math.max(0, total);
   }
@@ -220,7 +209,6 @@ export default function ClassesStep({
     if (!semesterId || selectedClassIds.size === 0) return;
     const scheduleIds = getSelectedScheduleIds();
 
-    // Build one ClassInfo per selected class (use first session as representative for day/time)
     const classInfos: ClassInfo[] = classes
       .filter((c) => selectedClassIds.has(c.classId))
       .map((c) => {
@@ -247,7 +235,6 @@ export default function ClassesStep({
     });
   }
 
-  // Filter + group classes by division
   const filteredClasses = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return classes;
@@ -283,8 +270,8 @@ export default function ClassesStep({
       <div className="space-y-5">
         {/* Semester picker (only when not pre-selected) */}
         {!initialSemesterId && (
-          <div className="bg-white border border-neutral-200 rounded-xl p-5">
-            <label className="block text-sm font-semibold text-slate-700 mb-2">
+          <div className="bg-white border border-[#DDD9D2] rounded-xl p-5">
+            <label className="block text-sm font-semibold text-[#201D18] mb-2">
               Semester
             </label>
             <select
@@ -296,7 +283,7 @@ export default function ClassesStep({
                 setSemesterName(s?.name ?? "");
                 setSelectedClassIds(new Set());
               }}
-              className="w-full px-3 py-2 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full px-3 py-2 border border-[#DDD9D2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23] bg-white"
             >
               <option value="">Select a semester…</option>
               {semesters.map((s) => (
@@ -311,31 +298,31 @@ export default function ClassesStep({
 
         {/* Class list */}
         {loading ? (
-          <div className="text-sm text-slate-400 py-8 text-center">Loading classes…</div>
+          <div className="text-sm text-[#9E9890] py-8 text-center">Loading classes…</div>
         ) : !semesterId ? (
-          <div className="text-sm text-slate-400 py-8 text-center">
+          <div className="text-sm text-[#9E9890] py-8 text-center">
             Select a semester to see available classes.
           </div>
         ) : classes.length === 0 ? (
-          <div className="text-sm text-slate-400 py-8 text-center">
+          <div className="text-sm text-[#9E9890] py-8 text-center">
             No classes found for this semester.
           </div>
         ) : (
           <>
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9E9890] pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name, discipline, or division…"
-                className="w-full pl-9 pr-9 py-2.5 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white placeholder:text-slate-400"
+                className="w-full pl-9 pr-9 py-2.5 border border-[#DDD9D2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23] bg-white placeholder:text-[#9E9890]"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9E9890] hover:text-[#736D65] transition"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -343,14 +330,14 @@ export default function ClassesStep({
             </div>
 
             {filteredClasses.length === 0 ? (
-              <div className="text-sm text-slate-400 py-8 text-center">
+              <div className="text-sm text-[#9E9890] py-8 text-center">
                 No classes match &ldquo;{searchQuery}&rdquo;.
               </div>
             ) : (
               <div className="max-h-[580px] overflow-y-auto space-y-5 pr-0.5">
                 {sortedDivisions.map((division) => (
                   <div key={division}>
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
+                    <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide mb-2">
                       {capitalizeFirst(division.replace("_", " "))}
                     </p>
                     <div className="space-y-2">
@@ -374,7 +361,7 @@ export default function ClassesStep({
         <div className="flex items-center justify-between pt-2">
           <button
             onClick={onBack}
-            className="flex items-center gap-1.5 px-4 py-2 text-sm text-slate-500 hover:text-slate-700 transition"
+            className="flex items-center gap-1.5 px-4 py-2 text-sm text-[#736D65] hover:text-[#201D18] transition"
           >
             <ChevronLeft className="w-4 h-4" />
             Back
@@ -382,7 +369,7 @@ export default function ClassesStep({
           <button
             onClick={handleNext}
             disabled={!canProceed}
-            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#8E2A23] text-white rounded-xl text-sm font-medium hover:bg-[#7A2420] disabled:opacity-40 disabled:cursor-not-allowed transition"
           >
             Continue
             <ChevronRight className="w-4 h-4" />
@@ -393,41 +380,41 @@ export default function ClassesStep({
       {/* Sidebar */}
       <div className="space-y-3 lg:sticky lg:top-6">
         {/* Selected classes */}
-        <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+        <div className="bg-white border border-[#DDD9D2] rounded-xl p-4 space-y-3">
+          <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide">
             Selected for {dancerName || "dancer"}
           </p>
 
           {selectedClassIds.size === 0 ? (
-            <p className="text-sm text-slate-400">No classes selected yet.</p>
+            <p className="text-sm text-[#9E9890]">No classes selected yet.</p>
           ) : (
             <ul className="space-y-3">
               {selectedClasses.map((cls) => (
                 <li key={cls.classId} className="text-sm">
                   <div className="flex items-start justify-between gap-2">
-                    <p className="font-medium text-slate-700 leading-snug">{cls.name}</p>
+                    <p className="font-medium text-[#201D18] leading-snug">{cls.name}</p>
                     <button
                       onClick={() => toggleClass(cls.classId)}
-                      className="shrink-0 text-slate-300 hover:text-red-400 transition mt-0.5"
+                      className="shrink-0 text-[#9E9890] hover:text-red-400 transition mt-0.5"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <p className="text-xs text-slate-400 capitalize mt-0.5">{cls.discipline}</p>
+                  <p className="text-xs text-[#9E9890] capitalize mt-0.5">{cls.discipline}</p>
                   {cls.location && (
-                    <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                    <p className="text-xs text-[#9E9890] mt-0.5 flex items-center gap-1">
                       <MapPin className="w-3 h-3 shrink-0" />
                       {cls.location}
                     </p>
                   )}
                   {(cls.startDate || cls.endDate) && (
-                    <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                    <p className="text-xs text-[#9E9890] mt-0.5 flex items-center gap-1">
                       <Calendar className="w-3 h-3 shrink-0" />
                       {fmtDate(cls.startDate)} – {fmtDate(cls.endDate)}
                     </p>
                   )}
                   {cls.sessions.length > 0 && (
-                    <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                    <p className="text-xs text-[#9E9890] mt-0.5 flex items-center gap-1">
                       <Users className="w-3 h-3 shrink-0" />
                       {cls.sessions.reduce((n, s) => n + s.enrolled, 0)}/
                       {cls.sessions[0]?.capacity ?? "?"} enrolled
@@ -439,7 +426,7 @@ export default function ClassesStep({
           )}
 
           {selectedClassIds.size > 0 && (
-            <p className="text-xs text-slate-500 pt-1 border-t border-neutral-200">
+            <p className="text-xs text-[#736D65] pt-1 border-t border-[#DDD9D2]">
               {selectedClassIds.size} class{selectedClassIds.size !== 1 ? "es" : ""} selected
             </p>
           )}
@@ -447,9 +434,9 @@ export default function ClassesStep({
 
         {/* Pricing — per-line-item editor */}
         {selectedClassIds.size > 0 && (
-          <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">
+          <div className="bg-white border border-[#DDD9D2] rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+              <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide">
                 Fees &amp; Pricing
               </p>
               {customTotal !== null && (
@@ -458,7 +445,7 @@ export default function ClassesStep({
             </div>
 
             {pricingLoading ? (
-              <p className="text-xs text-slate-400">Calculating…</p>
+              <p className="text-xs text-[#9E9890]">Calculating…</p>
             ) : filteredLineItems.length > 0 ? (
               <div className="space-y-2">
                 {filteredLineItems.map((li, i) => {
@@ -478,12 +465,12 @@ export default function ClassesStep({
                             return next;
                           })
                         }
-                        className="w-3.5 h-3.5 rounded accent-blue-600 shrink-0"
+                        className="w-3.5 h-3.5 rounded accent-[#8E2A23] shrink-0"
                       />
                       {/* Label */}
                       <span
                         className={`flex-1 text-xs truncate ${
-                          row.included ? "text-slate-600" : "text-slate-300 line-through"
+                          row.included ? "text-[#736D65]" : "text-[#9E9890] line-through"
                         }`}
                       >
                         {li.label}
@@ -492,7 +479,7 @@ export default function ClassesStep({
                       <div className="relative shrink-0 w-20">
                         <span
                           className={`absolute left-2 top-1/2 -translate-y-1/2 text-xs ${
-                            isDiscount ? "text-green-500" : "text-slate-400"
+                            isDiscount ? "text-green-500" : "text-[#9E9890]"
                           }`}
                         >
                           {isDiscount ? "-$" : "$"}
@@ -510,10 +497,10 @@ export default function ClassesStep({
                               return next;
                             })
                           }
-                          className={`w-full pl-6 pr-1.5 py-1 border rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-400 disabled:opacity-40 disabled:bg-neutral-50 ${
+                          className={`w-full pl-6 pr-1.5 py-1 border rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-[#8E2A23] disabled:opacity-40 disabled:bg-[#F7F5F2] ${
                             isDiscount
                               ? "border-mint text-mint-text"
-                              : "border-neutral-200 text-slate-700"
+                              : "border-[#DDD9D2] text-[#201D18]"
                           }`}
                         />
                       </div>
@@ -524,13 +511,13 @@ export default function ClassesStep({
                 {/* Total row */}
                 <div
                   className={`flex justify-between gap-3 pt-2 border-t font-semibold ${
-                    customTotal !== null ? "border-mauve" : "border-neutral-200"
+                    customTotal !== null ? "border-mauve" : "border-[#DDD9D2]"
                   }`}
                 >
-                  <span className="text-xs text-slate-700">Total</span>
+                  <span className="text-xs text-[#201D18]">Total</span>
                   <span
                     className={`text-xs ${
-                      customTotal !== null ? "text-mauve-text" : "text-slate-800"
+                      customTotal !== null ? "text-mauve-text" : "text-[#201D18]"
                     }`}
                   >
                     {fmt$$(displayTotal)}
@@ -544,7 +531,7 @@ export default function ClassesStep({
                 )}
               </div>
             ) : (
-              <p className="text-xs text-slate-400">Pricing unavailable.</p>
+              <p className="text-xs text-[#9E9890]">Pricing unavailable.</p>
             )}
           </div>
         )}
@@ -579,16 +566,16 @@ function ClassCard({
       disabled={isFull && !isSelected}
       className={`w-full flex items-start gap-3 px-4 py-3.5 rounded-xl text-left border transition ${
         isSelected
-          ? "bg-blue-50 border-blue-300"
+          ? "bg-[#FDF0EF] border-[#C8A09D]"
           : isFull
-          ? "opacity-50 cursor-not-allowed bg-white border-neutral-200"
-          : "bg-white border-neutral-200 hover:bg-slate-50 hover:border-neutral-300"
+          ? "opacity-50 cursor-not-allowed bg-white border-[#DDD9D2]"
+          : "bg-white border-[#DDD9D2] hover:bg-[#F7F5F2] hover:border-[#9E9890]"
       }`}
     >
       {/* Checkbox */}
       <div
         className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center shrink-0 border transition ${
-          isSelected ? "bg-blue-600 border-blue-600" : "border-neutral-300 bg-white"
+          isSelected ? "bg-[#8E2A23] border-[#8E2A23]" : "border-[#DDD9D2] bg-white"
         }`}
       >
         {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -596,26 +583,23 @@ function ClassCard({
 
       {/* Class info */}
       <div className="flex-1 min-w-0 space-y-1">
-        <p className="text-sm font-semibold text-slate-800 leading-snug">{cls.name}</p>
-        <p className="text-xs text-slate-400 capitalize">{cls.discipline}</p>
+        <p className="text-sm font-semibold text-[#201D18] leading-snug">{cls.name}</p>
+        <p className="text-xs text-[#9E9890] capitalize">{cls.discipline}</p>
 
         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-          {/* Age range */}
           {(cls.minAge || cls.maxAge) && (
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-[#736D65]">
               Ages {cls.minAge ?? "?"}–{cls.maxAge ?? "?"}
             </span>
           )}
-          {/* Location */}
           {cls.location && (
-            <span className="text-xs text-slate-500 flex items-center gap-0.5">
+            <span className="text-xs text-[#736D65] flex items-center gap-0.5">
               <MapPin className="w-3 h-3" />
               {cls.location}
             </span>
           )}
-          {/* Date range */}
           {(cls.startDate || cls.endDate) && (
-            <span className="text-xs text-slate-500 flex items-center gap-0.5">
+            <span className="text-xs text-[#736D65] flex items-center gap-0.5">
               <Calendar className="w-3 h-3" />
               {fmtDate(cls.startDate)} – {fmtDate(cls.endDate)}
             </span>
@@ -631,7 +615,7 @@ function ClassCard({
             Full
           </span>
         ) : totalCapacity > 0 ? (
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-[#9E9890]">
             {totalEnrolled}/{totalCapacity}
           </span>
         ) : null}

@@ -46,7 +46,9 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth";
     const redirectResponse = NextResponse.redirect(url);
-    redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll());
+    supabaseResponse.cookies.getAll().forEach(({ name, value, ...opts }) =>
+      redirectResponse.cookies.set(name, value, opts)
+    );
     return redirectResponse;
   }
 
@@ -62,7 +64,9 @@ export async function updateSession(request: NextRequest) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
       const redirectResponse = NextResponse.redirect(url);
-      redirectResponse.cookies.setAll(supabaseResponse.cookies.getAll());
+      supabaseResponse.cookies.getAll().forEach(({ name, value, ...opts }) =>
+      redirectResponse.cookies.set(name, value, opts)
+    );
       return redirectResponse;
     }
   }

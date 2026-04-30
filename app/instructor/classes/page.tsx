@@ -4,15 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import {
-  getMyInstructorSessions,
+  getMyClassGroups,
   getAllClassSessions,
   formatTime,
   formatDay,
   formatDiscipline,
-  type InstructorSession,
+  type MyClassGroup,
   type AllClassSession,
 } from "@/queries/instructor";
-import { MapPin, ChevronRight, Calendar } from "lucide-react";
+import { MapPin, ChevronRight } from "lucide-react";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                       */
@@ -27,7 +27,7 @@ type View = "mine" | "all";
 export default function InstructorClassesPage() {
   const [view,     setView]     = useState<View>("mine");
   const [userId,   setUserId]   = useState<string | null>(null);
-  const [mine,     setMine]     = useState<InstructorSession[]>([]);
+  const [mine,     setMine]     = useState<MyClassGroup[]>([]);
   const [all,      setAll]      = useState<AllClassSession[]>([]);
   const [loading,  setLoading]  = useState(true);
 
@@ -43,16 +43,14 @@ export default function InstructorClassesPage() {
     if (!userId) return;
     setLoading(true);
     Promise.all([
-      getMyInstructorSessions(userId),
+      getMyClassGroups(userId),
       getAllClassSessions(userId),
-    ]).then(([mySessions, allSessions]) => {
-      setMine(mySessions);
+    ]).then(([myGroups, allSessions]) => {
+      setMine(myGroups);
       setAll(allSessions);
       setLoading(false);
     });
   }, [userId]);
-
-  const sessions = view === "mine" ? mine : all;
 
   return (
     <div className="space-y-5">
@@ -63,7 +61,7 @@ export default function InstructorClassesPage() {
         </h1>
         <p className="text-sm mt-0.5" style={{ color: "var(--admin-text-muted)" }}>
           {view === "mine"
-            ? `${mine.length} session${mine.length !== 1 ? "s" : ""} assigned to you`
+            ? `${mine.length} class${mine.length !== 1 ? "es" : ""} you teach`
             : `${all.length} session${all.length !== 1 ? "s" : ""} across all classes`}
         </p>
       </div>
@@ -104,21 +102,21 @@ export default function InstructorClassesPage() {
             />
           ))}
         </div>
-      ) : sessions.length === 0 ? (
+      ) : (view === "mine" ? mine.length : all.length) === 0 ? (
         <div
           className="rounded-2xl border border-dashed px-6 py-14 text-center"
           style={{ borderColor: "var(--admin-border)", color: "var(--admin-text-faint)" }}
         >
           <p className="text-sm">
             {view === "mine"
-              ? "You haven't been assigned to any sessions yet."
+              ? "You haven't been assigned to any classes yet."
               : "No active class sessions found."}
           </p>
         </div>
       ) : (
         <div className="space-y-2.5">
           {view === "mine"
-            ? mine.map((s) => <MySessionCard key={s.sessionId} session={s} />)
+            ? mine.map((g) => <MyClassGroupCard key={g.classKey} group={g} />)
             : all.map((s) => <AllSessionCard key={s.sessionId} session={s} />)}
         </div>
       )}
@@ -127,48 +125,43 @@ export default function InstructorClassesPage() {
 }
 
 /* -------------------------------------------------------------------------- */
-/* My Session Card                                                             */
+/* My Class Group Card — one card per class name + day + start time, links to  */
+/* the per-class series view.                                                  */
 /* -------------------------------------------------------------------------- */
 
-function MySessionCard({ session }: { session: InstructorSession }) {
+function MyClassGroupCard({ group }: { group: MyClassGroup }) {
   const timeLabel =
-    session.startTime
-      ? `${formatTime(session.startTime)}${session.endTime ? ` – ${formatTime(session.endTime)}` : ""}`
+    group.startTime
+      ? `${formatTime(group.startTime)}${group.endTime ? ` – ${formatTime(group.endTime)}` : ""}`
       : null;
 
   return (
     <Link
-      href={`/instructor/classes/${session.sessionId}`}
+      href={`/instructor/classes/series/${group.classKey}`}
       className="flex items-center gap-4 px-5 py-4 rounded-2xl group transition-colors"
       style={{
         background: "var(--admin-surface)",
         border: "1px solid var(--admin-border)",
+        borderLeft: "3px solid var(--admin-sidebar-active)",
         textDecoration: "none",
         display: "flex",
       }}
     >
-      {/* Discipline color bar */}
-      <div
-        className="w-1 self-stretch rounded-full shrink-0"
-        style={{ background: "var(--admin-sidebar-active)" }}
-      />
-
-      {/* Main content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2 flex-wrap">
           <p
             className="font-semibold text-base leading-snug"
             style={{ color: "var(--admin-text)" }}
           >
-            {session.className}
+            {group.className}
           </p>
           <span
             className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0"
             style={{ background: "var(--admin-surface-sub)", color: "var(--admin-text-muted)" }}
           >
-            {formatDiscipline(session.discipline)}
+            {formatDiscipline(group.discipline)}
           </span>
-          {session.isLead ? (
+          {group.isLead ? (
             <span
               className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0"
               style={{ background: "#FDF2F1", color: "var(--admin-sidebar-active)" }}
@@ -188,21 +181,19 @@ function MySessionCard({ session }: { session: InstructorSession }) {
         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-sm" style={{ color: "var(--admin-text-muted)" }}>
           {timeLabel && (
             <span>
-              {formatDay(session.dayOfWeek)} · {timeLabel}
+              {formatDay(group.dayOfWeek)}s · {timeLabel}
             </span>
           )}
-          {session.location && (
+          {group.location && (
             <span className="flex items-center gap-1">
               <MapPin size={12} />
-              {session.location}
+              {group.location}
             </span>
           )}
-          {session.nextDate && (
-            <span className="flex items-center gap-1">
-              <Calendar size={12} />
-              Next: {new Date(session.nextDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-            </span>
-          )}
+          <span>
+            {group.seriesCount} series
+            {group.currentSeriesName ? ` · ${group.currentSeriesName}` : ""}
+          </span>
         </div>
       </div>
 

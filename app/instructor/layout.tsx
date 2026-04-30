@@ -22,9 +22,9 @@ export default async function InstructorLayout({
     .eq("id", authUser.id)
     .single();
 
-  if (!profile || profile.role !== "instructor") redirect("/");
+  // if (!profile || profile.role !== "instructor") redirect("/");
 
-  const displayName = `${profile.first_name} ${profile.last_name}`;
+  const displayName = `${profile?.first_name} ${profile?.last_name}`;
 
   return (
     <div

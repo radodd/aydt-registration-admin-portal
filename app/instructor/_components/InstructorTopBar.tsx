@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, UserCircle } from "lucide-react";
 
 export function InstructorTopBar({ displayName }: { displayName: string }) {
   const router  = useRouter();
@@ -92,6 +93,15 @@ export function InstructorTopBar({ displayName }: { displayName: string }) {
               >
                 {displayName}
               </div>
+              <Link
+                href="/instructor/profile"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-neutral-50 transition-colors"
+                style={{ color: "var(--admin-text)", textDecoration: "none", borderBottom: "1px solid var(--admin-border-sub)" }}
+              >
+                <UserCircle size={14} />
+                Profile
+              </Link>
               <button
                 onClick={handleSignOut}
                 className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left hover:bg-neutral-50 transition-colors"

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Outfit } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { DevAccountSwitcher } from "@/app/components/dev/DevAccountSwitcher";
 
 // Explicit viewport prevents iOS Safari from using its 980px default width,
 // which causes pages to appear zoomed-out on load.
@@ -48,6 +49,7 @@ export default function RootLayout({
           </noscript>
         )}
         {children}
+        {process.env.NODE_ENV === "development" && <DevAccountSwitcher />}
         {GTM_ID && (
           <Script
             id="gtm"
