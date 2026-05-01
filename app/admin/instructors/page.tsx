@@ -36,6 +36,7 @@ export default function InstructorsAdmin() {
   };
 
   const handleToggleStatus = (instructor: InstructorRow) => {
+    if (instructor.status === "invited") return; // button hidden in UI, but guard here too
     const next = instructor.status === "active" ? "inactive" : "active";
     const label = next === "inactive" ? "deactivate" : "reactivate";
     if (!confirm(`${label.charAt(0).toUpperCase() + label.slice(1)} ${instructor.first_name} ${instructor.last_name}?`)) return;
@@ -47,7 +48,8 @@ export default function InstructorsAdmin() {
   };
 
   const active   = instructors.filter((i) => i.status === "active");
-  const inactive = instructors.filter((i) => i.status !== "active");
+  const invited  = instructors.filter((i) => i.status === "invited");
+  const inactive = instructors.filter((i) => i.status === "inactive");
 
   if (loading) {
     return (
@@ -64,7 +66,9 @@ export default function InstructorsAdmin() {
         <div>
           <h1 className="text-2xl font-semibold text-neutral-900">Instructors</h1>
           <p className="text-sm text-neutral-500 mt-0.5">
-            {active.length} active · {inactive.length} inactive
+            {active.length} active
+            {invited.length > 0 && ` · ${invited.length} pending`}
+            {inactive.length > 0 && ` · ${inactive.length} inactive`}
           </p>
         </div>
         <button
@@ -123,8 +127,14 @@ function InstructorRow({
   onToggleStatus: () => void;
   isPending: boolean;
 }) {
-  const isActive = instructor.status === "active";
+  const status  = instructor.status ?? "inactive";
   const initials = `${instructor.first_name[0]}${instructor.last_name[0]}`.toUpperCase();
+
+  const statusBadge = {
+    active:   { label: "Active",  cls: "bg-green-100 text-green-700" },
+    invited:  { label: "Invited", cls: "bg-amber-50 text-amber-600 border border-amber-200" },
+    inactive: { label: "Inactive", cls: "bg-neutral-100 text-neutral-500" },
+  }[status] ?? { label: "Inactive", cls: "bg-neutral-100 text-neutral-500" };
 
   return (
     <div className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-neutral-200 bg-white">
@@ -144,35 +154,32 @@ function InstructorRow({
         </p>
       </div>
 
-      {/* Stats + status */}
+      {/* Stats + status + action */}
       <div className="flex items-center gap-3 shrink-0">
         {instructor.sessionCount > 0 && (
-          <span className="text-xs text-neutral-500">
+          <span className="text-xs text-neutral-500 hidden sm:block">
             {instructor.sessionCount} session{instructor.sessionCount !== 1 ? "s" : ""}
           </span>
         )}
 
-        <span
-          className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            isActive
-              ? "bg-green-100 text-green-700"
-              : "bg-neutral-100 text-neutral-500"
-          }`}
-        >
-          {isActive ? "Active" : "Inactive"}
+        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadge.cls}`}>
+          {statusBadge.label}
         </span>
 
-        <button
-          onClick={onToggleStatus}
-          disabled={isPending}
-          className={`px-3 py-1.5 text-xs font-medium rounded-xl transition-colors disabled:opacity-50 ${
-            isActive
-              ? "bg-neutral-100 text-neutral-600 hover:bg-red-50 hover:text-red-600"
-              : "bg-neutral-100 text-neutral-600 hover:bg-green-50 hover:text-green-700"
-          }`}
-        >
-          {isActive ? "Deactivate" : "Reactivate"}
-        </button>
+        {/* Only active/inactive instructors can be toggled — invited are still pending */}
+        {status !== "invited" && (
+          <button
+            onClick={onToggleStatus}
+            disabled={isPending}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors disabled:opacity-50 ${
+              status === "active"
+                ? "border-red-200 text-red-600 hover:bg-red-50"
+                : "border-green-200 text-green-700 hover:bg-green-50"
+            }`}
+          >
+            {status === "active" ? "Deactivate" : "Reactivate"}
+          </button>
+        )}
       </div>
     </div>
   );

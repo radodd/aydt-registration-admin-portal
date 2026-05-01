@@ -1258,11 +1258,11 @@ function ClassDetailPanel({
         />
       )}
       <div
-        className="rounded-xl overflow-hidden"
+        className="rounded-xl"
         style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
       >
         <div
-          className="px-4 py-3"
+          className="px-4 py-3 rounded-t-xl"
           style={{ borderBottom: "0.5px solid #DDD9D2" }}
         >
           <p className="text-[12px] font-medium" style={{ color: "#201D18" }}>
@@ -1436,6 +1436,13 @@ function ClassDetailPanel({
               ({registrants.length})
             </span>
           </p>
+          <Link
+            href={`/admin/register?semester=${detail.semester_id}`}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition hover:opacity-80"
+            style={{ background: "#8E2A23", color: "#fff" }}
+          >
+            + Add Dancer
+          </Link>
         </div>
 
         {registrants.length === 0 ? (

@@ -61,18 +61,18 @@ export default async function AdminRegisterPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-6 text-slate-700 space-y-6">
+    <div className="max-w-5xl mx-auto p-6 text-[#201D18] space-y-6">
       <div>
         {initialSemester && (
           <div className="flex items-center gap-2 mb-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block" />
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#8E2A23] bg-[#FDF0EF] border border-[#C8A09D] px-2.5 py-1 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#8E2A23] inline-block" />
               {initialSemester.name}
             </span>
           </div>
         )}
-        <h1 className="text-2xl font-semibold text-slate-800">Register Someone</h1>
-        <p className="text-sm text-slate-400 mt-0.5">
+        <h1 className="text-2xl font-semibold text-[#201D18]">Register Someone</h1>
+        <p className="text-sm text-[#9E9890] mt-0.5">
           {initialDancer
             ? `Registering ${initialDancer.name}`
             : initialSemester

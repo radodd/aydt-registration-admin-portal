@@ -88,6 +88,33 @@ export default async function PublicLayout({
         {/* ── Footer ──────────────────────────────────────────── */}
         <ConditionalFooter isLoggedIn={!!user} firstName={firstName} />
 
+        {/* ── Design preview badge ────────────────────────────── */}
+        <Link
+          href="/v2"
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 100,
+            background: "rgba(26,15,13,0.88)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(160,130,120,0.25)",
+            borderRadius: 10,
+            padding: "10px 16px",
+            fontSize: 12,
+            color: "#B8A8A4",
+            textDecoration: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+          }}
+        >
+          <span style={{ fontWeight: 700, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "#A9EBDF" }}>Design A</span>
+          <span style={{ width: 1, height: 14, background: "rgba(160,130,120,0.2)" }} />
+          <span style={{ color: "#F5D7D2" }}>Preview Design B →</span>
+        </Link>
+
       </div>
     </AuthProvider>
   );

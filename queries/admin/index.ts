@@ -376,7 +376,7 @@ export interface InstructorRow {
   last_name: string;
   email: string;
   phone_number: string | null;
-  status: string | null;
+  status: "invited" | "active" | "inactive" | null;
   created_at: string;
   sessionCount: number;
 }

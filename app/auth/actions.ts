@@ -32,6 +32,8 @@ export async function login(formData: FormData) {
 }
 
 export async function signUp(formData: FormData) {
+  console.log("[signUp] action called");
+
   const values = signUpSchema.safeParse({
     first_name: formData.get("first_name"),
     last_name: formData.get("last_name"),
@@ -40,8 +42,11 @@ export async function signUp(formData: FormData) {
   });
 
   if (!values.success) {
+    console.error("[signUp] Zod validation failed:", values.error.flatten());
     throw new Error("Invalid form submission");
   }
+
+  console.log("[signUp] Validation passed");
 
   const supabase = await createClient();
   const adminSupabase = createAdminClient();
@@ -54,26 +59,36 @@ export async function signUp(formData: FormData) {
   const next = formData.get("next") as string | null;
   const callbackNext = next?.startsWith("/") ? next : "/";
 
+  // NEXT_PUBLIC_BASE_URL must be set to the production domain in Vercel env vars.
+  // If missing, omit emailRedirectTo so Supabase uses its configured Site URL
+  // rather than rejecting the signup with "Redirect URL not allowed".
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  const emailRedirectTo = baseUrl
+    ? `${baseUrl}/auth/callback?next=${encodeURIComponent(callbackNext)}`
+    : undefined;
+
+  console.log("[signUp] NEXT_PUBLIC_BASE_URL:", baseUrl ?? "(not set)");
+  console.log("[signUp] emailRedirectTo:", emailRedirectTo ?? "(omitted — using Supabase Site URL)");
+
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?next=${encodeURIComponent(callbackNext)}`,
-      data: {
-        first_name,
-        last_name,
-      },
+      ...(emailRedirectTo ? { emailRedirectTo } : {}),
+      data: { first_name, last_name },
     },
   });
 
   if (authError) {
-    console.error("Auth signup error:", authError.message);
+    console.error("[signUp] Auth signup error:", authError.message, authError);
     redirect("/error");
   }
 
   const authUser = authData.user;
+  console.log("[signUp] Auth user created:", authUser?.id ?? "null", "| confirmed:", authUser?.email_confirmed_at ?? "unconfirmed");
+
   if (!authUser) {
-    console.error("No auth user returned after signup.");
+    console.error("[signUp] No auth user returned after signup.");
     redirect("/error");
   }
 
@@ -85,7 +100,9 @@ export async function signUp(formData: FormData) {
     .single();
 
   if (familyError) {
-    console.warn("Family creation error (non-blocking):", familyError.message);
+    console.error("[signUp] Family insert error:", familyError.message, familyError);
+  } else {
+    console.log("[signUp] Family created:", family?.id);
   }
 
   const { error: userError } = await adminSupabase.from("users").insert([
@@ -99,13 +116,14 @@ export async function signUp(formData: FormData) {
   ]);
 
   if (userError) {
-    console.error("User table insert error:", userError.message);
+    console.error("[signUp] User insert error:", userError.message, userError);
     if (userError.message.includes("duplicate key value")) {
       redirect("/auth?error=email_exists");
     }
     redirect("/error");
   }
 
+  console.log("[signUp] User row created successfully. Redirecting to check-email.");
   revalidatePath("/", "layout");
   redirect(`/auth?message=check_email&email=${encodeURIComponent(email)}`);
 }
