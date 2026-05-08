@@ -23,6 +23,7 @@ type Props = {
   semesterId: string;
   semesterName: string;
   scheduleIds: string[];
+  sessionIds: string[];
   classInfos: ClassInfo[];
   // Pre-configured price override from ClassesStep
   initialPriceOverride?: number | null;
@@ -64,6 +65,7 @@ export default function CheckoutStep({
   semesterId,
   semesterName,
   scheduleIds,
+  sessionIds,
   classInfos,
   initialPriceOverride,
   formData,
@@ -279,6 +281,7 @@ export default function CheckoutStep({
       semesterId,
       semesterName,
       scheduleIds,
+      sessionIds,
       dancerId: isNewDancer ? null : (dancerId ?? null),
       dancerName,
       familyId: isNewDancer ? null : (familyId ?? null),

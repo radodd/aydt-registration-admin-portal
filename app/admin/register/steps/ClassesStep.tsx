@@ -31,6 +31,8 @@ export type ClassesStepResult = {
   semesterId: string;
   semesterName: string;
   scheduleIds: string[];
+  /** class_sessions.id for drop-in (per_session) registrations. */
+  sessionIds: string[];
   classInfos: ClassInfo[];
   priceOverride?: number;
 };
@@ -43,9 +45,48 @@ type Props = {
   initialSemesterId: string;
   initialSemesterName: string;
   initialScheduleIds: string[];
+  initialSessionIds?: string[];
   onNext: (result: ClassesStepResult) => void;
   onBack: () => void;
 };
+
+function isDropInClass(cls: AdminClassGroup): boolean {
+  return cls.sessions.some((s) => s.pricingModel === "per_session");
+}
+
+/** Distinct schedule IDs for a class (one per `class_schedules` row). */
+function classScheduleIds(cls: AdminClassGroup): string[] {
+  const ids = new Set<string>();
+  for (const s of cls.sessions) {
+    if (s.scheduleId) ids.add(s.scheduleId);
+  }
+  return [...ids];
+}
+
+/** A non-drop-in class with >1 schedule needs a per-schedule sub-picker. */
+function isMultiScheduleClass(cls: AdminClassGroup): boolean {
+  if (isDropInClass(cls)) return false;
+  return classScheduleIds(cls).length > 1;
+}
+
+/** Pick a representative session for a schedule (used to render its label). */
+function representativeSession(cls: AdminClassGroup, scheduleId: string): AdminSessionInfo | undefined {
+  return cls.sessions.find((s) => s.scheduleId === scheduleId);
+}
+
+const DOW_SHORT: Record<string, string> = {
+  monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
+  friday: "Fri", saturday: "Sat", sunday: "Sun",
+};
+
+function fmtScheduleLabel(rep: AdminSessionInfo | undefined): string {
+  if (!rep) return "Schedule";
+  const dow = rep.dayOfWeek ? (DOW_SHORT[rep.dayOfWeek.toLowerCase()] ?? rep.dayOfWeek) : "";
+  const start = rep.startTime ? rep.startTime.slice(0, 5) : "";
+  const end = rep.endTime ? rep.endTime.slice(0, 5) : "";
+  const time = start ? `${start}${end ? `–${end}` : ""}` : "";
+  return [dow, time].filter(Boolean).join(" · ") || "Schedule";
+}
 
 const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
@@ -78,6 +119,7 @@ export default function ClassesStep({
   initialSemesterId,
   initialSemesterName,
   initialScheduleIds,
+  initialSessionIds = [],
   onNext,
   onBack,
 }: Props) {
@@ -92,6 +134,14 @@ export default function ClassesStep({
   const [selectedClassIds, setSelectedClassIds] = useState<Set<string>>(() => {
     return new Set<string>();
   });
+  /** Drop-in (per-session) selection — class_sessions.id values. */
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(
+    () => new Set<string>(initialSessionIds),
+  );
+  /** Per-schedule selection for multi-schedule (multi-tier) classes. */
+  const [selectedScheduleIds, setSelectedScheduleIds] = useState<Set<string>>(
+    () => new Set<string>(initialScheduleIds),
+  );
 
   const [quote, setQuote] = useState<PricingQuote | null>(null);
   const [pricingLoading, setPricingLoading] = useState(false);
@@ -109,15 +159,23 @@ export default function ClassesStep({
     setLoading(true);
     fetchSemesterClasses(semesterId).then((data) => {
       setClasses(data);
+      const restoredClassIds = new Set<string>();
       if (initialScheduleIds.length > 0) {
-        const restoredClassIds = new Set<string>();
         data.forEach((cls) => {
           if (cls.sessions.some((s) => initialScheduleIds.includes(s.scheduleId))) {
             restoredClassIds.add(cls.classId);
           }
         });
-        setSelectedClassIds(restoredClassIds);
       }
+      // Drop-in classes: restore selection if any session id matches.
+      if (initialSessionIds && initialSessionIds.length > 0) {
+        data.forEach((cls) => {
+          if (isDropInClass(cls) && cls.sessions.some((s) => initialSessionIds.includes(s.sessionId))) {
+            restoredClassIds.add(cls.classId);
+          }
+        });
+      }
+      if (restoredClassIds.size > 0) setSelectedClassIds(restoredClassIds);
       setLoading(false);
     });
   }, [semesterId]);
@@ -161,23 +219,98 @@ export default function ClassesStep({
   function getSelectedScheduleIds(): string[] {
     const ids = new Set<string>();
     for (const cls of classes) {
-      if (selectedClassIds.has(cls.classId)) {
-        cls.sessions.forEach((s) => {
-          if (s.scheduleId) ids.add(s.scheduleId);
-        });
+      if (!selectedClassIds.has(cls.classId)) continue;
+      // Drop-in classes use per-session selection (sessionIds), not scheduleIds.
+      if (isDropInClass(cls)) continue;
+      // Multi-schedule classes: only include the schedules the admin explicitly picked.
+      if (isMultiScheduleClass(cls)) {
+        for (const sid of classScheduleIds(cls)) {
+          if (selectedScheduleIds.has(sid)) ids.add(sid);
+        }
+        continue;
       }
+      // Single-schedule class: include its sole schedule.
+      cls.sessions.forEach((s) => {
+        if (s.scheduleId) ids.add(s.scheduleId);
+      });
     }
     return [...ids];
   }
 
+  function toggleScheduleSelection(cls: AdminClassGroup, scheduleId: string) {
+    setSelectedScheduleIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(scheduleId)) {
+        next.delete(scheduleId);
+      } else {
+        // Mutual exclusivity within a class: only one schedule per multi-schedule class.
+        for (const sid of classScheduleIds(cls)) next.delete(sid);
+        next.add(scheduleId);
+      }
+      return next;
+    });
+  }
+
+  function getSelectedSessionIds(): string[] {
+    const ids: string[] = [];
+    for (const cls of classes) {
+      if (!selectedClassIds.has(cls.classId)) continue;
+      if (!isDropInClass(cls)) continue;
+      cls.sessions.forEach((s) => {
+        if (selectedSessionIds.has(s.sessionId)) ids.push(s.sessionId);
+      });
+    }
+    return ids;
+  }
+
+  /** Sum drop-in prices across selected per-session sessions. */
+  function getDropInPriceTotal(): number {
+    let total = 0;
+    for (const cls of classes) {
+      if (!selectedClassIds.has(cls.classId) || !isDropInClass(cls)) continue;
+      for (const s of cls.sessions) {
+        if (selectedSessionIds.has(s.sessionId) && s.dropInPrice != null) {
+          total += s.dropInPrice;
+        }
+      }
+    }
+    return total;
+  }
+
   function toggleClass(classId: string) {
+    const cls = classes.find((c) => c.classId === classId);
     setSelectedClassIds((prev) => {
       const next = new Set(prev);
       if (next.has(classId)) {
         next.delete(classId);
+        // Clear any drop-in date selections under this class.
+        if (cls && isDropInClass(cls)) {
+          setSelectedSessionIds((p) => {
+            const n = new Set(p);
+            cls.sessions.forEach((s) => n.delete(s.sessionId));
+            return n;
+          });
+        }
+        // Clear any multi-schedule selections under this class.
+        if (cls && isMultiScheduleClass(cls)) {
+          setSelectedScheduleIds((p) => {
+            const n = new Set(p);
+            for (const sid of classScheduleIds(cls)) n.delete(sid);
+            return n;
+          });
+        }
       } else {
         next.add(classId);
       }
+      return next;
+    });
+  }
+
+  function toggleSession(sessionId: string) {
+    setSelectedSessionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
       return next;
     });
   }
@@ -208,6 +341,8 @@ export default function ClassesStep({
   function handleNext() {
     if (!semesterId || selectedClassIds.size === 0) return;
     const scheduleIds = getSelectedScheduleIds();
+    const sessionIds = getSelectedSessionIds();
+    if (scheduleIds.length === 0 && sessionIds.length === 0) return;
 
     const classInfos: ClassInfo[] = classes
       .filter((c) => selectedClassIds.has(c.classId))
@@ -225,13 +360,22 @@ export default function ClassesStep({
       });
 
     const customTotal = computeCustomTotal();
+    const dropInTotal = getDropInPriceTotal();
+    // Mixed totals: if there are drop-in selections, override the engine total to
+    // include them. Pure drop-in: priceOverride = drop-in sum.
+    let priceOverride: number | undefined = customTotal ?? undefined;
+    if (sessionIds.length > 0) {
+      const engineTotal = customTotal ?? quote?.grandTotal ?? 0;
+      priceOverride = engineTotal + dropInTotal;
+    }
 
     onNext({
       semesterId,
       semesterName,
       scheduleIds,
+      sessionIds,
       classInfos,
-      priceOverride: customTotal ?? undefined,
+      priceOverride,
     });
   }
 
@@ -260,7 +404,19 @@ export default function ClassesStep({
   });
 
   const selectedClasses = classes.filter((c) => selectedClassIds.has(c.classId));
-  const canProceed = semesterId !== "" && selectedClassIds.size > 0;
+  // Drop-in classes require at least one session selected before continuing.
+  const allSelectedDropInsHaveDates = selectedClasses
+    .filter(isDropInClass)
+    .every((cls) => cls.sessions.some((s) => selectedSessionIds.has(s.sessionId)));
+  // Multi-schedule classes require exactly one schedule selected.
+  const allSelectedMultiSchedulesHaveTier = selectedClasses
+    .filter(isMultiScheduleClass)
+    .every((cls) => classScheduleIds(cls).some((sid) => selectedScheduleIds.has(sid)));
+  const canProceed =
+    semesterId !== "" &&
+    selectedClassIds.size > 0 &&
+    allSelectedDropInsHaveDates &&
+    allSelectedMultiSchedulesHaveTier;
   const customTotal = computeCustomTotal();
   const displayTotal = customTotal !== null ? customTotal : (quote?.grandTotal ?? 0);
 
@@ -346,7 +502,11 @@ export default function ClassesStep({
                           key={cls.classId}
                           cls={cls}
                           isSelected={selectedClassIds.has(cls.classId)}
+                          selectedSessionIds={selectedSessionIds}
+                          selectedScheduleIds={selectedScheduleIds}
                           onToggle={toggleClass}
+                          onToggleSession={toggleSession}
+                          onToggleSchedule={toggleScheduleSelection}
                         />
                       ))}
                     </div>
@@ -543,11 +703,19 @@ export default function ClassesStep({
 function ClassCard({
   cls,
   isSelected,
+  selectedSessionIds,
+  selectedScheduleIds,
   onToggle,
+  onToggleSession,
+  onToggleSchedule,
 }: {
   cls: AdminClassGroup;
   isSelected: boolean;
+  selectedSessionIds: Set<string>;
+  selectedScheduleIds: Set<string>;
   onToggle: (classId: string) => void;
+  onToggleSession: (sessionId: string) => void;
+  onToggleSchedule: (cls: AdminClassGroup, scheduleId: string) => void;
 }) {
   const totalCapacity = cls.sessions.reduce(
     (sum, s) => (s.capacity != null ? sum + s.capacity : sum),
@@ -559,67 +727,200 @@ function ClassCard({
     cls.sessions.every(
       (s) => s.capacity !== null && s.enrolled >= s.capacity
     );
+  const isDropIn = isDropInClass(cls);
+  const isMulti = isMultiScheduleClass(cls);
+
+  // Sort drop-in dates chronologically.
+  const dropInSessions = isDropIn
+    ? [...cls.sessions]
+        .filter((s) => s.scheduleDate)
+        .sort((a, b) => (a.scheduleDate ?? "").localeCompare(b.scheduleDate ?? ""))
+    : [];
+
+  // For multi-tier classes, list each schedule once.
+  const tierSchedules = isMulti ? classScheduleIds(cls) : [];
 
   return (
-    <button
-      onClick={() => !isFull && onToggle(cls.classId)}
-      disabled={isFull && !isSelected}
-      className={`w-full flex items-start gap-3 px-4 py-3.5 rounded-xl text-left border transition ${
+    <div
+      className={`w-full rounded-xl border transition ${
         isSelected
           ? "bg-[#FDF0EF] border-[#C8A09D]"
           : isFull
-          ? "opacity-50 cursor-not-allowed bg-white border-[#DDD9D2]"
+          ? "opacity-50 bg-white border-[#DDD9D2]"
           : "bg-white border-[#DDD9D2] hover:bg-[#F7F5F2] hover:border-[#9E9890]"
       }`}
     >
-      {/* Checkbox */}
-      <div
-        className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center shrink-0 border transition ${
-          isSelected ? "bg-[#8E2A23] border-[#8E2A23]" : "border-[#DDD9D2] bg-white"
-        }`}
+      <button
+        type="button"
+        onClick={() => !isFull && onToggle(cls.classId)}
+        disabled={isFull && !isSelected}
+        className="w-full flex items-start gap-3 px-4 py-3.5 text-left disabled:cursor-not-allowed"
       >
-        {isSelected && <Check className="w-3 h-3 text-white" />}
-      </div>
+        {/* Checkbox */}
+        <div
+          className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center shrink-0 border transition ${
+            isSelected ? "bg-[#8E2A23] border-[#8E2A23]" : "border-[#DDD9D2] bg-white"
+          }`}
+        >
+          {isSelected && <Check className="w-3 h-3 text-white" />}
+        </div>
 
-      {/* Class info */}
-      <div className="flex-1 min-w-0 space-y-1">
-        <p className="text-sm font-semibold text-[#201D18] leading-snug">{cls.name}</p>
-        <p className="text-xs text-[#9E9890] capitalize">{cls.discipline}</p>
+        {/* Class info */}
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-[#201D18] leading-snug">{cls.name}</p>
+            {isDropIn && (
+              <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#FBE6D8] text-[#8E5A23]">
+                Drop-in
+              </span>
+            )}
+            {isMulti && (
+              <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#E8E1F5] text-[#5A3A80]">
+                Multi-tier
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-[#9E9890] capitalize">{cls.discipline}</p>
 
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-          {(cls.minAge || cls.maxAge) && (
-            <span className="text-xs text-[#736D65]">
-              Ages {cls.minAge ?? "?"}–{cls.maxAge ?? "?"}
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+            {(cls.minAge || cls.maxAge) && (
+              <span className="text-xs text-[#736D65]">
+                Ages {cls.minAge ?? "?"}–{cls.maxAge ?? "?"}
+              </span>
+            )}
+            {cls.location && (
+              <span className="text-xs text-[#736D65] flex items-center gap-0.5">
+                <MapPin className="w-3 h-3" />
+                {cls.location}
+              </span>
+            )}
+            {!isDropIn && (cls.startDate || cls.endDate) && (
+              <span className="text-xs text-[#736D65] flex items-center gap-0.5">
+                <Calendar className="w-3 h-3" />
+                {fmtDate(cls.startDate)} – {fmtDate(cls.endDate)}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Capacity / full badge */}
+        <div className="shrink-0 text-right self-center">
+          {isFull ? (
+            <span className="flex items-center gap-1 text-xs text-mauve-text">
+              <AlertCircle className="w-3 h-3" />
+              Full
             </span>
-          )}
-          {cls.location && (
-            <span className="text-xs text-[#736D65] flex items-center gap-0.5">
-              <MapPin className="w-3 h-3" />
-              {cls.location}
+          ) : !isDropIn && totalCapacity > 0 ? (
+            <span className="text-xs text-[#9E9890]">
+              {totalEnrolled}/{totalCapacity}
             </span>
-          )}
-          {(cls.startDate || cls.endDate) && (
-            <span className="text-xs text-[#736D65] flex items-center gap-0.5">
-              <Calendar className="w-3 h-3" />
-              {fmtDate(cls.startDate)} – {fmtDate(cls.endDate)}
-            </span>
+          ) : null}
+        </div>
+      </button>
+
+      {/* Drop-in date selector — shown when class is selected */}
+      {isSelected && isDropIn && (
+        <div className="border-t border-[#DDD9D2] px-4 py-3 space-y-1.5">
+          <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide mb-1">
+            Pick dates ({selectedSessionIds && cls.sessions.filter((s) => selectedSessionIds.has(s.sessionId)).length} selected)
+          </p>
+          {dropInSessions.length === 0 ? (
+            <p className="text-xs text-[#9E9890] italic">No dates available.</p>
+          ) : (
+            <div className="space-y-1">
+              {dropInSessions.map((s) => {
+                const sessionFull = s.capacity != null && s.enrolled >= s.capacity;
+                const checked = selectedSessionIds.has(s.sessionId);
+                const remaining = s.capacity != null ? Math.max(0, s.capacity - s.enrolled) : null;
+                return (
+                  <label
+                    key={s.sessionId}
+                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs ${
+                      sessionFull
+                        ? "opacity-50 cursor-not-allowed"
+                        : "cursor-pointer hover:bg-white"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={sessionFull && !checked}
+                      onChange={() => onToggleSession(s.sessionId)}
+                      className="w-3.5 h-3.5 rounded accent-[#8E2A23] shrink-0"
+                    />
+                    <span className="flex-1 text-[#201D18]">
+                      {fmtDate(s.scheduleDate)}
+                      {s.startTime && (
+                        <span className="text-[#9E9890] ml-1">
+                          · {s.startTime.slice(0, 5)}
+                          {s.endTime ? `–${s.endTime.slice(0, 5)}` : ""}
+                        </span>
+                      )}
+                    </span>
+                    {s.dropInPrice != null && (
+                      <span className="text-[#736D65] tabular-nums">
+                        {fmt$$(s.dropInPrice)}
+                      </span>
+                    )}
+                    {sessionFull ? (
+                      <span className="text-mauve-text">Full</span>
+                    ) : remaining != null ? (
+                      <span className="text-[#9E9890]">{remaining} left</span>
+                    ) : null}
+                  </label>
+                );
+              })}
+            </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Capacity / full badge */}
-      <div className="shrink-0 text-right self-center">
-        {isFull ? (
-          <span className="flex items-center gap-1 text-xs text-mauve-text">
-            <AlertCircle className="w-3 h-3" />
-            Full
-          </span>
-        ) : totalCapacity > 0 ? (
-          <span className="text-xs text-[#9E9890]">
-            {totalEnrolled}/{totalCapacity}
-          </span>
-        ) : null}
-      </div>
-    </button>
+      {/* Multi-tier schedule selector — one schedule per class, mutually exclusive */}
+      {isSelected && isMulti && (
+        <div className="border-t border-[#DDD9D2] px-4 py-3 space-y-1.5">
+          <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide mb-1">
+            Pick one option
+          </p>
+          <div className="space-y-1">
+            {tierSchedules.map((sid) => {
+              const rep = representativeSession(cls, sid);
+              const checked = selectedScheduleIds.has(sid);
+              const cap = rep?.capacity ?? null;
+              const enrolled = rep?.enrolled ?? 0;
+              const scheduleFull = cap != null && enrolled >= cap;
+              const remaining = cap != null ? Math.max(0, cap - enrolled) : null;
+              return (
+                <label
+                  key={sid}
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs ${
+                    scheduleFull && !checked
+                      ? "opacity-50 cursor-not-allowed"
+                      : "cursor-pointer hover:bg-white"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name={`tier-${cls.classId}`}
+                    checked={checked}
+                    disabled={scheduleFull && !checked}
+                    onChange={() => onToggleSchedule(cls, sid)}
+                    className="w-3.5 h-3.5 accent-[#8E2A23] shrink-0"
+                  />
+                  <span className="flex-1 text-[#201D18]">{fmtScheduleLabel(rep)}</span>
+                  {rep?.location && (
+                    <span className="text-[#9E9890]">{rep.location}</span>
+                  )}
+                  {scheduleFull ? (
+                    <span className="text-mauve-text">Full</span>
+                  ) : remaining != null ? (
+                    <span className="text-[#9E9890]">{remaining} left</span>
+                  ) : null}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

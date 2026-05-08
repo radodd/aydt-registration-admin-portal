@@ -15,10 +15,16 @@ export type AdminSessionInfo = {
   endTime: string | null;
   startDate: string | null;
   endDate: string | null;
+  /** YYYY-MM-DD when this session occurs (per-day model). Null for legacy rows. */
+  scheduleDate: string | null;
   location: string | null;
   instructorName: string | null;
   capacity: number | null;
   enrolled: number;
+  /** Pricing model inherited from the parent schedule. */
+  pricingModel: "full_schedule" | "per_session";
+  /** Per-session price when pricingModel === "per_session". */
+  dropInPrice: number | null;
 };
 
 export type AdminClassGroup = {
@@ -45,7 +51,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
   const { data: classes, error } = await supabase
     .from("classes")
     .select(
-      "id, name, division, discipline, min_age, max_age, class_sessions(id, schedule_id, day_of_week, start_time, end_time, start_date, end_date, location, instructor_name, capacity)"
+      "id, name, division, discipline, min_age, max_age, class_schedules(id, pricing_model), class_sessions(id, schedule_id, day_of_week, start_time, end_time, start_date, end_date, schedule_date, location, instructor_name, capacity, drop_in_price)"
     )
     .eq("semester_id", semesterId)
     .order("name");
@@ -79,6 +85,13 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
   }
 
   return (classes as any[]).map((c) => {
+    const pricingByScheduleId = new Map<string, "full_schedule" | "per_session">();
+    for (const sched of (c.class_schedules as any[]) ?? []) {
+      pricingByScheduleId.set(
+        sched.id as string,
+        ((sched.pricing_model as string) === "per_session" ? "per_session" : "full_schedule"),
+      );
+    }
     const sessions: AdminSessionInfo[] = ((c.class_sessions as any[]) ?? []).map((s) => ({
       sessionId: s.id as string,
       scheduleId: (s.schedule_id ?? "") as string,
@@ -91,10 +104,13 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
       endTime: s.end_time ?? null,
       startDate: s.start_date ?? null,
       endDate: s.end_date ?? null,
+      scheduleDate: s.schedule_date ?? null,
       location: s.location ?? null,
       instructorName: s.instructor_name ?? null,
       capacity: s.capacity ?? null,
       enrolled: enrollmentCounts[s.schedule_id] ?? 0,
+      pricingModel: pricingByScheduleId.get(s.schedule_id as string) ?? "full_schedule",
+      dropInPrice: s.drop_in_price != null ? Number(s.drop_in_price) : null,
     }));
 
     // Aggregate location and date range from sessions
