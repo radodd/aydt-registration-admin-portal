@@ -48,6 +48,13 @@ export async function signUp(formData: FormData) {
 
   console.log("[signUp] Validation passed");
 
+  // TEMPORARY (pre-launch): gate the unverified-signup path behind an env flag
+  // so it can be disabled in production by unsetting ENABLE_UNVERIFIED_SIGNUP.
+  if (process.env.ENABLE_UNVERIFIED_SIGNUP !== "true") {
+    console.error("[signUp] Blocked: ENABLE_UNVERIFIED_SIGNUP is not enabled.");
+    redirect("/auth?error=signup_disabled");
+  }
+
   const supabase = await createClient();
   const adminSupabase = createAdminClient();
 
@@ -57,81 +64,66 @@ export async function signUp(formData: FormData) {
   const last_name = formData.get("last_name") as string;
 
   const next = formData.get("next") as string | null;
-  const callbackNext = next?.startsWith("/") ? next : "/";
+  const safePath = next?.startsWith("/") ? next : "/";
 
-  // NEXT_PUBLIC_BASE_URL must be set to the production domain in Vercel env vars.
-  // If missing, omit emailRedirectTo so Supabase uses its configured Site URL
-  // rather than rejecting the signup with "Redirect URL not allowed".
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  const emailRedirectTo = baseUrl
-    ? `${baseUrl}/auth/callback?next=${encodeURIComponent(callbackNext)}`
-    : undefined;
-
-  console.log("[signUp] NEXT_PUBLIC_BASE_URL:", baseUrl ?? "(not set)");
-  console.log("[signUp] emailRedirectTo:", emailRedirectTo ?? "(omitted — using Supabase Site URL)");
-
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      ...(emailRedirectTo ? { emailRedirectTo } : {}),
-      data: { first_name, last_name },
-    },
-  });
-
-  if (authError) {
-    console.error("[signUp] Auth signup error:", authError.message, authError);
-    redirect("/error");
-  }
-
-  const authUser = authData.user;
-  console.log("[signUp] Auth user created:", authUser?.id ?? "null", "| confirmed:", authUser?.email_confirmed_at ?? "unconfirmed");
-
-  if (!authUser) {
-    console.error("[signUp] No auth user returned after signup.");
-    redirect("/error");
-  }
-
-  // Use service role client to bypass RLS — new users have no insert permissions yet
-  const { data: family, error: familyError } = await adminSupabase
-    .from("families")
-    .insert([{ family_name: `${last_name} Family` }])
-    .select()
-    .single();
-
-  if (familyError) {
-    console.error("[signUp] Family insert error:", familyError.message, familyError);
-  } else {
-    console.log("[signUp] Family created:", family?.id);
-  }
-
-  const { error: userError } = await adminSupabase.from("users").insert([
-    {
-      id: authUser.id,
-      family_id: family?.id || null,
-      first_name,
-      last_name,
+  // TEMPORARY (pre-launch): create users with email pre-confirmed via the
+  // admin API. This skips the confirmation-email flow entirely so stakeholders
+  // can sign up and access the admin portal during testing without hitting
+  // Supabase's email rate limit. Revert to supabase.auth.signUp() before
+  // production launch so real users go through email verification.
+  const { data: createdUser, error: createError } =
+    await adminSupabase.auth.admin.createUser({
       email,
-    },
-  ]);
+      password,
+      email_confirm: true,
+      user_metadata: { first_name, last_name },
+    });
 
-  if (userError) {
-    console.error("[signUp] User insert error:", userError.message, userError);
-    if (userError.message.includes("duplicate key value")) {
+  if (createError) {
+    console.error("[signUp] admin.createUser error:", createError.message, createError);
+    if (
+      createError.message.toLowerCase().includes("already") ||
+      createError.message.toLowerCase().includes("registered") ||
+      createError.message.toLowerCase().includes("exists")
+    ) {
       redirect("/auth?error=email_exists");
     }
     redirect("/error");
   }
 
-  console.log("[signUp] User row created successfully. Redirecting to check-email.");
+  const authUser = createdUser.user;
+  console.log("[signUp] Auth user created (pre-confirmed):", authUser?.id ?? "null");
+
+  if (!authUser) {
+    console.error("[signUp] No auth user returned after admin.createUser.");
+    redirect("/error");
+  }
+
+  // The handle_new_user() trigger on auth.users automatically inserts the
+  // public.families + public.users rows, so no manual insert is needed here.
+
+  // Sign the new user in immediately so they land in the app authenticated.
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (signInError) {
+    console.error("[signUp] Post-signup sign-in failed:", signInError.message);
+    // Account was created — fall back to the login screen with email prefilled.
+    redirect(`/auth?email=${encodeURIComponent(email)}`);
+  }
+
+  console.log("[signUp] Signed in. Redirecting to", safePath);
   revalidatePath("/", "layout");
-  redirect(`/auth?message=check_email&email=${encodeURIComponent(email)}`);
+  redirect(safePath);
 }
 
 export async function signOut() {
   const supabase = await createClient();
   const { error } = await supabase.auth.signOut();
   if (error) console.error("Sign out error.", error.message);
+  revalidatePath("/", "layout");
   redirect("/auth");
 }
 
