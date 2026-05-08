@@ -48,7 +48,10 @@ function groupBySchedule(sessions: PublicSession[]): ScheduleGroup[] {
   const map = new Map<string, PublicSession[]>();
 
   for (const s of sessions) {
-    const key = s.scheduleId ?? s.id;
+    // Drop-in (per_session) sessions render as one card per date so users
+    // can pick individual dates with their own capacity/price. Full-schedule
+    // sessions group by scheduleId so the user enrolls in the whole series.
+    const key = s.pricingModel === "per_session" ? s.id : (s.scheduleId ?? s.id);
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(s);
   }
@@ -123,10 +126,10 @@ function ScCard({
   let priceSub = "";
   if (rep.pricingModel === "full_schedule" && rep.priceTiers && rep.priceTiers.length > 0) {
     const defaultTier = rep.priceTiers.find((t) => t.isDefault) ?? rep.priceTiers[0]!;
-    priceDisplay = formatCents(defaultTier.amount);
+    priceDisplay = formatDollars(defaultTier.amount);
     priceSub = `${group.sessions.length} session${group.sessions.length !== 1 ? "s" : ""}`;
   } else if (rep.dropInPrice != null) {
-    priceDisplay = formatCents(rep.dropInPrice);
+    priceDisplay = formatDollars(rep.dropInPrice);
     priceSub = "per session";
   }
 
@@ -477,8 +480,18 @@ function stripDaySuffix(name: string): string {
   return name.replace(/\s*\([^)]*\)\s*$/, "").trim();
 }
 
-function formatCents(cents: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
+/**
+ * Formats a NUMERIC dollar amount (e.g. 25 → "$25", 25.5 → "$25.50") for display.
+ * `class_sessions.drop_in_price` and `schedule_price_tiers.amount` are NUMERIC(10,2)
+ * dollars in the DB — not cents — so no /100 conversion is needed.
+ */
+function formatDollars(amount: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
 function fmtDateShort(d: string): string {
