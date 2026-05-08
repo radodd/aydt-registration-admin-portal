@@ -14,7 +14,7 @@ export default async function EditPage({ params }: { params: { id: string } }) {
         *,
         classes (
           *,
-          class_schedules (*, schedule_price_tiers(*)),
+          class_schedules (*, schedule_price_tiers(*), class_sessions(id, schedule_date, capacity, start_time, end_time, drop_in_price)),
           class_requirements!class_requirements_class_id_fkey (*, class_requirement_approved_dancers(dancer_id))
         ),
         session_groups(

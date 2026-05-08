@@ -286,6 +286,102 @@ const TEMPLATES = [
   },
 ] as const;
 
+// ── Drop-in class templates ───────────────────────────────────────────────────
+// One class per weekday so users picking a drop-in have multiple classes to
+// choose from. All run 2:00 PM – 4:00 PM and are priced per session.
+const DROP_IN_TEMPLATES = [
+  // Multi-day drop-in: one class running every weekday so users can pick
+  // any date that works for them. Stored as a single class_schedules row
+  // with all 5 weekdays in days_of_week and one class_sessions row per day.
+  {
+    name: "Open Ballet (Drop-In)",
+    discipline: "ballet",
+    division: "adult",
+    level: "open",
+    description:
+      "Open-level adult ballet drop-in held every weekday. Pay per class — no semester commitment.",
+    min_age: 18,
+    max_age: 99,
+    day: "monday",
+    days: ["monday", "tuesday", "wednesday", "thursday", "friday"],
+    start_time: "14:00:00",
+    end_time: "16:00:00",
+    location: "Upper East Side",
+    capacity: 20,
+    tuition: 0,
+    pricing_model: "per_session",
+    drop_in_price: 28.0,
+  },
+  {
+    name: "Tuesday Open Jazz (Drop-In)",
+    discipline: "jazz",
+    division: "adult",
+    level: "open",
+    description: "Open-level adult jazz drop-in. Pay per class.",
+    min_age: 18,
+    max_age: 99,
+    day: "tuesday",
+    start_time: "14:00:00",
+    end_time: "16:00:00",
+    location: "Washington Heights",
+    capacity: 20,
+    tuition: 0,
+    pricing_model: "per_session",
+    drop_in_price: 28.0,
+  },
+  {
+    name: "Wednesday Open Contemporary (Drop-In)",
+    discipline: "contemporary",
+    division: "adult",
+    level: "open",
+    description: "Open-level adult contemporary drop-in. Pay per class.",
+    min_age: 18,
+    max_age: 99,
+    day: "wednesday",
+    start_time: "14:00:00",
+    end_time: "16:00:00",
+    location: "Upper East Side",
+    capacity: 20,
+    tuition: 0,
+    pricing_model: "per_session",
+    drop_in_price: 28.0,
+  },
+  {
+    name: "Thursday Open Hip Hop (Drop-In)",
+    discipline: "hip_hop",
+    division: "adult",
+    level: "open",
+    description: "Open-level adult hip hop drop-in. Pay per class.",
+    min_age: 18,
+    max_age: 99,
+    day: "thursday",
+    start_time: "14:00:00",
+    end_time: "16:00:00",
+    location: "Washington Heights",
+    capacity: 20,
+    tuition: 0,
+    pricing_model: "per_session",
+    drop_in_price: 28.0,
+  },
+  {
+    name: "Friday Open Tap (Drop-In)",
+    discipline: "tap",
+    division: "adult",
+    level: "open",
+    description: "Open-level adult tap drop-in. Pay per class.",
+    min_age: 18,
+    max_age: 99,
+    day: "friday",
+    start_time: "14:00:00",
+    end_time: "16:00:00",
+    location: "Upper East Side",
+    capacity: 20,
+    tuition: 0,
+    pricing_model: "per_session",
+    drop_in_price: 28.0,
+  },
+] as const;
+
 // ── Semester configs ───────────────────────────────────────────────────────────
 interface SemCfg {
   id: string;
@@ -296,6 +392,7 @@ interface SemCfg {
   published_at: string | null;
   startDate: Date;
   endDate: Date;
+  isDropIn?: boolean;
 }
 
 const SEMS: SemCfg[] = [
@@ -370,6 +467,20 @@ const SEMS: SemCfg[] = [
     startDate: new Date("2025-09-08"),
     endDate: new Date("2025-12-13"),
   },
+  // Dedicated drop-in semester: 2-week run, weekday classes 2–4 PM.
+  // Whole semester is per-session pricing; users pick which class to drop into.
+  {
+    id: uid(),
+    name: "Drop-In May 2026",
+    description:
+      "Two-week drop-in series for adults. Pick any weekday class to drop into — no semester commitment.",
+    status: "published",
+    publish_at: new Date("2026-05-01").toISOString(),
+    published_at: new Date("2026-05-01").toISOString(),
+    startDate: new Date("2026-05-08"),
+    endDate: new Date("2026-05-22"),
+    isDropIn: true,
+  },
   // ARCHIVED ───────────────────────────────────────────────────────────────────
   {
     id: uid(),
@@ -397,7 +508,18 @@ const SEMS: SemCfg[] = [
 // 1.  CLEAR
 // ─────────────────────────────────────────────────────────────────────────────
 async function clearDatabase() {
-  console.log("🧹  Clearing database (preserving Ethan Flores)…");
+  console.log("🧹  Clearing database (preserving Ethan, Natalia, Monique)…");
+
+  // Look up additional protected users by first name
+  const { data: protectedExtras } = await sb
+    .from("users")
+    .select("id")
+    .in("first_name", ["Natalia", "Monique"]);
+  const PROTECTED_IDS = [
+    ETHAN_ID,
+    ...(protectedExtras ?? []).map((u) => u.id as string),
+  ];
+  const protectedList = `(${PROTECTED_IDS.join(",")})`;
 
   // Leaf → root order to respect FK constraints
   const tables: [string, string?][] = [
@@ -482,27 +604,35 @@ async function clearDatabase() {
     }
   }
 
-  // Users — preserve Ethan Flores
-  const { error: uErr } = await sb.from("users").delete().neq("id", ETHAN_ID);
+  // Users — preserve Ethan Flores, Natalia, Monique
+  const { error: uErr } = await sb
+    .from("users")
+    .delete()
+    .not("id", "in", protectedList);
   if (uErr) console.warn(`  ⚠ clearing users: ${uErr.message}`);
 
-  // Families — preserve Ethan's family if he has one
-  const { data: ethan } = await sb
+  // Families — preserve protected users' families
+  const { data: protectedUsers } = await sb
     .from("users")
     .select("family_id")
-    .eq("id", ETHAN_ID)
-    .single();
-  if (ethan?.family_id) {
+    .in("id", PROTECTED_IDS);
+  const protectedFamilyIds = (protectedUsers ?? [])
+    .map((u) => u.family_id as string | null)
+    .filter((id): id is string => !!id);
+  if (protectedFamilyIds.length > 0) {
     await sb
       .from("families")
       .delete()
-      .neq("id", ethan.family_id as string);
+      .not("id", "in", `(${protectedFamilyIds.join(",")})`);
   } else {
     await del("families");
   }
 
-  // email_subscriptions — preserve Ethan's subscription
-  await sb.from("email_subscriptions").delete().neq("user_id", ETHAN_ID);
+  // email_subscriptions — preserve protected users' subscriptions
+  await sb
+    .from("email_subscriptions")
+    .delete()
+    .not("user_id", "in", protectedList);
 
   // email_subscribers — one-off external subscribers, no protected rows
   await del("email_subscribers");
@@ -1323,7 +1453,7 @@ interface TierRow {
 
 async function seedClasses() {
   console.log(
-    "🩰  Seeding 8 classes × 8 semesters with schedules, sessions, occurrence dates, price tiers…",
+    "🩰  Seeding classes × semesters with schedules, sessions, occurrence dates, price tiers…",
   );
 
   const classes: ClassRow[] = [];
@@ -1333,15 +1463,22 @@ async function seedClasses() {
   const occurrenceDates: Record<string, unknown>[] = [];
 
   for (const sem of SEMS) {
-    // Published & archived → full 14 occurrences; others → 4 (skeleton data)
+    // Published & archived → full 14 occurrences; others → 4 (skeleton data).
+    // Drop-in semester is short (2 weeks) so weeklyDates naturally returns ~2.
     const sessionCount =
       sem.status === "published" || sem.status === "archived" ? 14 : 4;
+    const tmplsForSemester: readonly (typeof TEMPLATES[number] | typeof DROP_IN_TEMPLATES[number])[] =
+      sem.isDropIn ? DROP_IN_TEMPLATES : TEMPLATES;
 
-    for (const tmpl of TEMPLATES) {
+    for (const tmpl of tmplsForSemester) {
       const classId = uid();
       const schedId = uid();
-      const sessionId = uid();
       const instructorName = faker.person.fullName();
+      const pricingModel = (tmpl as { pricing_model?: string }).pricing_model ?? "full_schedule";
+      const isDropIn = pricingModel === "per_session";
+      const dropInPrice = (tmpl as { drop_in_price?: number }).drop_in_price ?? null;
+      // Multi-day templates set `days`; otherwise treat the single `day` as a 1-element array.
+      const tmplDays = (tmpl as { days?: readonly string[] }).days ?? [tmpl.day];
 
       classes.push({
         id: classId,
@@ -1361,7 +1498,7 @@ async function seedClasses() {
         id: schedId,
         class_id: classId,
         semester_id: sem.id,
-        days_of_week: [tmpl.day],
+        days_of_week: tmplDays,
         start_time: tmpl.start_time,
         end_time: tmpl.end_time,
         start_date: isoDate(sem.startDate),
@@ -1373,54 +1510,56 @@ async function seedClasses() {
         registration_close_at: null,
         gender_restriction: "no_restriction",
         urgency_threshold: Math.max(1, Math.floor(tmpl.capacity * 0.2)),
-        pricing_model: "full_schedule",
+        pricing_model: pricingModel,
       } as ScheduleRow);
 
-      tiers.push({
-        id: uid(),
-        schedule_id: schedId,
-        label: "Regular",
-        amount: Math.round(tmpl.tuition * 100),
-        sort_order: 0,
-        is_default: true,
-      } as TierRow);
-
-      // ONE class_sessions row per schedule (the abstract recurring class).
-      // schedule_date is left NULL — calendar dates live in
-      // session_occurrence_dates so the instructor portal can list them.
-      sessions.push({
-        id: sessionId,
-        class_id: classId,
-        semester_id: sem.id,
-        schedule_id: schedId,
-        schedule_date: null as unknown as string,
-        day_of_week: tmpl.day,
-        start_time: tmpl.start_time,
-        end_time: tmpl.end_time,
-        start_date: isoDate(sem.startDate),
-        end_date: isoDate(sem.endDate),
-        location: tmpl.location,
-        instructor_name: instructorName,
-        capacity: tmpl.capacity,
-        is_active: true,
-        drop_in_price: null,
-        cloned_from_session_id: null,
-        registration_close_at: null,
-      } as SessionRow);
-
-      const dates = weeklyDates(
-        tmpl.day,
-        sem.startDate,
-        sem.endDate,
-        sessionCount,
-      );
-      for (const date of dates) {
-        occurrenceDates.push({
+      // Drop-in schedules use per-session pricing on class_sessions.drop_in_price;
+      // full-schedule classes get a single semester-wide price tier.
+      if (!isDropIn) {
+        tiers.push({
           id: uid(),
-          session_id: sessionId,
-          date: isoDate(date),
-          is_cancelled: false,
-        });
+          schedule_id: schedId,
+          label: "Regular",
+          amount: Math.round(tmpl.tuition * 100),
+          sort_order: 0,
+          is_default: true,
+        } as TierRow);
+      }
+
+      // One class_sessions row per (class, day_of_week) — the schema unique
+      // constraint is (class_id, day_of_week, start_time). Each session gets
+      // its own occurrence_dates for that weekday only.
+      for (const dow of tmplDays) {
+        const sessionId = uid();
+        sessions.push({
+          id: sessionId,
+          class_id: classId,
+          semester_id: sem.id,
+          schedule_id: schedId,
+          schedule_date: null as unknown as string,
+          day_of_week: dow,
+          start_time: tmpl.start_time,
+          end_time: tmpl.end_time,
+          start_date: isoDate(sem.startDate),
+          end_date: isoDate(sem.endDate),
+          location: tmpl.location,
+          instructor_name: instructorName,
+          capacity: tmpl.capacity,
+          is_active: true,
+          drop_in_price: isDropIn ? dropInPrice : null,
+          cloned_from_session_id: null,
+          registration_close_at: null,
+        } as SessionRow);
+
+        const dates = weeklyDates(dow, sem.startDate, sem.endDate, sessionCount);
+        for (const date of dates) {
+          occurrenceDates.push({
+            id: uid(),
+            session_id: sessionId,
+            date: isoDate(date),
+            is_cancelled: false,
+          });
+        }
       }
     }
   }
@@ -1502,8 +1641,10 @@ async function seedRegistrations(
   const REG_FEE = 40.0;
   const FAMILY_DISC = 50.0; // applied when family has 2+ dancers enrolled
 
+  // Drop-in semesters use per-session registrations, not full-schedule
+  // enrollments — exclude them from this loop.
   const activeSems = SEMS.filter(
-    (s) => s.status === "published" || s.status === "archived",
+    (s) => (s.status === "published" || s.status === "archived") && !s.isDropIn,
   );
 
   for (const sem of activeSems) {

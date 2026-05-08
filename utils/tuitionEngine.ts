@@ -96,6 +96,12 @@ export interface TuitionCalculationInput {
   discipline: string;
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
+  /**
+   * If true, this class belongs to a drop-in division. Tuition is per-session
+   * (`class_sessions.drop_in_price`); the engine returns an unresolved result
+   * with no error so the UI can render the per-date pricing instead.
+   */
+  isDropInDivision?: boolean;
   /** Per-class costume fee for junior standard classes (default 55). */
   juniorCostumeFeePerClass?: number;
   /** Per-class costume fee for senior standard classes (default 65). */
@@ -159,6 +165,11 @@ export function calculateClassTuition(
     seniorCostumeFeePerClass = 65,
     seniorVideoFeePerRegistrant = 15,
   } = input;
+
+  // 0. Drop-in divisions: tuition is per-session, not via rate bands.
+  if (input.isDropInDivision) {
+    return { ...UNRESOLVED };
+  }
 
   // 1. Hard weekly limit check
   const limitError = validateWeeklyLimit(division, weeklyClassCount);

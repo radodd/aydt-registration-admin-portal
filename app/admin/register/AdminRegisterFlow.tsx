@@ -33,6 +33,7 @@ type State = {
   semesterId: string;
   semesterName: string;
   scheduleIds: string[];
+  sessionIds: string[];
   classInfos: ClassInfo[];
   priceOverride: number | null;
   // Form answers
@@ -62,6 +63,7 @@ export default function AdminRegisterFlow({
     semesterId: initialSemesterId,
     semesterName: initialSemesterName,
     scheduleIds: [],
+    sessionIds: [],
     classInfos: [],
     priceOverride: null,
     formData: {},
@@ -99,6 +101,7 @@ export default function AdminRegisterFlow({
       semesterId: result.semesterId,
       semesterName: result.semesterName,
       scheduleIds: result.scheduleIds,
+      sessionIds: result.sessionIds,
       classInfos: result.classInfos,
       priceOverride: result.priceOverride ?? null,
     }));
@@ -124,6 +127,7 @@ export default function AdminRegisterFlow({
       semesterId: initialSemesterId,
       semesterName: initialSemesterName,
       scheduleIds: [],
+      sessionIds: [],
       classInfos: [],
       priceOverride: null,
       formData: {},
@@ -183,6 +187,7 @@ export default function AdminRegisterFlow({
           initialSemesterId={state.semesterId}
           initialSemesterName={state.semesterName}
           initialScheduleIds={state.scheduleIds}
+          initialSessionIds={state.sessionIds}
           onNext={handleClassesNext}
           onBack={() => setState((s) => ({ ...s, step: 1 }))}
         />
@@ -192,7 +197,7 @@ export default function AdminRegisterFlow({
         <QuestionsStep
           semesterId={state.semesterId}
           semesterName={state.semesterName}
-          sessionIds={[]}
+          sessionIds={state.sessionIds}
           dancerName={state.dancerName}
           initialFormData={state.formData}
           onNext={handleQuestionsNext}
@@ -211,6 +216,7 @@ export default function AdminRegisterFlow({
           semesterId={state.semesterId}
           semesterName={state.semesterName}
           scheduleIds={state.scheduleIds}
+          sessionIds={state.sessionIds}
           classInfos={state.classInfos}
           initialPriceOverride={state.priceOverride}
           formData={state.formData}

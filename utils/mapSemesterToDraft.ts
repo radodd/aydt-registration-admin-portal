@@ -78,6 +78,30 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
             sortOrder: t.sort_order ?? 0,
             isDefault: t.is_default ?? false,
           })),
+          perDateOverrides: (cs.pricing_model === "per_session"
+            ? (cs.class_sessions ?? [])
+            : []
+          )
+            .filter((s: any) => s.schedule_date)
+            .map((s: any) => {
+              const sStart = s.start_time ? String(s.start_time).slice(0, 5) : null;
+              const sEnd = s.end_time ? String(s.end_time).slice(0, 5) : null;
+              const dStart = cs.start_time ? String(cs.start_time).slice(0, 5) : null;
+              const dEnd = cs.end_time ? String(cs.end_time).slice(0, 5) : null;
+              const capDiffers = (s.capacity ?? null) !== (cs.capacity ?? null);
+              const priceDiffers = (s.drop_in_price ?? null) !== (cs.drop_in_price ?? null);
+              const startDiffers = sStart !== dStart;
+              const endDiffers = sEnd !== dEnd;
+              if (!capDiffers && !priceDiffers && !startDiffers && !endDiffers) return null;
+              return {
+                date: s.schedule_date,
+                capacity: capDiffers ? (s.capacity ?? null) : null,
+                startTime: startDiffers ? sStart : null,
+                endTime: endDiffers ? sEnd : null,
+                dropInPrice: priceDiffers ? (s.drop_in_price ?? null) : null,
+              };
+            })
+            .filter(Boolean) as import("@/types").DraftPerDateOverride[],
         })),
         requirements: (c.class_requirements ?? []).map((r: any) => ({
           id: r.id,

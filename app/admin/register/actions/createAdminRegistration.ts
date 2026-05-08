@@ -19,6 +19,12 @@ export type AdminRegInput = {
   semesterId: string;
   semesterName: string;
   scheduleIds: string[];
+  /**
+   * Drop-in (per-date) registrations. Each id is a `class_sessions.id` whose
+   * parent schedule has `pricing_model='per_session'`. Writes one row per id
+   * into `registrations` (not `schedule_enrollments`).
+   */
+  sessionIds?: string[];
   // Existing dancer
   dancerId?: string | null;
   dancerName: string;
@@ -177,26 +183,80 @@ export async function createAdminRegistration(
     payment_plan_type: input.paymentPlanType ?? "pay_in_full",
     amount_due_now: effectiveTotal,
     admin_adjustments: input.adjustments?.length ? input.adjustments : null,
-    form_data: Object.keys(input.formData).length > 0 ? input.formData : null,
+    form_data: input.formData ?? {},
     status: "confirmed",
     confirmed_at: new Date().toISOString(),
     payment_reference_id: "admin",
-    cart_snapshot: input.scheduleIds.map((sid) => ({ dancerId, scheduleId: sid })),
+    cart_snapshot: [
+      ...input.scheduleIds.map((sid) => ({ dancerId, scheduleId: sid })),
+      ...(input.sessionIds ?? []).map((sessId) => ({ dancerId, sessionId: sessId, dropIn: true })),
+    ],
   });
 
   if (batchErr) return { success: false, error: batchErr.message };
 
-  // Insert one schedule_enrollment per class — class is the registrable unit
-  const enrollRows = input.scheduleIds.map((sid) => ({
-    schedule_id: sid,
-    batch_id: batchId,
-    dancer_id: dancerId,
-    price_snapshot: 0, // financial record lives on registration_batches
-    status: "confirmed",
-  }));
+  // Full-schedule enrollments → schedule_enrollments (one row per schedule).
+  if (input.scheduleIds.length > 0) {
+    const enrollRows = input.scheduleIds.map((sid) => ({
+      schedule_id: sid,
+      batch_id: batchId,
+      dancer_id: dancerId,
+      price_snapshot: 0, // financial record lives on registration_batches
+      status: "confirmed",
+    }));
 
-  const { error: enrollErr } = await supabase.from("schedule_enrollments").insert(enrollRows);
-  if (enrollErr) return { success: false, error: enrollErr.message };
+    const { error: enrollErr } = await supabase.from("schedule_enrollments").insert(enrollRows);
+    if (enrollErr) return { success: false, error: enrollErr.message };
+  }
+
+  // Drop-in (per-date) registrations → registrations (one row per session_id).
+  // Per-session capacity and time-conflict are enforced by DB triggers.
+  if (input.sessionIds && input.sessionIds.length > 0) {
+    const dropInRows = input.sessionIds.map((sessionId) => ({
+      dancer_id: dancerId,
+      user_id: parentUserId,
+      session_id: sessionId,
+      registration_batch_id: batchId,
+      batch_id: batchId,
+      status: "confirmed",
+      form_data: input.formData ?? {},
+    }));
+    const { error: dropInErr } = await supabase.from("registrations").insert(dropInRows);
+    if (dropInErr) return { success: false, error: dropInErr.message };
+
+    // Write per-session line items so registration_batches.grand_total has a
+    // line-level audit trail. Best-effort: log on failure but don't block the
+    // registration since the aggregate totals are already on the batch.
+    const { data: sessionRows } = await supabase
+      .from("class_sessions")
+      .select("id, schedule_date, drop_in_price, classes(name)")
+      .in("id", input.sessionIds);
+
+    if (sessionRows && sessionRows.length > 0) {
+      const lineItems = sessionRows.map((s: any) => {
+        const className: string = s.classes?.name ?? "Drop-in class";
+        const date: string = s.schedule_date ?? "";
+        const unit = s.drop_in_price != null ? Number(s.drop_in_price) : 0;
+        return {
+          batch_id: batchId,
+          dancer_id: dancerId,
+          session_id: s.id as string,
+          schedule_enrollment_id: null,
+          item_type: "drop_in",
+          label: date ? `${className} — ${date}` : className,
+          unit_amount: unit,
+          quantity: 1,
+          amount: unit,
+        };
+      });
+      const { error: liErr } = await supabase
+        .from("registration_line_items")
+        .insert(lineItems);
+      if (liErr) {
+        console.warn("[createAdminRegistration] Drop-in line item insert failed:", liErr.message);
+      }
+    }
+  }
 
   // Record coupon redemption if applicable
   if (quote?.appliedCouponId && familyId) {

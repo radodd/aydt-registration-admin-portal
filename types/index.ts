@@ -180,8 +180,8 @@ export type Discipline =
   | "lyrical"
   | "acro";
 
-/** Division values — authoritative list */
-export type Division = "early_childhood" | "junior" | "senior" | "competition";
+/** Legacy literal union — kept for code that hasn't migrated to DivisionRow. */
+export type LegacyDivisionValue = "early_childhood" | "junior" | "senior" | "competition";
 
 /** Day of week values — lowercase, matching DB constraint */
 export type DayOfWeek =
@@ -318,6 +318,18 @@ export interface SemesterFeeConfig {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Divisions                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export type Division = {
+  id: string;
+  label: string;
+  sort_order: number;
+  is_drop_in: boolean;
+  created_at: string;
+};
+
+/* -------------------------------------------------------------------------- */
 /* Pricing Engine Types (Phase 2)                                              */
 /* -------------------------------------------------------------------------- */
 
@@ -327,7 +339,7 @@ export type DraftTuitionRateBand = {
   _clientKey: string;
   /** DB id if the row already exists; undefined for new rows. */
   id?: string;
-  division: "early_childhood" | "junior" | "senior" | "competition";
+  division: string;
   weekly_class_count: number;
   base_tuition: number;
   /** Discount % applied to the base tuition for this nth class (0 = no discount). */
@@ -666,6 +678,15 @@ export type DraftSessionExcludedDate = {
  *   full_schedule — user buys access to the entire schedule; price from priceTiers.
  *   per_session   — user picks individual sessions; each session priced at dropInPrice.
  */
+export type DraftPerDateOverride = {
+  /** YYYY-MM-DD — matches class_sessions.schedule_date */
+  date: string;
+  capacity?: number | null;
+  startTime?: string | null;
+  endTime?: string | null;
+  dropInPrice?: number | null;
+};
+
 export type DraftClassSchedule = {
   /** Stable React list key */
   _clientKey: string;
@@ -700,6 +721,12 @@ export type DraftClassSchedule = {
    * class_session. Stored in class_sessions.drop_in_price.
    */
   dropInPrice?: number | null;
+  /**
+   * Per-date overrides applied to specific generated class_sessions. Used in
+   * drop-in (per_session) mode so the admin can set a different capacity, time,
+   * or price for individual dates. The date key matches `class_sessions.schedule_date`.
+   */
+  perDateOverrides?: DraftPerDateOverride[];
 
   // ── Legacy — do not use for new schedules ──────────────────────────────────
   /** @deprecated Use priceTiers (full_schedule) or dropInPrice (per_session) */
