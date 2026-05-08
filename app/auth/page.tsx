@@ -118,6 +118,11 @@ function AuthForm() {
                   An account with this email already exists. Log in instead.
                 </div>
               )}
+              {errorParam === "signup_disabled" && (
+                <div className="aydt-auth-error">
+                  New signups are temporarily disabled. Please contact an administrator.
+                </div>
+              )}
 
               <form id="login-form">
                 <input type="hidden" name="next" value={next} />
