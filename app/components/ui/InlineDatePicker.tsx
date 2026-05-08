@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 const CAL_MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -19,7 +20,7 @@ export function InlineDatePicker({
   value: string;
   onChange: (v: string) => void;
   disabled?: boolean;
-  placement?: "top" | "bottom";
+  placement?: "top" | "bottom" | "left" | "right";
   timeTitle?: string;
   timeLabel?: string;
 }) {
@@ -30,17 +31,70 @@ export function InlineDatePicker({
   const [viewYear, setViewYear] = useState(() => parseInt(base.slice(0, 4)));
   const [viewMonth, setViewMonth] = useState(() => parseInt(base.slice(5, 7)) - 1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number; placement: "top" | "bottom" | "left" | "right" } | null>(null);
 
   useEffect(() => {
     if (!open) return;
     function handler(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  // Position the portal popover relative to the trigger button. Re-anchor on
+  // scroll/resize so it tracks the input even inside scrollable containers.
+  useEffect(() => {
+    if (!open) return;
+    function reposition() {
+      const btn = buttonRef.current;
+      if (!btn) return;
+      const rect = btn.getBoundingClientRect();
+      const popoverHeight = 360;
+      const popoverWidth = 288;
+      const gap = 8;
+
+      if (placement === "left" || placement === "right") {
+        // Side placement: anchor horizontally beside the trigger, vertically
+        // align top edges and clamp inside the viewport.
+        const spaceLeft = rect.left;
+        const spaceRight = window.innerWidth - rect.right;
+        let useLeft = placement === "left";
+        if (useLeft && spaceLeft < popoverWidth + gap && spaceRight >= popoverWidth + gap) useLeft = false;
+        if (!useLeft && spaceRight < popoverWidth + gap && spaceLeft >= popoverWidth + gap) useLeft = true;
+        const left = useLeft
+          ? Math.max(8, rect.left - popoverWidth - gap)
+          : Math.min(window.innerWidth - popoverWidth - 8, rect.right + gap);
+        let top = rect.top;
+        if (top + popoverHeight > window.innerHeight - 8) {
+          top = Math.max(8, window.innerHeight - popoverHeight - 8);
+        }
+        setPopoverPos({ top, left, placement: useLeft ? "left" : "right" });
+        return;
+      }
+
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const useTop = placement === "top" || (spaceBelow < popoverHeight && rect.top > popoverHeight);
+      const top = useTop ? rect.top - popoverHeight - 4 : rect.bottom + 4;
+      let left = rect.left;
+      if (left + popoverWidth > window.innerWidth - 8) {
+        left = Math.max(8, window.innerWidth - popoverWidth - 8);
+      }
+      setPopoverPos({ top, left, placement: useTop ? "top" : "bottom" });
+    }
+    reposition();
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [open, placement]);
 
   function handleOpen() {
     if (disabled) return;
@@ -89,19 +143,13 @@ export function InlineDatePicker({
     return new Date(parseInt(y), parseInt(mo) - 1, parseInt(d)).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   }
 
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={handleOpen}
-        className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-left bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
+  const popover = open && popoverPos && typeof document !== "undefined" ? createPortal(
+    (
+      <div
+        ref={popoverRef}
+        className="fixed z-1000 w-72 bg-white border border-neutral-200 rounded-2xl shadow-lg overflow-hidden"
+        style={{ top: popoverPos.top, left: popoverPos.left }}
       >
-        {value ? fmtDisplay(value) : <span className="text-neutral-400">Pick a date</span>}
-      </button>
-
-      {open && (
-        <div className={`absolute z-50 left-0 w-72 bg-white border border-neutral-200 rounded-2xl shadow-lg overflow-hidden ${placement === "top" ? "bottom-full mb-1" : "top-full mt-1"}`}>
           {/* Time banner */}
           {timeLabel && (
             <div className="flex items-center justify-between px-4 py-2.5 bg-neutral-50 border-b border-neutral-200">
@@ -183,7 +231,22 @@ export function InlineDatePicker({
             </button>
           </div>
         </div>
-      )}
+    ),
+    document.body,
+  ) : null;
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        disabled={disabled}
+        onClick={handleOpen}
+        className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-left bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
+      >
+        {value ? fmtDisplay(value) : <span className="text-neutral-400">Pick a date</span>}
+      </button>
+      {popover}
     </div>
   );
 }

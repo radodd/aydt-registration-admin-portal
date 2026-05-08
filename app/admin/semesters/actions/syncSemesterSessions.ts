@@ -399,39 +399,58 @@ async function generateSessionsForSchedule(
   }
 
   const pricingModel = schedule.pricingModel ?? "full_schedule";
-  // Per-session mode: propagate drop_in_price to each generated session.
-  // Full-schedule mode: session-level price is meaningless — keep null.
-  const sessionDropInPrice =
-    pricingModel === "per_session" ? (schedule.dropInPrice ?? null) : null;
-  // Full-schedule sessions should not block the per-session capacity trigger —
-  // capacity is enforced at the schedule level via schedule_enrollments.
-  // Per-session capacity is enforced per-session via registrations.
-  const sessionCapacity =
-    pricingModel === "per_session" ? (schedule.capacity ?? null) : null;
+  const overridesByDate = new Map(
+    (schedule.perDateOverrides ?? []).map((o) => [o.date, o]),
+  );
+  // Resolve effective per-date values, layering schedule defaults under overrides.
+  // Full_schedule sessions: capacity/drop_in_price stay null (enforced at schedule level).
+  // Per_session sessions: per-date override → schedule default → null.
+  function effectiveForDate(date: string) {
+    const o = overridesByDate.get(date);
+    const startTime = (o?.startTime ?? schedule.startTime) || null;
+    const endTime = (o?.endTime ?? schedule.endTime) || null;
+    if (pricingModel === "per_session") {
+      return {
+        start_time: startTime,
+        end_time: endTime,
+        capacity: o?.capacity ?? schedule.capacity ?? null,
+        drop_in_price: o?.dropInPrice ?? schedule.dropInPrice ?? null,
+      };
+    }
+    return {
+      start_time: startTime,
+      end_time: endTime,
+      capacity: null,
+      drop_in_price: null,
+    };
+  }
 
   // INSERT new sessions (dates in expected but not in DB)
   const datesToInsert = [...expectedDates].filter(
     (d) => !existingByDate.has(d),
   );
   if (datesToInsert.length > 0) {
-    const rows = datesToInsert.map((date) => ({
-      schedule_id: scheduleId,
-      class_id: classId,
-      semester_id: semesterId,
-      schedule_date: date,
-      day_of_week: getDayOfWeek(date),
-      start_time: schedule.startTime ?? null,
-      end_time: schedule.endTime ?? null,
-      location: schedule.location ?? null,
-      instructor_name: schedule.instructorName ?? null,
-      capacity: sessionCapacity,
-      drop_in_price: sessionDropInPrice,
-      registration_open_at: schedule.registrationOpenAt ?? null,
-      registration_close_at: schedule.registrationCloseAt ?? null,
-      gender_restriction: schedule.genderRestriction ?? null,
-      urgency_threshold: schedule.urgencyThreshold ?? null,
-      is_active: true,
-    }));
+    const rows = datesToInsert.map((date) => {
+      const eff = effectiveForDate(date);
+      return {
+        schedule_id: scheduleId,
+        class_id: classId,
+        semester_id: semesterId,
+        schedule_date: date,
+        day_of_week: getDayOfWeek(date),
+        start_time: eff.start_time,
+        end_time: eff.end_time,
+        location: schedule.location ?? null,
+        instructor_name: schedule.instructorName ?? null,
+        capacity: eff.capacity,
+        drop_in_price: eff.drop_in_price,
+        registration_open_at: schedule.registrationOpenAt ?? null,
+        registration_close_at: schedule.registrationCloseAt ?? null,
+        gender_restriction: schedule.genderRestriction ?? null,
+        urgency_threshold: schedule.urgencyThreshold ?? null,
+        is_active: true,
+      };
+    });
 
     const { data: inserted, error: insErr } = await supabase
       .from("class_sessions")
@@ -446,62 +465,42 @@ async function generateSessionsForSchedule(
     }
   }
 
-  // UPDATE existing sessions with non-destructive field changes
+  // UPDATE existing sessions per-date so per-date overrides are honoured.
+  // Capacity downgrades are validated against existing registration counts.
   const datesToUpdate = [...expectedDates].filter((d) => existingByDate.has(d));
-  if (datesToUpdate.length > 0) {
-    const sessionIdsToUpdate = datesToUpdate.map((d) => existingByDate.get(d)!);
-    const { error: updErr } = await supabase
-      .from("class_sessions")
-      .update({
-        start_time: schedule.startTime ?? null,
-        end_time: schedule.endTime ?? null,
-        location: schedule.location ?? null,
-        instructor_name: schedule.instructorName ?? null,
-        drop_in_price: sessionDropInPrice,
-        registration_open_at: schedule.registrationOpenAt ?? null,
-        registration_close_at: schedule.registrationCloseAt ?? null,
-        gender_restriction: schedule.genderRestriction ?? null,
-        urgency_threshold: schedule.urgencyThreshold ?? null,
-      })
-      .in("id", sessionIdsToUpdate);
-    if (updErr) throw new Error(updErr.message);
-  }
+  for (const date of datesToUpdate) {
+    const sessionId = existingByDate.get(date)!;
+    const eff = effectiveForDate(date);
 
-  // UPDATE per-session capacity separately — check against enrollment first.
-  // For full_schedule mode, sessionCapacity is null so this block is skipped.
-  if (sessionCapacity !== null && sessionCapacity !== undefined) {
-    for (const [date, sessionId] of existingByDate) {
-      if (!expectedDates.has(date)) continue; // Will be deleted below — skip
+    if (pricingModel === "per_session" && eff.capacity != null) {
       const { count: enrolledCount } = await supabase
         .from("registrations")
         .select("id", { count: "exact", head: true })
         .eq("session_id", sessionId)
         .neq("status", "cancelled");
-
-      if ((enrolledCount ?? 0) > sessionCapacity) {
-        const { data: sessionInfo } = await supabase
-          .from("class_sessions")
-          .select("schedule_date")
-          .eq("id", sessionId)
-          .single();
+      if ((enrolledCount ?? 0) > eff.capacity) {
         throw new Error(
-          `Cannot reduce capacity to ${sessionCapacity} for session on ${sessionInfo?.schedule_date ?? sessionId} — ` +
-            `${enrolledCount} registrations exist.`,
+          `Cannot reduce capacity to ${eff.capacity} for session on ${date} — ${enrolledCount} registrations exist.`,
         );
       }
     }
 
-    const allSessionIds = [...existingByDate.entries()]
-      .filter(([date]) => expectedDates.has(date))
-      .map(([, id]) => id);
-    if (allSessionIds.length > 0) {
-      const { error: capErr } = await supabase
-        .from("class_sessions")
-        .update({ capacity: sessionCapacity })
-        .in("id", allSessionIds)
-        .eq("schedule_id", scheduleId);
-      if (capErr) throw new Error(capErr.message);
-    }
+    const { error: updErr } = await supabase
+      .from("class_sessions")
+      .update({
+        start_time: eff.start_time,
+        end_time: eff.end_time,
+        location: schedule.location ?? null,
+        instructor_name: schedule.instructorName ?? null,
+        capacity: eff.capacity,
+        drop_in_price: eff.drop_in_price,
+        registration_open_at: schedule.registrationOpenAt ?? null,
+        registration_close_at: schedule.registrationCloseAt ?? null,
+        gender_restriction: schedule.genderRestriction ?? null,
+        urgency_threshold: schedule.urgencyThreshold ?? null,
+      })
+      .eq("id", sessionId);
+    if (updErr) throw new Error(updErr.message);
   }
 
   // DELETE removed sessions (dates in DB but not in expected)

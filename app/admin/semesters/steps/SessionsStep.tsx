@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Division,
   DraftClass,
   DraftClassRequirement,
   DraftClassSchedule,
@@ -15,6 +16,10 @@ import { calculateClassTuition } from "@/utils/tuitionEngine";
 import { getRequirementWaivers, type RequirementWaiverRow } from "@/app/admin/semesters/actions/getRequirementWaivers";
 import { grantRequirementWaiver } from "@/app/admin/semesters/actions/grantRequirementWaiver";
 import { revokeRequirementWaiver } from "@/app/admin/semesters/actions/revokeRequirementWaiver";
+import { getDivisions } from "@/queries/admin/getDivisions";
+import { getInstructors, type InstructorOption } from "@/queries/admin/getInstructors";
+import { createDivision } from "@/app/admin/semesters/actions/createDivision";
+import { parseTimeInput } from "@/utils/parseTimeInput";
 import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 
 /* -------------------------------------------------------------------------- */
@@ -32,13 +37,6 @@ const DISCIPLINES = [
   { value: "jazz", label: "Jazz" },
   { value: "lyrical", label: "Lyrical" },
   { value: "acro", label: "Acro" },
-];
-
-const DIVISIONS = [
-  { value: "early_childhood", label: "Early Childhood" },
-  { value: "junior", label: "Junior" },
-  { value: "senior", label: "Senior" },
-  { value: "competition", label: "Competition" },
 ];
 
 const DAYS_OF_WEEK = [
@@ -66,11 +64,12 @@ const DISCIPLINE_COLORS: Record<string, { bg: string; text: string }> = {
 
 const LOCATIONS = ["Upper East Side", "Washington Heights"] as const;
 
-/** 15-minute interval time options for the full 24-hour day (00:00–23:45). */
+/** 15-minute interval time options from 7:00 AM through 11:00 PM (inclusive). */
 const TIME_OPTIONS: { value: string; label: string }[] = (() => {
   const opts: { value: string; label: string }[] = [];
-  for (let h = 0; h < 24; h++) {
+  for (let h = 7; h <= 23; h++) {
     for (let m = 0; m < 60; m += 15) {
+      if (h === 23 && m > 0) break;
       const value = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
       const period = h >= 12 ? "PM" : "AM";
       const hour = h % 12 || 12;
@@ -199,24 +198,28 @@ function emptyCompetitionTrackClass(): DraftClass {
 /* Session count preview helper                                               */
 /* -------------------------------------------------------------------------- */
 
-function computeGeneratedCount(schedule: DraftClassSchedule): number {
-  if (!schedule.startDate || !schedule.endDate || schedule.daysOfWeek.length === 0) return 0;
+function computeGeneratedDates(schedule: DraftClassSchedule): string[] {
+  if (!schedule.startDate || !schedule.endDate || schedule.daysOfWeek.length === 0) return [];
   const start = new Date(schedule.startDate + "T00:00:00");
   const end = new Date(schedule.endDate + "T00:00:00");
-  if (end < start) return 0;
+  if (end < start) return [];
   const excludedSet = new Set((schedule.excludedDates ?? []).map((d) => d.date));
   const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-  let count = 0;
+  const dates: string[] = [];
   const cur = new Date(start);
   while (cur <= end) {
     const dayName = dayNames[cur.getDay()];
     if (schedule.daysOfWeek.includes(dayName)) {
       const dateStr = cur.toISOString().slice(0, 10);
-      if (!excludedSet.has(dateStr)) count++;
+      if (!excludedSet.has(dateStr)) dates.push(dateStr);
     }
     cur.setDate(cur.getDate() + 1);
   }
-  return count;
+  return dates;
+}
+
+function computeGeneratedCount(schedule: DraftClassSchedule): number {
+  return computeGeneratedDates(schedule).length;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -236,9 +239,20 @@ export default function SessionsStep({
   const [searchQuery, setSearchQuery] = useState("");
   const [rangeErrors, setRangeErrors] = useState<Map<number, string[]>>(new Map());
   const [classesExpanded, setClassesExpanded] = useState(false);
+  const [divisions, setDivisions] = useState<Division[]>([]);
 
   const rateBands: DraftTuitionRateBand[] = state.tuitionRateBands ?? [];
   const specialRates: DraftSpecialProgramTuition[] = state.specialProgramTuition ?? [];
+
+  useEffect(() => {
+    getDivisions().then(setDivisions);
+  }, []);
+
+  async function handleCreateDivision(label: string, isDropIn: boolean): Promise<Division> {
+    const created = await createDivision({ label, isDropIn });
+    setDivisions((prev) => [...prev, created].sort((a, b) => a.sort_order - b.sort_order));
+    return created;
+  }
 
   // Sync to global state on every classes change so SemesterForm footer can navigate safely
   useEffect(() => {
@@ -371,7 +385,7 @@ export default function SessionsStep({
       if (searchQuery === "") return true;
       const q = searchQuery.toLowerCase();
       const disciplineLabel = DISCIPLINES.find((d) => d.value === cls.discipline)?.label ?? cls.discipline;
-      const divisionLabel = DIVISIONS.find((d) => d.value === cls.division)?.label ?? cls.division;
+      const divisionLabel = divisions.find((d) => d.id === cls.division)?.label ?? cls.division;
       const instructors = (cls.schedules ?? [])
         .map((s) => s.instructorName ?? "")
         .filter(Boolean)
@@ -501,7 +515,7 @@ export default function SessionsStep({
                   const disciplineLabel =
                     DISCIPLINES.find((d) => d.value === cls.discipline)?.label ?? cls.discipline;
                   const divisionLabel =
-                    DIVISIONS.find((d) => d.value === cls.division)?.label ?? cls.division;
+                    divisions.find((d) => d.id === cls.division)?.label ?? cls.division;
                   const color =
                     DISCIPLINE_COLORS[cls.discipline] ?? { bg: "bg-neutral-100", text: "text-neutral-600" };
                   const firstSched = cls.schedules?.[0];
@@ -637,6 +651,8 @@ export default function SessionsStep({
           specialRates={specialRates}
           semesterId={state.id}
           allClasses={classes}
+          divisions={divisions}
+          onCreateDivision={handleCreateDivision}
           rangeErrors={rangeErrors.get(selectedIdx) ?? []}
           onClose={() => setSelectedIdx(null)}
           onRemoveClass={() => handleRemoveClass(selectedIdx)}
@@ -683,6 +699,8 @@ function ClassEditPanel({
   specialRates,
   semesterId,
   allClasses,
+  divisions,
+  onCreateDivision,
   rangeErrors,
   onClose,
   onRemoveClass,
@@ -705,6 +723,8 @@ function ClassEditPanel({
   specialRates: DraftSpecialProgramTuition[];
   semesterId?: string;
   allClasses: DraftClass[];
+  divisions: Division[];
+  onCreateDivision: (label: string, isDropIn: boolean) => Promise<Division>;
   rangeErrors: string[];
   onClose: () => void;
   onRemoveClass: () => void;
@@ -719,6 +739,7 @@ function ClassEditPanel({
   onUpdateRequirement: (idx: number, patch: Partial<DraftClassRequirement>) => void;
 }) {
   const scheduleCount = cls.schedules?.length ?? 0;
+  const isDropInDivision = divisions.find((d) => d.id === cls.division)?.is_drop_in ?? false;
 
   const TABS: { key: PanelTab; label: string }[] = [
     { key: "details", label: "Details" },
@@ -776,6 +797,9 @@ function ClassEditPanel({
             rateBands={rateBands}
             specialRates={specialRates}
             semesterId={semesterId}
+            divisions={divisions}
+            isDropInDivision={isDropInDivision}
+            onCreateDivision={onCreateDivision}
             rangeErrors={rangeErrors}
             onUpdateClass={onUpdateClass}
             onUpdateSchedule={onUpdateSchedule}
@@ -787,6 +811,7 @@ function ClassEditPanel({
             isLocked={isLocked}
             rateBands={rateBands}
             specialRates={specialRates}
+            isDropInDivision={isDropInDivision}
             onAddSchedule={onAddSchedule}
             onRemoveSchedule={onRemoveSchedule}
             onUpdateSchedule={onUpdateSchedule}
@@ -843,6 +868,9 @@ function DetailsTab({
   rateBands,
   specialRates,
   semesterId,
+  divisions,
+  isDropInDivision,
+  onCreateDivision,
   rangeErrors,
   onUpdateClass,
   onUpdateSchedule,
@@ -852,11 +880,21 @@ function DetailsTab({
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
   semesterId?: string;
+  divisions: Division[];
+  isDropInDivision: boolean;
+  onCreateDivision: (label: string, isDropIn: boolean) => Promise<Division>;
   rangeErrors: string[];
   onUpdateClass: (patch: Partial<DraftClass>) => void;
   onUpdateSchedule: (idx: number, patch: Partial<DraftClassSchedule>) => void;
 }) {
   const isCompetitionTrack = cls.offeringType === "competition_track";
+
+  // Inline "Create new division…" form state.
+  const [showCreateDivision, setShowCreateDivision] = useState(false);
+  const [newDivisionLabel, setNewDivisionLabel] = useState("");
+  const [newDivisionIsDropIn, setNewDivisionIsDropIn] = useState(false);
+  const [creatingDivision, setCreatingDivision] = useState(false);
+  const [divisionError, setDivisionError] = useState<string | null>(null);
 
   return (
     <div className="p-4 space-y-4">
@@ -902,13 +940,26 @@ function DetailsTab({
             disabled={isLocked}
             value={cls.division}
             onChange={(e) => {
-              const newDivision = e.target.value;
-              onUpdateClass({ division: newDivision });
-              // Auto-fill tuition on schedules with no tiers yet
+              const value = e.target.value;
+              if (value === "__create__") {
+                setShowCreateDivision(true);
+                setDivisionError(null);
+                return;
+              }
+              onUpdateClass({ division: value });
+              const selected = divisions.find((d) => d.id === value);
+              const isDropIn = selected?.is_drop_in ?? false;
+              // Auto-fill tuition on schedules with no tiers yet (skip for drop-in divisions)
               (cls.schedules ?? []).forEach((sched, idx) => {
+                if (isDropIn) {
+                  if (sched.pricingModel !== "per_session") {
+                    onUpdateSchedule(idx, { pricingModel: "per_session" });
+                  }
+                  return;
+                }
                 if ((sched.priceTiers ?? []).length === 0) {
                   const tier = buildDefaultPriceTierFromState(
-                    newDivision, Math.max(1, sched.daysOfWeek.length),
+                    value, Math.max(1, sched.daysOfWeek.length),
                     cls.discipline, rateBands, specialRates,
                   );
                   if (tier) onUpdateSchedule(idx, { pricingModel: "full_schedule", priceTiers: [tier] });
@@ -917,12 +968,82 @@ function DetailsTab({
             }}
             className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
           >
-            {DIVISIONS.map((d) => (
-              <option key={d.value} value={d.value}>
+            {!cls.division && <option value="">Select division…</option>}
+            {divisions.map((d) => (
+              <option key={d.id} value={d.id}>
                 {d.label}
               </option>
             ))}
+            {!isLocked && <option value="__create__">+ Create new division…</option>}
           </select>
+          {showCreateDivision && (
+            <div className="mt-2 rounded-xl border border-primary-200 bg-primary-50/40 p-3 space-y-2">
+              <div>
+                <label className="block text-xs font-medium text-neutral-700 mb-1">New division name</label>
+                <input
+                  type="text"
+                  value={newDivisionLabel}
+                  onChange={(e) => setNewDivisionLabel(e.target.value)}
+                  placeholder="e.g. Drop-in, Teen Hip-Hop"
+                  className="w-full rounded-lg border border-neutral-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-xs text-neutral-700">
+                <input
+                  type="checkbox"
+                  checked={newDivisionIsDropIn}
+                  onChange={(e) => setNewDivisionIsDropIn(e.target.checked)}
+                />
+                Drop-in division (per-date registration with capacity per session)
+              </label>
+              {divisionError && (
+                <p className="text-xs text-red-600">{divisionError}</p>
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={creatingDivision || !newDivisionLabel.trim()}
+                  onClick={async () => {
+                    setCreatingDivision(true);
+                    setDivisionError(null);
+                    try {
+                      const created = await onCreateDivision(newDivisionLabel.trim(), newDivisionIsDropIn);
+                      onUpdateClass({ division: created.id });
+                      if (created.is_drop_in) {
+                        (cls.schedules ?? []).forEach((sched, idx) => {
+                          if (sched.pricingModel !== "per_session") {
+                            onUpdateSchedule(idx, { pricingModel: "per_session" });
+                          }
+                        });
+                      }
+                      setShowCreateDivision(false);
+                      setNewDivisionLabel("");
+                      setNewDivisionIsDropIn(false);
+                    } catch (err: unknown) {
+                      setDivisionError(err instanceof Error ? err.message : "Failed to create division");
+                    } finally {
+                      setCreatingDivision(false);
+                    }
+                  }}
+                  className="text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 px-3 py-1.5 rounded-lg transition"
+                >
+                  {creatingDivision ? "Creating…" : "Create"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateDivision(false);
+                    setNewDivisionLabel("");
+                    setNewDivisionIsDropIn(false);
+                    setDivisionError(null);
+                  }}
+                  className="text-xs text-neutral-600 hover:text-neutral-900 px-2 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1058,43 +1179,22 @@ function DetailsTab({
             </select>
           </div>
 
-          {/* Tuition override */}
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1.5">
-              Tuition override
-            </label>
-            <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 text-sm">
-                $
-              </span>
-              <input
-                type="number"
-                min={0}
-                step={0.01}
-                disabled={isLocked}
-                value={cls.tuitionOverride ?? ""}
-                onChange={(e) =>
-                  onUpdateClass({ tuitionOverride: e.target.value ? Number(e.target.value) : null })
-                }
-                placeholder="Leave blank — uses rate band"
-                className="w-full rounded-xl border border-neutral-300 pl-7 pr-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
-              />
-            </div>
-          </div>
         </>
       )}
 
-      {/* Requires teacher rec */}
-      <label className="flex items-center gap-2 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          disabled={isLocked}
-          checked={cls.requiresTeacherRec ?? false}
-          onChange={(e) => onUpdateClass({ requiresTeacherRec: e.target.checked })}
-          className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
-        />
-        <span className="text-sm text-neutral-700">Requires teacher recommendation</span>
-      </label>
+      {/* Requires teacher rec — N/A for drop-in divisions */}
+      {!isDropInDivision && (
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            disabled={isLocked}
+            checked={cls.requiresTeacherRec ?? false}
+            onChange={(e) => onUpdateClass({ requiresTeacherRec: e.target.checked })}
+            className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
+          />
+          <span className="text-sm text-neutral-700">Requires teacher recommendation</span>
+        </label>
+      )}
     </div>
   );
 }
@@ -1108,6 +1208,7 @@ function ScheduleTab({
   isLocked,
   rateBands,
   specialRates,
+  isDropInDivision,
   onAddSchedule,
   onRemoveSchedule,
   onUpdateSchedule,
@@ -1118,6 +1219,7 @@ function ScheduleTab({
   isLocked: boolean;
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
+  isDropInDivision: boolean;
   onAddSchedule: () => void;
   onRemoveSchedule: (idx: number) => void;
   onUpdateSchedule: (idx: number, patch: Partial<DraftClassSchedule>) => void;
@@ -1173,6 +1275,7 @@ function ScheduleTab({
           discipline={cls.discipline}
           rateBands={rateBands}
           specialRates={specialRates}
+          isDropInDivision={isDropInDivision}
         />
       ))}
     </div>
@@ -1197,6 +1300,7 @@ function ScheduleEditor({
   discipline,
   rateBands,
   specialRates,
+  isDropInDivision,
 }: {
   schedule: DraftClassSchedule;
   isLocked: boolean;
@@ -1210,6 +1314,7 @@ function ScheduleEditor({
   discipline: string;
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
+  isDropInDivision: boolean;
 }) {
   const [newExcludedDate, setNewExcludedDate] = useState("");
   const [newExcludedReason, setNewExcludedReason] = useState("");
@@ -1222,7 +1327,6 @@ function ScheduleEditor({
     isRequired: false,
   });
 
-  const pricingModel = schedule.pricingModel ?? "full_schedule";
   const priceTiers = schedule.priceTiers ?? [];
   const options = schedule.options ?? [];
   const excludedDates = schedule.excludedDates ?? [];
@@ -1367,6 +1471,7 @@ function ScheduleEditor({
               value={schedule.startDate ?? ""}
               onChange={(v) => onChange({ startDate: v || undefined })}
               disabled={isLocked}
+              placement="left"
               timeTitle="Start time"
               timeLabel={schedule.startTime ? fmt12(schedule.startTime) : undefined}
             />
@@ -1377,6 +1482,7 @@ function ScheduleEditor({
               value={schedule.endDate ?? ""}
               onChange={(v) => onChange({ endDate: v || undefined })}
               disabled={isLocked}
+              placement="left"
               timeTitle="End time"
               timeLabel={schedule.endTime ? fmt12(schedule.endTime) : undefined}
             />
@@ -1401,13 +1507,10 @@ function ScheduleEditor({
           </div>
           <div>
             <label className="block text-xs text-neutral-500 mb-1">Instructor</label>
-            <input
-              type="text"
-              disabled={isLocked}
+            <InstructorSelect
               value={schedule.instructorName ?? ""}
-              onChange={(e) => onChange({ instructorName: e.target.value || undefined })}
-              placeholder="e.g. Sarah L."
-              className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
+              onChange={(v) => onChange({ instructorName: v || undefined })}
+              disabled={isLocked}
             />
           </div>
         </div>
@@ -1452,6 +1555,7 @@ function ScheduleEditor({
               value={schedule.registrationOpenAt ? schedule.registrationOpenAt.slice(0, 10) : ""}
               onChange={(v) => onChange({ registrationOpenAt: v ? new Date(v + "T00:00:00").toISOString() : null })}
               disabled={isLocked}
+              placement="left"
             />
           </div>
           <div>
@@ -1460,6 +1564,7 @@ function ScheduleEditor({
               value={schedule.registrationCloseAt ? schedule.registrationCloseAt.slice(0, 10) : ""}
               onChange={(v) => onChange({ registrationCloseAt: v ? new Date(v + "T00:00:00").toISOString() : null })}
               disabled={isLocked}
+              placement="left"
             />
           </div>
         </div>
@@ -1501,39 +1606,11 @@ function ScheduleEditor({
           </p>
         </div>
 
-        {/* Pricing model */}
+        {/* Pricing — driven by the class's division (drop-in vs full-schedule) */}
         <div className="space-y-2">
           <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">Pricing</p>
-          <div className="flex gap-2">
-            {(
-              [
-                { value: "full_schedule", label: "Full Schedule", desc: "One price, entire enrollment" },
-                { value: "per_session", label: "Drop-in", desc: "Priced per class date" },
-              ] as const
-            ).map((mode) => (
-              <button
-                key={mode.value}
-                type="button"
-                disabled={isLocked}
-                onClick={() =>
-                  onChange({
-                    pricingModel: mode.value,
-                    ...(mode.value === "full_schedule" ? { dropInPrice: null } : { priceTiers: [] }),
-                  })
-                }
-                className={`flex-1 rounded-xl border px-3 py-2 text-left transition
-                  ${pricingModel === mode.value ? "border-primary-600 bg-primary-50 ring-1 ring-primary-600" : "border-neutral-200 hover:border-neutral-300"}
-                  disabled:opacity-50 disabled:cursor-default`}
-              >
-                <p className={`text-xs font-medium ${pricingModel === mode.value ? "text-primary-700" : "text-neutral-700"}`}>
-                  {mode.label}
-                </p>
-                <p className="text-xs text-neutral-400 mt-0.5">{mode.desc}</p>
-              </button>
-            ))}
-          </div>
 
-          {pricingModel === "full_schedule" && (
+          {!isDropInDivision && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-neutral-500">Semester tuition</p>
@@ -1547,24 +1624,23 @@ function ScheduleEditor({
                   </button>
                 )}
               </div>
-              {engineResult.source === "unresolved" && !existingTier ? (
+              <div className="flex items-center gap-2 max-w-40">
+                <span className="text-sm text-neutral-500">$</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  disabled={isLocked}
+                  value={existingTier ? existingTier.amount.toFixed(2) : ""}
+                  onChange={(e) => handleAmountChange(e.target.value)}
+                  placeholder={defaultTierFromEngine ? defaultTierFromEngine.amount.toFixed(2) : "0.00"}
+                  className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
+                />
+              </div>
+              {engineResult.source === "unresolved" && !existingTier && (
                 <p className="text-xs text-neutral-400 italic">
-                  No tuition rate configured for this division. Set up rates in Payment → Tuition Rates.
+                  No tuition rate is configured for this division — enter a flat amount above, or set up rate bands in Payment → Tuition Rates.
                 </p>
-              ) : (
-                <div className="flex items-center gap-2 max-w-40">
-                  <span className="text-sm text-neutral-500">$</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    disabled={isLocked}
-                    value={existingTier ? existingTier.amount.toFixed(2) : ""}
-                    onChange={(e) => handleAmountChange(e.target.value)}
-                    placeholder={defaultTierFromEngine ? defaultTierFromEngine.amount.toFixed(2) : "0.00"}
-                    className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
-                  />
-                </div>
               )}
               {existingTier && engineResult.autoPayInstallmentAmount && existingTier.amount === engineResult.semesterTotal && (
                 <p className="text-xs text-neutral-400">
@@ -1574,23 +1650,31 @@ function ScheduleEditor({
             </div>
           )}
 
-          {pricingModel === "per_session" && (
-            <div className="space-y-1">
-              <p className="text-xs text-neutral-500">Drop-in price per session</p>
-              <div className="flex items-center gap-2 max-w-40">
-                <span className="text-sm text-neutral-500">$</span>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  disabled={isLocked}
-                  value={schedule.dropInPrice ?? ""}
-                  onChange={(e) => onChange({ dropInPrice: e.target.value ? parseFloat(e.target.value) : null })}
-                  placeholder="0.00"
-                  className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
-                />
-                <span className="text-xs text-neutral-400 shrink-0">/ date</span>
+          {isDropInDivision && (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <p className="text-xs text-neutral-500">Default drop-in price per session</p>
+                <div className="flex items-center gap-2 max-w-40">
+                  <span className="text-sm text-neutral-500">$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    disabled={isLocked}
+                    value={schedule.dropInPrice ?? ""}
+                    onChange={(e) => onChange({ dropInPrice: e.target.value ? parseFloat(e.target.value) : null })}
+                    placeholder="0.00"
+                    className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
+                  />
+                  <span className="text-xs text-neutral-400 shrink-0">/ date</span>
+                </div>
               </div>
+
+              <PerDateOverridesEditor
+                schedule={schedule}
+                isLocked={isLocked}
+                onChange={(overrides) => onChange({ perDateOverrides: overrides })}
+              />
             </div>
           )}
         </div>
@@ -1617,6 +1701,7 @@ function ScheduleEditor({
               <InlineDatePicker
                 value={newExcludedDate}
                 onChange={setNewExcludedDate}
+                placement="left"
               />
               <input
                 type="text"
@@ -1707,6 +1792,126 @@ function ScheduleEditor({
 }
 
 /* -------------------------------------------------------------------------- */
+/* PerDateOverridesEditor                                                      */
+/* -------------------------------------------------------------------------- */
+
+function PerDateOverridesEditor({
+  schedule,
+  isLocked,
+  onChange,
+}: {
+  schedule: DraftClassSchedule;
+  isLocked: boolean;
+  onChange: (overrides: import("@/types").DraftPerDateOverride[]) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const dates = computeGeneratedDates(schedule);
+  const overrides = schedule.perDateOverrides ?? [];
+  const overridesByDate = new Map(overrides.map((o) => [o.date, o]));
+
+  function patchOverride(date: string, patch: Partial<import("@/types").DraftPerDateOverride>) {
+    const existing = overridesByDate.get(date);
+    const merged: import("@/types").DraftPerDateOverride = {
+      date,
+      capacity: existing?.capacity ?? null,
+      startTime: existing?.startTime ?? null,
+      endTime: existing?.endTime ?? null,
+      dropInPrice: existing?.dropInPrice ?? null,
+      ...patch,
+    };
+    const isEmpty =
+      merged.capacity == null &&
+      merged.startTime == null &&
+      merged.endTime == null &&
+      merged.dropInPrice == null;
+    const next = overrides.filter((o) => o.date !== date);
+    if (!isEmpty) next.push(merged);
+    next.sort((a, b) => a.date.localeCompare(b.date));
+    onChange(next);
+  }
+
+  function fmtDate(d: string): string {
+    try {
+      const dt = new Date(d + "T00:00:00");
+      return dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    } catch {
+      return d;
+    }
+  }
+
+  if (dates.length === 0) {
+    return (
+      <p className="text-xs text-neutral-400 italic">
+        Configure days and date range to set per-date capacity overrides.
+      </p>
+    );
+  }
+
+  const overrideCount = overrides.filter((o) =>
+    o.capacity != null || o.startTime != null || o.endTime != null || o.dropInPrice != null,
+  ).length;
+
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 text-left"
+      >
+        <div>
+          <p className="text-xs font-medium text-neutral-700">Per-date overrides</p>
+          <p className="text-xs text-neutral-400 mt-0.5">
+            {dates.length} dates · {overrideCount} customized
+          </p>
+        </div>
+        <span className="text-xs text-neutral-500">{expanded ? "▾" : "▸"}</span>
+      </button>
+      {expanded && (
+        <div className="border-t border-neutral-200 max-h-72 overflow-y-auto">
+          {dates.map((date) => {
+            const ov = overridesByDate.get(date);
+            return (
+              <div key={date} className="grid grid-cols-[1fr_auto_auto] items-center gap-2 px-3 py-2 border-b border-neutral-100 last:border-b-0">
+                <p className="text-xs text-neutral-700">{fmtDate(date)}</p>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-neutral-400">cap</span>
+                  <input
+                    type="number"
+                    min={1}
+                    disabled={isLocked}
+                    value={ov?.capacity ?? ""}
+                    onChange={(e) =>
+                      patchOverride(date, { capacity: e.target.value ? Number(e.target.value) : null })
+                    }
+                    placeholder={schedule.capacity != null ? String(schedule.capacity) : "—"}
+                    className="w-16 rounded border border-neutral-300 px-1.5 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600 disabled:bg-neutral-100"
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-neutral-400">$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    disabled={isLocked}
+                    value={ov?.dropInPrice ?? ""}
+                    onChange={(e) =>
+                      patchOverride(date, { dropInPrice: e.target.value ? parseFloat(e.target.value) : null })
+                    }
+                    placeholder={schedule.dropInPrice != null ? schedule.dropInPrice.toFixed(2) : "—"}
+                    className="w-20 rounded border border-neutral-300 px-1.5 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-primary-600 disabled:bg-neutral-100"
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* TimeSelect                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -1719,68 +1924,286 @@ function TimeSelect({
   onChange: (val: string) => void;
   disabled?: boolean;
 }) {
+  // Free-text time input with optional dropdown of 15-min preset times (7 AM–11 PM).
+  // Typed values are normalized via parseTimeInput so off-grid times (e.g. 7:40)
+  // still work; the dropdown is just a convenience for common slots.
+  const [text, setText] = useState(() => (value ? fmt12(value) : ""));
+  const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
 
-  // Close on outside click
+  // Re-sync local text when the canonical value changes from outside (e.g. reset).
+  useEffect(() => {
+    setText(value ? fmt12(value) : "");
+    setError(null);
+  }, [value]);
+
+  // Close popover on outside click.
   useEffect(() => {
     if (!open) return;
-    function handle(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+    function onDocMouseDown(e: MouseEvent) {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
     }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, [open]);
 
-  // Scroll selected option into view when opened
+  // When opening, scroll the currently selected option into view.
   useEffect(() => {
-    if (!open || !value || !listRef.current) return;
-    const el = listRef.current.querySelector<HTMLDivElement>(`[data-value="${value}"]`);
+    if (!open || !value) return;
+    const el = listRef.current?.querySelector<HTMLButtonElement>(
+      `[data-time="${value}"]`,
+    );
     el?.scrollIntoView({ block: "nearest" });
   }, [open, value]);
 
-  const selectedLabel = TIME_OPTIONS.find((t) => t.value === value)?.label ?? "— Select —";
+  function commit(raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      onChange("");
+      setError(null);
+      return;
+    }
+    const parsed = parseTimeInput(trimmed);
+    if (!parsed) {
+      setError("Use format like 7:40 PM");
+      return;
+    }
+    setError(null);
+    setText(fmt12(parsed));
+    if (parsed !== value) onChange(parsed);
+  }
+
+  function selectPreset(v: string) {
+    setError(null);
+    setText(fmt12(v));
+    setOpen(false);
+    if (v !== value) onChange(v);
+  }
+
+  // Filter the 15-min grid by what the user has typed. Substring match on the
+  // 12-hour label (case/space-insensitive) so "7:" narrows to 7:00–7:45 AM/PM,
+  // "7:4" narrows to 7:40-ish (none in grid → empty filter), "pm" → afternoon.
+  const filteredOptions = (() => {
+    const q = text.trim().toLowerCase().replace(/\s+/g, "");
+    if (!q) return TIME_OPTIONS;
+    return TIME_OPTIONS.filter((opt) => opt.label.toLowerCase().replace(/\s+/g, "").includes(q));
+  })();
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between rounded-lg border border-neutral-300 px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:cursor-default"
-      >
-        <span className={value ? "text-slate-700" : "text-neutral-400"}>{selectedLabel}</span>
-        <svg
-          className={`w-3 h-3 text-neutral-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-          fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+      <div className="relative">
+        <input
+          type="text"
+          disabled={disabled}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (!open) setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit((e.target as HTMLInputElement).value);
+              (e.target as HTMLInputElement).blur();
+            } else if (e.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+          placeholder="7:40 PM"
+          className="w-full rounded-lg border border-neutral-300 pl-2 pr-8 py-1.5 text-sm bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:cursor-default"
+        />
+        <button
+          type="button"
+          disabled={disabled}
+          onMouseDown={(e) => {
+            // Prevent input blur from firing before the click toggles state.
+            e.preventDefault();
+          }}
+          onClick={() => setOpen((o) => !o)}
+          aria-label="Pick a common time"
+          className="absolute inset-y-0 right-0 flex items-center px-2 text-neutral-400 hover:text-neutral-600 disabled:opacity-40"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+            <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+      {open && !disabled && (
+        <div
+          ref={listRef}
+          className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-lg"
+        >
+          {filteredOptions.length === 0 ? (
+            <p className="px-2 py-2 text-xs italic text-neutral-400">
+              No preset matches — press Enter to keep your typed time.
+            </p>
+          ) : (
+            filteredOptions.map((opt) => {
+              const selected = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  data-time={opt.value}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => selectPreset(opt.value)}
+                  className={`block w-full text-left px-2 py-1.5 text-sm hover:bg-neutral-100 ${
+                    selected ? "bg-primary-50 text-primary-700 font-medium" : "text-slate-700"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+      {error && <p className="text-xs text-red-600 mt-0.5">{error}</p>}
+    </div>
+  );
+}
 
-      {open && (
-        <div className="absolute z-50 top-full mt-1 w-full bg-white border border-neutral-200 rounded-lg shadow-lg overflow-hidden">
-          <div ref={listRef} className="overflow-y-auto" style={{ maxHeight: 180 }}>
-            <div
-              onClick={() => { onChange(""); setOpen(false); }}
-              className={`px-3 py-1 text-xs cursor-pointer hover:bg-primary-50 hover:text-primary-700 ${!value ? "bg-primary-50 text-primary-700 font-medium" : "text-neutral-400"}`}
-            >
-              — Select —
+/* -------------------------------------------------------------------------- */
+/* InstructorSelect                                                            */
+/* -------------------------------------------------------------------------- */
+
+// Module-level cache so multiple ScheduleEditor instances share a single fetch.
+let instructorsCache: InstructorOption[] | null = null;
+let instructorsPromise: Promise<InstructorOption[]> | null = null;
+function loadInstructors(): Promise<InstructorOption[]> {
+  if (instructorsCache) return Promise.resolve(instructorsCache);
+  if (!instructorsPromise) {
+    instructorsPromise = getInstructors().then((list) => {
+      instructorsCache = list;
+      return list;
+    });
+  }
+  return instructorsPromise;
+}
+
+function InstructorSelect({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  disabled?: boolean;
+}) {
+  const [text, setText] = useState(value);
+  const [open, setOpen] = useState(false);
+  const [instructors, setInstructors] = useState<InstructorOption[]>(instructorsCache ?? []);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setText(value);
+  }, [value]);
+
+  useEffect(() => {
+    let alive = true;
+    loadInstructors().then((list) => {
+      if (alive) setInstructors(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocMouseDown(e: MouseEvent) {
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => document.removeEventListener("mousedown", onDocMouseDown);
+  }, [open]);
+
+  const q = text.trim().toLowerCase();
+  const filtered = q
+    ? instructors.filter(
+        (i) => i.fullName.toLowerCase().includes(q) || i.email.toLowerCase().includes(q),
+      )
+    : instructors;
+
+  function commit(raw: string) {
+    const trimmed = raw.trim();
+    if (trimmed !== value) onChange(trimmed);
+  }
+
+  function selectInstructor(opt: InstructorOption) {
+    setText(opt.fullName);
+    setOpen(false);
+    if (opt.fullName !== value) onChange(opt.fullName);
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="relative">
+        <input
+          type="text"
+          disabled={disabled}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (!open) setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit((e.target as HTMLInputElement).value);
+              setOpen(false);
+              (e.target as HTMLInputElement).blur();
+            } else if (e.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+          placeholder="e.g. Sarah L."
+          className="w-full rounded-lg border border-neutral-300 pl-2 pr-8 py-1.5 text-sm bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
+        />
+        <button
+          type="button"
+          disabled={disabled}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setOpen((o) => !o)}
+          aria-label="Pick an instructor"
+          className="absolute inset-y-0 right-0 flex items-center px-2 text-neutral-400 hover:text-neutral-600 disabled:opacity-40"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+            <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+      {open && !disabled && (
+        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-lg">
+          {filtered.length === 0 ? (
+            <div className="px-2 py-1.5 text-sm text-neutral-400">
+              {instructors.length === 0 ? "Loading instructors…" : "No matches — typed name will be used"}
             </div>
-            {TIME_OPTIONS.map((t) => (
-              <div
-                key={t.value}
-                data-value={t.value}
-                onClick={() => { onChange(t.value); setOpen(false); }}
-                className={`px-3 py-1 text-xs cursor-pointer hover:bg-primary-50 hover:text-primary-700 ${value === t.value ? "bg-primary-50 text-primary-700 font-medium" : "text-slate-700"}`}
-              >
-                {t.label}
-              </div>
-            ))}
-          </div>
+          ) : (
+            filtered.map((opt) => {
+              const selected = opt.fullName === value;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => selectInstructor(opt)}
+                  className={`block w-full text-left px-2 py-1.5 text-sm hover:bg-neutral-100 ${
+                    selected ? "bg-primary-50 text-primary-700 font-medium" : "text-slate-700"
+                  }`}
+                >
+                  <div className="truncate">{opt.fullName}</div>
+                  {opt.email && <div className="truncate text-xs text-neutral-400">{opt.email}</div>}
+                </button>
+              );
+            })
+          )}
         </div>
       )}
     </div>
