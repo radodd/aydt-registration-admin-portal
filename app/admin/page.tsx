@@ -1519,21 +1519,35 @@ export default function AdminDashboardPage() {
         activeClassCount = new Set((activeClassSessions ?? []).map((cs: any) => cs.class_id)).size;
       }
 
-      // Total confirmed registrations
-      const { count: totalEnrolled } = await supabase
-        .from("registrations")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "confirmed");
+      // Total confirmed enrollments — across both tables.
+      const [{ count: totalRegistrationsCount }, { count: totalScheduleEnrollmentsCount }] = await Promise.all([
+        supabase.from("registrations").select("*", { count: "exact", head: true }).eq("status", "confirmed"),
+        supabase
+          .from("schedule_enrollments")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "confirmed"),
+      ]);
+      const totalEnrolled = (totalRegistrationsCount ?? 0) + (totalScheduleEnrollmentsCount ?? 0);
 
-      // Registration counts per semester
-      const { data: regCounts } = await supabase
-        .from("registrations")
-        .select("session_id, class_sessions(semester_id)")
-        .eq("status", "confirmed");
+      // Per-semester counts — merge both sources.
+      const [{ data: regCounts }, { data: enrollCounts }] = await Promise.all([
+        supabase
+          .from("registrations")
+          .select("session_id, class_sessions(semester_id)")
+          .eq("status", "confirmed"),
+        supabase
+          .from("schedule_enrollments")
+          .select("schedule_id, class_schedules(semester_id)")
+          .eq("status", "confirmed"),
+      ]);
 
       const semesterRegMap: Record<string, number> = {};
       for (const r of regCounts ?? []) {
         const semId = (r.class_sessions as any)?.semester_id;
+        if (semId) semesterRegMap[semId] = (semesterRegMap[semId] ?? 0) + 1;
+      }
+      for (const e of enrollCounts ?? []) {
+        const semId = (e.class_schedules as any)?.semester_id;
         if (semId) semesterRegMap[semId] = (semesterRegMap[semId] ?? 0) + 1;
       }
 
@@ -1542,7 +1556,9 @@ export default function AdminDashboardPage() {
         reg_count: semesterRegMap[s.id] ?? 0,
       }));
 
-      // Recent registrations — fetch 60 so dedup by dancer+class leaves enough rows
+      // Recent registrations — fetch 60 so dedup by dancer+class leaves enough rows.
+      // TODO(Phase 3a follow-up): merge with schedule_enrollments so admin-created
+      // full-term enrollments also appear in the dashboard activity feed.
       const { data: recentRegsRaw } = await supabase
         .from("registrations")
         .select(

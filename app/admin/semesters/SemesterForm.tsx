@@ -288,8 +288,6 @@ export default function SemesterForm({
         ...current,
         id: current.id ?? semesterId,
       });
-    } catch {
-      // silent
     } finally {
       setIsSaving(false);
     }
@@ -353,6 +351,7 @@ export default function SemesterForm({
         onNext={nextStep}
         onBack={previousStep}
         isLocked={isLocked}
+        onSaveDraft={handleSaveDraft}
       />
     ),
     sessionGroups: (
@@ -573,7 +572,11 @@ export default function SemesterForm({
             </Link>
 
             <button
-              onClick={handleSaveDraft}
+              onClick={() => {
+                handleSaveDraft().catch((err) => {
+                  console.error("Save draft failed:", err);
+                });
+              }}
               disabled={isSaving}
               className="relative inline-flex items-center justify-center text-sm font-medium text-white rounded-lg px-3 md:px-4 py-1.5 transition-colors hover:opacity-90 disabled:opacity-60"
               style={{ background: "var(--admin-sidebar-active)" }}

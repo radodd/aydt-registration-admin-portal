@@ -19,6 +19,12 @@ export type GroupedClass = {
   prerequisites?: PublicSession["prerequisites"];
   registrationNote?: string | null;
   sessions: PublicSession[];
+  /** Phase 2: per-class tiered flag (inherited from first session). */
+  isTiered?: boolean;
+  /** Phase 2: per-class tiers list (inherited from first session). */
+  classTiers?: PublicSession["classTiers"];
+  /** Phase 2: true if ANY session on this class is is_drop_in. */
+  isDropIn?: boolean;
 };
 
 function groupByClass(sessions: PublicSession[]): GroupedClass[] {
@@ -42,10 +48,16 @@ function groupByClass(sessions: PublicSession[]): GroupedClass[] {
         prerequisites: session.prerequisites,
         registrationNote: session.registrationNote,
         sessions: [],
+        isTiered: session.isTiered ?? false,
+        classTiers: session.classTiers ?? [],
+        isDropIn: false,
       });
     }
 
-    map.get(session.classId)!.sessions.push(session);
+    const group = map.get(session.classId)!;
+    group.sessions.push(session);
+    // Drop-in lives per schedule; the class is drop-in if ANY session is.
+    if (session.isDropIn) group.isDropIn = true;
   }
 
   for (const group of map.values()) {

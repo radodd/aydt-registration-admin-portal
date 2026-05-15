@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useCart } from "@/app/providers/CartProvider";
 import type { PublicSession } from "@/types/public";
 import { GroupedClass } from "./SessionGrid";
+import { TierPicker } from "./TierPicker";
+import { DropInPicker } from "./DropInPicker";
 
 /* -------------------------------------------------------------------------- */
 /* Discipline → accent color                                                    */
@@ -452,17 +454,155 @@ export function ClassCard({ group, spotsThreshold = 0 }: { group: GroupedClass; 
           )}
           <div className="sem-sessions-intro">
             <span className="sem-sessions-intro-label">
-              {scheduleGroups.length} available option{scheduleGroups.length !== 1 ? "s" : ""}
+              {group.isTiered
+                ? `${(group.classTiers ?? []).length} tier${(group.classTiers ?? []).length !== 1 ? "s" : ""} available`
+                : group.isDropIn
+                ? `${group.sessions.length} drop-in date${group.sessions.length !== 1 ? "s" : ""}`
+                : `${scheduleGroups.length} available option${scheduleGroups.length !== 1 ? "s" : ""}`}
               {group.location ? ` · ${group.location}` : ""}
             </span>
           </div>
-          <div className="sem-sessions-grid">
-            {scheduleGroups.map((sg) => (
-              <ScCard key={sg.key} group={sg} discStripeColor={stripeColor} spotsThreshold={spotsThreshold} />
-            ))}
-          </div>
+          {group.isTiered ? (
+            <TieredBookingBlock group={group} />
+          ) : group.isDropIn ? (
+            <DropInBookingBlock group={group} />
+          ) : (
+            <div className="sem-sessions-grid">
+              {scheduleGroups.map((sg) => (
+                <ScCard key={sg.key} group={sg} discStripeColor={stripeColor} spotsThreshold={spotsThreshold} />
+              ))}
+            </div>
+          )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Phase 3b-i UI shell — Tiered + Drop-in booking blocks                        */
+/* -------------------------------------------------------------------------- */
+/* These render inside the accordion body when the class is tiered or drop-in.  */
+/* They are UI-shell only: the Register button is a stub that surfaces the      */
+/* selection but does NOT touch cart state or write to any persistence layer.   */
+/* -------------------------------------------------------------------------- */
+
+function TieredBookingBlock({ group }: { group: GroupedClass }) {
+  const tiers = group.classTiers ?? [];
+  const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
+  const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
+
+  const selectedTier = tiers.find((t) => t.id === selectedTierId) ?? null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "8px 4px 4px" }}>
+      <TierPicker
+        tiers={tiers}
+        onChange={(id, price) => {
+          setSelectedTierId(id);
+          setSelectedPrice(price);
+        }}
+      />
+      <BookingFooter
+        priceLabel={selectedPrice != null ? formatDollars(selectedPrice) : "—"}
+        priceSub="per term"
+        buttonLabel={
+          selectedTier
+            ? `Register · ${selectedTier.label}`
+            : "Pick a tier"
+        }
+        disabled={!selectedTier}
+        onClick={() => {
+          alert(
+            `[UI preview] Would register for "${group.name}" — tier "${selectedTier?.label ?? "?"}".\n\nNot yet wired to cart.`,
+          );
+        }}
+      />
+    </div>
+  );
+}
+
+function DropInBookingBlock({ group }: { group: GroupedClass }) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  // Only sessions on a drop-in schedule are bookable in this block.
+  const dropInSessions = group.sessions.filter((s) => s.isDropIn);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "8px 4px 4px" }}>
+      <DropInPicker
+        sessions={dropInSessions}
+        onChange={(ids, sum) => {
+          setSelectedIds(ids);
+          setTotal(sum);
+        }}
+      />
+      <BookingFooter
+        priceLabel={formatDollars(total)}
+        priceSub={`${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`}
+        buttonLabel={
+          selectedIds.length === 0
+            ? "Pick at least one date"
+            : `Register · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
+        }
+        disabled={selectedIds.length === 0}
+        onClick={() => {
+          alert(
+            `[UI preview] Would register for "${group.name}" — ${selectedIds.length} drop-in session(s).\n\nNot yet wired to cart.`,
+          );
+        }}
+      />
+    </div>
+  );
+}
+
+function BookingFooter({
+  priceLabel,
+  priceSub,
+  buttonLabel,
+  disabled,
+  onClick,
+}: {
+  priceLabel: string;
+  priceSub: string;
+  buttonLabel: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        padding: "10px 12px",
+        borderTop: "1px dashed var(--pub-border, #e0dcd6)",
+        marginTop: 4,
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "var(--pub-text, #201d18)", lineHeight: 1.1 }}>
+          {priceLabel}
+        </div>
+        {priceSub && (
+          <div style={{ fontSize: 11, color: "var(--pub-text-faint, #999)", marginTop: 1 }}>
+            {priceSub}
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="sem-atc"
+        style={{
+          opacity: disabled ? 0.4 : 1,
+          cursor: disabled ? "not-allowed" : "pointer",
+        }}
+      >
+        {buttonLabel}
+      </button>
     </div>
   );
 }

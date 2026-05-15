@@ -35,12 +35,18 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
     },
 
     sessions: {
-      classes: (semester.classes ?? []).map((c: any): DraftClass => ({
+      classes: (semester.classes ?? []).map((c: any): DraftClass => {
+        // Phase 2: auto-set is_drop_in on hydration for legacy data.
+        // If the class's division is marked is_drop_in (legacy model), every
+        // schedule on this class is treated as drop-in in the in-memory draft
+        // so the new per-class toggle reads "on" without a write back to DB.
+        const legacyDivisionDropIn = c.division_info?.is_drop_in === true;
+        return ({
         id: c.id,
         name: c.name,
         displayName: c.display_name ?? undefined,
         discipline: c.discipline ?? "ballet",
-        division: c.division ?? "junior",
+        division: c.division ?? null,
         description: c.description ?? undefined,
         minAge: c.min_age ?? undefined,
         maxAge: c.max_age ?? undefined,
@@ -49,6 +55,28 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
         // offeringType is TypeScript-only — derived from is_competition_track, never persisted.
         offeringType: c.is_competition_track ? "competition_track" : "standard",
         isCompetitionTrack: c.is_competition_track ?? false,
+        isTiered: c.is_tiered ?? false,
+        tiers: (c.class_tiers ?? [])
+          .slice()
+          .sort((a: { sort_order?: number }, b: { sort_order?: number }) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+          .map((t: {
+            id: string;
+            label: string;
+            start_time: string | null;
+            end_time: string | null;
+            price_cents: number | null;
+            sort_order: number | null;
+            is_default: boolean | null;
+          }) => ({
+            _clientKey: t.id,
+            id: t.id,
+            label: t.label,
+            startTime: t.start_time ? String(t.start_time).slice(0, 5) : null,
+            endTime: t.end_time ? String(t.end_time).slice(0, 5) : null,
+            price: t.price_cents != null ? t.price_cents / 100 : null,
+            sortOrder: t.sort_order ?? 0,
+            isDefault: t.is_default ?? false,
+          })),
         requiresTeacherRec: c.requires_teacher_rec ?? false,
         tuitionOverride: c.tuition_override_amount ? Number(c.tuition_override_amount) : null,
         visibility: c.visibility ?? "public",
@@ -69,6 +97,8 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
           genderRestriction: cs.gender_restriction ?? null,
           urgencyThreshold: cs.urgency_threshold ?? null,
           pricingModel: cs.pricing_model ?? "full_schedule",
+          // Phase 2: prefer new column, fall back to legacy division flag.
+          isDropIn: (cs.is_drop_in as boolean | null) ?? legacyDivisionDropIn,
           dropInPrice: cs.drop_in_price ?? null,
           priceTiers: (cs.schedule_price_tiers ?? []).map((t: any) => ({
             _clientKey: t.id,
@@ -120,7 +150,8 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
         inviteEmail: c.invite_email ?? undefined,
         auditionBookingEmail: c.audition_booking_email ?? undefined,
         competitionAcceptanceEmail: c.competition_acceptance_email ?? undefined,
-      })),
+      });
+      }),
     },
 
     sessionGroups: {

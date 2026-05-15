@@ -98,6 +98,32 @@ export interface PublicSession {
 
   /** Phase 6: true when the class is part of the competition program */
   isCompetitionTrack?: boolean;
+
+  /**
+   * Phase 2: per-class tiered-pricing flag. Family picks one tier from
+   * `classTiers` at checkout. Tier times override schedule times when shown.
+   * Sourced from `classes.is_tiered`.
+   */
+  isTiered?: boolean;
+  /**
+   * Phase 2: per-class tiers list. Populated only when `isTiered = true`.
+   * Mapped from `class_tiers` (price_cents → price as dollars).
+   */
+  classTiers?: Array<{
+    id: string;
+    label: string;
+    startTime: string | null;
+    endTime: string | null;
+    price: number | null;
+    isDefault: boolean;
+    sortOrder: number;
+  }>;
+  /**
+   * Phase 2: this session belongs to a drop-in schedule (`class_schedules.is_drop_in`).
+   * When true, each session is an independent registrable unit and the family
+   * selects individual dates rather than enrolling for the full term.
+   */
+  isDropIn?: boolean;
 }
 
 /* -------------------------------------------------------------------------- */

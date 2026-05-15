@@ -62,9 +62,11 @@ export async function getSemesterForDisplay(
         max_grade,
         is_active,
         is_competition_track,
+        is_tiered,
         visibility,
         enrollment_type,
         class_requirements!class_requirements_class_id_fkey ( id, requirement_type, description, enforcement ),
+        class_tiers ( id, label, start_time, end_time, price_cents, sort_order, is_default ),
         class_sessions (
           id,
           schedule_id,
@@ -79,6 +81,7 @@ export async function getSemesterForDisplay(
           is_active,
           class_schedules (
             pricing_model,
+            is_drop_in,
             capacity,
             days_of_week,
             schedule_price_tiers ( id, label, amount, sort_order, is_default )
@@ -247,6 +250,21 @@ export async function getSemesterForDisplay(
               amount: Number(t.amount),
               isDefault: t.is_default,
             }));
+
+          // Phase 2 tiers (per-class) — distinct from schedule_price_tiers above.
+          const classTiers = ((c.class_tiers ?? []) as ClassTierRow[])
+            .slice()
+            .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+            .map((t) => ({
+              id: t.id,
+              label: t.label,
+              startTime: t.start_time ? String(t.start_time).slice(0, 5) : null,
+              endTime: t.end_time ? String(t.end_time).slice(0, 5) : null,
+              price: t.price_cents != null ? Number(t.price_cents) / 100 : null,
+              isDefault: t.is_default ?? false,
+              sortOrder: t.sort_order ?? 0,
+            }));
+
           return {
             id: cs.id,
             name: c.name,
@@ -274,6 +292,9 @@ export async function getSemesterForDisplay(
             pricingModel,
             priceTiers,
             dropInPrice: cs.drop_in_price ?? null,
+            isTiered: c.is_tiered ?? false,
+            classTiers,
+            isDropIn: cs.class_schedules?.is_drop_in === true,
             isCompetitionTrack: c.is_competition_track ?? false,
             prerequisites: ((c.class_requirements ?? []) as ClassRequirementRow[]).map((r) => ({
               id: r.id,
@@ -433,9 +454,22 @@ interface PriceTierRow {
 
 interface ClassScheduleRow {
   pricing_model: string;
+  /** Phase 2: per-schedule drop-in flag. */
+  is_drop_in?: boolean | null;
   capacity: number | null;
   days_of_week: string[] | null;
   schedule_price_tiers: PriceTierRow[];
+}
+
+/** Phase 2: per-class tier (class_tiers). */
+interface ClassTierRow {
+  id: string;
+  label: string;
+  start_time: string | null;
+  end_time: string | null;
+  price_cents: number | null;
+  sort_order: number | null;
+  is_default: boolean | null;
 }
 
 interface ClassSessionRow {
@@ -473,9 +507,13 @@ interface ClassRow {
   max_grade: number | null;
   is_active: boolean;
   is_competition_track: boolean;
+  /** Phase 2: per-class tiered flag. */
+  is_tiered?: boolean | null;
   visibility?: string;
   enrollment_type?: string;
   class_requirements?: ClassRequirementRow[];
+  /** Phase 2: per-class tiers. */
+  class_tiers?: ClassTierRow[];
   class_sessions: ClassSessionRow[];
 }
 

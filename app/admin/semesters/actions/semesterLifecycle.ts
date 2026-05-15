@@ -18,17 +18,26 @@ export async function saveSemesterDraft(semesterId: string) {
   await requireAdmin();
   const supabase = await createClient();
 
-  // Block revert-to-draft if any active registrations exist
-  const { count: regCount, error: regCountError } = await supabase
-    .from("registrations")
-    .select("*, class_sessions!inner(semester_id)", { count: "exact", head: true })
-    .eq("class_sessions.semester_id", semesterId)
-    .not("status", "in", "(cancelled,waitlisted)");
+  // Block revert-to-draft if any active enrollments exist (both tables).
+  const [{ count: regCount, error: regErr }, { count: enrollCount, error: enrollErr }] = await Promise.all([
+    supabase
+      .from("registrations")
+      .select("*, class_sessions!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_sessions.semester_id", semesterId)
+      .not("status", "in", "(cancelled,waitlisted)"),
+    supabase
+      .from("schedule_enrollments")
+      .select("*, class_schedules!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_schedules.semester_id", semesterId)
+      .neq("status", "cancelled"),
+  ]);
 
-  if (regCountError) throw new Error(regCountError.message);
-  if (regCount && regCount > 0) {
+  if (regErr) throw new Error(regErr.message);
+  if (enrollErr) throw new Error(enrollErr.message);
+  const activeTotal = (regCount ?? 0) + (enrollCount ?? 0);
+  if (activeTotal > 0) {
     throw new Error(
-      `Cannot revert to draft — ${regCount} active registration(s) exist. Cancel those registrations first.`
+      `Cannot revert to draft — ${activeTotal} active enrollment(s) exist. Cancel those enrollments first.`,
     );
   }
 

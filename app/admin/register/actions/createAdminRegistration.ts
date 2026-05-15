@@ -21,10 +21,16 @@ export type AdminRegInput = {
   scheduleIds: string[];
   /**
    * Drop-in (per-date) registrations. Each id is a `class_sessions.id` whose
-   * parent schedule has `pricing_model='per_session'`. Writes one row per id
-   * into `registrations` (not `schedule_enrollments`).
+   * parent schedule has `is_drop_in=true` (or legacy `pricing_model='per_session'`).
+   * Writes one row per id into `registrations` (not `schedule_enrollments`).
    */
   sessionIds?: string[];
+  /**
+   * Phase 3a: for tiered classes the admin picks one `class_tiers.id` per
+   * schedule enrollment. Keyed by scheduleId from `scheduleIds`. Unselected
+   * schedules (standard classes) are absent from this map.
+   */
+  classTierIdsBySchedule?: Record<string, string>;
   // Existing dancer
   dancerId?: string | null;
   dancerName: string;
@@ -197,12 +203,14 @@ export async function createAdminRegistration(
 
   // Full-schedule enrollments → schedule_enrollments (one row per schedule).
   if (input.scheduleIds.length > 0) {
+    const tierMap = input.classTierIdsBySchedule ?? {};
     const enrollRows = input.scheduleIds.map((sid) => ({
       schedule_id: sid,
       batch_id: batchId,
       dancer_id: dancerId,
       price_snapshot: 0, // financial record lives on registration_batches
       status: "confirmed",
+      class_tier_id: tierMap[sid] ?? null,
     }));
 
     const { error: enrollErr } = await supabase.from("schedule_enrollments").insert(enrollRows);

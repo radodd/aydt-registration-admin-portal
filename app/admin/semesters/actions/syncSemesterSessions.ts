@@ -6,6 +6,7 @@ import type {
   DraftClass,
   DraftClassRequirement,
   DraftClassSchedule,
+  DraftClassTier,
   DraftSchedulePriceTier,
   DraftSessionExcludedDate,
   DraftSessionOption,
@@ -72,6 +73,10 @@ export async function syncSemesterSessions(
   for (const draftClass of incomingClasses) {
     let classId: string;
 
+    // Treat empty string as NULL division (drop-in classes have no division).
+    const divisionForWrite =
+      draftClass.division && draftClass.division !== "" ? draftClass.division : null;
+
     if (draftClass.id && existingClassIds.has(draftClass.id)) {
       // UPDATE existing class
       const isCompTrack = draftClass.isCompetitionTrack ?? false;
@@ -81,13 +86,14 @@ export async function syncSemesterSessions(
           name: draftClass.name,
           display_name: draftClass.displayName ?? null,
           discipline: draftClass.discipline,
-          division: draftClass.division,
+          division: divisionForWrite,
           description: draftClass.description ?? null,
           min_age: draftClass.minAge ?? null,
           max_age: draftClass.maxAge ?? null,
           min_grade: draftClass.minGrade ?? null,
           max_grade: draftClass.maxGrade ?? null,
           is_competition_track: isCompTrack,
+          is_tiered: draftClass.isTiered ?? false,
           requires_teacher_rec: draftClass.requiresTeacherRec ?? false,
           tuition_override_amount: draftClass.tuitionOverride ?? null,
           // Enforce derived invariants: competition tracks are always invite_only + audition.
@@ -112,13 +118,14 @@ export async function syncSemesterSessions(
           name: draftClass.name,
           display_name: draftClass.displayName ?? null,
           discipline: draftClass.discipline,
-          division: draftClass.division,
+          division: divisionForWrite,
           description: draftClass.description ?? null,
           min_age: draftClass.minAge ?? null,
           max_age: draftClass.maxAge ?? null,
           min_grade: draftClass.minGrade ?? null,
           max_grade: draftClass.maxGrade ?? null,
           is_competition_track: isCompTrackNew,
+          is_tiered: draftClass.isTiered ?? false,
           requires_teacher_rec: draftClass.requiresTeacherRec ?? false,
           tuition_override_amount: draftClass.tuitionOverride ?? null,
           // Enforce derived invariants: competition tracks are always invite_only + audition.
@@ -157,7 +164,13 @@ export async function syncSemesterSessions(
     }
 
     /* -------------------------------------------------------------------- */
-    /* 4. Sync class_requirements                                            */
+    /* 4. Sync class_tiers (Phase 2)                                         */
+    /* -------------------------------------------------------------------- */
+
+    await syncClassTiers(supabase, classId, draftClass.tiers ?? []);
+
+    /* -------------------------------------------------------------------- */
+    /* 5. Sync class_requirements                                            */
     /* -------------------------------------------------------------------- */
 
     await syncClassRequirements(
@@ -309,6 +322,13 @@ async function syncClassSchedules(
   }
 }
 
+/** Empty string → null. Postgres rejects "" for date/time/uuid columns. */
+function emptyToNull<T>(v: T | "" | null | undefined): T | null {
+  if (v == null) return null;
+  if (typeof v === "string" && v.trim() === "") return null;
+  return v as T;
+}
+
 function buildScheduleRow(
   s: DraftClassSchedule,
   classId: string,
@@ -318,18 +338,19 @@ function buildScheduleRow(
     class_id: classId,
     semester_id: semesterId,
     days_of_week: s.daysOfWeek,
-    start_time: s.startTime ?? null,
-    end_time: s.endTime ?? null,
-    start_date: s.startDate ?? null,
-    end_date: s.endDate ?? null,
-    location: s.location ?? null,
-    instructor_name: s.instructorName ?? null,
+    start_time: emptyToNull(s.startTime),
+    end_time: emptyToNull(s.endTime),
+    start_date: emptyToNull(s.startDate),
+    end_date: emptyToNull(s.endDate),
+    location: emptyToNull(s.location),
+    instructor_name: emptyToNull(s.instructorName),
     capacity: s.capacity ?? null,
     registration_open_at: s.registrationOpenAt ?? null,
     registration_close_at: s.registrationCloseAt ?? null,
     gender_restriction: s.genderRestriction ?? null,
     urgency_threshold: s.urgencyThreshold ?? null,
     pricing_model: s.pricingModel ?? "full_schedule",
+    is_drop_in: s.isDropIn ?? false,
     updated_at: new Date().toISOString(),
   };
 }
@@ -703,6 +724,95 @@ async function syncOptionsForSchedule(
     .from("class_session_options")
     .insert(rows);
   if (insErr) throw new Error(insErr.message);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Class tiers (Phase 2)                                                       */
+/* -------------------------------------------------------------------------- */
+
+async function syncClassTiers(
+  supabase: SupabaseClient,
+  classId: string,
+  tiers: DraftClassTier[],
+) {
+  const { error: delErr } = await supabase
+    .from("class_tiers")
+    .delete()
+    .eq("class_id", classId);
+  if (delErr) throw new Error(`Tier sync (delete): ${delErr.message}`);
+
+  if (tiers.length === 0) return;
+
+  // Validate + normalize each tier; surface the offending row by label so the
+  // admin can find it. Empty strings on time columns must become NULL — Postgres
+  // `time` rejects "" with "invalid input syntax for type time".
+  const rows = tiers.map((t, idx) => {
+    const tierName = t.label?.trim() || `Tier ${idx + 1}`;
+
+    const start = normalizeTimeForDb(t.startTime, tierName, "start time");
+    const end = normalizeTimeForDb(t.endTime, tierName, "end time");
+
+    let priceCents: number | null = null;
+    if (t.price != null && (t.price as unknown) !== "") {
+      const n = Number(t.price);
+      if (!Number.isFinite(n) || n < 0) {
+        throw new Error(`Tier "${tierName}": price must be a non-negative number (got "${t.price}").`);
+      }
+      priceCents = Math.round(n * 100);
+    }
+
+    if (!t.label || !t.label.trim()) {
+      throw new Error(`Tier ${idx + 1}: name is required.`);
+    }
+
+    return {
+      class_id: classId,
+      label: t.label.trim(),
+      start_time: start,
+      end_time: end,
+      price_cents: priceCents,
+      sort_order: t.sortOrder ?? idx,
+      is_default: t.isDefault ?? false,
+    };
+  });
+
+  const { error: insErr } = await supabase.from("class_tiers").insert(rows);
+  if (insErr) {
+    throw new Error(formatPostgrestError("class_tiers insert", insErr));
+  }
+}
+
+/**
+ * Normalize a tier-time string for Postgres `time` column. Accepts "HH:MM",
+ * "HH:MM:SS", or null/undefined/"" (→ null). Anything else throws a labeled
+ * error so the admin can locate the offending field.
+ */
+function normalizeTimeForDb(
+  raw: string | null | undefined,
+  tierName: string,
+  fieldLabel: string,
+): string | null {
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  if (trimmed === "") return null;
+  // Strict HH:MM or HH:MM:SS in 24-hour form.
+  if (!/^\d{1,2}:\d{2}(:\d{2})?$/.test(trimmed)) {
+    throw new Error(
+      `Tier "${tierName}": ${fieldLabel} "${trimmed}" is not a valid time. Use the picker or HH:MM (24-hour) format.`,
+    );
+  }
+  return trimmed;
+}
+
+function formatPostgrestError(
+  context: string,
+  err: { message?: string; details?: string | null; hint?: string | null; code?: string | null },
+): string {
+  const parts = [context, err.message ?? "unknown error"];
+  if (err.details) parts.push(`details: ${err.details}`);
+  if (err.hint) parts.push(`hint: ${err.hint}`);
+  if (err.code) parts.push(`code: ${err.code}`);
+  return parts.join(" · ");
 }
 
 /* -------------------------------------------------------------------------- */

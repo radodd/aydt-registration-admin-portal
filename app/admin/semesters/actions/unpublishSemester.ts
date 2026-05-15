@@ -9,17 +9,27 @@ export async function unpublishSemester(id: string) {
   await requireAdmin();
   const supabase = await createClient();
 
-  // Block unpublish if any active registrations exist for this semester
-  const { count, error: countError } = await supabase
-    .from("registrations")
-    .select("*, class_sessions!inner(semester_id)", { count: "exact", head: true })
-    .eq("class_sessions.semester_id", id)
-    .not("status", "in", "(cancelled,waitlisted)");
+  // Block unpublish if any active enrollments exist for this semester, across
+  // both registrations (per-session) and schedule_enrollments (full-term).
+  const [{ count: regCount, error: regErr }, { count: enrollCount, error: enrollErr }] = await Promise.all([
+    supabase
+      .from("registrations")
+      .select("*, class_sessions!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_sessions.semester_id", id)
+      .not("status", "in", "(cancelled,waitlisted)"),
+    supabase
+      .from("schedule_enrollments")
+      .select("*, class_schedules!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_schedules.semester_id", id)
+      .neq("status", "cancelled"),
+  ]);
 
-  if (countError) throw new Error(countError.message);
-  if (count && count > 0) {
+  if (regErr) throw new Error(regErr.message);
+  if (enrollErr) throw new Error(enrollErr.message);
+  const activeTotal = (regCount ?? 0) + (enrollCount ?? 0);
+  if (activeTotal > 0) {
     throw new Error(
-      `Cannot unpublish — ${count} active registration(s) exist. Cancel those registrations first.`
+      `Cannot unpublish — ${activeTotal} active enrollment(s) exist. Cancel those enrollments first.`,
     );
   }
 

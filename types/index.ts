@@ -687,6 +687,26 @@ export type DraftPerDateOverride = {
   dropInPrice?: number | null;
 };
 
+/**
+ * A pricing/time tier within a tiered class. Maps 1:1 to class_tiers rows.
+ * Only used when DraftClass.isTiered = true.
+ */
+export type DraftClassTier = {
+  /** Stable client-side key for React list rendering (not persisted) */
+  _clientKey: string;
+  /** DB id once persisted; undefined for new tiers */
+  id?: string;
+  label: string;
+  /** 'HH:mm' — tier-specific start time, overrides schedule.startTime when tiered */
+  startTime?: string | null;
+  /** 'HH:mm' — tier-specific end time */
+  endTime?: string | null;
+  /** Whole-dollar price. Maps to class_tiers.price_cents via *100 on write. */
+  price?: number | null;
+  sortOrder: number;
+  isDefault?: boolean;
+};
+
 export type DraftClassSchedule = {
   /** Stable React list key */
   _clientKey: string;
@@ -707,6 +727,12 @@ export type DraftClassSchedule = {
   urgencyThreshold?: number | null;
   /** Dates on which sessions should NOT be generated (holidays, closures) */
   excludedDates?: DraftSessionExcludedDate[];
+  /**
+   * Phase 2: per-schedule drop-in flag. When true, each generated session is
+   * an independent registrable unit. Replaces the legacy
+   * divisions.is_drop_in / pricingModel='per_session' path going forward.
+   */
+  isDropIn?: boolean;
 
   // ── Pricing model ──────────────────────────────────────────────────────────
   /** Determines enrollment and pricing semantics. Defaults to 'full_schedule'. */
@@ -856,7 +882,12 @@ export type DraftClass = {
   /** Optional public-facing display name; falls back to `name` if not set */
   displayName?: string;
   discipline: string;
-  division: string;
+  /**
+   * Division UUID. Nullable as of Phase 2: drop-in classes don't require a
+   * division. Empty string ('') is treated equivalently to null during
+   * persistence and is the value used by the create UI before selection.
+   */
+  division: string | null;
   description?: string;
   minAge?: number | null;
   maxAge?: number | null;
@@ -887,6 +918,13 @@ export type DraftClass = {
   /** Schedule blocks — each generates per-day class_sessions automatically.
    *  INVARIANT: always [] for competition_track classes. */
   schedules: DraftClassSchedule[];
+  /**
+   * Phase 2: per-class tiered-pricing flag. When true, families pick one tier
+   * from `tiers` at checkout. Tier times override schedule times in the UI.
+   */
+  isTiered?: boolean;
+  /** Phase 2: pricing/time tiers (used when isTiered = true). */
+  tiers?: DraftClassTier[];
   /** Phase 6: enrollment rules (prerequisite, concurrent, audition, etc.) */
   requirements?: DraftClassRequirement[];
   /** OR-logic concurrent enrollment groups (e.g. "must also enroll in Ballet OR Tap").
@@ -1266,6 +1304,12 @@ export type SessionsStepProps = {
   onNext: () => void;
   onBack: () => void;
   isLocked?: boolean;
+  /**
+   * Persists the entire draft via persistSemesterDraft. Called by the per-class
+   * panel's "Save class" button so admins don't have to leave the step or hit
+   * the top-bar Save Draft to commit changes to the DB.
+   */
+  onSaveDraft?: () => Promise<void>;
 };
 
 export type PaymentStepProps = {
