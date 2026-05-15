@@ -25,6 +25,8 @@ type Props = {
   scheduleIds: string[];
   sessionIds: string[];
   classInfos: ClassInfo[];
+  /** Phase 3a: classTierId per selected schedule (tiered classes). */
+  classTierIdsBySchedule?: Record<string, string>;
   // Pre-configured price override from ClassesStep
   initialPriceOverride?: number | null;
   // Form answers
@@ -67,6 +69,7 @@ export default function CheckoutStep({
   scheduleIds,
   sessionIds,
   classInfos,
+  classTierIdsBySchedule,
   initialPriceOverride,
   formData,
   onBack,
@@ -282,6 +285,7 @@ export default function CheckoutStep({
       semesterName,
       scheduleIds,
       sessionIds,
+      classTierIdsBySchedule,
       dancerId: isNewDancer ? null : (dancerId ?? null),
       dancerName,
       familyId: isNewDancer ? null : (familyId ?? null),

@@ -9,7 +9,7 @@ export type AdminSessionInfo = {
   classId: string;
   className: string;
   discipline: string;
-  division: string;
+  division: string | null;
   dayOfWeek: string | null;
   startTime: string | null;
   endTime: string | null;
@@ -25,12 +25,25 @@ export type AdminSessionInfo = {
   pricingModel: "full_schedule" | "per_session";
   /** Per-session price when pricingModel === "per_session". */
   dropInPrice: number | null;
+  /** Phase 2: per-schedule drop-in flag (new source of truth). */
+  isDropIn: boolean;
+};
+
+/** Phase 2: per-class tier (used when isTiered=true). */
+export type AdminClassTier = {
+  id: string;
+  label: string;
+  startTime: string | null;
+  endTime: string | null;
+  price: number | null;
+  sortOrder: number;
+  isDefault: boolean;
 };
 
 export type AdminClassGroup = {
   classId: string;
   name: string;
-  division: string;
+  division: string | null;
   discipline: string;
   minAge: number | null;
   maxAge: number | null;
@@ -41,6 +54,12 @@ export type AdminClassGroup = {
   /** Primary location (first non-null across sessions) */
   location: string | null;
   sessions: AdminSessionInfo[];
+  /** Phase 2: per-class tiered flag. */
+  isTiered: boolean;
+  /** Phase 2: per-class tiers list (empty when isTiered=false). */
+  tiers: AdminClassTier[];
+  /** Phase 2: true if ANY schedule on this class is is_drop_in (mirrors UI cascade). */
+  isDropIn: boolean;
 };
 
 export async function fetchSemesterClasses(semesterId: string): Promise<AdminClassGroup[]> {
@@ -51,7 +70,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
   const { data: classes, error } = await supabase
     .from("classes")
     .select(
-      "id, name, division, discipline, min_age, max_age, class_schedules(id, pricing_model), class_sessions(id, schedule_id, day_of_week, start_time, end_time, start_date, end_date, schedule_date, location, instructor_name, capacity, drop_in_price)"
+      "id, name, division, discipline, min_age, max_age, is_tiered, class_schedules(id, pricing_model, is_drop_in), class_sessions(id, schedule_id, day_of_week, start_time, end_time, start_date, end_date, schedule_date, location, instructor_name, capacity, drop_in_price), class_tiers(id, label, start_time, end_time, price_cents, sort_order, is_default), division_info:divisions(is_drop_in)"
     )
     .eq("semester_id", semesterId)
     .order("name");
@@ -86,11 +105,15 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
 
   return (classes as any[]).map((c) => {
     const pricingByScheduleId = new Map<string, "full_schedule" | "per_session">();
+    const dropInByScheduleId = new Map<string, boolean>();
+    const legacyDivisionDropIn = c.division_info?.is_drop_in === true;
     for (const sched of (c.class_schedules as any[]) ?? []) {
       pricingByScheduleId.set(
         sched.id as string,
         ((sched.pricing_model as string) === "per_session" ? "per_session" : "full_schedule"),
       );
+      // New source of truth, falls back to legacy division flag for unmigrated rows.
+      dropInByScheduleId.set(sched.id as string, sched.is_drop_in === true || legacyDivisionDropIn);
     }
     const sessions: AdminSessionInfo[] = ((c.class_sessions as any[]) ?? []).map((s) => ({
       sessionId: s.id as string,
@@ -98,7 +121,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
       classId: c.id as string,
       className: c.name as string,
       discipline: c.discipline as string,
-      division: c.division as string,
+      division: c.division ?? null,
       dayOfWeek: s.day_of_week ?? null,
       startTime: s.start_time ?? null,
       endTime: s.end_time ?? null,
@@ -111,6 +134,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
       enrolled: enrollmentCounts[s.schedule_id] ?? 0,
       pricingModel: pricingByScheduleId.get(s.schedule_id as string) ?? "full_schedule",
       dropInPrice: s.drop_in_price != null ? Number(s.drop_in_price) : null,
+      isDropIn: dropInByScheduleId.get(s.schedule_id as string) ?? false,
     }));
 
     // Aggregate location and date range from sessions
@@ -118,10 +142,23 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
     const startDates = sessions.map((s) => s.startDate).filter(Boolean).sort();
     const endDates = sessions.map((s) => s.endDate).filter(Boolean).sort();
 
+    const tiers: AdminClassTier[] = ((c.class_tiers as any[]) ?? [])
+      .slice()
+      .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      .map((t: any) => ({
+        id: t.id as string,
+        label: t.label as string,
+        startTime: t.start_time ? String(t.start_time).slice(0, 5) : null,
+        endTime: t.end_time ? String(t.end_time).slice(0, 5) : null,
+        price: t.price_cents != null ? Number(t.price_cents) / 100 : null,
+        sortOrder: t.sort_order ?? 0,
+        isDefault: t.is_default === true,
+      }));
+
     return {
       classId: c.id as string,
       name: c.name as string,
-      division: c.division as string,
+      division: c.division ?? null,
       discipline: c.discipline as string,
       minAge: c.min_age ?? null,
       maxAge: c.max_age ?? null,
@@ -129,6 +166,9 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
       endDate: endDates.length > 0 ? endDates[endDates.length - 1] : null,
       location: locations.length > 0 ? locations[0]! : null,
       sessions,
+      isTiered: c.is_tiered === true,
+      tiers,
+      isDropIn: sessions.some((s) => s.isDropIn),
     };
   });
 }

@@ -89,7 +89,9 @@ export async function getReportData(
     };
   }
 
-  // Step 3: fetch registrations with related data
+  // Step 3: fetch registrations with related data.
+  // TODO(Phase 3a follow-up): merge with schedule_enrollments so reports include
+  // admin-created full-term enrollments. The join shape is non-trivial — separate task.
   // Use explicit FK hint for registration_batches since registrations has two FKs to that table
   const { data: regs, error: regsError } = await supabase
     .from("registrations")

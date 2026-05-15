@@ -52,14 +52,22 @@ export function NotificationBell() {
         });
       }
 
-      // New confirmed registrations in last 24h
+      // New confirmed enrollments in last 24h — across both tables.
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const { count: recentCount } = await supabase
-        .from("registrations")
-        .select("*", { count: "exact", head: true })
-        .gte("created_at", since)
-        .eq("status", "confirmed");
-      if (recentCount && recentCount > 0) {
+      const [{ count: recentRegCount }, { count: recentEnrollCount }] = await Promise.all([
+        supabase
+          .from("registrations")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", since)
+          .eq("status", "confirmed"),
+        supabase
+          .from("schedule_enrollments")
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", since)
+          .eq("status", "confirmed"),
+      ]);
+      const recentCount = (recentRegCount ?? 0) + (recentEnrollCount ?? 0);
+      if (recentCount > 0) {
         items.push({
           type: "registration",
           message: `${recentCount} new registration${recentCount !== 1 ? "s" : ""} in last 24h`,

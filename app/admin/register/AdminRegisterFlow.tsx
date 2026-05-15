@@ -36,6 +36,8 @@ type State = {
   sessionIds: string[];
   classInfos: ClassInfo[];
   priceOverride: number | null;
+  /** Phase 3a: classTierId per selected schedule (tiered classes only). */
+  classTierIdsBySchedule: Record<string, string>;
   // Form answers
   formData: Record<string, unknown>;
 };
@@ -66,6 +68,7 @@ export default function AdminRegisterFlow({
     sessionIds: [],
     classInfos: [],
     priceOverride: null,
+    classTierIdsBySchedule: {},
     formData: {},
   });
 
@@ -104,6 +107,7 @@ export default function AdminRegisterFlow({
       sessionIds: result.sessionIds,
       classInfos: result.classInfos,
       priceOverride: result.priceOverride ?? null,
+      classTierIdsBySchedule: result.classTierIdsBySchedule ?? {},
     }));
   }
 
@@ -130,6 +134,7 @@ export default function AdminRegisterFlow({
       sessionIds: [],
       classInfos: [],
       priceOverride: null,
+      classTierIdsBySchedule: {},
       formData: {},
     });
     setSuccess(null);
@@ -219,6 +224,7 @@ export default function AdminRegisterFlow({
           sessionIds={state.sessionIds}
           classInfos={state.classInfos}
           initialPriceOverride={state.priceOverride}
+          classTierIdsBySchedule={state.classTierIdsBySchedule}
           formData={state.formData}
           onBack={() => setState((s) => ({ ...s, step: 3 }))}
           onSuccess={handleSuccess}

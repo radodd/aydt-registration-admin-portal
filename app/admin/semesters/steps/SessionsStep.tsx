@@ -5,6 +5,7 @@ import {
   DraftClass,
   DraftClassRequirement,
   DraftClassSchedule,
+  DraftClassTier,
   DraftSchedulePriceTier,
   DraftSessionOption,
   DraftSpecialProgramTuition,
@@ -63,6 +64,52 @@ const DISCIPLINE_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 const LOCATIONS = ["Upper East Side", "Washington Heights"] as const;
+
+/* -------------------------------------------------------------------------- */
+/* Registration-mode toggle helpers                                            */
+/* -------------------------------------------------------------------------- */
+
+type UiClassFlags = { tiered: boolean; dropIn: boolean };
+
+function deriveClassFlags(cls: DraftClass): UiClassFlags {
+  return {
+    tiered: cls.isTiered ?? false,
+    // Class-level "drop-in" reads as on when ANY schedule has isDropIn = true.
+    dropIn: (cls.schedules ?? []).some((s) => s.isDropIn === true),
+  };
+}
+
+function Switch({
+  checked,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!checked);
+      }}
+      className={`relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+        checked ? "bg-primary-600" : "bg-neutral-300"
+      }`}
+    >
+      <span
+        className={`inline-block h-[18px] w-[18px] transform rounded-full bg-white shadow transition-transform ${
+          checked ? "translate-x-[18px]" : "translate-x-[2px]"
+        }`}
+      />
+    </button>
+  );
+}
 
 /** 15-minute interval time options from 7:00 AM through 11:00 PM (inclusive). */
 const TIME_OPTIONS: { value: string; label: string }[] = (() => {
@@ -131,7 +178,7 @@ function buildDefaultPriceTierFromState(
 /* Empty scaffolds                                                            */
 /* -------------------------------------------------------------------------- */
 
-function emptySchedule(): DraftClassSchedule {
+function emptySchedule(isDropIn = false): DraftClassSchedule {
   return {
     _clientKey: Date.now().toString() + Math.random(),
     daysOfWeek: [],
@@ -147,6 +194,7 @@ function emptySchedule(): DraftClassSchedule {
     genderRestriction: null,
     urgencyThreshold: null,
     pricingModel: "full_schedule",
+    isDropIn,
     priceTiers: [],
     dropInPrice: null,
     options: [],
@@ -167,6 +215,8 @@ function emptyStandardClass(): DraftClass {
     minGrade: undefined,
     maxGrade: undefined,
     isCompetitionTrack: false,
+    isTiered: false,
+    tiers: [],
     requiresTeacherRec: false,
     visibility: "public",
     enrollmentType: "standard",
@@ -226,12 +276,13 @@ function computeGeneratedCount(schedule: DraftClassSchedule): number {
 /* Main Component                                                             */
 /* -------------------------------------------------------------------------- */
 
-type PanelTab = "details" | "schedule" | "requirements";
+type PanelTab = "details" | "schedule" | "requirements" | "addons";
 
 export default function SessionsStep({
   state,
   dispatch,
   isLocked = false,
+  onSaveDraft,
 }: SessionsStepProps) {
   const [classes, setClasses] = useState<DraftClass[]>(state.sessions?.classes ?? []);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
@@ -240,6 +291,34 @@ export default function SessionsStep({
   const [rangeErrors, setRangeErrors] = useState<Map<number, string[]>>(new Map());
   const [classesExpanded, setClassesExpanded] = useState(false);
   const [divisions, setDivisions] = useState<Division[]>([]);
+
+  /**
+   * Class-level drop-in toggle is a CASCADE: turning it on/off sets is_drop_in
+   * on every schedule of the class. Reading: "on" if any schedule has it.
+   *
+   * If the class has zero schedules when drop-in is turned on, we auto-create
+   * a stub schedule so the toggle has somewhere to live (otherwise the cascade
+   * has nothing to write to and the toggle silently flips back off).
+   */
+  function applyUiFlagsPatch(idx: number, patch: Partial<UiClassFlags>) {
+    const cls = classes[idx];
+    if (!cls) return;
+    const update: Partial<DraftClass> = {};
+    if (patch.tiered !== undefined) update.isTiered = patch.tiered;
+    if (patch.dropIn !== undefined) {
+      const existing = cls.schedules ?? [];
+      const next =
+        existing.length === 0 && patch.dropIn === true
+          ? [emptySchedule(true)]
+          : existing.map((s) => ({ ...s, isDropIn: patch.dropIn }));
+      update.schedules = next;
+    }
+    handleUpdateClass(idx, update);
+  }
+
+  function applyTiersChange(idx: number, tiers: DraftClassTier[]) {
+    handleUpdateClass(idx, { tiers });
+  }
 
   const rateBands: DraftTuitionRateBand[] = state.tuitionRateBands ?? [];
   const specialRates: DraftSpecialProgramTuition[] = state.specialProgramTuition ?? [];
@@ -310,9 +389,13 @@ export default function SessionsStep({
 
   function handleAddSchedule(classIdx: number) {
     setClasses((prev) =>
-      prev.map((c, i) =>
-        i === classIdx ? { ...c, schedules: [...(c.schedules ?? []), emptySchedule()] } : c,
-      ),
+      prev.map((c, i) => {
+        if (i !== classIdx) return c;
+        // Cascade the current class-level drop-in flag to the new block so it
+        // matches the rest of the schedules. Reads "any schedule is drop-in".
+        const classDropIn = (c.schedules ?? []).some((s) => s.isDropIn === true);
+        return { ...c, schedules: [...(c.schedules ?? []), emptySchedule(classDropIn)] };
+      }),
     );
   }
 
@@ -385,7 +468,7 @@ export default function SessionsStep({
       if (searchQuery === "") return true;
       const q = searchQuery.toLowerCase();
       const disciplineLabel = DISCIPLINES.find((d) => d.value === cls.discipline)?.label ?? cls.discipline;
-      const divisionLabel = divisions.find((d) => d.id === cls.division)?.label ?? cls.division;
+      const divisionLabel = divisions.find((d) => d.id === cls.division)?.label ?? cls.division ?? "";
       const instructors = (cls.schedules ?? [])
         .map((s) => s.instructorName ?? "")
         .filter(Boolean)
@@ -530,6 +613,7 @@ export default function SessionsStep({
                     (cls.schedules?.length ?? 0) > 1 ? ` +${cls.schedules!.length - 1}` : "";
                   const isSelected = selectedIdx === idx;
                   const hasErrors = (rangeErrors.get(idx)?.length ?? 0) > 0;
+                  const rowFlags = deriveClassFlags(cls);
 
                   return (
                     <tr
@@ -556,11 +640,32 @@ export default function SessionsStep({
                               <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-red-400" title="Validation error" />
                             )}
                           </div>
-                          <span
-                            className={`inline-flex items-center mt-0.5 rounded-full px-2 py-0 text-xs font-medium ${color.bg} ${color.text}`}
-                          >
-                            {cls.offeringType === "competition_track" ? "Competition" : disciplineLabel}
-                          </span>
+                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0 text-xs font-medium ${color.bg} ${color.text}`}
+                            >
+                              {cls.offeringType === "competition_track" ? "Competition" : disciplineLabel}
+                            </span>
+                            {cls.offeringType !== "competition_track" && (
+                              <>
+                                {!rowFlags.tiered && !rowFlags.dropIn && (
+                                  <span className="inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium bg-neutral-100 text-neutral-500">
+                                    Standard
+                                  </span>
+                                )}
+                                {rowFlags.tiered && (
+                                  <span className="inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium bg-teal-100 text-teal-800">
+                                    Tiered
+                                  </span>
+                                )}
+                                {rowFlags.dropIn && (
+                                  <span className="inline-flex items-center rounded-full px-1.5 py-0 text-[10px] font-medium bg-purple-100 text-purple-800">
+                                    Drop-in
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-neutral-600 whitespace-nowrap`}>{divisionLabel}</td>
@@ -653,6 +758,11 @@ export default function SessionsStep({
           allClasses={classes}
           divisions={divisions}
           onCreateDivision={handleCreateDivision}
+          uiFlags={deriveClassFlags(selectedClass)}
+          onUiFlagsChange={(patch) => applyUiFlagsPatch(selectedIdx, patch)}
+          uiTiers={selectedClass.tiers ?? []}
+          onUiTiersChange={(tiers) => applyTiersChange(selectedIdx, tiers)}
+          onSaveDraft={onSaveDraft}
           rangeErrors={rangeErrors.get(selectedIdx) ?? []}
           onClose={() => setSelectedIdx(null)}
           onRemoveClass={() => handleRemoveClass(selectedIdx)}
@@ -701,6 +811,11 @@ function ClassEditPanel({
   allClasses,
   divisions,
   onCreateDivision,
+  uiFlags,
+  onUiFlagsChange,
+  uiTiers,
+  onUiTiersChange,
+  onSaveDraft,
   rangeErrors,
   onClose,
   onRemoveClass,
@@ -725,6 +840,11 @@ function ClassEditPanel({
   allClasses: DraftClass[];
   divisions: Division[];
   onCreateDivision: (label: string, isDropIn: boolean) => Promise<Division>;
+  uiFlags: UiClassFlags;
+  onUiFlagsChange: (patch: Partial<UiClassFlags>) => void;
+  uiTiers: DraftClassTier[];
+  onUiTiersChange: (tiers: DraftClassTier[]) => void;
+  onSaveDraft?: () => Promise<void>;
   rangeErrors: string[];
   onClose: () => void;
   onRemoveClass: () => void;
@@ -741,11 +861,30 @@ function ClassEditPanel({
   const scheduleCount = cls.schedules?.length ?? 0;
   const isDropInDivision = divisions.find((d) => d.id === cls.division)?.is_drop_in ?? false;
 
+  const addOnCount = (cls.schedules ?? []).reduce((sum, s) => sum + (s.options?.length ?? 0), 0);
   const TABS: { key: PanelTab; label: string }[] = [
     { key: "details", label: "Details" },
     { key: "schedule", label: `Schedule (${scheduleCount})` },
     { key: "requirements", label: "Requirements" },
+    { key: "addons", label: addOnCount > 0 ? `Add-ons (${addOnCount})` : "Add-ons" },
   ];
+
+  const [isSavingClass, setIsSavingClass] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  async function handleSaveClass() {
+    if (!onSaveDraft || isSavingClass) return;
+    setIsSavingClass(true);
+    setSaveError(null);
+    try {
+      await onSaveDraft();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Save failed";
+      console.error("Save class failed:", err);
+      setSaveError(msg);
+    } finally {
+      setIsSavingClass(false);
+    }
+  }
 
   return (
     <div
@@ -800,6 +939,10 @@ function ClassEditPanel({
             divisions={divisions}
             isDropInDivision={isDropInDivision}
             onCreateDivision={onCreateDivision}
+            uiFlags={uiFlags}
+            onUiFlagsChange={onUiFlagsChange}
+            uiTiers={uiTiers}
+            onUiTiersChange={onUiTiersChange}
             rangeErrors={rangeErrors}
             onUpdateClass={onUpdateClass}
             onUpdateSchedule={onUpdateSchedule}
@@ -812,6 +955,8 @@ function ClassEditPanel({
             rateBands={rateBands}
             specialRates={specialRates}
             isDropInDivision={isDropInDivision}
+            uiFlags={uiFlags}
+            uiTiers={uiTiers}
             onAddSchedule={onAddSchedule}
             onRemoveSchedule={onRemoveSchedule}
             onUpdateSchedule={onUpdateSchedule}
@@ -831,6 +976,13 @@ function ClassEditPanel({
             />
           </div>
         )}
+        {activeTab === "addons" && (
+          <AddOnsTab
+            schedules={cls.schedules ?? []}
+            isLocked={isLocked}
+            onUpdateSchedule={onUpdateSchedule}
+          />
+        )}
       </div>
 
       {/* Panel footer */}
@@ -846,13 +998,24 @@ function ClassEditPanel({
         ) : (
           <span />
         )}
-        <button
-          type="button"
-          onClick={onClose}
-          className="text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 px-4 py-2 rounded-xl transition"
-        >
-          Save class
-        </button>
+        <div className="flex items-center gap-3 flex-1 justify-end min-w-0">
+          {saveError && (
+            <div
+              className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 flex-1 max-w-md leading-snug"
+              title={saveError}
+            >
+              {saveError}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={onSaveDraft ? handleSaveClass : onClose}
+            disabled={isSavingClass}
+            className="shrink-0 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 px-4 py-2 rounded-xl transition"
+          >
+            {isSavingClass ? "Saving…" : "Save class"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -871,6 +1034,10 @@ function DetailsTab({
   divisions,
   isDropInDivision,
   onCreateDivision,
+  uiFlags,
+  onUiFlagsChange,
+  uiTiers,
+  onUiTiersChange,
   rangeErrors,
   onUpdateClass,
   onUpdateSchedule,
@@ -883,11 +1050,39 @@ function DetailsTab({
   divisions: Division[];
   isDropInDivision: boolean;
   onCreateDivision: (label: string, isDropIn: boolean) => Promise<Division>;
+  uiFlags: UiClassFlags;
+  onUiFlagsChange: (patch: Partial<UiClassFlags>) => void;
+  uiTiers: DraftClassTier[];
+  onUiTiersChange: (tiers: DraftClassTier[]) => void;
   rangeErrors: string[];
   onUpdateClass: (patch: Partial<DraftClass>) => void;
   onUpdateSchedule: (idx: number, patch: Partial<DraftClassSchedule>) => void;
 }) {
   const isCompetitionTrack = cls.offeringType === "competition_track";
+  const summary = (() => {
+    if (uiFlags.tiered && uiFlags.dropIn) {
+      return {
+        title: "Drop-in tiered class.",
+        body: "Each session is individually bookable. For each booking, the family picks a tier. Tier prices are per-session.",
+      };
+    }
+    if (uiFlags.tiered) {
+      return {
+        title: "Tiered class.",
+        body: "Families pick one tier at checkout (e.g. Full day vs Half day). One tier price covers the whole term.",
+      };
+    }
+    if (uiFlags.dropIn) {
+      return {
+        title: "Drop-in class.",
+        body: "Families pick individual sessions and pay per session. Capacity is set per session.",
+      };
+    }
+    return {
+      title: "Standard class.",
+      body: "Families pay once for the full term and attend all sessions.",
+    };
+  })();
 
   // Inline "Create new division…" form state.
   const [showCreateDivision, setShowCreateDivision] = useState(false);
@@ -898,6 +1093,71 @@ function DetailsTab({
 
   return (
     <div className="p-4 space-y-4">
+      {/* ── Registration model (Phase 1 UI shell — not persisted) ── */}
+      {!isCompetitionTrack && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-medium text-primary-700 uppercase tracking-wide">
+              Registration model
+            </p>
+            <span className="text-[9px] font-medium tracking-wider uppercase bg-primary-600 text-white rounded px-1.5 py-px">
+              New
+            </span>
+          </div>
+          <p className="text-xs text-neutral-500 leading-relaxed">
+            Standard classes have one price and full-term enrollment. Toggle options below to enable tiered pricing or per-session drop-in registration.
+          </p>
+
+          <div className="rounded-lg bg-primary-50 border border-primary-200 px-3 py-2 flex items-start gap-2 mt-2">
+            <div className="shrink-0 w-[18px] h-[18px] rounded-full bg-primary-600 text-white text-[11px] font-bold flex items-center justify-center mt-px">
+              i
+            </div>
+            <p className="text-xs text-primary-800 leading-relaxed">
+              <span className="font-semibold">{summary.title}</span> {summary.body}
+            </p>
+          </div>
+
+          <div className="mt-2 rounded-xl border border-neutral-200 overflow-hidden">
+            <div
+              className={`flex items-start gap-3 px-3 py-3 transition-colors cursor-pointer border-b border-neutral-100 ${
+                uiFlags.tiered ? "bg-primary-50 hover:bg-primary-100/60" : "hover:bg-neutral-50"
+              }`}
+              onClick={() => !isLocked && onUiFlagsChange({ tiered: !uiFlags.tiered })}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-neutral-900">Tiered pricing</p>
+                <p className="text-xs text-neutral-500 leading-snug mt-0.5">
+                  Offer multiple options at checkout (e.g. full day vs half day). Families pick one tier per booking.
+                </p>
+              </div>
+              <Switch
+                checked={uiFlags.tiered}
+                onChange={(v) => onUiFlagsChange({ tiered: v })}
+                disabled={isLocked}
+              />
+            </div>
+            <div
+              className={`flex items-start gap-3 px-3 py-3 transition-colors cursor-pointer ${
+                uiFlags.dropIn ? "bg-primary-50 hover:bg-primary-100/60" : "hover:bg-neutral-50"
+              }`}
+              onClick={() => !isLocked && onUiFlagsChange({ dropIn: !uiFlags.dropIn })}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-neutral-900">Drop-in registration</p>
+                <p className="text-xs text-neutral-500 leading-snug mt-0.5">
+                  Families pick individual sessions and pay per session instead of for the full term.
+                </p>
+              </div>
+              <Switch
+                checked={uiFlags.dropIn}
+                onChange={(v) => onUiFlagsChange({ dropIn: v })}
+                disabled={isLocked}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Class name */}
       <div>
         <label className="block text-xs font-medium text-neutral-600 mb-1.5">
@@ -914,7 +1174,7 @@ function DetailsTab({
       </div>
 
       {/* Discipline + Division */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className={`grid ${uiFlags.dropIn ? "grid-cols-1" : "grid-cols-2"} gap-3`}>
         <div>
           <label className="block text-xs font-medium text-neutral-600 mb-1.5">
             Discipline <span className="text-red-500">*</span>
@@ -932,13 +1192,14 @@ function DetailsTab({
             ))}
           </select>
         </div>
+        {!uiFlags.dropIn && (
         <div>
           <label className="block text-xs font-medium text-neutral-600 mb-1.5">
             Division <span className="text-red-500">*</span>
           </label>
           <select
             disabled={isLocked}
-            value={cls.division}
+            value={cls.division ?? ""}
             onChange={(e) => {
               const value = e.target.value;
               if (value === "__create__") {
@@ -1045,6 +1306,7 @@ function DetailsTab({
             </div>
           )}
         </div>
+        )}
       </div>
 
       {/* Min age + Max age */}
@@ -1088,37 +1350,37 @@ function DetailsTab({
           </p>
         ))}
 
-      {/* Grade restriction (advanced — collapsible) */}
-      {(cls.minGrade != null || cls.maxGrade != null) && (
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1.5">Min grade (K=0)</label>
-            <input
-              type="number"
-              min={0}
-              disabled={isLocked}
-              value={cls.minGrade ?? ""}
-              onChange={(e) =>
-                onUpdateClass({ minGrade: e.target.value ? Number(e.target.value) : undefined })
-              }
-              className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1.5">Max grade</label>
-            <input
-              type="number"
-              min={0}
-              disabled={isLocked}
-              value={cls.maxGrade ?? ""}
-              onChange={(e) =>
-                onUpdateClass({ maxGrade: e.target.value ? Number(e.target.value) : undefined })
-              }
-              className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
-            />
-          </div>
+      {/* Grade restriction */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-neutral-600 mb-1.5">Min grade (K=0)</label>
+          <input
+            type="number"
+            min={0}
+            disabled={isLocked}
+            value={cls.minGrade ?? ""}
+            onChange={(e) =>
+              onUpdateClass({ minGrade: e.target.value ? Number(e.target.value) : undefined })
+            }
+            placeholder="—"
+            className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
+          />
         </div>
-      )}
+        <div>
+          <label className="block text-xs font-medium text-neutral-600 mb-1.5">Max grade</label>
+          <input
+            type="number"
+            min={0}
+            disabled={isLocked}
+            value={cls.maxGrade ?? ""}
+            onChange={(e) =>
+              onUpdateClass({ maxGrade: e.target.value ? Number(e.target.value) : undefined })
+            }
+            placeholder="—"
+            className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
+          />
+        </div>
+      </div>
       {rangeErrors
         .filter((e) => e.toLowerCase().includes("grade"))
         .map((msg, i) => (
@@ -1139,6 +1401,153 @@ function DetailsTab({
           className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400 resize-none"
         />
       </div>
+
+      {/* ── Tiers section (Phase 1 UI shell — not persisted) ── */}
+      {!isCompetitionTrack && uiFlags.tiered && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-xs font-medium text-primary-700 uppercase tracking-wide">Tiers</p>
+            <span className="text-[9px] font-medium tracking-wider uppercase bg-primary-600 text-white rounded px-1.5 py-px">
+              New
+            </span>
+            {uiFlags.dropIn && (
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold bg-purple-100 text-purple-800">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-800" />
+                Per-session pricing
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-neutral-500 leading-relaxed">
+            {uiFlags.dropIn
+              ? "Each tier is an option families pick at checkout per booking. Tiers share the same per-session capacity (set in the Schedule tab)."
+              : "Each tier is an option families pick at checkout. They share the same total class capacity, set in the Schedule tab."}
+          </p>
+
+          <div className="rounded-xl border border-neutral-200 bg-white">
+            <div
+              className="grid gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide rounded-t-[11px]"
+              style={{
+                gridTemplateColumns: "1.3fr 1.6fr 70px 28px",
+                background: "var(--admin-table-header-bg)",
+                color: "var(--admin-table-header-text)",
+              }}
+            >
+              <div>Tier name</div>
+              <div>Times</div>
+              <div>{uiFlags.dropIn ? "Price per session" : "Price per term"}</div>
+              <div />
+            </div>
+            {uiTiers.map((tier, i) => (
+              <div
+                key={tier._clientKey}
+                className={`grid gap-2 px-3 py-2 items-center border-b border-neutral-100 last:border-b-0 ${
+                  i % 2 === 1 ? "bg-neutral-50/60" : ""
+                }`}
+                style={{ gridTemplateColumns: "1.3fr 1.6fr 70px 28px" }}
+              >
+                <input
+                  type="text"
+                  disabled={isLocked}
+                  value={tier.label}
+                  onChange={(e) =>
+                    onUiTiersChange(
+                      uiTiers.map((t) => (t._clientKey === tier._clientKey ? { ...t, label: e.target.value } : t)),
+                    )
+                  }
+                  className="w-full rounded-md border border-neutral-200 bg-transparent px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white"
+                />
+                <div className="flex items-center gap-1 text-[11px] text-neutral-500 min-w-0">
+                  <TimeSelect
+                    compact
+                    value={tier.startTime ?? ""}
+                    disabled={isLocked}
+                    onChange={(v) =>
+                      onUiTiersChange(
+                        uiTiers.map((t) =>
+                          t._clientKey === tier._clientKey ? { ...t, startTime: v || null } : t,
+                        ),
+                      )
+                    }
+                  />
+                  <span>–</span>
+                  <TimeSelect
+                    compact
+                    value={tier.endTime ?? ""}
+                    disabled={isLocked}
+                    onChange={(v) =>
+                      onUiTiersChange(
+                        uiTiers.map((t) =>
+                          t._clientKey === tier._clientKey ? { ...t, endTime: v || null } : t,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-neutral-400">$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    disabled={isLocked}
+                    value={tier.price != null ? String(tier.price) : ""}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/[^0-9.]/g, "");
+                      const parsed = raw === "" ? null : Number(raw);
+                      const next = Number.isNaN(parsed) ? null : parsed;
+                      onUiTiersChange(
+                        uiTiers.map((t) => (t._clientKey === tier._clientKey ? { ...t, price: next } : t)),
+                      );
+                    }}
+                    className="w-full min-w-0 rounded-md border border-neutral-200 bg-transparent px-1.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={isLocked}
+                  onClick={() => onUiTiersChange(uiTiers.filter((t) => t._clientKey !== tier._clientKey))}
+                  className="text-neutral-400 hover:text-primary-600 hover:bg-primary-50 rounded w-6 h-6 flex items-center justify-center text-sm"
+                  title="Remove tier"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+          {!isLocked && (
+            <button
+              type="button"
+              onClick={() =>
+                onUiTiersChange([
+                  ...uiTiers,
+                  {
+                    _clientKey: crypto.randomUUID(),
+                    label: "",
+                    startTime: null,
+                    endTime: null,
+                    price: null,
+                    sortOrder: uiTiers.length,
+                  },
+                ])
+              }
+              className="w-full rounded-lg border border-dashed border-neutral-300 text-xs text-neutral-500 hover:border-primary-600 hover:text-primary-600 py-2 transition"
+            >
+              + Add tier
+            </button>
+          )}
+          {uiFlags.dropIn && (
+            <div className="rounded-r-lg border-l-[3px] border-primary-600 bg-neutral-50 px-3 py-2 text-xs text-neutral-600 leading-relaxed">
+              <span className="font-semibold text-neutral-800">Drop-in is on:</span> Each tier price above is the default per-session price for that tier. Override individual sessions in the Schedule tab.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Drop-in only — single-price helper banner */}
+      {!isCompetitionTrack && uiFlags.dropIn && !uiFlags.tiered && (
+        <div className="rounded-r-lg border-l-[3px] border-primary-600 bg-neutral-50 px-3 py-2 text-xs text-neutral-600 leading-relaxed">
+          <span className="font-semibold text-neutral-800">Drop-in is on:</span> The price set on each schedule block becomes the default per-session price. Override individual sessions in the Schedule tab.
+        </div>
+      )}
 
       {/* Competition track banner */}
       {isCompetitionTrack ? (
@@ -1209,6 +1618,8 @@ function ScheduleTab({
   rateBands,
   specialRates,
   isDropInDivision,
+  uiFlags,
+  uiTiers,
   onAddSchedule,
   onRemoveSchedule,
   onUpdateSchedule,
@@ -1220,6 +1631,8 @@ function ScheduleTab({
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
   isDropInDivision: boolean;
+  uiFlags: UiClassFlags;
+  uiTiers: DraftClassTier[];
   onAddSchedule: () => void;
   onRemoveSchedule: (idx: number) => void;
   onUpdateSchedule: (idx: number, patch: Partial<DraftClassSchedule>) => void;
@@ -1271,13 +1684,166 @@ function ScheduleTab({
           onRemove={() => onRemoveSchedule(si)}
           onDuplicate={() => onDuplicateSchedule(si)}
           onSplit={(groups) => onSplitSchedule(si, groups)}
-          division={cls.division}
+          division={cls.division ?? ""}
           discipline={cls.discipline}
           rateBands={rateBands}
           specialRates={specialRates}
           isDropInDivision={isDropInDivision}
+          uiFlags={uiFlags}
+          uiTiers={uiTiers}
         />
       ))}
+
+      {/* ── Generated sessions table (Phase 1 UI shell, drop-in only) ── */}
+      {uiFlags.dropIn && schedules.length > 0 && (
+        <div className="space-y-2 pt-2">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-medium text-primary-700 uppercase tracking-wide">
+              Generated sessions
+            </p>
+            <span className="text-[9px] font-medium tracking-wider uppercase bg-primary-600 text-white rounded px-1.5 py-px">
+              New
+            </span>
+          </div>
+          <p className="text-xs text-neutral-500 leading-relaxed">
+            {uiFlags.tiered
+              ? "Each occurrence is bookable on its own. Override capacity or add a per-session price adjustment that applies to all tiers."
+              : "Each occurrence is bookable on its own. Override capacity or add a per-session price adjustment."}
+          </p>
+          <GeneratedSessionsTable schedules={schedules} tiered={uiFlags.tiered} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* GeneratedSessionsTable (Phase 1 UI shell — read-only preview)             */
+/* -------------------------------------------------------------------------- */
+
+function GeneratedSessionsTable({
+  schedules,
+  tiered,
+}: {
+  schedules: DraftClassSchedule[];
+  tiered: boolean;
+}) {
+  type Row = {
+    key: string;
+    date: string;
+    time: string;
+    defaultCapacity: number | null;
+    defaultPrice: number | null;
+  };
+  const rows: Row[] = [];
+  for (const sched of schedules) {
+    const dates = computeGeneratedDates(sched);
+    for (const dateStr of dates) {
+      const d = new Date(dateStr + "T00:00:00");
+      const dayLabel = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      const timeRange =
+        sched.startTime && sched.endTime ? `${fmt12(sched.startTime)} – ${fmt12(sched.endTime)}` : "";
+      rows.push({
+        key: `${sched._clientKey ?? ""}-${dateStr}`,
+        date: dayLabel,
+        time: timeRange,
+        defaultCapacity: sched.capacity ?? null,
+        defaultPrice: sched.dropInPrice ?? null,
+      });
+    }
+  }
+
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-lg bg-neutral-100 border border-neutral-200 px-3 py-2 text-xs text-neutral-500">
+        Configure schedule days and date range above to preview drop-in sessions.
+      </div>
+    );
+  }
+
+  const gridCols = "1.5fr 90px 80px 110px";
+  return (
+    <div className="rounded-xl border border-neutral-200 overflow-hidden bg-white">
+      <div
+        className="grid gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-wide"
+        style={{
+          gridTemplateColumns: gridCols,
+          background: "var(--admin-table-header-bg)",
+          color: "var(--admin-table-header-text)",
+        }}
+      >
+        <div>{tiered ? "Date" : "Date · Time"}</div>
+        <div>Capacity</div>
+        <div>Booked</div>
+        <div>Price adj.</div>
+      </div>
+      {rows.slice(0, 25).map((row, i) => (
+        <SessionRow key={row.key} row={row} tiered={tiered} gridCols={gridCols} striped={i % 2 === 1} />
+      ))}
+      {rows.length > 25 && (
+        <div className="px-3 py-2 text-[11px] text-neutral-400 italic border-t border-neutral-100">
+          Showing first 25 of {rows.length} sessions.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SessionRow({
+  row,
+  tiered,
+  gridCols,
+  striped,
+}: {
+  row: {
+    key: string;
+    date: string;
+    time: string;
+    defaultCapacity: number | null;
+    defaultPrice: number | null;
+  };
+  tiered: boolean;
+  gridCols: string;
+  striped: boolean;
+}) {
+  // Local override state. Empty string = use default from schedule.
+  const [capOverride, setCapOverride] = useState<string>("");
+  const [adjOverride, setAdjOverride] = useState<string>("");
+
+  const capPlaceholder = row.defaultCapacity != null ? String(row.defaultCapacity) : "—";
+  const pricePlaceholder = row.defaultPrice != null ? row.defaultPrice.toFixed(2) : "—";
+
+  return (
+    <div
+      className={`grid gap-2 px-3 py-2 items-center border-b border-neutral-100 last:border-b-0 text-xs ${
+        striped ? "bg-neutral-50/60" : ""
+      }`}
+      style={{ gridTemplateColumns: gridCols }}
+    >
+      <div>
+        <p className="font-semibold text-neutral-900">{row.date}</p>
+        <p className="text-[11px] text-neutral-500">{tiered ? "Per tier times" : row.time}</p>
+      </div>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={capOverride}
+        onChange={(e) => setCapOverride(e.target.value.replace(/[^0-9]/g, ""))}
+        placeholder={capPlaceholder}
+        className="w-full min-w-0 rounded-md border border-neutral-200 bg-transparent px-1.5 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white"
+      />
+      <div className="text-neutral-500">0</div>
+      <div className="flex items-center gap-1">
+        <span className="text-[11px] text-neutral-400">$</span>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={adjOverride}
+          onChange={(e) => setAdjOverride(e.target.value.replace(/[^0-9.]/g, ""))}
+          placeholder={pricePlaceholder}
+          className="w-full min-w-0 rounded-md border border-neutral-200 bg-transparent px-1.5 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:bg-white"
+        />
+      </div>
     </div>
   );
 }
@@ -1301,6 +1867,8 @@ function ScheduleEditor({
   rateBands,
   specialRates,
   isDropInDivision,
+  uiFlags,
+  uiTiers,
 }: {
   schedule: DraftClassSchedule;
   isLocked: boolean;
@@ -1315,20 +1883,14 @@ function ScheduleEditor({
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
   isDropInDivision: boolean;
+  uiFlags: UiClassFlags;
+  uiTiers: DraftClassTier[];
 }) {
   const [newExcludedDate, setNewExcludedDate] = useState("");
   const [newExcludedReason, setNewExcludedReason] = useState("");
-  const [showOptionForm, setShowOptionForm] = useState(false);
   const [showSplitConfig, setShowSplitConfig] = useState(false);
-  const [draftOption, setDraftOption] = useState({
-    name: "",
-    description: "",
-    price: "0",
-    isRequired: false,
-  });
 
   const priceTiers = schedule.priceTiers ?? [];
-  const options = schedule.options ?? [];
   const excludedDates = schedule.excludedDates ?? [];
   const generatedCount = computeGeneratedCount(schedule);
 
@@ -1352,6 +1914,10 @@ function ScheduleEditor({
   }
 
   function handleAmountChange(raw: string) {
+    if (raw === "") {
+      onChange({ priceTiers: [] });
+      return;
+    }
     const amount = parseFloat(raw);
     if (isNaN(amount) || amount < 0) return;
     const existing = priceTiers[0];
@@ -1359,23 +1925,6 @@ function ScheduleEditor({
       ? { ...existing, amount }
       : { _clientKey: Date.now().toString() + Math.random(), label: "Regular", amount, sortOrder: 0, isDefault: true };
     onChange({ priceTiers: [tier] });
-  }
-
-  function handleAddOption() {
-    if (!draftOption.name.trim()) return;
-    const price = parseFloat(draftOption.price);
-    if (isNaN(price) || price < 0) return;
-    const newOpt: DraftSessionOption = {
-      _clientKey: Date.now().toString(),
-      name: draftOption.name.trim(),
-      description: draftOption.description || undefined,
-      price,
-      isRequired: draftOption.isRequired,
-      sortOrder: options.length,
-    };
-    onChange({ options: [...options, newOpt] });
-    setDraftOption({ name: "", description: "", price: "0", isRequired: false });
-    setShowOptionForm(false);
   }
 
   const weeklyCount = Math.max(1, (schedule.daysOfWeek ?? []).length);
@@ -1443,25 +1992,52 @@ function ScheduleEditor({
           )}
         </div>
 
-        {/* Start time / End time */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1">Start time</label>
-            <TimeSelect
-              value={schedule.startTime ?? ""}
-              onChange={(v) => onChange({ startTime: v || undefined })}
-              disabled={isLocked}
-            />
+        {/* Per-tier times preview (UI shell — when tiered) */}
+        {uiFlags.tiered ? (
+          <div className="rounded-lg bg-primary-50 border border-primary-200 px-3 py-2.5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-800">
+                Times per tier
+              </p>
+              <span className="text-[11px] text-primary-700 italic">Edit in Tiers section</span>
+            </div>
+            <div className="space-y-1">
+              {uiTiers.map((tier, i) => (
+                <div
+                  key={tier._clientKey}
+                  className={`grid gap-2 items-center text-xs py-0.5 ${
+                    i > 0 ? "border-t border-primary-200 pt-1.5" : ""
+                  }`}
+                  style={{ gridTemplateColumns: "1.4fr 1fr" }}
+                >
+                  <div className="text-neutral-900 font-medium">{tier.label || <span className="italic text-neutral-400">Untitled tier</span>}</div>
+                  <div className="text-neutral-600 font-mono text-[11px]">
+                    {tier.startTime && tier.endTime ? `${fmt12(tier.startTime)} – ${fmt12(tier.endTime)}` : "—"}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div>
-            <label className="block text-xs text-neutral-500 mb-1">End time</label>
-            <TimeSelect
-              value={schedule.endTime ?? ""}
-              onChange={(v) => onChange({ endTime: v || undefined })}
-              disabled={isLocked}
-            />
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-xs text-neutral-500 mb-1">Start time</label>
+              <TimeSelect
+                value={schedule.startTime ?? ""}
+                onChange={(v) => onChange({ startTime: v || undefined })}
+                disabled={isLocked}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-neutral-500 mb-1">End time</label>
+              <TimeSelect
+                value={schedule.endTime ?? ""}
+                onChange={(v) => onChange({ endTime: v || undefined })}
+                disabled={isLocked}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Start date / End date */}
         <div className="grid grid-cols-2 gap-2">
@@ -1518,7 +2094,15 @@ function ScheduleEditor({
         {/* Capacity / Urgency threshold */}
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-xs text-neutral-500 mb-1">Capacity</label>
+            <label className="block text-xs text-neutral-500 mb-1">
+              {uiFlags.dropIn && uiFlags.tiered
+                ? "Capacity per session"
+                : uiFlags.dropIn
+                ? "Capacity per session"
+                : uiFlags.tiered
+                ? "Capacity (shared across tiers)"
+                : "Capacity"}
+            </label>
             <input
               type="number"
               min={1}
@@ -1527,6 +2111,15 @@ function ScheduleEditor({
               onChange={(e) => onChange({ capacity: e.target.value ? Number(e.target.value) : undefined })}
               className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
             />
+            {(uiFlags.dropIn || uiFlags.tiered) && (
+              <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
+                {uiFlags.dropIn && uiFlags.tiered
+                  ? "Spots per session. All tiers draw from this shared pool."
+                  : uiFlags.dropIn
+                  ? "Spots available per generated session."
+                  : "Total spots for the class. All tiers draw from this shared pool."}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs text-neutral-500 mb-1">Urgency threshold</label>
@@ -1606,11 +2199,11 @@ function ScheduleEditor({
           </p>
         </div>
 
-        {/* Pricing — driven by the class's division (drop-in vs full-schedule) */}
+        {/* Pricing */}
         <div className="space-y-2">
           <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">Pricing</p>
 
-          {!isDropInDivision && (
+          {!uiFlags.dropIn && (
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-neutral-500">Semester tuition</p>
@@ -1627,11 +2220,10 @@ function ScheduleEditor({
               <div className="flex items-center gap-2 max-w-40">
                 <span className="text-sm text-neutral-500">$</span>
                 <input
-                  type="number"
-                  min={0}
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   disabled={isLocked}
-                  value={existingTier ? existingTier.amount.toFixed(2) : ""}
+                  value={existingTier ? String(existingTier.amount) : ""}
                   onChange={(e) => handleAmountChange(e.target.value)}
                   placeholder={defaultTierFromEngine ? defaultTierFromEngine.amount.toFixed(2) : "0.00"}
                   className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
@@ -1650,31 +2242,30 @@ function ScheduleEditor({
             </div>
           )}
 
-          {isDropInDivision && (
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <p className="text-xs text-neutral-500">Default drop-in price per session</p>
-                <div className="flex items-center gap-2 max-w-40">
-                  <span className="text-sm text-neutral-500">$</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    disabled={isLocked}
-                    value={schedule.dropInPrice ?? ""}
-                    onChange={(e) => onChange({ dropInPrice: e.target.value ? parseFloat(e.target.value) : null })}
-                    placeholder="0.00"
-                    className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
-                  />
-                  <span className="text-xs text-neutral-400 shrink-0">/ date</span>
-                </div>
+          {uiFlags.dropIn && (
+            <div className="space-y-1.5">
+              <p className="text-xs text-neutral-500">Default price per session</p>
+              <p className="text-[11px] text-neutral-400 leading-snug">
+                Applied to every generated session below. Override individual sessions in the Generated sessions table.
+              </p>
+              <div className="flex items-center gap-2 max-w-40">
+                <span className="text-sm text-neutral-500">$</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  disabled={isLocked}
+                  value={schedule.dropInPrice ?? ""}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === "") { onChange({ dropInPrice: null }); return; }
+                    const v = parseFloat(raw);
+                    if (!isNaN(v) && v >= 0) onChange({ dropInPrice: v });
+                  }}
+                  placeholder="0.00"
+                  className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:text-neutral-400"
+                />
+                <span className="text-xs text-neutral-400 shrink-0">/ session</span>
               </div>
-
-              <PerDateOverridesEditor
-                schedule={schedule}
-                isLocked={isLocked}
-                onChange={(overrides) => onChange({ perDateOverrides: overrides })}
-              />
             </div>
           )}
         </div>
@@ -1722,68 +2313,224 @@ function ScheduleEditor({
           )}
         </div>
 
-        {/* Session options (add-ons) */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">Add-ons</p>
-            {!isLocked && !showOptionForm && (
-              <button type="button" onClick={() => setShowOptionForm(true)} className="text-xs font-medium text-primary-600 hover:text-primary-800 transition">
-                + Add option
-              </button>
-            )}
-          </div>
-          {options.length === 0 && !showOptionForm && (
-            <p className="text-xs text-neutral-400 italic">No add-ons for this schedule.</p>
-          )}
-          {options.map((opt) => (
-            <div key={opt._clientKey} className="flex items-start justify-between rounded-lg border border-neutral-200 px-3 py-2 bg-white">
-              <div>
-                <p className="text-xs font-medium text-neutral-700">
-                  {opt.name}
-                  {opt.isRequired && (
-                    <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">Required</span>
-                  )}
-                </p>
-                <p className="text-xs text-neutral-500">${opt.price.toFixed(2)}{opt.description ? ` · ${opt.description}` : ""}</p>
-              </div>
-              {!isLocked && (
-                <button type="button" onClick={() => onChange({ options: options.filter((o) => o._clientKey !== opt._clientKey) })} className="ml-3 shrink-0 text-xs text-red-500 hover:text-red-700 transition">
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
-          {showOptionForm && (
-            <div className="rounded-lg border border-primary-200 bg-primary-50/30 p-3 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-neutral-500 mb-1">Name *</label>
-                  <input type="text" value={draftOption.name} onChange={(e) => setDraftOption((d) => ({ ...d, name: e.target.value }))} placeholder="e.g. Recital Ticket" className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600" />
-                </div>
-                <div>
-                  <label className="block text-xs text-neutral-500 mb-1">Price ($)</label>
-                  <input type="number" min={0} step="0.01" value={draftOption.price} onChange={(e) => setDraftOption((d) => ({ ...d, price: e.target.value }))} className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600" />
-                </div>
-              </div>
-              <input type="text" value={draftOption.description} onChange={(e) => setDraftOption((d) => ({ ...d, description: e.target.value }))} placeholder="Description (optional)" className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600" />
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" checked={draftOption.isRequired} onChange={(e) => setDraftOption((d) => ({ ...d, isRequired: e.target.checked }))} className="rounded border-neutral-300 text-primary-600 focus:ring-primary-600" />
-                <span className="text-xs text-neutral-700">Required at checkout</span>
-              </label>
-              <div className="flex gap-2 justify-end">
-                <button type="button" onClick={() => { setShowOptionForm(false); setDraftOption({ name: "", description: "", price: "0", isRequired: false }); }} className="text-xs text-neutral-500 hover:text-neutral-700 transition px-2 py-1">Cancel</button>
-                <button type="button" onClick={handleAddOption} disabled={!draftOption.name.trim()} className="text-xs font-medium bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition disabled:opacity-50">Add option</button>
-              </div>
-            </div>
-          )}
-        </div>
-
         {/* Remove block */}
         {!isLocked && canRemove && (
           <div className="flex justify-end pt-1">
             <button type="button" onClick={onRemove} className="text-xs text-red-500 hover:text-red-700 transition">
               Remove schedule block
             </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* AddOnsTab                                                                  */
+/* -------------------------------------------------------------------------- */
+
+function AddOnsTab({
+  schedules,
+  isLocked,
+  onUpdateSchedule,
+}: {
+  schedules: DraftClassSchedule[];
+  isLocked: boolean;
+  onUpdateSchedule: (idx: number, patch: Partial<DraftClassSchedule>) => void;
+}) {
+  if (schedules.length === 0) {
+    return (
+      <div className="p-4">
+        <p className="text-xs text-neutral-400 italic">
+          Add a schedule block first — add-ons are configured per schedule.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      <p className="text-xs text-neutral-500 leading-relaxed">
+        Optional items families can purchase at checkout (e.g. recital tickets, costume fees). Configured per schedule block.
+      </p>
+      {schedules.map((schedule, si) => (
+        <AddOnsForSchedule
+          key={schedule._clientKey ?? si}
+          schedule={schedule}
+          blockNumber={si + 1}
+          showHeader={schedules.length > 1}
+          isLocked={isLocked}
+          onChange={(patch) => onUpdateSchedule(si, patch)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AddOnsForSchedule({
+  schedule,
+  blockNumber,
+  showHeader,
+  isLocked,
+  onChange,
+}: {
+  schedule: DraftClassSchedule;
+  blockNumber: number;
+  showHeader: boolean;
+  isLocked: boolean;
+  onChange: (patch: Partial<DraftClassSchedule>) => void;
+}) {
+  const options = schedule.options ?? [];
+  const [showOptionForm, setShowOptionForm] = useState(false);
+  const [draftOption, setDraftOption] = useState({
+    name: "",
+    description: "",
+    price: "0",
+    isRequired: false,
+  });
+
+  function handleAddOption() {
+    if (!draftOption.name.trim()) return;
+    const price = parseFloat(draftOption.price);
+    if (isNaN(price) || price < 0) return;
+    const newOpt: DraftSessionOption = {
+      _clientKey: Date.now().toString() + Math.random(),
+      name: draftOption.name.trim(),
+      description: draftOption.description || undefined,
+      price,
+      isRequired: draftOption.isRequired,
+      sortOrder: options.length,
+    };
+    onChange({ options: [...options, newOpt] });
+    setDraftOption({ name: "", description: "", price: "0", isRequired: false });
+    setShowOptionForm(false);
+  }
+
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-neutral-50/40 overflow-hidden">
+      {showHeader && (
+        <div className="flex items-center justify-between px-4 py-2.5 border-b border-neutral-200 bg-white">
+          <p className="text-xs font-semibold text-neutral-700">Block {blockNumber}</p>
+          {!isLocked && !showOptionForm && (
+            <button
+              type="button"
+              onClick={() => setShowOptionForm(true)}
+              className="text-xs font-medium text-primary-600 hover:text-primary-800 transition"
+            >
+              + Add option
+            </button>
+          )}
+        </div>
+      )}
+      <div className="px-4 py-3 space-y-2">
+        {!showHeader && (
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">Add-ons</p>
+            {!isLocked && !showOptionForm && (
+              <button
+                type="button"
+                onClick={() => setShowOptionForm(true)}
+                className="text-xs font-medium text-primary-600 hover:text-primary-800 transition"
+              >
+                + Add option
+              </button>
+            )}
+          </div>
+        )}
+        {options.length === 0 && !showOptionForm && (
+          <p className="text-xs text-neutral-400 italic">No add-ons for this schedule.</p>
+        )}
+        {options.map((opt) => (
+          <div
+            key={opt._clientKey}
+            className="flex items-start justify-between rounded-lg border border-neutral-200 px-3 py-2 bg-white"
+          >
+            <div>
+              <p className="text-xs font-medium text-neutral-700">
+                {opt.name}
+                {opt.isRequired && (
+                  <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-amber-50 text-amber-700">Required</span>
+                )}
+              </p>
+              <p className="text-xs text-neutral-500">
+                ${opt.price.toFixed(2)}
+                {opt.description ? ` · ${opt.description}` : ""}
+              </p>
+            </div>
+            {!isLocked && (
+              <button
+                type="button"
+                onClick={() => onChange({ options: options.filter((o) => o._clientKey !== opt._clientKey) })}
+                className="ml-3 shrink-0 text-xs text-red-500 hover:text-red-700 transition"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        ))}
+        {showOptionForm && (
+          <div className="rounded-lg border border-primary-200 bg-primary-50/30 p-3 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-neutral-500 mb-1">Name *</label>
+                <input
+                  type="text"
+                  value={draftOption.name}
+                  onChange={(e) => setDraftOption((d) => ({ ...d, name: e.target.value }))}
+                  placeholder="e.g. Recital Ticket"
+                  className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-500 mb-1">Price ($)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={draftOption.price}
+                  onChange={(e) =>
+                    setDraftOption((d) => ({ ...d, price: e.target.value.replace(/[^0-9.]/g, "") }))
+                  }
+                  className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary-600"
+                />
+              </div>
+            </div>
+            <input
+              type="text"
+              value={draftOption.description}
+              onChange={(e) => setDraftOption((d) => ({ ...d, description: e.target.value }))}
+              placeholder="Description (optional)"
+              className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600"
+            />
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={draftOption.isRequired}
+                onChange={(e) => setDraftOption((d) => ({ ...d, isRequired: e.target.checked }))}
+                className="rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
+              />
+              <span className="text-xs text-neutral-700">Required at checkout</span>
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOptionForm(false);
+                  setDraftOption({ name: "", description: "", price: "0", isRequired: false });
+                }}
+                className="text-xs text-neutral-500 hover:text-neutral-700 transition px-2 py-1"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAddOption}
+                disabled={!draftOption.name.trim()}
+                className="text-xs font-medium bg-primary-600 text-white px-3 py-1 rounded-lg hover:bg-primary-700 transition disabled:opacity-50"
+              >
+                Add option
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1919,10 +2666,13 @@ function TimeSelect({
   value,
   onChange,
   disabled,
+  compact = false,
 }: {
   value: string;
   onChange: (val: string) => void;
   disabled?: boolean;
+  /** Smaller padding + text size for tight grid cells (e.g. tier rows). */
+  compact?: boolean;
 }) {
   // Free-text time input with optional dropdown of 15-min preset times (7 AM–11 PM).
   // Typed values are normalized via parseTimeInput so off-grid times (e.g. 7:40)
@@ -2014,7 +2764,9 @@ function TimeSelect({
             }
           }}
           placeholder="7:40 PM"
-          className="w-full rounded-lg border border-neutral-300 pl-2 pr-8 py-1.5 text-sm bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:cursor-default"
+          className={`w-full rounded-lg border border-neutral-300 bg-white text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-100 disabled:cursor-default ${
+            compact ? "pl-1.5 pr-6 py-1 text-[11px]" : "pl-2 pr-8 py-1.5 text-sm"
+          }`}
         />
         <button
           type="button"
@@ -2025,7 +2777,9 @@ function TimeSelect({
           }}
           onClick={() => setOpen((o) => !o)}
           aria-label="Pick a common time"
-          className="absolute inset-y-0 right-0 flex items-center px-2 text-neutral-400 hover:text-neutral-600 disabled:opacity-40"
+          className={`absolute inset-y-0 right-0 flex items-center text-neutral-400 hover:text-neutral-600 disabled:opacity-40 ${
+            compact ? "px-1" : "px-2"
+          }`}
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
             <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

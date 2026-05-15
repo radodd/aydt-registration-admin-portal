@@ -35,6 +35,8 @@ export type ClassesStepResult = {
   sessionIds: string[];
   classInfos: ClassInfo[];
   priceOverride?: number;
+  /** Phase 3a: classTierId chosen per selected schedule (tiered classes only). */
+  classTierIdsBySchedule?: Record<string, string>;
 };
 
 type Props = {
@@ -51,6 +53,8 @@ type Props = {
 };
 
 function isDropInClass(cls: AdminClassGroup): boolean {
+  // Phase 3a: prefer the new per-schedule flag, fall back to legacy pricing_model.
+  if (cls.isDropIn) return true;
   return cls.sessions.some((s) => s.pricingModel === "per_session");
 }
 
@@ -142,6 +146,8 @@ export default function ClassesStep({
   const [selectedScheduleIds, setSelectedScheduleIds] = useState<Set<string>>(
     () => new Set<string>(initialScheduleIds),
   );
+  /** Phase 3a: chosen class_tiers.id per tiered class. Keyed by classId. */
+  const [selectedTierIdByClass, setSelectedTierIdByClass] = useState<Record<string, string>>({});
 
   const [quote, setQuote] = useState<PricingQuote | null>(null);
   const [pricingLoading, setPricingLoading] = useState(false);
@@ -299,8 +305,21 @@ export default function ClassesStep({
             return n;
           });
         }
+        // Clear tier choice (Phase 3a) when deselecting a tiered class.
+        if (cls && cls.isTiered) {
+          setSelectedTierIdByClass((prev) => {
+            const next = { ...prev };
+            delete next[classId];
+            return next;
+          });
+        }
       } else {
         next.add(classId);
+        // Auto-select default/first tier when picking a tiered class (Phase 3a).
+        if (cls && cls.isTiered && cls.tiers.length > 0) {
+          const defaultTier = cls.tiers.find((t) => t.isDefault) ?? cls.tiers[0];
+          setSelectedTierIdByClass((prev) => ({ ...prev, [classId]: defaultTier.id }));
+        }
       }
       return next;
     });
@@ -369,6 +388,17 @@ export default function ClassesStep({
       priceOverride = engineTotal + dropInTotal;
     }
 
+    // Phase 3a: build per-schedule tier map for tiered classes.
+    const classTierIdsBySchedule: Record<string, string> = {};
+    for (const sid of scheduleIds) {
+      const owner = classes.find((c) =>
+        c.sessions.some((s) => s.scheduleId === sid),
+      );
+      if (!owner || !owner.isTiered) continue;
+      const tierId = selectedTierIdByClass[owner.classId];
+      if (tierId) classTierIdsBySchedule[sid] = tierId;
+    }
+
     onNext({
       semesterId,
       semesterName,
@@ -376,6 +406,8 @@ export default function ClassesStep({
       sessionIds,
       classInfos,
       priceOverride,
+      classTierIdsBySchedule:
+        Object.keys(classTierIdsBySchedule).length > 0 ? classTierIdsBySchedule : undefined,
     });
   }
 
@@ -504,9 +536,13 @@ export default function ClassesStep({
                           isSelected={selectedClassIds.has(cls.classId)}
                           selectedSessionIds={selectedSessionIds}
                           selectedScheduleIds={selectedScheduleIds}
+                          selectedTierId={selectedTierIdByClass[cls.classId] ?? null}
                           onToggle={toggleClass}
                           onToggleSession={toggleSession}
                           onToggleSchedule={toggleScheduleSelection}
+                          onSelectTier={(classId, tierId) =>
+                            setSelectedTierIdByClass((prev) => ({ ...prev, [classId]: tierId }))
+                          }
                         />
                       ))}
                     </div>
@@ -705,17 +741,21 @@ function ClassCard({
   isSelected,
   selectedSessionIds,
   selectedScheduleIds,
+  selectedTierId,
   onToggle,
   onToggleSession,
   onToggleSchedule,
+  onSelectTier,
 }: {
   cls: AdminClassGroup;
   isSelected: boolean;
   selectedSessionIds: Set<string>;
   selectedScheduleIds: Set<string>;
+  selectedTierId: string | null;
   onToggle: (classId: string) => void;
   onToggleSession: (sessionId: string) => void;
   onToggleSchedule: (cls: AdminClassGroup, scheduleId: string) => void;
+  onSelectTier: (classId: string, tierId: string) => void;
 }) {
   const totalCapacity = cls.sessions.reduce(
     (sum, s) => (s.capacity != null ? sum + s.capacity : sum),
@@ -774,9 +814,14 @@ function ClassCard({
                 Drop-in
               </span>
             )}
-            {isMulti && (
+            {cls.isTiered && (
               <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#E8E1F5] text-[#5A3A80]">
-                Multi-tier
+                Tiered
+              </span>
+            )}
+            {isMulti && !cls.isTiered && (
+              <span className="inline-flex items-center text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#E8E1F5] text-[#5A3A80]">
+                Multi-schedule
               </span>
             )}
           </div>
@@ -915,6 +960,43 @@ function ClassCard({
                   ) : remaining != null ? (
                     <span className="text-[#9E9890]">{remaining} left</span>
                   ) : null}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Phase 3a: tier picker — shown when class is tiered */}
+      {isSelected && cls.isTiered && cls.tiers.length > 0 && (
+        <div className="border-t border-[#DDD9D2] px-4 py-3 space-y-1.5">
+          <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide mb-1">
+            Pick a tier
+          </p>
+          <div className="space-y-1">
+            {cls.tiers.map((tier) => {
+              const checked = selectedTierId === tier.id;
+              const timeLabel =
+                tier.startTime && tier.endTime
+                  ? `${tier.startTime}–${tier.endTime}`
+                  : null;
+              return (
+                <label
+                  key={tier.id}
+                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs cursor-pointer hover:bg-white"
+                >
+                  <input
+                    type="radio"
+                    name={`class-tier-${cls.classId}`}
+                    checked={checked}
+                    onChange={() => onSelectTier(cls.classId, tier.id)}
+                    className="w-3.5 h-3.5 accent-primary-600 shrink-0"
+                  />
+                  <span className="flex-1 text-[#201D18] font-medium">{tier.label}</span>
+                  {timeLabel && <span className="text-[#9E9890]">{timeLabel}</span>}
+                  {tier.price != null && (
+                    <span className="text-[#736D65] tabular-nums">{fmt$$(tier.price)}</span>
+                  )}
                 </label>
               );
             })}
