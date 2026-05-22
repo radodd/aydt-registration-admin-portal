@@ -1523,7 +1523,7 @@ export default function AdminDashboardPage() {
       const [{ count: totalRegistrationsCount }, { count: totalScheduleEnrollmentsCount }] = await Promise.all([
         supabase.from("registrations").select("*", { count: "exact", head: true }).eq("status", "confirmed"),
         supabase
-          .from("schedule_enrollments")
+          .from("section_enrollments")
           .select("*", { count: "exact", head: true })
           .eq("status", "confirmed"),
       ]);
@@ -1536,8 +1536,8 @@ export default function AdminDashboardPage() {
           .select("session_id, class_sessions(semester_id)")
           .eq("status", "confirmed"),
         supabase
-          .from("schedule_enrollments")
-          .select("schedule_id, class_schedules(semester_id)")
+          .from("section_enrollments")
+          .select("section_id, class_sections(semester_id)")
           .eq("status", "confirmed"),
       ]);
 
@@ -1547,7 +1547,7 @@ export default function AdminDashboardPage() {
         if (semId) semesterRegMap[semId] = (semesterRegMap[semId] ?? 0) + 1;
       }
       for (const e of enrollCounts ?? []) {
-        const semId = (e.class_schedules as any)?.semester_id;
+        const semId = (e.class_sections as any)?.semester_id;
         if (semId) semesterRegMap[semId] = (semesterRegMap[semId] ?? 0) + 1;
       }
 
@@ -1557,7 +1557,7 @@ export default function AdminDashboardPage() {
       }));
 
       // Recent registrations — fetch 60 so dedup by dancer+class leaves enough rows.
-      // TODO(Phase 3a follow-up): merge with schedule_enrollments so admin-created
+      // TODO(Phase 3a follow-up): merge with section_enrollments so admin-created
       // full-term enrollments also appear in the dashboard activity feed.
       const { data: recentRegsRaw } = await supabase
         .from("registrations")

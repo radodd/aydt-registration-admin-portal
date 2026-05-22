@@ -36,8 +36,8 @@ export default async function SemesterDetailPage({ params }: PageProps) {
       .from("semesters")
       .select(`
         *,
-        classes(*, class_schedules(*, schedule_price_tiers(*))),
-        session_groups(id, name, session_group_sessions(session_id, class_sessions(schedule_id))),
+        classes(*, class_sections(*, section_price_tiers(*))),
+        session_groups(id, name, session_group_sessions(session_id, class_sessions(section_id))),
         semester_payment_plans(*),
         semester_payment_installments(*),
         semester_discounts(
@@ -85,7 +85,7 @@ export default async function SemesterDetailPage({ params }: PageProps) {
   const waitlistCount = (waitlistResult as any).count ?? 0;
   const auditLogs = auditResult.data ?? [];
 
-  const allSchedules = (semester.classes ?? []).flatMap((c: any) => c.class_schedules ?? []);
+  const allSchedules = (semester.classes ?? []).flatMap((c: any) => c.class_sections ?? []);
   const startDates = allSchedules.map((s: any) => s.start_date).filter(Boolean).sort();
   const endDates   = allSchedules.map((s: any) => s.end_date).filter(Boolean).sort();
   const regCloseDates = allSchedules.map((s: any) => s.registration_close_at).filter(Boolean).sort();

@@ -20,7 +20,7 @@ export async function removeDancer(
       .eq("dancer_id", dancerId)
       .neq("status", "cancelled"),
     supabase
-      .from("schedule_enrollments")
+      .from("section_enrollments")
       .select("id", { count: "exact", head: true })
       .eq("dancer_id", dancerId)
       .neq("status", "cancelled"),

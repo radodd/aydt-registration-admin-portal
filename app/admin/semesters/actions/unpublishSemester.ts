@@ -10,7 +10,7 @@ export async function unpublishSemester(id: string) {
   const supabase = await createClient();
 
   // Block unpublish if any active enrollments exist for this semester, across
-  // both registrations (per-session) and schedule_enrollments (full-term).
+  // both registrations (per-session) and section_enrollments (full-term).
   const [{ count: regCount, error: regErr }, { count: enrollCount, error: enrollErr }] = await Promise.all([
     supabase
       .from("registrations")
@@ -18,9 +18,9 @@ export async function unpublishSemester(id: string) {
       .eq("class_sessions.semester_id", id)
       .not("status", "in", "(cancelled,waitlisted)"),
     supabase
-      .from("schedule_enrollments")
-      .select("*, class_schedules!inner(semester_id)", { count: "exact", head: true })
-      .eq("class_schedules.semester_id", id)
+      .from("section_enrollments")
+      .select("*, class_sections!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_sections.semester_id", id)
       .neq("status", "cancelled"),
   ]);
 

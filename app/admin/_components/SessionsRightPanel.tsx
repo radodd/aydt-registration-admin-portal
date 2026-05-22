@@ -9,7 +9,7 @@ type UpcomingSession = {
   day_of_week: string;
   start_time: string | null;
   classes: { name: string; discipline: string } | null;
-  schedule_id: string | null;
+  section_id: string | null;
 };
 
 function formatTime(t: string | null): string {
@@ -38,7 +38,7 @@ export function SessionsRightPanel() {
 
       const { data: todayRows } = await supabase
         .from("class_sessions")
-        .select("id, day_of_week, start_time, schedule_id, classes(name, discipline)")
+        .select("id, day_of_week, start_time, section_id, classes(name, discipline)")
         .eq("day_of_week", dayName)
         .lte("start_date", todayStr)
         .gte("end_date", todayStr)
@@ -56,7 +56,7 @@ export function SessionsRightPanel() {
 
       const { data: weekRows } = await supabase
         .from("class_sessions")
-        .select("id, day_of_week, start_time, schedule_id, classes(name, discipline)")
+        .select("id, day_of_week, start_time, section_id, classes(name, discipline)")
         .in("day_of_week", uniqueDays)
         .lte("start_date", endStr)
         .gte("end_date", todayStr)
@@ -65,7 +65,7 @@ export function SessionsRightPanel() {
 
       const seenToday = new Set<string>();
       const uniqueToday = (todayRows ?? []).filter((s: any) => {
-        const id = s.schedule_id ?? s.id;
+        const id = s.section_id ?? s.id;
         if (seenToday.has(id)) return false;
         seenToday.add(id);
         return true;
@@ -73,7 +73,7 @@ export function SessionsRightPanel() {
 
       const seenWeek = new Set<string>();
       const uniqueWeek = (weekRows ?? []).filter((s: any) => {
-        const id = s.schedule_id ?? s.id;
+        const id = s.section_id ?? s.id;
         if (seenWeek.has(id)) return false;
         seenWeek.add(id);
         return true;

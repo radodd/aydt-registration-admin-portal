@@ -14,13 +14,13 @@ export default async function EditPage({ params }: { params: { id: string } }) {
         *,
         classes (
           *,
-          class_schedules (*, schedule_price_tiers(*), class_sessions(id, schedule_date, capacity, start_time, end_time, drop_in_price)),
+          class_sections (*, section_price_tiers(*), class_sessions(id, schedule_date, capacity, start_time, end_time, drop_in_price)),
           class_tiers (*),
           class_requirements!class_requirements_class_id_fkey (*, class_requirement_approved_dancers(dancer_id)),
           division_info:divisions (is_drop_in)
         ),
         session_groups(
-          id, name, session_group_sessions(session_id, class_sessions(schedule_id))
+          id, name, session_group_sessions(session_id, class_sessions(section_id))
         ),
         semester_payment_plans(*),
         semester_payment_installments(*),

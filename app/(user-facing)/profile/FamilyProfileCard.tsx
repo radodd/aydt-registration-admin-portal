@@ -16,12 +16,12 @@ type RegRow = {
   id: string;
   status: string;
   dancer_id: string;
-  /** Set for tiered full-term enrollments (from schedule_enrollments). */
+  /** Set for tiered full-term enrollments (from section_enrollments). */
   tier_name?: string | null;
   class_sessions: {
     id: string;
     day_of_week: string;
-    /** Full-term enrollments meet on multiple days (from class_schedules). */
+    /** Full-term enrollments meet on multiple days (from class_sections). */
     days_of_week?: string[] | null;
     start_time: string | null;
     end_time: string | null;

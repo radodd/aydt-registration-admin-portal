@@ -26,9 +26,9 @@ export async function saveSemesterDraft(semesterId: string) {
       .eq("class_sessions.semester_id", semesterId)
       .not("status", "in", "(cancelled,waitlisted)"),
     supabase
-      .from("schedule_enrollments")
-      .select("*, class_schedules!inner(semester_id)", { count: "exact", head: true })
-      .eq("class_schedules.semester_id", semesterId)
+      .from("section_enrollments")
+      .select("*, class_sections!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_sections.semester_id", semesterId)
       .neq("status", "cancelled"),
   ]);
 

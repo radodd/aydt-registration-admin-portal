@@ -12,11 +12,11 @@ export default async function AdminSessionsPage() {
   if (!authUser) redirect("/auth");
 
   // Fetch all active (non-cancelled) sessions with class + semester info
-  // schedule_id is included so we can aggregate enrollment at the schedule level
+  // section_id is included so we can aggregate enrollment at the schedule level
   const { data: sessions } = await supabase
     .from("class_sessions")
     .select(
-      `id, schedule_id, day_of_week, start_time, end_time, start_date, end_date,
+      `id, section_id, day_of_week, start_time, end_time, start_date, end_date,
        capacity, registration_close_at, cancelled_at,
        classes ( name, discipline ),
        semesters ( name )`
@@ -26,16 +26,16 @@ export default async function AdminSessionsPage() {
 
   const allSessions = sessions ?? [];
 
-  // Build session_id → schedule_id map from the already-fetched sessions
+  // Build session_id → section_id map from the already-fetched sessions
   const sessionToSchedule: Record<string, string> = {};
   for (const s of allSessions) {
-    const schedId = (s as any).schedule_id;
+    const schedId = (s as any).section_id;
     if (schedId) sessionToSchedule[s.id] = schedId;
   }
 
   const uniqueScheduleIds = Array.from(new Set(Object.values(sessionToSchedule)));
 
-  // Count confirmed registrations per schedule_id.
+  // Count confirmed registrations per section_id.
   const enrolledBySchedule: Record<string, number> = {};
   const { data: counts } = await supabase
     .from("registrations")
@@ -49,10 +49,10 @@ export default async function AdminSessionsPage() {
     }
   }
 
-  // Deduplicate by schedule_id — one row per class instance
+  // Deduplicate by section_id — one row per class instance
   const seen = new Set<string>();
   const uniqueClassInstances = allSessions.filter((s) => {
-    const schedId = (s as any).schedule_id;
+    const schedId = (s as any).section_id;
     if (!schedId) return true;
     if (seen.has(schedId)) return false;
     seen.add(schedId);
@@ -62,7 +62,7 @@ export default async function AdminSessionsPage() {
   // Build countMap keyed by representative session id for each schedule
   const countMap: Record<string, number> = {};
   for (const s of uniqueClassInstances) {
-    const schedId = (s as any).schedule_id;
+    const schedId = (s as any).section_id;
     countMap[s.id] = schedId ? (enrolledBySchedule[schedId] ?? 0) : 0;
   }
 

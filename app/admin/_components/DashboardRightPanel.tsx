@@ -90,7 +90,7 @@ function DefaultPanel() {
           .gte("created_at", since)
           .eq("status", "confirmed"),
         supabase
-          .from("schedule_enrollments")
+          .from("section_enrollments")
           .select("*", { count: "exact", head: true })
           .gte("created_at", since)
           .eq("status", "confirmed"),

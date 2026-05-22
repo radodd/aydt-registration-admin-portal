@@ -70,7 +70,7 @@ function makeSupabaseMock(opts: {
     from: vi.fn((table: string) => {
       if (table === "registration_orders") return makeChain({ maybeSingleResult: { data: batch } });
       if (table === "registrations") return makeChain({ listResult: { data: registrations } });
-      if (table === "schedule_enrollments") return makeChain({ listResult: { data: enrollments } });
+      if (table === "section_enrollments") return makeChain({ listResult: { data: enrollments } });
       return makeChain();
     }),
   };

@@ -22,7 +22,7 @@ export type AdminRegInput = {
   /**
    * Drop-in (per-date) registrations. Each id is a `class_sessions.id` whose
    * parent schedule has `is_drop_in=true` (or legacy `pricing_model='per_session'`).
-   * Writes one row per id into `registrations` (not `schedule_enrollments`).
+   * Writes one row per id into `registrations` (not `section_enrollments`).
    */
   sessionIds?: string[];
   /**
@@ -206,11 +206,11 @@ export async function createAdminRegistration(
 
   if (batchErr) return { success: false, error: batchErr.message };
 
-  // Full-schedule enrollments → schedule_enrollments (one row per schedule).
+  // Full-schedule enrollments → section_enrollments (one row per schedule).
   if (input.scheduleIds.length > 0) {
     const tierMap = input.classTierIdsBySchedule ?? {};
     const enrollRows = input.scheduleIds.map((sid) => ({
-      schedule_id: sid,
+      section_id: sid,
       batch_id: batchId,
       dancer_id: dancerId,
       price_snapshot: 0, // financial record lives on registration_orders
@@ -218,7 +218,7 @@ export async function createAdminRegistration(
       class_tier_id: tierMap[sid] ?? null,
     }));
 
-    const { error: enrollErr } = await supabase.from("schedule_enrollments").insert(enrollRows);
+    const { error: enrollErr } = await supabase.from("section_enrollments").insert(enrollRows);
     if (enrollErr) return { success: false, error: enrollErr.message };
   }
 

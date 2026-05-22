@@ -468,7 +468,7 @@ export interface PricingInput {
     dancerName?: string;
     /**
      * Class-level enrollment path (preferred): pass schedule IDs.
-     * The pricing engine fetches class/division from class_schedules.
+     * The pricing engine fetches class/division from class_sections.
      */
     scheduleIds?: string[];
     /**
@@ -632,7 +632,7 @@ export type DraftSessionPriceRow = {
 
 /**
  * A named price tier for a schedule block (Mode A — full_schedule pricing).
- * Maps 1:1 to schedule_price_tiers rows in the DB.
+ * Maps 1:1 to section_price_tiers rows in the DB.
  * One tier is selected by the user at checkout; the amount covers the
  * entire schedule (all generated sessions).
  */
@@ -671,7 +671,7 @@ export type DraftSessionExcludedDate = {
 
 /**
  * Admin-level schedule configuration block for a class.
- * Maps 1:1 to class_schedules rows in the DB.
+ * Maps 1:1 to class_sections rows in the DB.
  * The system auto-generates one class_session per valid calendar date from this config.
  *
  * Pricing modes:
@@ -738,7 +738,7 @@ export type DraftClassSchedule = {
   /** Determines enrollment and pricing semantics. Defaults to 'full_schedule'. */
   pricingModel?: 'full_schedule' | 'per_session';
   /**
-   * Mode A (full_schedule): named price tiers stored in schedule_price_tiers.
+   * Mode A (full_schedule): named price tiers stored in section_price_tiers.
    * User selects one tier at checkout; amount covers all generated sessions.
    */
   priceTiers?: DraftSchedulePriceTier[];
