@@ -27,7 +27,9 @@ export function ParentInfoCard({ user }: ParentInfoCardProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [form, setForm] = useState<UpdateUserProfileInput>({
+  // Local form is always fully populated; Required<> keeps field access non-optional
+  // while remaining assignable to updateUserProfile's now-partial input.
+  const [form, setForm] = useState<Required<UpdateUserProfileInput>>({
     first_name: user.first_name ?? "",
     last_name: user.last_name ?? "",
     phone_number: user.phone_number ?? "",
