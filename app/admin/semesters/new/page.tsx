@@ -105,7 +105,7 @@ export default function NewSemesterPage() {
             .select("id, semester_id")
             .in("semester_id", semesterIds),
           supabase
-            .from("class_schedules")
+            .from("class_sections")
             .select(
               "id, semester_id, start_date, end_date, registration_open_at, registration_close_at",
             )
@@ -118,11 +118,11 @@ export default function NewSemesterPage() {
       const [{ data: schedEnrolls }, { data: sessionRegs }] = await Promise.all([
         scheduleIds.length
           ? supabase
-              .from("schedule_enrollments")
-              .select("schedule_id")
-              .in("schedule_id", scheduleIds)
+              .from("section_enrollments")
+              .select("section_id")
+              .in("section_id", scheduleIds)
               .neq("status", "cancelled")
-          : Promise.resolve({ data: [] as { schedule_id: string }[] }),
+          : Promise.resolve({ data: [] as { section_id: string }[] }),
         sessionIds.length
           ? supabase
               .from("registrations")
@@ -171,7 +171,7 @@ export default function NewSemesterPage() {
 
       const enrollMap: Record<string, number> = {};
       for (const row of schedEnrolls ?? []) {
-        const semId = scheduleSemMap[row.schedule_id];
+        const semId = scheduleSemMap[row.section_id];
         if (semId) enrollMap[semId] = (enrollMap[semId] ?? 0) + 1;
       }
       for (const row of sessionRegs ?? []) {

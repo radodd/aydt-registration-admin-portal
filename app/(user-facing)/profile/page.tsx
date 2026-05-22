@@ -55,13 +55,13 @@ export default async function Profile({
           .in("dancer_id", dancerIds)
           .in("status", ["confirmed", "pending_payment"])
       : Promise.resolve({ data: null }),
-    // Full-term / tiered enrollments live in schedule_enrollments, not
+    // Full-term / tiered enrollments live in section_enrollments, not
     // registrations. Pull them so the Registrations tab reflects every mode.
     dancerIds.length > 0
       ? supabase
-          .from("schedule_enrollments")
+          .from("section_enrollments")
           .select(
-            "id, status, dancer_id, class_tiers(label), class_schedules(id, days_of_week, start_time, end_time, location, instructor_name, classes(id, name, discipline))",
+            "id, status, dancer_id, class_tiers(label), class_sections(id, days_of_week, start_time, end_time, location, instructor_name, classes(id, name, discipline))",
           )
           .in("dancer_id", dancerIds)
           .in("status", ["confirmed", "pending"])
@@ -75,8 +75,8 @@ export default async function Profile({
       .order("created_at", { ascending: false }),
   ]);
 
-  // Normalize schedule_enrollments into the registrations shape so the
-  // Registrations tab can render both sources uniformly. schedule_enrollments
+  // Normalize section_enrollments into the registrations shape so the
+  // Registrations tab can render both sources uniformly. section_enrollments
   // uses status 'pending' (vs 'pending_payment') and a days_of_week array.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const normalizedEnrollments = ((enrollments as any[]) ?? []).map((e) => ({
@@ -84,16 +84,16 @@ export default async function Profile({
     status: e.status === "confirmed" ? "confirmed" : "pending_payment",
     dancer_id: e.dancer_id,
     tier_name: e.class_tiers?.label ?? null,
-    class_sessions: e.class_schedules
+    class_sessions: e.class_sections
       ? {
-          id: e.class_schedules.id,
-          day_of_week: e.class_schedules.days_of_week?.[0] ?? "",
-          days_of_week: e.class_schedules.days_of_week ?? null,
-          start_time: e.class_schedules.start_time ?? null,
-          end_time: e.class_schedules.end_time ?? null,
-          location: e.class_schedules.location ?? null,
-          instructor_name: e.class_schedules.instructor_name ?? null,
-          classes: e.class_schedules.classes ?? null,
+          id: e.class_sections.id,
+          day_of_week: e.class_sections.days_of_week?.[0] ?? "",
+          days_of_week: e.class_sections.days_of_week ?? null,
+          start_time: e.class_sections.start_time ?? null,
+          end_time: e.class_sections.end_time ?? null,
+          location: e.class_sections.location ?? null,
+          instructor_name: e.class_sections.instructor_name ?? null,
+          classes: e.class_sections.classes ?? null,
         }
       : null,
   }));

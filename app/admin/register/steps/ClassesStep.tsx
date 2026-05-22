@@ -58,7 +58,7 @@ function isDropInClass(cls: AdminClassGroup): boolean {
   return cls.sessions.some((s) => s.pricingModel === "per_session");
 }
 
-/** Distinct schedule IDs for a class (one per `class_schedules` row). */
+/** Distinct schedule IDs for a class (one per `class_sections` row). */
 function classScheduleIds(cls: AdminClassGroup): string[] {
   const ids = new Set<string>();
   for (const s of cls.sessions) {

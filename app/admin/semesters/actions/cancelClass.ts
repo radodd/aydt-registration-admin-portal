@@ -69,14 +69,14 @@ export async function cancelClass(
 
   // 3. Fetch active registrations → batches → parent users.
   //    Registrations point to ONE representative session per schedule (first occurrence).
-  //    We must query by schedule_id so cancelling any occurrence finds all enrolled families.
+  //    We must query by section_id so cancelling any occurrence finds all enrolled families.
   const { data: cancelledSession } = await supabase
     .from("class_sessions")
-    .select("schedule_id")
+    .select("section_id")
     .eq("id", sessionId)
     .single();
 
-  const scheduleId = (cancelledSession as any)?.schedule_id as string | null;
+  const scheduleId = (cancelledSession as any)?.section_id as string | null;
   console.log("[cancelClass] sessionId:", sessionId, "→ scheduleId:", scheduleId);
 
   // Get all session IDs in this schedule so we can find registrations regardless of
@@ -86,7 +86,7 @@ export async function cancelClass(
     const { data: siblings } = await supabase
       .from("class_sessions")
       .select("id")
-      .eq("schedule_id", scheduleId);
+      .eq("section_id", scheduleId);
     if (siblings && siblings.length > 0) {
       siblingSessions = siblings.map((s) => s.id);
     }

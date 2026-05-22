@@ -102,7 +102,7 @@ export async function syncSemesterSessionGroups(
       const { data: sessions, error: sessionsError } = await supabase
         .from("class_sessions")
         .select("id")
-        .eq("schedule_id", dbScheduleId);
+        .eq("section_id", dbScheduleId);
       if (sessionsError) throw new Error(sessionsError.message);
 
       for (const session of sessions ?? []) {

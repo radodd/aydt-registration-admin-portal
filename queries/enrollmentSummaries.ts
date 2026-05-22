@@ -2,20 +2,20 @@
  * Phase 3a — unified enrollment helper.
  *
  * Admin reporting + cancellation paths historically only touched `registrations`,
- * so admin-created `schedule_enrollments` rows were invisible to dashboards and
+ * so admin-created `section_enrollments` rows were invisible to dashboards and
  * cancel actions. This module provides a single read shape across both tables
  * and cancel helpers that touch both atomically.
  *
  * Naming convention going forward:
  *   - `registrations`        ≈ "session bookings" (per-date, drop-in + public flow)
- *   - `schedule_enrollments` ≈ "term enrollments" (per-block, admin standard/tiered)
+ *   - `section_enrollments` ≈ "term enrollments" (per-block, admin standard/tiered)
  *
  * See memory note `project_enrollment_table_divergence.md`.
  */
 
 import { createClient } from "@/utils/supabase/server";
 
-export type EnrollmentSource = "registrations" | "schedule_enrollments";
+export type EnrollmentSource = "registrations" | "section_enrollments";
 
 /** Status enums in the two tables differ; this is the union normalized for UI. */
 export type UnifiedStatus = "pending" | "pending_payment" | "confirmed" | "cancelled";
@@ -65,18 +65,18 @@ export async function fetchEnrollmentsForSemester(
   const regQuery = supabase
     .from("registrations")
     .select(
-      "id, dancer_id, session_id, status, registration_batch_id, batch_id, created_at, class_sessions!inner(class_id, schedule_id, semester_id)",
+      "id, dancer_id, session_id, status, registration_batch_id, batch_id, created_at, class_sessions!inner(class_id, section_id, semester_id)",
     )
     .eq("class_sessions.semester_id", semesterId);
   if (!includeCancelled) regQuery.neq("status", "cancelled");
 
-  // schedule_enrollments are linked to semester via class_schedules.semester_id.
+  // section_enrollments are linked to semester via class_sections.semester_id.
   const enrollQuery = supabase
-    .from("schedule_enrollments")
+    .from("section_enrollments")
     .select(
-      "id, dancer_id, schedule_id, class_tier_id, batch_id, status, created_at, class_schedules!inner(class_id, semester_id)",
+      "id, dancer_id, section_id, class_tier_id, batch_id, status, created_at, class_sections!inner(class_id, semester_id)",
     )
-    .eq("class_schedules.semester_id", semesterId);
+    .eq("class_sections.semester_id", semesterId);
   if (!includeCancelled) enrollQuery.neq("status", "cancelled");
 
   const [{ data: regRows }, { data: enrollRows }] = await Promise.all([regQuery, enrollQuery]);
@@ -89,7 +89,7 @@ export async function fetchEnrollmentsForSemester(
       enrollmentId: r.id as string,
       dancerId: r.dancer_id as string,
       classId: cs?.class_id ?? null,
-      scheduleId: cs?.schedule_id ?? null,
+      scheduleId: cs?.section_id ?? null,
       sessionId: (r as any).session_id ?? null,
       semesterId: cs?.semester_id ?? semesterId,
       status: normalizeStatus((r as any).status),
@@ -99,13 +99,13 @@ export async function fetchEnrollmentsForSemester(
     });
   }
   for (const e of enrollRows ?? []) {
-    const cs: any = (e as any).class_schedules;
+    const cs: any = (e as any).class_sections;
     out.push({
-      source: "schedule_enrollments",
+      source: "section_enrollments",
       enrollmentId: e.id as string,
       dancerId: e.dancer_id as string,
       classId: cs?.class_id ?? null,
-      scheduleId: (e as any).schedule_id as string,
+      scheduleId: (e as any).section_id as string,
       sessionId: null,
       semesterId: cs?.semester_id ?? semesterId,
       status: normalizeStatus((e as any).status),
@@ -130,19 +130,19 @@ export async function fetchEnrollmentsForDancer(
   const regQuery = supabase
     .from("registrations")
     .select(
-      "id, dancer_id, session_id, status, registration_batch_id, batch_id, created_at, class_sessions!inner(class_id, schedule_id, semester_id)",
+      "id, dancer_id, session_id, status, registration_batch_id, batch_id, created_at, class_sessions!inner(class_id, section_id, semester_id)",
     )
     .eq("dancer_id", dancerId);
   if (opts?.semesterId) regQuery.eq("class_sessions.semester_id", opts.semesterId);
   if (!includeCancelled) regQuery.neq("status", "cancelled");
 
   const enrollQuery = supabase
-    .from("schedule_enrollments")
+    .from("section_enrollments")
     .select(
-      "id, dancer_id, schedule_id, class_tier_id, batch_id, status, created_at, class_schedules!inner(class_id, semester_id)",
+      "id, dancer_id, section_id, class_tier_id, batch_id, status, created_at, class_sections!inner(class_id, semester_id)",
     )
     .eq("dancer_id", dancerId);
-  if (opts?.semesterId) enrollQuery.eq("class_schedules.semester_id", opts.semesterId);
+  if (opts?.semesterId) enrollQuery.eq("class_sections.semester_id", opts.semesterId);
   if (!includeCancelled) enrollQuery.neq("status", "cancelled");
 
   const [{ data: regRows }, { data: enrollRows }] = await Promise.all([regQuery, enrollQuery]);
@@ -155,7 +155,7 @@ export async function fetchEnrollmentsForDancer(
       enrollmentId: r.id as string,
       dancerId: r.dancer_id as string,
       classId: cs?.class_id ?? null,
-      scheduleId: cs?.schedule_id ?? null,
+      scheduleId: cs?.section_id ?? null,
       sessionId: (r as any).session_id ?? null,
       semesterId: cs?.semester_id ?? null,
       status: normalizeStatus((r as any).status),
@@ -165,13 +165,13 @@ export async function fetchEnrollmentsForDancer(
     });
   }
   for (const e of enrollRows ?? []) {
-    const cs: any = (e as any).class_schedules;
+    const cs: any = (e as any).class_sections;
     out.push({
-      source: "schedule_enrollments",
+      source: "section_enrollments",
       enrollmentId: e.id as string,
       dancerId: e.dancer_id as string,
       classId: cs?.class_id ?? null,
-      scheduleId: (e as any).schedule_id as string,
+      scheduleId: (e as any).section_id as string,
       sessionId: null,
       semesterId: cs?.semester_id ?? null,
       status: normalizeStatus((e as any).status),
@@ -215,9 +215,9 @@ export async function cancelEnrollmentsForClass(classId: string): Promise<Cancel
     registrationsCount = data?.length ?? 0;
   }
 
-  // schedule_enrollments: cancel rows whose class_schedules.class_id matches.
+  // section_enrollments: cancel rows whose class_sections.class_id matches.
   const { data: scheduleIds } = await supabase
-    .from("class_schedules")
+    .from("class_sections")
     .select("id")
     .eq("class_id", classId);
   const scheduleIdList = (scheduleIds ?? []).map((r) => r.id as string);
@@ -225,9 +225,9 @@ export async function cancelEnrollmentsForClass(classId: string): Promise<Cancel
   let scheduleEnrollmentsCount = 0;
   if (scheduleIdList.length > 0) {
     const { data, error } = await supabase
-      .from("schedule_enrollments")
+      .from("section_enrollments")
       .update({ status: "cancelled" })
-      .in("schedule_id", scheduleIdList)
+      .in("section_id", scheduleIdList)
       .neq("status", "cancelled")
       .select("id");
     if (error) throw new Error(error.message);
@@ -271,7 +271,7 @@ export async function cancelEnrollmentsForDancerInSemester(
   }
 
   const { data: scheduleIds } = await supabase
-    .from("class_schedules")
+    .from("class_sections")
     .select("id")
     .eq("semester_id", semesterId);
   const scheduleIdList = (scheduleIds ?? []).map((r) => r.id as string);
@@ -279,10 +279,10 @@ export async function cancelEnrollmentsForDancerInSemester(
   let scheduleEnrollmentsCount = 0;
   if (scheduleIdList.length > 0) {
     const { data, error } = await supabase
-      .from("schedule_enrollments")
+      .from("section_enrollments")
       .update({ status: "cancelled" })
       .eq("dancer_id", dancerId)
-      .in("schedule_id", scheduleIdList)
+      .in("section_id", scheduleIdList)
       .neq("status", "cancelled")
       .select("id");
     if (error) throw new Error(error.message);
@@ -321,12 +321,12 @@ export async function cancelEnrollmentsForSemester(semesterId: string): Promise<
   }
 
   const { data, error } = await supabase
-    .from("schedule_enrollments")
+    .from("section_enrollments")
     .update({ status: "cancelled" })
     .neq("status", "cancelled")
     .in(
-      "schedule_id",
-      (await supabase.from("class_schedules").select("id").eq("semester_id", semesterId))
+      "section_id",
+      (await supabase.from("class_sections").select("id").eq("semester_id", semesterId))
         .data?.map((r) => r.id as string) ?? [],
     )
     .select("id");

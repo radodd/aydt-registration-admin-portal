@@ -481,17 +481,17 @@ export async function getSessionRoster(sessionId: string): Promise<RosterEntry[]
   // weekly date for the same schedule shares the same roster.
   const { data: session, error: sessionErr } = await supabase
     .from("class_sessions")
-    .select("schedule_id")
+    .select("section_id")
     .eq("id", sessionId)
     .single();
 
-  if (sessionErr || !session?.schedule_id) {
+  if (sessionErr || !session?.section_id) {
     if (sessionErr) console.error("getSessionRoster:", sessionErr.message);
     return [];
   }
 
   const { data, error } = await supabase
-    .from("schedule_enrollments")
+    .from("section_enrollments")
     .select(`
       id,
       dancers (
@@ -511,7 +511,7 @@ export async function getSessionRoster(sessionId: string): Promise<RosterEntry[]
         )
       )
     `)
-    .eq("schedule_id", session.schedule_id)
+    .eq("section_id", session.section_id)
     .neq("status", "cancelled")
     .order("created_at", { ascending: true });
 
@@ -671,7 +671,7 @@ export async function getDancerProfile(
   const { data: session, error: sErr } = await supabase
     .from("class_sessions")
     .select(`
-      id, schedule_id, day_of_week, start_time, end_time, location,
+      id, section_id, day_of_week, start_time, end_time, location,
       classes ( name, discipline, division ),
       semesters:semester_id ( name )
     `)
@@ -762,7 +762,7 @@ export async function getDancerProfile(
 
   // 6. Enrolled since — earliest schedule_enrollment for this dancer
   const { data: firstEnrollment } = await supabase
-    .from("schedule_enrollments")
+    .from("section_enrollments")
     .select("created_at")
     .eq("dancer_id", dancerId)
     .order("created_at", { ascending: true })
@@ -812,7 +812,7 @@ export async function getDancerProfile(
     contacts,
     thisClass: {
       sessionId:   session.id as string,
-      scheduleId:  session.schedule_id as string,
+      scheduleId:  session.section_id as string,
       className:   (cls?.name as string) ?? "Unnamed Class",
       discipline:  (cls?.discipline as string) ?? "",
       division:    (cls?.division as string) ?? "",
@@ -867,7 +867,7 @@ export async function getAllMyClassesForDancer(
     .from("class_session_instructors")
     .select(`
       class_sessions:session_id (
-        id, schedule_id, day_of_week,
+        id, section_id, day_of_week,
         classes ( name ),
         semesters:semester_id ( name, status )
       )
@@ -887,8 +887,8 @@ export async function getAllMyClassesForDancer(
     if (!cs) continue;
     const cls = Array.isArray(cs.classes) ? cs.classes[0] : cs.classes;
     const sem = Array.isArray(cs.semesters) ? cs.semesters[0] : cs.semesters;
-    if (!cs.schedule_id) continue;
-    myScheduleToSession.set(cs.schedule_id as string, {
+    if (!cs.section_id) continue;
+    myScheduleToSession.set(cs.section_id as string, {
       sessionId:    cs.id as string,
       className:    (cls?.name as string) ?? "Unnamed",
       semesterName: (sem?.name as string) ?? "",
@@ -901,14 +901,14 @@ export async function getAllMyClassesForDancer(
 
   // 2. Dancer enrollments restricted to schedules I teach.
   const { data: enrollments } = await supabase
-    .from("schedule_enrollments")
-    .select("schedule_id")
+    .from("section_enrollments")
+    .select("section_id")
     .eq("dancer_id", dancerId)
     .neq("status",   "cancelled")
-    .in("schedule_id", [...myScheduleToSession.keys()]);
+    .in("section_id", [...myScheduleToSession.keys()]);
 
   const enrolledScheduleIds = new Set(
-    (enrollments ?? []).map((e) => e.schedule_id as string),
+    (enrollments ?? []).map((e) => e.section_id as string),
   );
 
   if (enrolledScheduleIds.size === 0) return [];
@@ -1211,7 +1211,7 @@ export async function getClassSeriesByKey(
     .select(`
       is_lead,
       class_sessions:session_id (
-        id, schedule_id, semester_id,
+        id, section_id, semester_id,
         day_of_week, start_time, end_time, location, start_date, end_date,
         classes ( name, discipline, division ),
         semesters:semester_id ( name, status ),
@@ -1246,18 +1246,18 @@ export async function getClassSeriesByKey(
 
   const scheduleIds = matching.map((r) => {
     const cs = Array.isArray(r.class_sessions) ? r.class_sessions[0] : r.class_sessions;
-    return (cs?.schedule_id as string) ?? "";
+    return (cs?.section_id as string) ?? "";
   }).filter(Boolean);
 
   const { data: enrollmentRows } = await supabase
-    .from("schedule_enrollments")
-    .select("schedule_id, status")
-    .in("schedule_id", scheduleIds)
+    .from("section_enrollments")
+    .select("section_id, status")
+    .in("section_id", scheduleIds)
     .neq("status", "cancelled");
 
   const studentsBySchedule = new Map<string, number>();
   for (const e of enrollmentRows ?? []) {
-    const sid = e.schedule_id as string;
+    const sid = e.section_id as string;
     studentsBySchedule.set(sid, (studentsBySchedule.get(sid) ?? 0) + 1);
   }
 
@@ -1340,14 +1340,14 @@ export async function getClassSeriesByKey(
 
     return {
       sessionId,
-      scheduleId:    cs.schedule_id as string,
+      scheduleId:    cs.section_id as string,
       semesterId:    cs.semester_id as string,
       semesterName:  (sem?.name as string) ?? "",
       status:        semesterStatusToSeriesStatus((sem?.status as string) ?? "published"),
       isLead:        row.is_lead as boolean,
       startDate:     (cs.start_date as string) ?? null,
       endDate:       (cs.end_date as string) ?? null,
-      studentCount:  studentsBySchedule.get(cs.schedule_id as string) ?? 0,
+      studentCount:  studentsBySchedule.get(cs.section_id as string) ?? 0,
       attendancePct,
       occurrences,
       occurrenceStats: stats,
@@ -1438,7 +1438,7 @@ export async function getInstructorThisSeasonStats(
     .from("class_session_instructors")
     .select(`
       class_sessions:session_id (
-        id, schedule_id, day_of_week, start_time,
+        id, section_id, day_of_week, start_time,
         classes ( name ),
         semesters:semester_id ( status ),
         session_occurrence_dates ( id, date, is_cancelled )
@@ -1469,7 +1469,7 @@ export async function getInstructorThisSeasonStats(
     if ((sem?.status as string) === "published") {
       currentSessions.push({
         id:          cs.id as string,
-        scheduleId:  cs.schedule_id as string,
+        scheduleId:  cs.section_id as string,
         className:   (cls?.name as string) ?? "Unnamed",
         startTime:   (cs.start_time as string) ?? null,
         occurrences: occRaw.map((o) => ({
@@ -1495,9 +1495,9 @@ export async function getInstructorThisSeasonStats(
   let studentCount = 0;
   if (scheduleIds.length > 0) {
     const { data: enrollmentRows } = await supabase
-      .from("schedule_enrollments")
+      .from("section_enrollments")
       .select("dancer_id")
-      .in("schedule_id", scheduleIds)
+      .in("section_id", scheduleIds)
       .neq("status", "cancelled");
     studentCount = new Set(
       (enrollmentRows ?? []).map((r) => r.dancer_id as string),

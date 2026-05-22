@@ -255,7 +255,7 @@ export async function sendRegistrationReceipt(params: {
 
     // Fetch schedule details (one row per enrolled class)
     const { data: scheduleRows } = await supabase
-      .from("class_schedules")
+      .from("class_sections")
       .select("id, days_of_week, start_time, end_time, classes(name)")
       .in("id", scheduleIds);
 

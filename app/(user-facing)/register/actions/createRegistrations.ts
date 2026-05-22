@@ -17,11 +17,11 @@ export interface CreateRegistrationsInput {
     /**
      * Phase 3b-ii: registration mode for this participant. Drives which table
      * receives the row.
-     *   - "standard"/"tiered": one row in schedule_enrollments (requires scheduleId).
+     *   - "standard"/"tiered": one row in section_enrollments (requires scheduleId).
      *   - "drop-in" (or undefined, legacy): one row in registrations.
      */
     mode?: "standard" | "tiered" | "drop-in";
-    /** Required when mode = "standard" | "tiered". The class_schedules.id to enroll into. */
+    /** Required when mode = "standard" | "tiered". The class_sections.id to enroll into. */
     scheduleId?: string;
     /** Required when mode = "tiered". The class_tiers.id chosen for this dancer. */
     classTierId?: string;
@@ -116,7 +116,7 @@ export async function createRegistrations(
     // Phase 3b-ii: a batch may produce rows in either/both tables. Merge both.
     const [{ data: existingRegs }, { data: existingEnrolls }] = await Promise.all([
       supabase.from("registrations").select("id").eq("registration_batch_id", input.batchId),
-      supabase.from("schedule_enrollments").select("id").eq("batch_id", input.batchId),
+      supabase.from("section_enrollments").select("id").eq("batch_id", input.batchId),
     ]);
     return {
       success: true,
@@ -153,7 +153,7 @@ export async function createRegistrations(
     };
   }
 
-  // 3.1 Phase 3b-ii: validate schedule_id ownership for standard/tiered participants
+  // 3.1 Phase 3b-ii: validate section_id ownership for standard/tiered participants
   const scheduleEnrollmentParticipants = input.participants.filter(
     (p) => p.mode === "standard" || p.mode === "tiered",
   );
@@ -166,7 +166,7 @@ export async function createRegistrations(
   ];
   if (scheduleEnrollmentParticipants.length > 0 && scheduleIds.length > 0) {
     const { data: scheduleRows, error: scheduleError } = await supabase
-      .from("class_schedules")
+      .from("class_sections")
       .select("id, classes!inner(semester_id)")
       .in("id", scheduleIds);
     if (scheduleError || !scheduleRows || scheduleRows.length !== scheduleIds.length) {
@@ -322,7 +322,7 @@ export async function createRegistrations(
     const staleIds = staleBatches.map((b) => b.id as string);
     // Phase 3b-ii: stale batches may have rows in either table.
     // `registrations` is soft-cancelled (no unique constraint conflict).
-    // `schedule_enrollments` is hard-deleted because its UNIQUE (schedule_id, dancer_id)
+    // `section_enrollments` is hard-deleted because its UNIQUE (section_id, dancer_id)
     // constraint ignores status — a soft-cancelled row would block the retry insert with
     // "duplicate key value violates unique constraint schedule_enrollments_schedule_id_dancer_id_key".
     // The parent registration_orders row stays as 'failed' for audit.
@@ -333,7 +333,7 @@ export async function createRegistrations(
         .in("registration_batch_id", staleIds)
         .eq("status", "pending_payment"),
       supabase
-        .from("schedule_enrollments")
+        .from("section_enrollments")
         .delete()
         .in("batch_id", staleIds)
         .eq("status", "pending"),
@@ -437,7 +437,7 @@ export async function createRegistrations(
   }
 
   // 8. Insert rows — split by mode (Phase 3b-ii).
-  //   - standard/tiered participants → schedule_enrollments (one row per participant)
+  //   - standard/tiered participants → section_enrollments (one row per participant)
   //   - drop-in (or legacy unset) participants → registrations (one row per participant)
   const holdExpiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
@@ -445,22 +445,22 @@ export async function createRegistrations(
     (p) => p.mode !== "standard" && p.mode !== "tiered",
   );
 
-  // 8a. schedule_enrollments — for standard/tiered participants.
+  // 8a. section_enrollments — for standard/tiered participants.
   let allRegistrationIds: string[] = [];
   if (scheduleEnrollmentParticipants.length > 0) {
     const enrollRows = scheduleEnrollmentParticipants.map((p) => ({
-      schedule_id: p.scheduleId!,
+      section_id: p.scheduleId!,
       batch_id: input.batchId,
       dancer_id: p.dancerId,
       price_snapshot: 0, // financial record lives on registration_orders
-      // schedule_enrollments.status CHECK allows ('pending', 'confirmed', 'cancelled') —
+      // section_enrollments.status CHECK allows ('pending', 'confirmed', 'cancelled') —
       // distinct from registrations.status which uses 'pending_payment'. The EPG
       // webhook flips this to 'confirmed' alongside the registrations update.
       status: "pending",
       class_tier_id: p.mode === "tiered" ? p.classTierId : null,
     }));
     const { data: enrollCreated, error: enrollErr } = await supabase
-      .from("schedule_enrollments")
+      .from("section_enrollments")
       .insert(enrollRows)
       .select("id");
     if (enrollErr) {

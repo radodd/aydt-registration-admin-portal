@@ -265,7 +265,7 @@ export async function getClassRegistrants(
 
   // --- Full-schedule model ---
   const { data: schedules } = await supabase
-    .from("class_schedules")
+    .from("class_sections")
     .select("id, days_of_week, start_time, end_time")
     .eq("class_id", classId);
 
@@ -273,11 +273,11 @@ export async function getClassRegistrants(
 
   if (scheduleIds.length > 0) {
     const { data: enrollments } = await supabase
-      .from("schedule_enrollments")
+      .from("section_enrollments")
       .select(
-        "id, status, schedule_id, created_at, dancers(id, first_name, last_name), registration_orders(id, parent_id)"
+        "id, status, section_id, created_at, dancers(id, first_name, last_name), registration_orders(id, parent_id)"
       )
-      .in("schedule_id", scheduleIds)
+      .in("section_id", scheduleIds)
       .neq("status", "cancelled");
 
     const parentIds = [
@@ -317,7 +317,7 @@ export async function getClassRegistrants(
         ? e.registration_orders[0]
         : e.registration_orders;
       const parent = rb?.parent_id ? parentMap[rb.parent_id] : null;
-      const sch = scheduleMap[e.schedule_id];
+      const sch = scheduleMap[e.section_id];
       const days = (sch?.days_of_week as string[] | null)
         ?.map((d: string) => d.charAt(0).toUpperCase() + d.slice(1, 3))
         .join("/");
@@ -354,7 +354,7 @@ export async function getClassCapacity(classId: string) {
     .eq("class_id", classId);
 
   const { data: schedules } = await supabase
-    .from("class_schedules")
+    .from("class_sections")
     .select("id, capacity")
     .eq("class_id", classId);
 

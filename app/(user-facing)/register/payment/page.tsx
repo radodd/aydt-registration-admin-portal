@@ -423,7 +423,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
     // Phase 3b-ii: enrich each participant with mode metadata derived from the
     // cart item that contributed its sessionId. Standard/tiered participants
     // need scheduleId (+ classTierId for tiered) so the server can route the
-    // row to schedule_enrollments. Drop-in participants leave mode undefined
+    // row to section_enrollments. Drop-in participants leave mode undefined
     // and fall through the legacy registrations path.
     const enrichedParticipants = fullyAssigned.map((p) => {
       const owner = cartItems.find((it) => {

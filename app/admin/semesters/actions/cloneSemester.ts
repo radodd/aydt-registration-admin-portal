@@ -31,7 +31,7 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
       *,
       classes (
         *,
-        class_schedules (*, schedule_price_tiers(*))
+        class_sections (*, section_price_tiers(*))
       ),
       session_groups(
         id, name, description,
@@ -55,7 +55,7 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
   console.log("[cloneSemester] source fetched:", {
     name: source.name,
     classes: source.classes?.length ?? 0,
-    schedules: source.classes?.reduce((n: number, c: any) => n + (c.class_schedules?.length ?? 0), 0) ?? 0,
+    schedules: source.classes?.reduce((n: number, c: any) => n + (c.class_sections?.length ?? 0), 0) ?? 0,
     session_groups: source.session_groups?.length ?? 0,
     semester_payment_plans: source.semester_payment_plans?.length ?? 0,
     semester_payment_installments: source.semester_payment_installments?.length ?? 0,
@@ -88,8 +88,8 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
   const newId = newSemester.id;
   console.log("[cloneSemester] new semester created — newId:", newId);
 
-  // Clone classes + class_schedules (admin config layer); build old schedule_id → new id map.
-  // class_sessions are generated automatically from class_schedules when the admin first saves.
+  // Clone classes + class_sections (admin config layer); build old section_id → new id map.
+  // class_sessions are generated automatically from class_sections when the admin first saves.
   const scheduleIdMap: Record<string, string> = {};
 
   if (source.classes?.length > 0) {
@@ -123,12 +123,12 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
 
       const newClassId = newClass.id;
 
-      if (cls.class_schedules?.length > 0) {
-        console.log(`[cloneSemester] class "${cls.name}": ${cls.class_schedules.length} schedule(s)`);
+      if (cls.class_sections?.length > 0) {
+        console.log(`[cloneSemester] class "${cls.name}": ${cls.class_sections.length} schedule(s)`);
 
-        for (const sched of cls.class_schedules) {
+        for (const sched of cls.class_sections) {
           const { data: newSched, error: schedErr } = await supabase
-            .from("class_schedules")
+            .from("class_sections")
             .insert({
               class_id: newClassId,
               semester_id: newId,
@@ -150,26 +150,26 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
             .single();
 
           if (schedErr || !newSched) {
-            console.error("[cloneSemester] class_schedules insert failed:", schedErr);
+            console.error("[cloneSemester] class_sections insert failed:", schedErr);
             throw new Error(schedErr?.message ?? "Schedule clone failed");
           }
 
           scheduleIdMap[sched.id] = newSched.id;
 
-          // Clone schedule_price_tiers (Mode A pricing)
-          if (sched.schedule_price_tiers?.length > 0) {
-            const tierInserts = sched.schedule_price_tiers.map((t: any) => ({
-              schedule_id: newSched.id,
+          // Clone section_price_tiers (Mode A pricing)
+          if (sched.section_price_tiers?.length > 0) {
+            const tierInserts = sched.section_price_tiers.map((t: any) => ({
+              section_id: newSched.id,
               label: t.label,
               amount: t.amount,
               sort_order: t.sort_order,
               is_default: t.is_default,
             }));
             const { error: tiersErr } = await supabase
-              .from("schedule_price_tiers")
+              .from("section_price_tiers")
               .insert(tierInserts);
             if (tiersErr) {
-              console.error("[cloneSemester] schedule_price_tiers insert failed:", tiersErr);
+              console.error("[cloneSemester] section_price_tiers insert failed:", tiersErr);
               throw new Error(tiersErr.message);
             }
           }

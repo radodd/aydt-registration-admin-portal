@@ -9,7 +9,7 @@ import type {
  * SemesterDraft shape used by the admin UI and SemesterTabs components.
  *
  * Expects the semester query to include:
- *   classes(*, class_schedules(*, schedule_price_tiers(*)), class_requirements(*, class_requirement_approved_dancers(dancer_id)))
+ *   classes(*, class_sections(*, section_price_tiers(*)), class_requirements(*, class_requirement_approved_dancers(dancer_id)))
  *   session_groups(id, name, session_group_sessions(session_id))
  *   semester_payment_plans(*)
  *   semester_payment_installments(*)
@@ -81,7 +81,7 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
         tuitionOverride: c.tuition_override_amount ? Number(c.tuition_override_amount) : null,
         visibility: c.visibility ?? "public",
         enrollmentType: c.enrollment_type ?? "standard",
-        schedules: (c.class_schedules ?? []).map((cs: any): DraftClassSchedule => ({
+        schedules: (c.class_sections ?? []).map((cs: any): DraftClassSchedule => ({
           _clientKey: cs.id,
           id: cs.id,
           daysOfWeek: cs.days_of_week ?? [],
@@ -100,7 +100,7 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
           // Phase 2: prefer new column, fall back to legacy division flag.
           isDropIn: (cs.is_drop_in as boolean | null) ?? legacyDivisionDropIn,
           dropInPrice: cs.drop_in_price ?? null,
-          priceTiers: (cs.schedule_price_tiers ?? []).map((t: any) => ({
+          priceTiers: (cs.section_price_tiers ?? []).map((t: any) => ({
             _clientKey: t.id,
             id: t.id,
             label: t.label,
@@ -158,11 +158,11 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
       groups: (semester.session_groups ?? []).map((g: any) => ({
         id: g.id,
         name: g.name,
-        // De-duplicate by schedule_id so each schedule appears once in the group UI.
+        // De-duplicate by section_id so each schedule appears once in the group UI.
         sessionIds: [
           ...new Set(
             (g.session_group_sessions ?? [])
-              .map((sgs: any) => sgs.class_sessions?.schedule_id)
+              .map((sgs: any) => sgs.class_sessions?.section_id)
               .filter(Boolean),
           ),
         ],

@@ -39,7 +39,7 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
       .single(),
     supabase
       .from("class_sessions")
-      .select("id, schedule_id, capacity, classes(name)")
+      .select("id, section_id, capacity, classes(name)")
       .eq("semester_id", id)
       .is("cancelled_at", null),
   ]);
@@ -115,13 +115,13 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
     }
   }
 
-  // Build session capacity rows, grouped by schedule_id
+  // Build session capacity rows, grouped by section_id
   const scheduleMap = new Map<
     string,
     { name: string; enrolled: number; capacity: number }
   >();
   for (const s of capSessions) {
-    const key = (s as any).schedule_id ?? s.id;
+    const key = (s as any).section_id ?? s.id;
     const className = (s.classes as any)?.name ?? "—";
     const sessionEnrolled = enrolledBySessionId[s.id] ?? 0;
     const existing = scheduleMap.get(key);

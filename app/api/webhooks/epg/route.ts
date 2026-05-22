@@ -325,7 +325,7 @@ async function confirmBatch(params: {
 
   // 9c. Confirm individual enrollment rows in BOTH tables.
   //   - registrations: drop-in / legacy per-session rows (status pending_payment → confirmed)
-  //   - schedule_enrollments: standard/tiered full-term rows (status pending → confirmed)
+  //   - section_enrollments: standard/tiered full-term rows (status pending → confirmed)
   // Phase 3b-ii: public flow can produce rows in either or both tables for a batch.
   await Promise.all([
     supabase
@@ -333,7 +333,7 @@ async function confirmBatch(params: {
       .update({ status: "confirmed" })
       .eq("registration_batch_id", batchId),
     supabase
-      .from("schedule_enrollments")
+      .from("section_enrollments")
       .update({ status: "confirmed" })
       .eq("batch_id", batchId)
       .eq("status", "pending"),
@@ -686,7 +686,7 @@ async function sendConfirmationEmail(
 
     // A batch can produce rows in EITHER table (Phase 3b-ii):
     //   - drop-in registrations  → `registrations` (joined via class_sessions → classes)
-    //   - standard/tiered         → `schedule_enrollments` (joined via class_schedules → classes)
+    //   - standard/tiered         → `section_enrollments` (joined via class_sections → classes)
     // Aggregate dancer + class names across BOTH so the email isn't blank for
     // tiered/standard-only batches.
     const [{ data: registrations }, { data: enrollments }] = await Promise.all([
@@ -697,9 +697,9 @@ async function sendConfirmationEmail(
         )
         .eq("registration_batch_id", batchId),
       supabase
-        .from("schedule_enrollments")
+        .from("section_enrollments")
         .select(
-          "id, dancer_id, dancers(first_name, last_name), class_schedules(classes(name))",
+          "id, dancer_id, dancers(first_name, last_name), class_sections(classes(name))",
         )
         .eq("batch_id", batchId)
         .neq("status", "cancelled"),
@@ -738,9 +738,9 @@ async function sendConfirmationEmail(
     for (const e of enrollments ?? []) {
       const row = e as {
         dancers: DancerRel | DancerRel[] | null;
-        class_schedules: ClassParent | ClassParent[] | null;
+        class_sections: ClassParent | ClassParent[] | null;
       };
-      addNames(row.dancers, row.class_schedules);
+      addNames(row.dancers, row.class_sections);
     }
 
     const dancerNames = [...dancerNameSet].join(", ");

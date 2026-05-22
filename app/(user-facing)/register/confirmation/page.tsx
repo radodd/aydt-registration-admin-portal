@@ -57,15 +57,15 @@ export default async function ConfirmationPage({
   // Rows exist even while the batch is still `pending` (they're inserted up
   // front), so names are available regardless of webhook timing. A batch can
   // produce rows in either/both tables — registrations (drop-in) and
-  // schedule_enrollments (full-term / tiered).
+  // section_enrollments (full-term / tiered).
   const [{ data: regRows }, { data: enrollRows }] = await Promise.all([
     supabase
       .from("registrations")
       .select("id, dancers(first_name, last_name), class_sessions(classes(name))")
       .eq("registration_batch_id", batchId),
     supabase
-      .from("schedule_enrollments")
-      .select("id, dancers(first_name, last_name), class_schedules(classes(name))")
+      .from("section_enrollments")
+      .select("id, dancers(first_name, last_name), class_sections(classes(name))")
       .eq("batch_id", batchId),
   ]);
 
@@ -83,7 +83,7 @@ export default async function ConfirmationPage({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...((enrollRows as any[]) ?? []).map((r) => ({
       dancerName: fullName(r.dancers),
-      className: r.class_schedules?.classes?.name ?? "Class",
+      className: r.class_sections?.classes?.name ?? "Class",
     })),
   ];
 

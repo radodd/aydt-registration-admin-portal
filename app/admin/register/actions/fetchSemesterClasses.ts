@@ -70,7 +70,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
   const { data: classes, error } = await supabase
     .from("classes")
     .select(
-      "id, name, division, discipline, min_age, max_age, is_tiered, class_schedules(id, pricing_model, is_drop_in), class_sessions(id, schedule_id, day_of_week, start_time, end_time, start_date, end_date, schedule_date, location, instructor_name, capacity, drop_in_price), class_tiers(id, label, start_time, end_time, price_cents, sort_order, is_default), division_info:divisions(is_drop_in)"
+      "id, name, division, discipline, min_age, max_age, is_tiered, class_sections(id, pricing_model, is_drop_in), class_sessions(id, section_id, day_of_week, start_time, end_time, start_date, end_date, schedule_date, location, instructor_name, capacity, drop_in_price), class_tiers(id, label, start_time, end_time, price_cents, sort_order, is_default), division_info:divisions(is_drop_in)"
     )
     .eq("semester_id", semesterId)
     .order("name");
@@ -82,7 +82,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
     ...new Set(
       (classes as any[]).flatMap((c) =>
         ((c.class_sessions as any[]) ?? [])
-          .map((s: any) => s.schedule_id as string)
+          .map((s: any) => s.section_id as string)
           .filter(Boolean)
       )
     ),
@@ -92,13 +92,13 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
   const enrollmentCounts: Record<string, number> = {};
   if (allScheduleIds.length > 0) {
     const { data: enrollRows } = await supabase
-      .from("schedule_enrollments")
-      .select("schedule_id")
-      .in("schedule_id", allScheduleIds)
+      .from("section_enrollments")
+      .select("section_id")
+      .in("section_id", allScheduleIds)
       .neq("status", "cancelled");
 
     for (const r of enrollRows ?? []) {
-      const sid = (r as any).schedule_id as string;
+      const sid = (r as any).section_id as string;
       enrollmentCounts[sid] = (enrollmentCounts[sid] ?? 0) + 1;
     }
   }
@@ -107,7 +107,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
     const pricingByScheduleId = new Map<string, "full_schedule" | "per_session">();
     const dropInByScheduleId = new Map<string, boolean>();
     const legacyDivisionDropIn = c.division_info?.is_drop_in === true;
-    for (const sched of (c.class_schedules as any[]) ?? []) {
+    for (const sched of (c.class_sections as any[]) ?? []) {
       pricingByScheduleId.set(
         sched.id as string,
         ((sched.pricing_model as string) === "per_session" ? "per_session" : "full_schedule"),
@@ -117,7 +117,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
     }
     const sessions: AdminSessionInfo[] = ((c.class_sessions as any[]) ?? []).map((s) => ({
       sessionId: s.id as string,
-      scheduleId: (s.schedule_id ?? "") as string,
+      scheduleId: (s.section_id ?? "") as string,
       classId: c.id as string,
       className: c.name as string,
       discipline: c.discipline as string,
@@ -131,10 +131,10 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
       location: s.location ?? null,
       instructorName: s.instructor_name ?? null,
       capacity: s.capacity ?? null,
-      enrolled: enrollmentCounts[s.schedule_id] ?? 0,
-      pricingModel: pricingByScheduleId.get(s.schedule_id as string) ?? "full_schedule",
+      enrolled: enrollmentCounts[s.section_id] ?? 0,
+      pricingModel: pricingByScheduleId.get(s.section_id as string) ?? "full_schedule",
       dropInPrice: s.drop_in_price != null ? Number(s.drop_in_price) : null,
-      isDropIn: dropInByScheduleId.get(s.schedule_id as string) ?? false,
+      isDropIn: dropInByScheduleId.get(s.section_id as string) ?? false,
     }));
 
     // Aggregate location and date range from sessions

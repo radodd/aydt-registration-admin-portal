@@ -26,7 +26,7 @@ export interface PublicSession {
   id: string;
   /** Phase 1+: classes.id this session slot belongs to */
   classId?: string | null;
-  /** class_schedules.id this session was generated from */
+  /** class_sections.id this session was generated from */
   scheduleId?: string | null;
   name: string;
   description?: string | null;
@@ -69,7 +69,7 @@ export interface PublicSession {
   dropInPrice?: number | null;
 
   /** Capacity semantics differ by pricingModel:
-   *  full_schedule → schedule-level enrollment count (schedule_enrollments)
+   *  full_schedule → schedule-level enrollment count (section_enrollments)
    *  per_session   → per-session registration count (registrations)
    */
   capacity: number;
@@ -119,7 +119,7 @@ export interface PublicSession {
     sortOrder: number;
   }>;
   /**
-   * Phase 2: this session belongs to a drop-in schedule (`class_schedules.is_drop_in`).
+   * Phase 2: this session belongs to a drop-in schedule (`class_sections.is_drop_in`).
    * When true, each session is an independent registrable unit and the family
    * selects individual dates rather than enrolling for the full term.
    */
@@ -190,9 +190,9 @@ export interface PublicSemester {
  * for one class. The `mode` discriminates which fields are meaningful:
  *
  *   - "standard": holds a representative `sessionId` (back-compat with the
- *     pre-3b-ii cart). Maps to a single `schedule_enrollments` row on submit.
+ *     pre-3b-ii cart). Maps to a single `section_enrollments` row on submit.
  *   - "tiered":   holds `classTierId` + representative `sessionId`. Maps to a
- *     single `schedule_enrollments` row with `class_tier_id` set.
+ *     single `section_enrollments` row with `class_tier_id` set.
  *   - "drop-in":  holds `selectedDateIds[]` (one or more session_ids from a
  *     drop-in schedule). Maps to N `registrations` rows on submit. Display
  *     fans out one row per selected date.

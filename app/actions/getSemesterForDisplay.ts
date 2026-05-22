@@ -69,7 +69,7 @@ export async function getSemesterForDisplay(
         class_tiers ( id, label, start_time, end_time, price_cents, sort_order, is_default ),
         class_sessions (
           id,
-          schedule_id,
+          section_id,
           start_time,
           end_time,
           schedule_date,
@@ -79,12 +79,12 @@ export async function getSemesterForDisplay(
           drop_in_price,
           registration_close_at,
           is_active,
-          class_schedules (
+          class_sections (
             pricing_model,
             is_drop_in,
             capacity,
             days_of_week,
-            schedule_price_tiers ( id, label, amount, sort_order, is_default )
+            section_price_tiers ( id, label, amount, sort_order, is_default )
           ),
           session_occurrence_dates (
             id,
@@ -181,23 +181,23 @@ export async function getSemesterForDisplay(
     ...new Set(
       semesterClasses.flatMap((c: ClassRow) =>
         (c.class_sessions ?? [])
-          .filter((cs: ClassSessionRow) => cs.is_active && cs.schedule_id)
-          .map((cs: ClassSessionRow) => cs.schedule_id as string),
+          .filter((cs: ClassSessionRow) => cs.is_active && cs.section_id)
+          .map((cs: ClassSessionRow) => cs.section_id as string),
       ),
     ),
   ];
 
   const { data: scheduleEnrollmentRows } = scheduleIds.length
     ? await supabase
-        .from("schedule_enrollments")
-        .select("schedule_id")
-        .in("schedule_id", scheduleIds)
+        .from("section_enrollments")
+        .select("section_id")
+        .in("section_id", scheduleIds)
         .neq("status", "cancelled")
     : { data: [] };
 
   const enrolledBySchedule: Record<string, number> = {};
   for (const row of scheduleEnrollmentRows ?? []) {
-    const schId = row.schedule_id as string;
+    const schId = row.section_id as string;
     enrolledBySchedule[schId] = (enrolledBySchedule[schId] ?? 0) + 1;
   }
 
@@ -220,26 +220,26 @@ export async function getSemesterForDisplay(
       (c.class_sessions ?? [])
         .filter((cs: ClassSessionRow) => cs.is_active)
         .map((cs: ClassSessionRow) => {
-          const pricingModel = (cs.class_schedules?.pricing_model ??
+          const pricingModel = (cs.class_sections?.pricing_model ??
             "full_schedule") as "full_schedule" | "per_session";
 
           // Capacity and enrollment semantics differ by pricing model:
-          //   full_schedule → capacity from class_schedules, enrolled from schedule_enrollments
+          //   full_schedule → capacity from class_sections, enrolled from section_enrollments
           //   per_session   → capacity from class_sessions, enrolled from registrations
           const capacity =
             pricingModel === "full_schedule"
-              ? (cs.class_schedules?.capacity ?? 0)
+              ? (cs.class_sections?.capacity ?? 0)
               : (cs.capacity ?? 0);
           const enrolled =
             pricingModel === "full_schedule"
-              ? (enrolledBySchedule[cs.schedule_id ?? ""] ?? 0)
+              ? (enrolledBySchedule[cs.section_id ?? ""] ?? 0)
               : (enrolledBySession[cs.id] ?? 0);
 
           const sessionWaitlistEnabled =
             (waitlistSettings.enabled ?? false) &&
             (waitlistSettings.sessionSettings?.[cs.id]?.enabled ?? false);
 
-          const priceTiers = (cs.class_schedules?.schedule_price_tiers ?? [])
+          const priceTiers = (cs.class_sections?.section_price_tiers ?? [])
             .slice()
             .sort(
               (a: PriceTierRow, b: PriceTierRow) => a.sort_order - b.sort_order,
@@ -251,7 +251,7 @@ export async function getSemesterForDisplay(
               isDefault: t.is_default,
             }));
 
-          // Phase 2 tiers (per-class) — distinct from schedule_price_tiers above.
+          // Phase 2 tiers (per-class) — distinct from section_price_tiers above.
           const classTiers = ((c.class_tiers ?? []) as ClassTierRow[])
             .slice()
             .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
@@ -279,7 +279,7 @@ export async function getSemesterForDisplay(
             minGrade: c.min_grade,
             maxGrade: c.max_grade,
             scheduleDate: cs.schedule_date,
-            daysOfWeek: cs.class_schedules?.days_of_week ?? null,
+            daysOfWeek: cs.class_sections?.days_of_week ?? null,
             instructorName: cs.instructor_name,
             startTime: cs.start_time,
             endTime: cs.end_time,
@@ -288,13 +288,13 @@ export async function getSemesterForDisplay(
             discipline: c.discipline,
             division: c.division,
             classId: c.id,
-            scheduleId: cs.schedule_id ?? null,
+            scheduleId: cs.section_id ?? null,
             pricingModel,
             priceTiers,
             dropInPrice: cs.drop_in_price ?? null,
             isTiered: c.is_tiered ?? false,
             classTiers,
-            isDropIn: cs.class_schedules?.is_drop_in === true,
+            isDropIn: cs.class_sections?.is_drop_in === true,
             isCompetitionTrack: c.is_competition_track ?? false,
             prerequisites: ((c.class_requirements ?? []) as ClassRequirementRow[]).map((r) => ({
               id: r.id,
@@ -458,7 +458,7 @@ interface ClassScheduleRow {
   is_drop_in?: boolean | null;
   capacity: number | null;
   days_of_week: string[] | null;
-  schedule_price_tiers: PriceTierRow[];
+  section_price_tiers: PriceTierRow[];
 }
 
 /** Phase 2: per-class tier (class_tiers). */
@@ -474,7 +474,7 @@ interface ClassTierRow {
 
 interface ClassSessionRow {
   id: string;
-  schedule_id: string | null;
+  section_id: string | null;
   schedule_date: string;
   instructor_name: string | null;
   start_time: string | null;
@@ -484,7 +484,7 @@ interface ClassSessionRow {
   drop_in_price: number | null;
   registration_close_at: string | null;
   is_active: boolean;
-  class_schedules: ClassScheduleRow | null;
+  class_sections: ClassScheduleRow | null;
 }
 
 interface ClassRequirementRow {

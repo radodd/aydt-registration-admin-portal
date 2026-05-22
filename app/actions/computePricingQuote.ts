@@ -169,7 +169,7 @@ export async function computePricingQuote(
     /* ---------------------------------------------------------------------- */
     if (hasSchedules) {
       const { data: scheduleRows, error: scheduleError } = await supabase
-        .from("class_schedules")
+        .from("class_sections")
         .select(
           "id, days_of_week, classes(id, name, division, discipline, is_competition_track, tuition_override_amount)",
         )
