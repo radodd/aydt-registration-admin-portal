@@ -1,0 +1,3 @@
+# EPG cert run artifacts — never commit captured transaction/PII data.
+*
+!.gitignore
