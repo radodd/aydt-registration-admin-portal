@@ -14,14 +14,19 @@ type Tier = NonNullable<PublicSession["classTiers"]>[number];
  */
 export function TierPicker({
   tiers,
+  initialTierId,
   onChange,
 }: {
   tiers: Tier[];
+  initialTierId?: string | null;
   onChange?: (selectedTierId: string | null, price: number | null) => void;
 }) {
   const sorted = [...tiers].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   const initial =
-    sorted.find((t) => t.isDefault)?.id ?? sorted[0]?.id ?? null;
+    (initialTierId && sorted.find((t) => t.id === initialTierId)?.id) ??
+    sorted.find((t) => t.isDefault)?.id ??
+    sorted[0]?.id ??
+    null;
   const [selectedId, setSelectedId] = useState<string | null>(initial);
 
   useEffect(() => {

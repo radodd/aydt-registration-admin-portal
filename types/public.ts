@@ -185,36 +185,53 @@ export interface PublicSemester {
 /* Cart                                                                        */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * One cart line. Phase 3b-ii: a single CartItem represents one enrollment intent
+ * for one class. The `mode` discriminates which fields are meaningful:
+ *
+ *   - "standard": holds a representative `sessionId` (back-compat with the
+ *     pre-3b-ii cart). Maps to a single `schedule_enrollments` row on submit.
+ *   - "tiered":   holds `classTierId` + representative `sessionId`. Maps to a
+ *     single `schedule_enrollments` row with `class_tier_id` set.
+ *   - "drop-in":  holds `selectedDateIds[]` (one or more session_ids from a
+ *     drop-in schedule). Maps to N `registrations` rows on submit. Display
+ *     fans out one row per selected date.
+ */
+export type CartItemMode = "standard" | "tiered" | "drop-in";
+
 export interface CartItem {
   /** Client-generated uuid for this cart line */
   id: string;
   semesterId: string;
+  classId: string;
+  /**
+   * Representative session id. For standard/tiered this is the session used by
+   * back-compat readers (counts, "in cart" checks). For drop-in this is the
+   * first selected date and is regenerated whenever selectedDateIds changes.
+   */
   sessionId: string;
-  sessionName: string;
-
+  /** Snapshotted class name for display without re-fetching semester. */
+  className: string;
+  mode: CartItemMode;
+  /** Tiered: the chosen `class_tiers.id`. Snapshotted tier label for display. */
+  classTierId?: string;
+  tierLabel?: string;
+  /**
+   * Drop-in: `class_sessions.id` for each selected date. One row per id is
+   * written to `registrations` at submit. For standard/tiered this is omitted.
+   */
+  selectedDateIds?: string[];
+  /** Dollar amount snapshot (per-tier price for tiered, drop-in unit price × N for drop-in). */
   priceSnapshot?: number;
-  /** IDs of PublicAvailableDay the user selected */
-  // selectedDayIds: string[];
-  /** Full day objects snapshotted at add-time (for display without re-fetching semester) */
-  // selectedDays: PublicAvailableDay[];
-  // pricePerDay: number;
-  /** pricePerDay * selectedDayIds.length */
-  // subtotal: number;
-  addedAt: string; // ISO timestamp
-  /** Session age constraints — snapshotted for use in participant validation */
-  // minAge: number | null;
-  // maxAge: number | null;
+  addedAt: string;
 }
 
 export interface CartState {
+  version: 2;
   semesterId: string;
-  sessionIds: string[];
-  // items: CartItem[];
-  /** ISO timestamp — 2h from first addItem */
+  items: CartItem[];
+  /** ISO timestamp — 20m from last mutation */
   expiresAt: string;
-  // subtotal: number;
-  // discountAmount: number;
-  // total: number;
 }
 
 /* -------------------------------------------------------------------------- */

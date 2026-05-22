@@ -22,9 +22,11 @@ type SessionRow = {
  */
 export function DropInPicker({
   sessions,
+  initialSelectedIds,
   onChange,
 }: {
   sessions: PublicSession[];
+  initialSelectedIds?: string[];
   onChange?: (selectedSessionIds: string[], totalPrice: number) => void;
 }) {
   // Normalize + sort the bookable sessions by date.
@@ -64,7 +66,9 @@ export function DropInPicker({
     return out.sort((a, b) => a.key.localeCompare(b.key));
   }, [rows]);
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(initialSelectedIds ?? []),
+  );
   // Expand the first month by default; the rest start collapsed for tidiness.
   const [openMonths, setOpenMonths] = useState<Set<string>>(
     () => new Set(months[0] ? [months[0].key] : []),

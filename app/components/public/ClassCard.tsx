@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useCart } from "@/app/providers/CartProvider";
 import type { PublicSession } from "@/types/public";
 import { GroupedClass } from "./SessionGrid";
@@ -489,15 +489,44 @@ export function ClassCard({ group, spotsThreshold = 0 }: { group: GroupedClass; 
 
 function TieredBookingBlock({ group }: { group: GroupedClass }) {
   const tiers = group.classTiers ?? [];
+  const { items, add, removeItem, updateItem, semesterId } = useCart();
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
   const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
 
   const selectedTier = tiers.find((t) => t.id === selectedTierId) ?? null;
 
+  const cartItem = items.find((it) => it.classId === group.classId && it.mode === "tiered");
+  const inCart = !!cartItem;
+
+  const repSession = group.sessions.find((s) => !s.isDropIn) ?? group.sessions[0];
+
+  function handleClick() {
+    if (!selectedTier || !repSession) return;
+    if (inCart) {
+      updateItem(cartItem!.id, {
+        classTierId: selectedTier.id,
+        tierLabel: selectedTier.label,
+        priceSnapshot: selectedTier.price ?? undefined,
+      });
+    } else {
+      add({
+        semesterId,
+        classId: group.classId,
+        sessionId: repSession.id,
+        className: group.name,
+        mode: "tiered",
+        classTierId: selectedTier.id,
+        tierLabel: selectedTier.label,
+        priceSnapshot: selectedTier.price ?? undefined,
+      });
+    }
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "8px 4px 4px" }}>
       <TierPicker
         tiers={tiers}
+        initialTierId={cartItem?.classTierId ?? null}
         onChange={(id, price) => {
           setSelectedTierId(id);
           setSelectedPrice(price);
@@ -507,31 +536,74 @@ function TieredBookingBlock({ group }: { group: GroupedClass }) {
         priceLabel={selectedPrice != null ? formatDollars(selectedPrice) : "—"}
         priceSub="per term"
         buttonLabel={
-          selectedTier
-            ? `Register · ${selectedTier.label}`
-            : "Pick a tier"
+          inCart && selectedTier && selectedTier.id === cartItem!.classTierId
+            ? `In Cart · ${cartItem!.tierLabel ?? ""}`
+            : inCart && selectedTier
+              ? `Update to · ${selectedTier.label}`
+              : selectedTier
+                ? `Register · ${selectedTier.label}`
+                : "Pick a tier"
         }
         disabled={!selectedTier}
-        onClick={() => {
-          alert(
-            `[UI preview] Would register for "${group.name}" — tier "${selectedTier?.label ?? "?"}".\n\nNot yet wired to cart.`,
-          );
-        }}
+        onClick={handleClick}
+        secondaryLabel={inCart ? "Remove from cart" : undefined}
+        onSecondaryClick={inCart ? () => removeItem(cartItem!.id) : undefined}
       />
     </div>
   );
 }
 
 function DropInBookingBlock({ group }: { group: GroupedClass }) {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [total, setTotal] = useState<number>(0);
-  // Only sessions on a drop-in schedule are bookable in this block.
-  const dropInSessions = group.sessions.filter((s) => s.isDropIn);
+  const { items, add, removeItem, updateItem, semesterId } = useCart();
+  // Stable identity across renders so DropInPicker's internal memo over `sessions`
+  // doesn't churn — otherwise its effect that calls onChange re-fires every
+  // render and creates an update loop with our setSelectedIds below.
+  const dropInSessions = useMemo(
+    () => group.sessions.filter((s) => s.isDropIn),
+    [group.sessions],
+  );
+
+  const cartItem = items.find((it) => it.classId === group.classId && it.mode === "drop-in");
+  const inCart = !!cartItem;
+
+  const [selectedIds, setSelectedIds] = useState<string[]>(cartItem?.selectedDateIds ?? []);
+  const [total, setTotal] = useState<number>(cartItem?.priceSnapshot ?? 0);
+
+  function handleClick() {
+    if (selectedIds.length === 0) return;
+    const repSessionId = selectedIds[0]!;
+
+    if (inCart) {
+      updateItem(cartItem!.id, {
+        sessionId: repSessionId,
+        selectedDateIds: selectedIds,
+        priceSnapshot: total,
+      });
+    } else {
+      add({
+        semesterId,
+        classId: group.classId,
+        sessionId: repSessionId,
+        className: group.name,
+        mode: "drop-in",
+        selectedDateIds: selectedIds,
+        priceSnapshot: total,
+      });
+    }
+  }
+
+  // "Same as cart" check: arrays equal ignoring order
+  const cartIds = cartItem?.selectedDateIds ?? [];
+  const sameAsCart =
+    inCart &&
+    selectedIds.length === cartIds.length &&
+    selectedIds.every((id) => cartIds.includes(id));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "8px 4px 4px" }}>
       <DropInPicker
         sessions={dropInSessions}
+        initialSelectedIds={cartItem?.selectedDateIds ?? []}
         onChange={(ids, sum) => {
           setSelectedIds(ids);
           setTotal(sum);
@@ -543,14 +615,16 @@ function DropInBookingBlock({ group }: { group: GroupedClass }) {
         buttonLabel={
           selectedIds.length === 0
             ? "Pick at least one date"
-            : `Register · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
+            : inCart && sameAsCart
+              ? `In Cart · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
+              : inCart
+                ? `Update · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
+                : `Register · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
         }
         disabled={selectedIds.length === 0}
-        onClick={() => {
-          alert(
-            `[UI preview] Would register for "${group.name}" — ${selectedIds.length} drop-in session(s).\n\nNot yet wired to cart.`,
-          );
-        }}
+        onClick={handleClick}
+        secondaryLabel={inCart ? "Remove from cart" : undefined}
+        onSecondaryClick={inCart ? () => removeItem(cartItem!.id) : undefined}
       />
     </div>
   );
@@ -562,12 +636,16 @@ function BookingFooter({
   buttonLabel,
   disabled,
   onClick,
+  secondaryLabel,
+  onSecondaryClick,
 }: {
   priceLabel: string;
   priceSub: string;
   buttonLabel: string;
   disabled: boolean;
   onClick: () => void;
+  secondaryLabel?: string;
+  onSecondaryClick?: () => void;
 }) {
   return (
     <div
@@ -591,18 +669,37 @@ function BookingFooter({
           </div>
         )}
       </div>
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        className="sem-atc"
-        style={{
-          opacity: disabled ? 0.4 : 1,
-          cursor: disabled ? "not-allowed" : "pointer",
-        }}
-      >
-        {buttonLabel}
-      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {secondaryLabel && onSecondaryClick && (
+          <button
+            type="button"
+            onClick={onSecondaryClick}
+            style={{
+              fontSize: 11,
+              color: "var(--pub-text-muted, #736d65)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              padding: "4px 6px",
+              textDecoration: "underline",
+            }}
+          >
+            {secondaryLabel}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          className="sem-atc"
+          style={{
+            opacity: disabled ? 0.4 : 1,
+            cursor: disabled ? "not-allowed" : "pointer",
+          }}
+        >
+          {buttonLabel}
+        </button>
+      </div>
     </div>
   );
 }
