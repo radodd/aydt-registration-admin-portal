@@ -186,7 +186,12 @@ export async function createAdminRegistration(
     family_discount_amount: quote?.familyDiscountAmount ?? 0,
     auto_pay_admin_fee_total: quote?.autoPayAdminFeeTotal ?? 0,
     grand_total: effectiveTotal,
-    payment_plan_type: input.paymentPlanType ?? "pay_in_full",
+    // Canonical batch-column value: write "installments" (not the admin UI
+    // vocab "monthly") so reporting/grouping matches public installment batches.
+    // Safe — admin batches are synchronous and never hit createEPGPaymentSession
+    // / the webhook, which are the only readers that gate on this string.
+    payment_plan_type:
+      input.paymentPlanType === "monthly" ? "installments" : "pay_in_full",
     amount_due_now: effectiveTotal,
     admin_adjustments: input.adjustments?.length ? input.adjustments : null,
     form_data: input.formData ?? {},
