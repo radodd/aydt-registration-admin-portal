@@ -189,7 +189,7 @@ function BatchCard({ batch }: { batch: FamilyDetailBatch }) {
 /* -------------------------------------------------------------------------- */
 
 export function BillingHistorySection({ family }: { family: FamilyDetail }) {
-  const batches = family.registration_batches;
+  const batches = family.registration_orders;
 
   const totalBilled = batches.reduce((s, b) => s + Number(b.grand_total ?? 0), 0);
   const totalPaid = batches.reduce((s, b) => s + b.amountPaid, 0);

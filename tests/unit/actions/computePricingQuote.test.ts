@@ -72,7 +72,7 @@ function buildMinimalRoutes(opts: {
     class_sessions: sessionChain,
     semester_discounts: discountChain,
     class_session_price_rows: priceRowsChain,
-    registration_batches: batchCountChain,
+    registration_orders: batchCountChain,
     semester_coupons: couponChain,
     coupon_redemptions: redemptionChain,
   };

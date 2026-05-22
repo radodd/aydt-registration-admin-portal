@@ -97,7 +97,7 @@ export async function computePricingQuote(
   let isDiscountEligible = true;
   if (familyId) {
     const { count: priorDiscountCount } = await supabase
-      .from("registration_batches")
+      .from("registration_orders")
       .select("id", { count: "exact", head: true })
       .eq("family_id", familyId)
       .eq("semester_id", input.semesterId)

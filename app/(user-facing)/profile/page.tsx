@@ -67,9 +67,9 @@ export default async function Profile({
           .in("status", ["confirmed", "pending"])
       : Promise.resolve({ data: null }),
     supabase
-      .from("registration_batches")
+      .from("registration_orders")
       .select(
-        "id, grand_total, payment_plan_type, status, created_at, semesters:semester_id(name), batch_payment_installments(id, installment_number, amount_due, due_date, status, paid_at), registrations(id, dancer_id, dancers(first_name, last_name), class_sessions(classes(name)))",
+        "id, grand_total, payment_plan_type, status, created_at, semesters:semester_id(name), order_payment_installments(id, installment_number, amount_due, due_date, status, paid_at), registrations(id, dancer_id, dancers(first_name, last_name), class_sessions(classes(name)))",
       )
       .eq("family_id", user.family_id)
       .order("created_at", { ascending: false }),

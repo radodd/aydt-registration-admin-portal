@@ -139,7 +139,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Update batch status
   await serviceClient
-    .from("registration_batches")
+    .from("registration_orders")
     .update({ status: "refunded" })
     .eq("id", payment.registration_batch_id);
 

@@ -3,7 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 
 /**
- * Marks a single batch_payment_installments row as paid.
+ * Marks a single order_payment_installments row as paid.
  * Admin-only — called from the payments dashboard.
  */
 export async function markInstallmentPaid(
@@ -28,7 +28,7 @@ export async function markInstallmentPaid(
   }
 
   const { error } = await supabase
-    .from("batch_payment_installments")
+    .from("order_payment_installments")
     .update({
       status: "paid",
       paid_at: new Date().toISOString(),

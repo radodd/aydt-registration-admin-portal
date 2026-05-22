@@ -68,7 +68,7 @@ function makeSupabaseMock(opts: {
   return {
     auth: { getUser: vi.fn().mockResolvedValue({ data: { user } }) },
     from: vi.fn((table: string) => {
-      if (table === "registration_batches") return makeChain({ maybeSingleResult: { data: batch } });
+      if (table === "registration_orders") return makeChain({ maybeSingleResult: { data: batch } });
       if (table === "registrations") return makeChain({ listResult: { data: registrations } });
       if (table === "schedule_enrollments") return makeChain({ listResult: { data: enrollments } });
       return makeChain();

@@ -320,9 +320,9 @@ export interface DbSnapshot {
 export async function snapshotDb(batchId: string, userId?: string): Promise<DbSnapshot> {
   const supabase = db();
   const [batch, payments, installments, refunds, shopper] = await Promise.all([
-    supabase.from("registration_batches").select("*").eq("id", batchId).maybeSingle(),
+    supabase.from("registration_orders").select("*").eq("id", batchId).maybeSingle(),
     supabase.from("payments").select("*").eq("custom_reference", batchId),
-    supabase.from("batch_payment_installments").select("*").eq("registration_batch_id", batchId),
+    supabase.from("order_payment_installments").select("*").eq("registration_batch_id", batchId),
     supabase.from("payment_refunds").select("*").eq("registration_batch_id", batchId),
     userId ? supabase.from("shoppers").select("*").eq("user_id", userId).maybeSingle() : Promise.resolve({ data: null }),
   ]);

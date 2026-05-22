@@ -31,7 +31,7 @@ type RecentReg = {
     classes: { name: string } | null;
     semesters: { name: string } | null;
   } | null;
-  registration_batches: {
+  registration_orders: {
     grand_total: number | null;
     family_id: string | null;
     users: { first_name: string; last_name: string } | null;
@@ -43,7 +43,7 @@ type OverdueRow = {
   amount_due: number;
   due_date: string;
   status: string;
-  registration_batches: {
+  registration_orders: {
     users: { first_name: string; last_name: string } | null;
     families: { family_name: string } | null;
   } | null;
@@ -642,7 +642,7 @@ function OverviewTab({
             {recentRegs.map((r) => {
               const dancer = r.dancers;
               const cls = r.class_sessions;
-              const batch = r.registration_batches;
+              const batch = r.registration_orders;
               const name = dancer ? `${dancer.first_name} ${dancer.last_name}` : "Unknown";
               const color = avatarColor(name);
               const familyId = batch?.family_id;
@@ -1443,7 +1443,7 @@ function FinanceTab({ data }: { data: DashboardData }) {
         ) : (
           <ul>
             {overduePayments.map((row, i) => {
-              const batch = row.registration_batches;
+              const batch = row.registration_orders;
               const user = batch?.users;
               const family = batch?.families;
               const familyName = family
@@ -1565,7 +1565,7 @@ export default function AdminDashboardPage() {
           `id, created_at, dancer_id,
            dancers(first_name, last_name),
            class_sessions(classes(name), semesters(name)),
-           registration_batches:registration_batch_id(grand_total, family_id, users:parent_id(first_name, last_name))`
+           registration_orders:registration_batch_id(grand_total, family_id, users:parent_id(first_name, last_name))`
         )
         .eq("status", "confirmed")
         .order("created_at", { ascending: false })
@@ -1582,10 +1582,10 @@ export default function AdminDashboardPage() {
 
       // Overdue installments
       const { data: overduePayments } = await supabase
-        .from("batch_payment_installments")
+        .from("order_payment_installments")
         .select(
           `id, amount_due, due_date, status,
-           registration_batches:batch_id(
+           registration_orders:batch_id(
              users:parent_id(first_name, last_name),
              families:family_id(family_name)
            )`

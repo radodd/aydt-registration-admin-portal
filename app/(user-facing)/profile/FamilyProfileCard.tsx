@@ -47,7 +47,7 @@ type BatchRow = {
   status: string;
   created_at: string;
   semesters: { name: string } | null;
-  batch_payment_installments: InstallmentRow[];
+  order_payment_installments: InstallmentRow[];
   registrations?: {
     id: string;
     dancer_id: string;
@@ -255,7 +255,7 @@ export const FamilyProfileCard = ({
   const activeRegCount = (registrations ?? []).filter(r => r.status === "confirmed").length;
 
   const validBatches = (batches ?? []).filter(b => b.status !== "failed" && b.status !== "refunded");
-  const allInstallments = validBatches.flatMap(b => b.batch_payment_installments ?? []);
+  const allInstallments = validBatches.flatMap(b => b.order_payment_installments ?? []);
   const pendingInstallments = allInstallments.filter(i => i.status === "pending" || i.status === "due");
   const paidInstallments = [...allInstallments]
     .filter(i => i.status === "paid")
@@ -267,7 +267,7 @@ export const FamilyProfileCard = ({
     : null;
   const hasPendingPayment = pendingInstallments.length > 0;
   const hasActivePlan = validBatches.some(b =>
-    (b.batch_payment_installments ?? []).some(i => i.status === "pending" || i.status === "due")
+    (b.order_payment_installments ?? []).some(i => i.status === "pending" || i.status === "due")
   );
   const daysUntilDue = nextDueInstallment
     ? Math.ceil((new Date(nextDueInstallment.due_date + "T00:00:00").getTime() - Date.now()) / 86400000)
@@ -758,7 +758,7 @@ export const FamilyProfileCard = ({
             </div>
           ) : (
             validBatches.map(batch => {
-              const installments = batch.batch_payment_installments ?? [];
+              const installments = batch.order_payment_installments ?? [];
               const isPaidFull = installments.length > 0 && installments.every(i => i.status === "paid");
               const batchLabel = isPaidFull ? "Paid in Full" : (batch.payment_plan_type === "installments" ? "Installment Plan" : "Paid in Full");
               const batchBadgeType: BadgeType = isPaidFull ? "sage" : "plum";

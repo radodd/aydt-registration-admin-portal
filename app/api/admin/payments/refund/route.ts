@@ -83,7 +83,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Business rule: 180-day refund window
   const { data: batch } = await serviceClient
-    .from("registration_batches")
+    .from("registration_orders")
     .select("confirmed_at")
     .eq("id", payment.registration_batch_id)
     .maybeSingle();
@@ -195,7 +195,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .eq("id", payment.id);
 
     await serviceClient
-      .from("registration_batches")
+      .from("registration_orders")
       .update({ status: "refunded" })
       .eq("id", payment.registration_batch_id);
   }

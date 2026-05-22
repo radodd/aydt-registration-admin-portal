@@ -40,7 +40,7 @@ export async function createEPGPaymentSession(
 
   // 2. Verify batch exists and is still awaiting payment
   const { data: batch, error: batchErr } = await supabase
-    .from("registration_batches")
+    .from("registration_orders")
     .select("id, status, payment_plan_type, amount_due_now, grand_total")
     .eq("id", batchId)
     .single();

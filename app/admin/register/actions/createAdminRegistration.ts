@@ -175,7 +175,7 @@ export async function createAdminRegistration(
   const batchId = crypto.randomUUID();
   const today = new Date().toISOString().split("T")[0];
 
-  const { error: batchErr } = await supabase.from("registration_batches").insert({
+  const { error: batchErr } = await supabase.from("registration_orders").insert({
     id: batchId,
     family_id: familyId,
     parent_id: parentUserId,
@@ -213,7 +213,7 @@ export async function createAdminRegistration(
       schedule_id: sid,
       batch_id: batchId,
       dancer_id: dancerId,
-      price_snapshot: 0, // financial record lives on registration_batches
+      price_snapshot: 0, // financial record lives on registration_orders
       status: "confirmed",
       class_tier_id: tierMap[sid] ?? null,
     }));
@@ -237,7 +237,7 @@ export async function createAdminRegistration(
     const { error: dropInErr } = await supabase.from("registrations").insert(dropInRows);
     if (dropInErr) return { success: false, error: dropInErr.message };
 
-    // Write per-session line items so registration_batches.grand_total has a
+    // Write per-session line items so registration_orders.grand_total has a
     // line-level audit trail. Best-effort: log on failure but don't block the
     // registration since the aggregate totals are already on the batch.
     const { data: sessionRows } = await supabase
@@ -263,7 +263,7 @@ export async function createAdminRegistration(
         };
       });
       const { error: liErr } = await supabase
-        .from("registration_line_items")
+        .from("order_line_items")
         .insert(lineItems);
       if (liErr) {
         console.warn("[createAdminRegistration] Drop-in line item insert failed:", liErr.message);
@@ -305,7 +305,7 @@ export async function createAdminRegistration(
       : input.paymentMethod || null;
 
   await supabase
-    .from("batch_payment_installments")
+    .from("order_payment_installments")
     .insert({
       batch_id: batchId,
       installment_number: 1,

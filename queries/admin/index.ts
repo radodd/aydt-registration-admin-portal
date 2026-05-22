@@ -275,7 +275,7 @@ export async function getClassRegistrants(
     const { data: enrollments } = await supabase
       .from("schedule_enrollments")
       .select(
-        "id, status, schedule_id, created_at, dancers(id, first_name, last_name), registration_batches(id, parent_id)"
+        "id, status, schedule_id, created_at, dancers(id, first_name, last_name), registration_orders(id, parent_id)"
       )
       .in("schedule_id", scheduleIds)
       .neq("status", "cancelled");
@@ -284,9 +284,9 @@ export async function getClassRegistrants(
       ...new Set(
         (enrollments ?? [])
           .map((e) => {
-            const rb = Array.isArray(e.registration_batches)
-              ? e.registration_batches[0]
-              : e.registration_batches;
+            const rb = Array.isArray(e.registration_orders)
+              ? e.registration_orders[0]
+              : e.registration_orders;
             return rb?.parent_id as string | null;
           })
           .filter(Boolean)
@@ -313,9 +313,9 @@ export async function getClassRegistrants(
 
     for (const e of enrollments ?? []) {
       const dancer = Array.isArray(e.dancers) ? e.dancers[0] : e.dancers;
-      const rb = Array.isArray(e.registration_batches)
-        ? e.registration_batches[0]
-        : e.registration_batches;
+      const rb = Array.isArray(e.registration_orders)
+        ? e.registration_orders[0]
+        : e.registration_orders;
       const parent = rb?.parent_id ? parentMap[rb.parent_id] : null;
       const sch = scheduleMap[e.schedule_id];
       const days = (sch?.days_of_week as string[] | null)
