@@ -52,6 +52,14 @@ export default function RegisterLayout({
   const pathname = usePathname();
   const semesterId = params.get("semester") ?? "";
 
+  // The confirmation page is a terminal screen, not a step in the flow. It
+  // stands on its own — no step indicator, cart timer, or cart providers
+  // (the cart has already been cleared by ConfirmationCleanup). Render it bare
+  // inside the surrounding user-facing shell.
+  if (pathname.includes("/register/confirmation")) {
+    return <>{children}</>;
+  }
+
   // Map current URL segment to the active step index (0-based).
   // Steps 0–1 (Sessions, Review Cart) are always "done" on entry to /register/*.
   const activeStep = pathname.includes("/register/payment")
@@ -109,7 +117,15 @@ export default function RegisterLayout({
 
         {/* ── Page content ── */}
         <RegistrationProvider semesterId={semesterId}>
-          <div className="max-w-[860px] mx-auto px-6 py-10">{children}</div>
+          <div
+            className={`${
+              pathname.includes("/register/participants")
+                ? "max-w-[1180px]"
+                : "max-w-[860px]"
+            } mx-auto px-6 py-10`}
+          >
+            {children}
+          </div>
         </RegistrationProvider>
       </div>
     </CartProvider>
