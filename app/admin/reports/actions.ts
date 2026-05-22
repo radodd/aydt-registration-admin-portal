@@ -92,7 +92,7 @@ export async function getReportData(
   // Step 3: fetch registrations with related data.
   // TODO(Phase 3a follow-up): merge with schedule_enrollments so reports include
   // admin-created full-term enrollments. The join shape is non-trivial — separate task.
-  // Use explicit FK hint for registration_batches since registrations has two FKs to that table
+  // Use explicit FK hint for registration_orders since registrations has two FKs to that table
   const { data: regs, error: regsError } = await supabase
     .from("registrations")
     .select(
@@ -106,9 +106,9 @@ export async function getReportData(
           users!family_id(id, first_name, last_name, email, phone_number, is_primary_parent)
         )
       ),
-      registration_batches!registration_batch_id(
+      registration_orders!registration_batch_id(
         id, grand_total, payment_plan_type, tuition_total, family_discount_amount,
-        batch_payment_installments(status, paid_amount)
+        order_payment_installments(status, paid_amount)
       )
     `,
     )
@@ -127,8 +127,8 @@ export async function getReportData(
     const primaryParent =
       users.find((u: any) => u.is_primary_parent) ?? users[0] ?? null;
 
-    const batch = (reg as any).registration_batches;
-    const installments: any[] = batch?.batch_payment_installments ?? [];
+    const batch = (reg as any).registration_orders;
+    const installments: any[] = batch?.order_payment_installments ?? [];
     const paidAmount = installments
       .filter((i: any) => i.status === "paid")
       .reduce((sum: number, i: any) => sum + (i.paid_amount ?? 0), 0);

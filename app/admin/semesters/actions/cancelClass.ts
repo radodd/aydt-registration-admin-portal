@@ -96,7 +96,7 @@ export async function cancelClass(
   const { data: registrations, error: regError } = await supabase
     .from("registrations")
     .select(
-      "id, session_id, status, registration_batch_id, registration_batches!registrations_registration_batch_id_fkey(family_id, parent_id, users!registration_batches_parent_id_fkey(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified))"
+      "id, session_id, status, registration_batch_id, registration_orders!registrations_registration_batch_id_fkey(family_id, parent_id, users!registration_batches_parent_id_fkey(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified))"
     )
     .in("session_id", siblingSessions)
     .not("status", "in", '("declined","cancelled")')
@@ -111,7 +111,7 @@ export async function cancelClass(
       session_id: sample.session_id,
       status: sample.status,
       batch_id: sample.registration_batch_id,
-      batch: sample.registration_batches,
+      batch: sample.registration_orders,
     });
   }
 
@@ -120,9 +120,9 @@ export async function cancelClass(
   const enrolledFamilyMap = new Map<string, EnrolledFamily>();
 
   for (const reg of registrations ?? []) {
-    const batch = Array.isArray(reg.registration_batches)
-      ? reg.registration_batches[0]
-      : reg.registration_batches;
+    const batch = Array.isArray(reg.registration_orders)
+      ? reg.registration_orders[0]
+      : reg.registration_orders;
     if (!batch) continue;
 
     const parent = Array.isArray((batch as any).users)

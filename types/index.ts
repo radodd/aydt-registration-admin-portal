@@ -1964,7 +1964,7 @@ export interface FamilyDetail {
   created_at: string;
   users: FamilyDetailParent[];
   dancers: FamilyDetailDancer[];
-  registration_batches: FamilyDetailBatch[];
+  registration_orders: FamilyDetailBatch[];
   credits: FamilyAccountCreditWithAdmin[];
   creditBalance: number;
 }

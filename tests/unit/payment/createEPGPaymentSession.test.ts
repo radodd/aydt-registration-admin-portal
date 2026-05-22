@@ -117,7 +117,7 @@ function makeSupabaseMock(opts: {
 
   const fromMock = vi.fn().mockImplementation((table: string) => {
     switch (table) {
-      case "registration_batches": return batchChain;
+      case "registration_orders": return batchChain;
       case "payments":             return paymentChain;
       default:                     return makeChain();
     }
@@ -130,7 +130,7 @@ function makeSupabaseMock(opts: {
       // First call: read existing payment. Subsequent calls: upsert.
       return paymentsCallIndex++ === 0 ? paymentChain : upsertChain;
     }
-    if (table === "registration_batches") return batchChain;
+    if (table === "registration_orders") return batchChain;
     return makeChain();
   });
 

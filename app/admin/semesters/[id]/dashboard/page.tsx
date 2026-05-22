@@ -73,8 +73,8 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
         : Promise.resolve({ data: [] as any[] }),
 
       supabase
-        .from("registration_batches")
-        .select("id, status, batch_payment_installments(amount_due, status)")
+        .from("registration_orders")
+        .select("id, status, order_payment_installments(amount_due, status)")
         .eq("semester_id", id),
 
       sessionIds.length > 0
@@ -95,7 +95,7 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
     (b) => b.status !== "failed" && b.status !== "refunded"
   );
   const allInstallments = batches.flatMap(
-    (b) => (b.batch_payment_installments as any[]) ?? []
+    (b) => (b.order_payment_installments as any[]) ?? []
   );
   const collected = allInstallments
     .filter((i) => i.status === "paid")

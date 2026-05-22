@@ -209,9 +209,9 @@ function setupHappyPathMock(opts: { batchResult?: unknown } = {}) {
   mockFrom.mockImplementation((table: string) => {
     switch (table) {
       case "payments":              return paymentsChain;
-      case "registration_batches":  return batchChain;
+      case "registration_orders":  return batchChain;
       case "registrations":         return registrationsChain;
-      case "batch_payment_installments": return installmentsChain;
+      case "order_payment_installments": return installmentsChain;
       case "semesters":             return semesterChain;
       case "users":                 return usersChain;
       default:                      return makeChain();
@@ -372,7 +372,7 @@ describe("POST /api/webhooks/epg", () => {
       });
       mockFrom.mockImplementation((table: string) => {
         if (table === "payments") return paymentsChain;
-        if (table === "registration_batches") return batchChain;
+        if (table === "registration_orders") return batchChain;
         return makeChain();
       });
       mockFetchEpgTransaction.mockResolvedValue({ ...MOCK_TRANSACTION, state: "captured" });
@@ -401,7 +401,7 @@ describe("POST /api/webhooks/epg", () => {
       });
       mockFrom.mockImplementation((table: string) => {
         if (table === "payments") return paymentsChain;
-        if (table === "registration_batches") return batchChain;
+        if (table === "registration_orders") return batchChain;
         return makeChain();
       });
       mockFetchEpgTransaction.mockResolvedValue({ ...MOCK_TRANSACTION, state: "settled" });
@@ -450,7 +450,7 @@ describe("POST /api/webhooks/epg", () => {
 
       mockFrom.mockImplementation((table: string) => {
         if (table === "payments") return paymentsChain;
-        if (table === "registration_batches") return batchChain;
+        if (table === "registration_orders") return batchChain;
         return makeChain();
       });
 
@@ -467,8 +467,8 @@ describe("POST /api/webhooks/epg", () => {
       const res = await POST(req as any);
 
       expect(res.status).toBe(200);
-      // registration_batches should never be touched for a declined payment
-      expect(mockFrom).not.toHaveBeenCalledWith("registration_batches");
+      // registration_orders should never be touched for a declined payment
+      expect(mockFrom).not.toHaveBeenCalledWith("registration_orders");
       expect(mockEmailSend).not.toHaveBeenCalled();
     });
   });
@@ -500,10 +500,10 @@ describe("POST /api/webhooks/epg", () => {
       const req = makeRequest({ authHeader: VALID_AUTH, body: makeNotification() });
       await POST(req as any);
 
-      // Find the registration_batches chain and inspect the eq() calls
+      // Find the registration_orders chain and inspect the eq() calls
       const batchChainCalls = mockFrom.mock.calls
         .map((args, i) => ({ table: args[0], chain: mockFrom.mock.results[i].value }))
-        .filter(({ table }) => table === "registration_batches");
+        .filter(({ table }) => table === "registration_orders");
 
       // Two calls: one SELECT (step 9a status check) + one UPDATE (inside confirmBatch)
       expect(batchChainCalls).toHaveLength(2);
@@ -528,9 +528,9 @@ describe("POST /api/webhooks/epg", () => {
       mockFrom.mockImplementation((table: string) => {
         switch (table) {
           case "payments":              return paymentsChain;
-          case "registration_batches":  return batchChain;
+          case "registration_orders":  return batchChain;
           case "registrations":         return registrationsChain;
-          case "batch_payment_installments": return installmentsChain;
+          case "order_payment_installments": return installmentsChain;
           case "semesters":             return semesterChain;
           case "users":                 return usersChain;
           default:                      return makeChain();
@@ -558,9 +558,9 @@ describe("POST /api/webhooks/epg", () => {
       mockFrom.mockImplementation((table: string) => {
         switch (table) {
           case "payments":              return paymentsChain;
-          case "registration_batches":  return batchChain;
+          case "registration_orders":  return batchChain;
           case "registrations":         return registrationsChain;
-          case "batch_payment_installments": return installmentsChain;
+          case "order_payment_installments": return installmentsChain;
           case "semesters":             return semesterChain;
           case "users":                 return usersChain;
           default:                      return makeChain();

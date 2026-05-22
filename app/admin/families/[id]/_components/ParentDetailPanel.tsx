@@ -95,7 +95,7 @@ function SavedPaymentMethodList({ methods }: { methods: StoredPaymentMethod[] })
 function OrderHistoryTable({ family }: { family: FamilyDetail }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  if (family.registration_batches.length === 0) {
+  if (family.registration_orders.length === 0) {
     return (
       <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-6 text-sm text-neutral-400 text-center">
         No orders found.
@@ -113,7 +113,7 @@ function OrderHistoryTable({ family }: { family: FamilyDetail }) {
         <span className="text-right">Balance</span>
       </div>
 
-      {family.registration_batches.map((batch) => {
+      {family.registration_orders.map((batch) => {
         const isOpen = expanded === batch.id;
         const total = Number(batch.grand_total ?? 0);
         const paid = batch.amountPaid;

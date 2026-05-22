@@ -78,7 +78,7 @@ export async function getFamilyDetail(
 
   // ── Call 2: Registration batches + installments ──────────────────────────
   const { data: batchData, error: batchError } = await supabase
-    .from("registration_batches")
+    .from("registration_orders")
     .select(
       `
       id,
@@ -91,7 +91,7 @@ export async function getFamilyDetail(
       semester:semesters!semester_id ( name ),
       parent:users!parent_id ( first_name, last_name ),
 
-      installments:batch_payment_installments (
+      installments:order_payment_installments (
         id,
         installment_number,
         amount_due,
@@ -200,7 +200,7 @@ export async function getFamilyDetail(
     created_at: familyData.created_at,
     users,
     dancers: familyData.dancers as FamilyDetail["dancers"],
-    registration_batches: batches,
+    registration_orders: batches,
     credits,
     creditBalance,
   };

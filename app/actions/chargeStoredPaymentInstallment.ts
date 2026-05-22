@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { createEpgTransaction } from "@/utils/payment/epg";
 
 /**
- * Charges a single batch_payment_installments row using the stored payment
+ * Charges a single order_payment_installments row using the stored payment
  * method on the parent registration batch.
  *
  * Admin-only — used for manual retries from the payments dashboard.
@@ -47,10 +47,10 @@ export async function chargeStoredPaymentInstallment(
 
     // 2. Fetch installment with batch → stored method → shopper
     const { data: installment, error: fetchErr } = await supabase
-      .from("batch_payment_installments")
+      .from("order_payment_installments")
       .select(
         `id, installment_number, amount_due, status, charge_attempt_count,
-         registration_batches!inner(
+         registration_orders!inner(
            id, parent_id,
            stored_payment_method_id,
            stored_payment_methods(
@@ -71,9 +71,9 @@ export async function chargeStoredPaymentInstallment(
       return { success: false, error: "Installment already paid or waived." };
     }
 
-    const batch = Array.isArray(installment.registration_batches)
-      ? installment.registration_batches[0]
-      : installment.registration_batches;
+    const batch = Array.isArray(installment.registration_orders)
+      ? installment.registration_orders[0]
+      : installment.registration_orders;
 
     const storedMethod = Array.isArray((batch as any)?.stored_payment_methods)
       ? (batch as any).stored_payment_methods[0]
@@ -106,7 +106,7 @@ export async function chargeStoredPaymentInstallment(
     // 5. Success
     if (txn.isAuthorized) {
       await supabase
-        .from("batch_payment_installments")
+        .from("order_payment_installments")
         .update({
           status: "paid",
           paid_at: new Date().toISOString(),
@@ -123,7 +123,7 @@ export async function chargeStoredPaymentInstallment(
     // 6. Decline — increment attempt count, cap at failed after 3
     const newCount = (installment.charge_attempt_count ?? 0) + 1;
     await supabase
-      .from("batch_payment_installments")
+      .from("order_payment_installments")
       .update({
         charge_attempt_count: newCount,
         last_charge_error: txn.state,

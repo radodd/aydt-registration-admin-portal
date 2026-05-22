@@ -38,7 +38,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // existed but RLS denied the anonymous SELECT. UUID is the access token here.
   const supabase = createAdminClient();
   const { data: batch, error } = await supabase
-    .from("registration_batches")
+    .from("registration_orders")
     .select("id, status, parent_id")
     .eq("id", batchId)
     .maybeSingle();

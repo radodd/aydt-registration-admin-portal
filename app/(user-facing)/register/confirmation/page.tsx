@@ -44,7 +44,7 @@ export default async function ConfirmationPage({
   // when the webhook has already fired before the user was redirected.
   const supabase = await createClient();
   const { data: batchRow } = await supabase
-    .from("registration_batches")
+    .from("registration_orders")
     .select("status, grand_total, payment_plan_type, semesters:semester_id(name)")
     .eq("id", batchId)
     .maybeSingle();

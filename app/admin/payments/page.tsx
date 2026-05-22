@@ -67,7 +67,7 @@ type BatchRow = {
   confirmed_at: string | null;
   users: { id: string; first_name: string; last_name: string; email: string; phone_number: string | null } | null;
   semesters: { name: string } | null;
-  batch_payment_installments: InstallmentRow[];
+  order_payment_installments: InstallmentRow[];
   payments: PaymentRow[];
   registrations: BatchRegistration[];
 };
@@ -235,14 +235,14 @@ export default function PaymentsAdmin() {
   async function loadBatches() {
     const supabase = createClient();
     const { data } = await supabase
-      .from("registration_batches")
+      .from("registration_orders")
       .select(
         `id, family_id, grand_total, tuition_total, registration_fee_total,
          family_discount_amount, auto_pay_admin_fee_total, payment_plan_type,
          amount_due_now, status, created_at, confirmed_at,
          users:parent_id(id, first_name, last_name, email, phone_number),
          semesters:semester_id(name),
-         batch_payment_installments(id, installment_number, amount_due, due_date, status, paid_at),
+         order_payment_installments(id, installment_number, amount_due, due_date, status, paid_at),
          payments(id, transaction_id, state, event_type, amount, currency, updated_at, raw_transaction),
          registrations!registration_batch_id(
            class_sessions:session_id(
@@ -545,14 +545,14 @@ export default function PaymentsAdmin() {
       if (!hasClass) return false;
     }
     if (currentTab === "all") return true;
-    if (currentTab === "overdue") return (b.batch_payment_installments ?? []).some((i) => i.status === "overdue");
+    if (currentTab === "overdue") return (b.order_payment_installments ?? []).some((i) => i.status === "overdue");
     if (currentTab === "pending") return b.status === "pending_payment";
     return b.status === currentTab;
   });
 
   function tabCount(tab: string): number {
     if (tab === "all") return batches.length;
-    if (tab === "overdue") return batches.filter((b) => (b.batch_payment_installments ?? []).some((i) => i.status === "overdue")).length;
+    if (tab === "overdue") return batches.filter((b) => (b.order_payment_installments ?? []).some((i) => i.status === "overdue")).length;
     if (tab === "pending") return batches.filter((b) => b.status === "pending_payment").length;
     return batches.filter((b) => b.status === tab).length;
   }
@@ -1179,7 +1179,7 @@ export default function PaymentsAdmin() {
               const parent = batch.users as any;
               const parentName = parent ? `${parent.first_name} ${parent.last_name}` : "Unknown";
               const semester = batch.semesters as any;
-              const installments = [...(batch.batch_payment_installments ?? [])].sort(
+              const installments = [...(batch.order_payment_installments ?? [])].sort(
                 (a, b) => a.installment_number - b.installment_number,
               );
               const hasOverdue = installments.some((i) => i.status === "overdue");

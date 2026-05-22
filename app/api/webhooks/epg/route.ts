@@ -245,7 +245,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (confirmingStates.includes(newState)) {
     // 9a. Fetch batch (needed for payment_plan_type routing)
     const { data: batchCheck } = await supabase
-      .from("registration_batches")
+      .from("registration_orders")
       .select("id, status, payment_plan_type, stored_payment_method_id")
       .eq("id", batchId)
       .maybeSingle();
@@ -294,7 +294,7 @@ async function confirmBatch(params: {
 
   // 9a. Confirm batch (idempotency: only if still pending)
   const { data: batch } = await supabase
-    .from("registration_batches")
+    .from("registration_orders")
     .update({
       status: "confirmed",
       confirmed_at: new Date().toISOString(),
@@ -312,7 +312,7 @@ async function confirmBatch(params: {
 
   // 9b. Mark installment 1 as paid
   await supabase
-    .from("batch_payment_installments")
+    .from("order_payment_installments")
     .update({
       status: "paid",
       paid_at: new Date().toISOString(),
@@ -375,7 +375,7 @@ async function storePaymentMethodAndCaptureInstallment(params: {
   try {
     // Idempotency guard: if stored_payment_method_id already set, replay safe to skip
     const { data: existingBatch } = await supabase
-      .from("registration_batches")
+      .from("registration_orders")
       .select("stored_payment_method_id, parent_id")
       .eq("id", batchId)
       .single();
@@ -535,7 +535,7 @@ async function storePaymentMethodAndCaptureInstallment(params: {
       );
       // Still link the stored method so admin can retry manually
       await supabase
-        .from("registration_batches")
+        .from("registration_orders")
         .update({ stored_payment_method_id: storedMethodId })
         .eq("id", batchId);
       return;
@@ -543,7 +543,7 @@ async function storePaymentMethodAndCaptureInstallment(params: {
 
     // 5. Link stored method to batch
     await supabase
-      .from("registration_batches")
+      .from("registration_orders")
       .update({ stored_payment_method_id: storedMethodId })
       .eq("id", batchId);
 

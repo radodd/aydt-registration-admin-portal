@@ -72,7 +72,7 @@ function DefaultPanel() {
       }
 
       const { count: overdueCount } = await supabase
-        .from("batch_payment_installments")
+        .from("order_payment_installments")
         .select("*", { count: "exact", head: true })
         .eq("status", "overdue");
       if (overdueCount && overdueCount > 0) {

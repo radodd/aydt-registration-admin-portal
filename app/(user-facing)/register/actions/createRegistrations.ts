@@ -67,9 +67,9 @@ const PRICE_TOLERANCE = 0.01; // cents rounding tolerance
 
 /**
  * Creates one registration record per (dancerId, sessionId) pair.
- * Inserts a registration_batches record with server-computed pricing totals.
+ * Inserts a registration_orders record with server-computed pricing totals.
  *
- * Idempotency: if a registration_batches row with the given batchId already
+ * Idempotency: if a registration_orders row with the given batchId already
  * exists, the existing IDs are returned without re-inserting.
  */
 export async function createRegistrations(
@@ -91,7 +91,7 @@ export async function createRegistrations(
 
   // 2. Idempotency check — return existing IDs if this batch was already submitted
   const { data: existingBatch } = await supabase
-    .from("registration_batches")
+    .from("registration_orders")
     .select("id, status")
     .eq("id", input.batchId)
     .maybeSingle();
@@ -311,7 +311,7 @@ export async function createRegistrations(
   // This prevents the time-conflict trigger from firing when the user retries
   // with a different cart (new batchId) while old registrations hold seats.
   const { data: staleBatches } = await supabase
-    .from("registration_batches")
+    .from("registration_orders")
     .select("id")
     .eq("parent_id", user.id)
     .eq("semester_id", input.semesterId)
@@ -325,7 +325,7 @@ export async function createRegistrations(
     // `schedule_enrollments` is hard-deleted because its UNIQUE (schedule_id, dancer_id)
     // constraint ignores status — a soft-cancelled row would block the retry insert with
     // "duplicate key value violates unique constraint schedule_enrollments_schedule_id_dancer_id_key".
-    // The parent registration_batches row stays as 'failed' for audit.
+    // The parent registration_orders row stays as 'failed' for audit.
     const [regsResult, enrollResult] = await Promise.all([
       supabase
         .from("registrations")
@@ -342,12 +342,12 @@ export async function createRegistrations(
       `[createRegistrations] ⚠️ TEMP - stale batch cleanup parent=${user.id} semester=${input.semesterId} staleBatchCount=${staleIds.length} regsErr=${regsResult.error?.message ?? "ok"} enrollErr=${enrollResult.error?.message ?? "ok"}`,
     ); // TODO: DELETE
     await supabase
-      .from("registration_batches")
+      .from("registration_orders")
       .update({ status: "failed" })
       .in("id", staleIds);
   }
 
-  // 7. Insert registration_batches record
+  // 7. Insert registration_orders record
   const grandTotal = serverQuote?.grandTotal ?? 0;
   const baseAmountDueNow = serverQuote?.amountDueNow ?? grandTotal;
 
@@ -370,7 +370,7 @@ export async function createRegistrations(
   const amountDueNow = Math.max(0, baseAmountDueNow - verifiedCreditTotal);
 
   const { error: batchInsertError } = await supabase
-    .from("registration_batches")
+    .from("registration_orders")
     .insert({
       id: input.batchId,
       family_id: familyId,
@@ -452,7 +452,7 @@ export async function createRegistrations(
       schedule_id: p.scheduleId!,
       batch_id: input.batchId,
       dancer_id: p.dancerId,
-      price_snapshot: 0, // financial record lives on registration_batches
+      price_snapshot: 0, // financial record lives on registration_orders
       // schedule_enrollments.status CHECK allows ('pending', 'confirmed', 'cancelled') —
       // distinct from registrations.status which uses 'pending_payment'. The EPG
       // webhook flips this to 'confirmed' alongside the registrations update.
@@ -555,7 +555,7 @@ export async function createRegistrations(
 
     // Non-fatal: if installment insert fails, registration is still confirmed
     await supabase
-      .from("batch_payment_installments")
+      .from("order_payment_installments")
       .insert(installmentRows)
       .then(({ error }) => {
         if (error) {

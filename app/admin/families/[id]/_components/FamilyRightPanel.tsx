@@ -85,11 +85,11 @@ export function FamilyRightPanel({ family }: { family: FamilyDetail }) {
   const [expanded, setExpanded] = useState(false);
 
   // Derived financials
-  const billed = family.registration_batches.reduce(
+  const billed = family.registration_orders.reduce(
     (s, b) => s + Number(b.grand_total ?? 0),
     0
   );
-  const paid = family.registration_batches.reduce((s, b) => s + b.amountPaid, 0);
+  const paid = family.registration_orders.reduce((s, b) => s + b.amountPaid, 0);
   const balance = billed - paid;
 
   // Upcoming sessions: all active registrations across all dancers

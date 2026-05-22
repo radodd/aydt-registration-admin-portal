@@ -156,10 +156,10 @@ Deno.serve(async (_req) => {
     /* ------------------------------------------------------------------ */
 
     const { data: overdueRows, error: fetchError } = await supabase
-      .from("batch_payment_installments")
+      .from("order_payment_installments")
       .select(
         `id, installment_number, amount_due, due_date,
-         registration_batches(
+         registration_orders(
            id, semester_id,
            semesters:semester_id(name),
            users:parent_id(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified)
@@ -183,7 +183,7 @@ Deno.serve(async (_req) => {
     const overdueIds = overdueRows.map((r) => r.id);
 
     const { error: updateError } = await supabase
-      .from("batch_payment_installments")
+      .from("order_payment_installments")
       .update({ status: "overdue" })
       .in("id", overdueIds);
 
@@ -196,10 +196,10 @@ Deno.serve(async (_req) => {
     // Query all overdue installments (including ones from prior runs) that
     // have a stored payment method and haven't exhausted their 3 attempts.
     const { data: chargeable } = await supabase
-      .from("batch_payment_installments")
+      .from("order_payment_installments")
       .select(
         `id, installment_number, amount_due, charge_attempt_count,
-         registration_batches!inner(
+         registration_orders!inner(
            id, parent_id,
            stored_payment_method_id,
            stored_payment_methods!registration_batches_stored_payment_method_id_fkey(
@@ -210,15 +210,15 @@ Deno.serve(async (_req) => {
       )
       .eq("status", "overdue")
       .lt("charge_attempt_count", 3)
-      .not("registration_batches.stored_payment_method_id", "is", null);
+      .not("registration_orders.stored_payment_method_id", "is", null);
 
     const chargedInstallments: { parentEmail: string; amount: number; num: number }[] = [];
     const failedInstallments: { parentName: string; parentEmail: string; num: number; amount: number; error: string }[] = [];
 
     for (const row of chargeable ?? []) {
-      const batch = Array.isArray(row.registration_batches)
-        ? row.registration_batches[0]
-        : row.registration_batches;
+      const batch = Array.isArray(row.registration_orders)
+        ? row.registration_orders[0]
+        : row.registration_orders;
       if (!batch) continue;
 
       const storedMethod = Array.isArray((batch as any).stored_payment_methods)
@@ -242,7 +242,7 @@ Deno.serve(async (_req) => {
 
       if (result.success) {
         await supabase
-          .from("batch_payment_installments")
+          .from("order_payment_installments")
           .update({
             status: "paid",
             paid_at: new Date().toISOString(),
@@ -289,7 +289,7 @@ Deno.serve(async (_req) => {
         const isFailed = newCount >= 3;
 
         await supabase
-          .from("batch_payment_installments")
+          .from("order_payment_installments")
           .update({
             charge_attempt_count: newCount,
             last_charge_error: result.errorDetail ?? "unknown",
@@ -340,9 +340,9 @@ Deno.serve(async (_req) => {
     const grouped = new Map<string, BatchGroup>();
 
     for (const row of overdueRows) {
-      const batch = Array.isArray(row.registration_batches)
-        ? row.registration_batches[0]
-        : row.registration_batches;
+      const batch = Array.isArray(row.registration_orders)
+        ? row.registration_orders[0]
+        : row.registration_orders;
       if (!batch) continue;
 
       const user = Array.isArray((batch as any).users)

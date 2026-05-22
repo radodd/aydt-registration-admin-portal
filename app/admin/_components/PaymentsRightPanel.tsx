@@ -10,7 +10,7 @@ type PanelInstallment = {
   amount_due: number;
   due_date: string;
   status: string;
-  registration_batches: {
+  registration_orders: {
     users: { first_name: string; last_name: string } | null;
   } | null;
 };
@@ -37,7 +37,7 @@ export function PaymentsRightPanel() {
       const supabase = createClient();
 
       const { data: unpaidRows } = await supabase
-        .from("batch_payment_installments")
+        .from("order_payment_installments")
         .select("amount_due")
         .in("status", ["scheduled", "overdue"]);
 
@@ -45,10 +45,10 @@ export function PaymentsRightPanel() {
       setOutstanding(total);
 
       const { data: overdueRows } = await supabase
-        .from("batch_payment_installments")
+        .from("order_payment_installments")
         .select(
           `id, amount_due, due_date, status,
-           registration_batches:batch_id(
+           registration_orders:batch_id(
              users:parent_id(first_name, last_name)
            )`
         )
@@ -177,7 +177,7 @@ export function PaymentsRightPanel() {
           ) : (
             <div className="flex flex-col gap-2.5">
               {overdueItems.map((item) => {
-                const user = item.registration_batches?.users;
+                const user = item.registration_orders?.users;
                 const name = user ? `${user.first_name} ${user.last_name}` : "Unknown";
                 return (
                   <div key={item.id} className="border-b pb-2.5" style={{ borderColor: "var(--admin-border-sub)" }}>
