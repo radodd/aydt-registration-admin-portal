@@ -256,8 +256,13 @@ export async function fetchEpgTransaction(
  * POST /shoppers
  * Creates an EPG Shopper resource representing a customer.
  * customReference should be the Supabase user_id for reconciliation.
- * billTo (primaryAddress) is set here so EPG automatically attaches it to
- * the initial card tokenization and all future stored card charges (AVS).
+ * primaryAddress is set here so EPG automatically attaches it to the initial
+ * card tokenization and all future stored card charges (AVS).
+ *
+ * NOTE: the field is `primaryAddress` — the live API rejects `billTo`
+ * ("Unrecognized field name"), confirmed against the cert account 2026-05-22.
+ * This is the field Justin flagged on Apr 13. (Repo docs api_shoppers.md show
+ * `billTo`, but that is outdated.)
  * Ref: docs/elavon/api_shoppers.md
  */
 export async function createEpgShopper(params: {
@@ -265,8 +270,8 @@ export async function createEpgShopper(params: {
   customReference: string;
   fullName?: string;
   email?: string;
-  /** Billing address for AVS — maps to EPG billTo Contact object */
-  billTo?: {
+  /** Billing address for AVS — maps to the EPG `primaryAddress` Contact object */
+  primaryAddress?: {
     street1: string;
     street2?: string | null;
     city: string;
@@ -282,14 +287,14 @@ export async function createEpgShopper(params: {
       customReference: params.customReference,
       fullName: params.fullName,
       email: params.email,
-      ...(params.billTo && {
-        billTo: {
-          street1: params.billTo.street1,
-          street2: params.billTo.street2 ?? "",
-          city: params.billTo.city,
-          region: params.billTo.region,
-          postalCode: params.billTo.postalCode,
-          countryCode: params.billTo.countryCode ?? "USA",
+      ...(params.primaryAddress && {
+        primaryAddress: {
+          street1: params.primaryAddress.street1,
+          street2: params.primaryAddress.street2 ?? "",
+          city: params.primaryAddress.city,
+          region: params.primaryAddress.region,
+          postalCode: params.primaryAddress.postalCode,
+          countryCode: params.primaryAddress.countryCode ?? "USA",
         },
       }),
     }),

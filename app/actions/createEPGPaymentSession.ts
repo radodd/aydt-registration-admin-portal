@@ -18,6 +18,12 @@ export interface CreateEPGPaymentSessionInput {
 export interface CreateEPGPaymentSessionResult {
   paymentSessionUrl?: string;
   error?: string;
+  /**
+   * "BATCH_STALE" when the batch is no longer payable (failed/cancelled) and the
+   * client should mint a fresh batchId and retry. Distinct from a confirmed
+   * batch ("already paid"), which is NOT recoverable by retrying.
+   */
+  code?: "BATCH_STALE";
 }
 
 export async function createEPGPaymentSession(
@@ -39,11 +45,19 @@ export async function createEPGPaymentSession(
     .eq("id", batchId)
     .single();
 
+  console.log(
+    `[createEPGPaymentSession] ⚠️ TEMP - batchId=${batchId} status=${batch?.status ?? "(missing)"} paymentPlan=${batch?.payment_plan_type ?? "(missing)"} amountDueNow=${batch?.amount_due_now ?? "(missing)"} grandTotal=${batch?.grand_total ?? "(missing)"} errPresent=${!!batchErr}`,
+  ); // TODO: DELETE
   if (batchErr || !batch) return { error: "Registration batch not found" };
   if (batch.status === "confirmed")
     return { error: "This registration has already been paid" };
   if (batch.status !== "pending")
-    return { error: "Registration batch is not in a payable state" };
+    // Stale (failed/cancelled/expired) — recoverable: client mints a fresh
+    // batchId and retries. Distinct from "confirmed" above, which is final.
+    return {
+      error: "This registration session expired. Restarting checkout…",
+      code: "BATCH_STALE",
+    };
 
   // Server-side amount validation — never trust client-provided amount
   const serverAmount = batch.amount_due_now ?? batch.grand_total ?? 0;

@@ -171,10 +171,14 @@ describe("createEPGPaymentSession", () => {
     expect(result.error).toMatch(/already been paid/i);
   });
 
-  it("returns error when batch is in an unexpected status (e.g. failed)", async () => {
+  it("returns BATCH_STALE when batch is in an unexpected status (e.g. failed)", async () => {
     mockCreateClient.mockResolvedValue(makeSupabaseMock({ batchStatus: "failed" }));
     const result = await createEPGPaymentSession(VALID_INPUT);
-    expect(result.error).toMatch(/not in a payable state/i);
+    // Stale (failed/cancelled) is recoverable — client mints a fresh batchId
+    // and retries, so it must be signalled distinctly from "already paid".
+    expect(result.code).toBe("BATCH_STALE");
+    expect(result.error).toBeTruthy();
+    expect(result.paymentSessionUrl).toBeUndefined();
   });
 
   // ── Idempotency ────────────────────────────────────────────────────────────
