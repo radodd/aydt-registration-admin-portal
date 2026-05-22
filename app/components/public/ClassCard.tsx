@@ -719,7 +719,7 @@ function stripDaySuffix(name: string): string {
 
 /**
  * Formats a NUMERIC dollar amount (e.g. 25 → "$25", 25.5 → "$25.50") for display.
- * `class_sessions.drop_in_price` and `section_price_tiers.amount` are NUMERIC(10,2)
+ * `class_meetings.drop_in_price` and `section_price_tiers.amount` are NUMERIC(10,2)
  * dollars in the DB — not cents — so no /100 conversion is needed.
  */
 function formatDollars(amount: number): string {

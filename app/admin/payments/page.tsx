@@ -46,7 +46,7 @@ type RefundHistoryRow = {
 };
 
 type BatchRegistration = {
-  class_sessions: {
+  class_meetings: {
     location: string | null;
     classes: { name: string } | null;
   } | null;
@@ -245,7 +245,7 @@ export default function PaymentsAdmin() {
          order_payment_installments(id, installment_number, amount_due, due_date, status, paid_at),
          payments(id, transaction_id, state, event_type, amount, currency, updated_at, raw_transaction),
          registrations!registration_batch_id(
-           class_sessions:session_id(
+           class_meetings:meeting_id(
              location,
              classes:class_id(name)
            )
@@ -511,7 +511,7 @@ export default function PaymentsAdmin() {
     new Set(
       batches.flatMap((b) =>
         (b.registrations ?? [])
-          .map((r) => r.class_sessions?.classes?.name)
+          .map((r) => r.class_meetings?.classes?.name)
           .filter(Boolean) as string[],
       ),
     ),
@@ -540,7 +540,7 @@ export default function PaymentsAdmin() {
     if (filterDateTo && dateStr > filterDateTo) return false;
     if (filterClass) {
       const hasClass = (b.registrations ?? []).some(
-        (r) => r.class_sessions?.classes?.name === filterClass,
+        (r) => r.class_meetings?.classes?.name === filterClass,
       );
       if (!hasClass) return false;
     }

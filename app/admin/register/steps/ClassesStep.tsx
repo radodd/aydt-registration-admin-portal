@@ -31,7 +31,7 @@ export type ClassesStepResult = {
   semesterId: string;
   semesterName: string;
   scheduleIds: string[];
-  /** class_sessions.id for drop-in (per_session) registrations. */
+  /** class_meetings.id for drop-in (per_session) registrations. */
   sessionIds: string[];
   classInfos: ClassInfo[];
   priceOverride?: number;
@@ -138,7 +138,7 @@ export default function ClassesStep({
   const [selectedClassIds, setSelectedClassIds] = useState<Set<string>>(() => {
     return new Set<string>();
   });
-  /** Drop-in (per-session) selection — class_sessions.id values. */
+  /** Drop-in (per-session) selection — class_meetings.id values. */
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(
     () => new Set<string>(initialSessionIds),
   );

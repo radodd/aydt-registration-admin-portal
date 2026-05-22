@@ -33,7 +33,7 @@ export async function upsertAttendance(
   const { data: existing, error: fetchErr } = await supabase
     .from("attendance")
     .select("id, dancer_id, marked_by")
-    .eq("session_id",        sessionId)
+    .eq("meeting_id",        sessionId)
     .eq("occurrence_date_id", occurrenceDateId);
 
   if (fetchErr) throw new Error(fetchErr.message);
@@ -59,7 +59,7 @@ export async function upsertAttendance(
     } else {
       // No existing record — insert.
       toInsert.push({
-        session_id:         sessionId,
+        meeting_id:         sessionId,
         occurrence_date_id: occurrenceDateId,
         dancer_id:          rec.dancerId,
         status:             rec.status,

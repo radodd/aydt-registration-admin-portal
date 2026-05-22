@@ -35,7 +35,7 @@ export default function EditDiscountForm({
   const [eligibleSessionsMode, setEligibleSessionsMode] =
     useState<EligibleSessionsMode>(discount.eligible_sessions_mode);
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>(
-    discount.discount_rule_sessions.map((s) => s.session_id),
+    discount.discount_rule_meetings.map((s) => s.meeting_id),
   );
   const [rules, setRules] = useState<DiscountRules[]>(
     discount.discount_rules.map((r) => ({

@@ -47,7 +47,7 @@ function DefaultPanel() {
       const todayStr = today.toISOString().split("T")[0];
 
       const { data: sessions } = await supabase
-        .from("class_sessions")
+        .from("class_meetings")
         .select("id, start_time, classes(name)")
         .eq("day_of_week", dayName)
         .lte("start_date", todayStr)

@@ -18,7 +18,7 @@ export default async function V2Page() {
 
   const { data: semesters } = await supabase
     .from("semesters")
-    .select("id, name, status, class_sessions(id, start_date, end_date)")
+    .select("id, name, status, class_meetings(id, start_date, end_date)")
     .in("status", ["published", "closed"])
     .order("created_at", { ascending: false })
     .limit(6);

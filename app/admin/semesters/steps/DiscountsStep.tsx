@@ -90,7 +90,7 @@ function draftFromHydrated(d: HydratedDiscount): DiscountDraft {
     giveSessionScope: d.give_session_scope as GiveSessionScope,
     recipientScope: (d.recipient_scope as RecipientScope) ?? "threshold_only",
     eligibleSessionsMode: d.eligible_sessions_mode,
-    selectedSessionIds: d.discount_rule_sessions.map((s) => s.session_id),
+    selectedSessionIds: d.discount_rule_meetings.map((s) => s.meeting_id),
     rules: d.discount_rules.map((r) => ({
       threshold: r.threshold,
       value: r.value,

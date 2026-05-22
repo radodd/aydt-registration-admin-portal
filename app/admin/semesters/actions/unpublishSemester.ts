@@ -14,8 +14,8 @@ export async function unpublishSemester(id: string) {
   const [{ count: regCount, error: regErr }, { count: enrollCount, error: enrollErr }] = await Promise.all([
     supabase
       .from("registrations")
-      .select("*, class_sessions!inner(semester_id)", { count: "exact", head: true })
-      .eq("class_sessions.semester_id", id)
+      .select("*, class_meetings!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_meetings.semester_id", id)
       .not("status", "in", "(cancelled,waitlisted)"),
     supabase
       .from("section_enrollments")

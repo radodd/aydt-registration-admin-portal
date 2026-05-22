@@ -127,7 +127,7 @@ Deno.serve(async (_req) => {
 
     const { data: expiredHolds } = await supabase
       .from("registrations")
-      .select("id, session_id, dancer_id")
+      .select("id, meeting_id, dancer_id")
       .eq("status", "pending_payment")
       .lt("hold_expires_at", now)
       .not("hold_expires_at", "is", null);
@@ -154,14 +154,14 @@ Deno.serve(async (_req) => {
     // Get all sessions that have at least one 'waiting' waitlist entry
     const { data: waitingEntries } = await supabase
       .from("waitlist_entries")
-      .select("session_id")
+      .select("meeting_id")
       .eq("status", "waiting");
 
     if (!waitingEntries || waitingEntries.length === 0) {
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     }
 
-    const sessionIds = [...new Set(waitingEntries.map((e) => e.session_id))];
+    const sessionIds = [...new Set(waitingEntries.map((e) => e.meeting_id))];
 
     for (const sessionId of sessionIds) {
       await processSession(sessionId, now);
@@ -181,7 +181,7 @@ Deno.serve(async (_req) => {
 async function processSession(sessionId: string, now: string) {
   // 1. Fetch class_session + class name + semester waitlist settings (Phase 1)
   const { data: session } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select(
       `
       id, capacity, registration_close_at, semester_id,
@@ -230,7 +230,7 @@ async function processSession(sessionId: string, now: string) {
   const { count: invitedCount } = await supabase
     .from("waitlist_entries")
     .select("id", { count: "exact", head: true })
-    .eq("session_id", sessionId)
+    .eq("meeting_id", sessionId)
     .eq("status", "invited");
 
   if ((invitedCount ?? 0) > 0) return;
@@ -239,7 +239,7 @@ async function processSession(sessionId: string, now: string) {
   const { count: activeRegistrations } = await supabase
     .from("registrations")
     .select("id", { count: "exact", head: true })
-    .eq("session_id", sessionId)
+    .eq("meeting_id", sessionId)
     .not("status", "in", '("declined","cancelled")');
 
   const capacity = session.capacity ?? 0;
@@ -249,7 +249,7 @@ async function processSession(sessionId: string, now: string) {
   const { data: nextEntry } = await supabase
     .from("waitlist_entries")
     .select("id, dancer_id, invite_token, dancers ( first_name, last_name, users ( id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified ) )")
-    .eq("session_id", sessionId)
+    .eq("meeting_id", sessionId)
     .eq("status", "waiting")
     .order("position", { ascending: true })
     .limit(1)

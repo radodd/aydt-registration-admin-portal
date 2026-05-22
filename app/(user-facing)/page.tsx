@@ -30,7 +30,7 @@ export default async function HomePage() {
 
   const { data: semesters } = await supabase
     .from("semesters")
-    .select("id, name, status, class_sessions(id, start_date, end_date)")
+    .select("id, name, status, class_meetings(id, start_date, end_date)")
     .in("status", ["published", "closed"])
     .order("created_at", { ascending: false })
     .limit(6);
@@ -140,7 +140,7 @@ export default async function HomePage() {
             <div className="semester-grid">
               {semesters.map((semester) => {
                 const sessions = (
-                  semester.class_sessions ?? []
+                  semester.class_meetings ?? []
                 ) as { id: string; start_date: string | null; end_date: string | null }[];
 
                 const allDates = sessions.flatMap((s) =>

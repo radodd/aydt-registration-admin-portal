@@ -685,7 +685,7 @@ async function sendConfirmationEmail(
     }
 
     // A batch can produce rows in EITHER table (Phase 3b-ii):
-    //   - drop-in registrations  → `registrations` (joined via class_sessions → classes)
+    //   - drop-in registrations  → `registrations` (joined via class_meetings → classes)
     //   - standard/tiered         → `section_enrollments` (joined via class_sections → classes)
     // Aggregate dancer + class names across BOTH so the email isn't blank for
     // tiered/standard-only batches.
@@ -693,7 +693,7 @@ async function sendConfirmationEmail(
       supabase
         .from("registrations")
         .select(
-          "id, dancer_id, dancers(first_name, last_name), class_sessions(classes(name))",
+          "id, dancer_id, dancers(first_name, last_name), class_meetings(classes(name))",
         )
         .eq("registration_batch_id", batchId),
       supabase
@@ -730,9 +730,9 @@ async function sendConfirmationEmail(
     for (const r of registrations ?? []) {
       const row = r as {
         dancers: DancerRel | DancerRel[] | null;
-        class_sessions: ClassParent | ClassParent[] | null;
+        class_meetings: ClassParent | ClassParent[] | null;
       };
-      addNames(row.dancers, row.class_sessions);
+      addNames(row.dancers, row.class_meetings);
     }
 
     for (const e of enrollments ?? []) {

@@ -43,7 +43,7 @@ export async function validateEnrollment(
   /* 1. Fetch schedule info for all sessions                                  */
   /* ---------------------------------------------------------------------- */
   const { data: sessionRows, error: sessionError } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id, day_of_week, schedule_date, start_time, end_time, class_id, classes(name, division)")
     .in("id", sessionIds);
 
@@ -202,15 +202,15 @@ export async function validateEnrollment(
             const { data: priorRegs } = await supabase
               .from("registrations")
               .select(
-                "id, class_sessions(semester_id, class_id, classes(discipline))",
+                "id, class_meetings(semester_id, class_id, classes(discipline))",
               )
               .eq("dancer_id", dancerId)
               .eq("status", "confirmed");
 
             const hasCompleted = (priorRegs ?? []).some((reg: any) => {
-              const session = Array.isArray(reg.class_sessions)
-                ? reg.class_sessions[0]
-                : reg.class_sessions;
+              const session = Array.isArray(reg.class_meetings)
+                ? reg.class_meetings[0]
+                : reg.class_meetings;
               if (!session || session.semester_id === input.semesterId)
                 return false;
               if (req.required_class_id) {

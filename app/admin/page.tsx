@@ -27,7 +27,7 @@ type RecentReg = {
   created_at: string;
   dancer_id: string | null;
   dancers: { first_name: string; last_name: string } | null;
-  class_sessions: {
+  class_meetings: {
     classes: { name: string } | null;
     semesters: { name: string } | null;
   } | null;
@@ -641,7 +641,7 @@ function OverviewTab({
           <ul>
             {recentRegs.map((r) => {
               const dancer = r.dancers;
-              const cls = r.class_sessions;
+              const cls = r.class_meetings;
               const batch = r.registration_orders;
               const name = dancer ? `${dancer.first_name} ${dancer.last_name}` : "Unknown";
               const color = avatarColor(name);
@@ -1513,7 +1513,7 @@ export default function AdminDashboardPage() {
       let activeClassCount = 0;
       if (activeSemesterIds.length > 0) {
         const { data: activeClassSessions } = await supabase
-          .from("class_sessions")
+          .from("class_meetings")
           .select("class_id")
           .in("semester_id", activeSemesterIds);
         activeClassCount = new Set((activeClassSessions ?? []).map((cs: any) => cs.class_id)).size;
@@ -1533,7 +1533,7 @@ export default function AdminDashboardPage() {
       const [{ data: regCounts }, { data: enrollCounts }] = await Promise.all([
         supabase
           .from("registrations")
-          .select("session_id, class_sessions(semester_id)")
+          .select("meeting_id, class_meetings(semester_id)")
           .eq("status", "confirmed"),
         supabase
           .from("section_enrollments")
@@ -1543,7 +1543,7 @@ export default function AdminDashboardPage() {
 
       const semesterRegMap: Record<string, number> = {};
       for (const r of regCounts ?? []) {
-        const semId = (r.class_sessions as any)?.semester_id;
+        const semId = (r.class_meetings as any)?.semester_id;
         if (semId) semesterRegMap[semId] = (semesterRegMap[semId] ?? 0) + 1;
       }
       for (const e of enrollCounts ?? []) {
@@ -1564,7 +1564,7 @@ export default function AdminDashboardPage() {
         .select(
           `id, created_at, dancer_id,
            dancers(first_name, last_name),
-           class_sessions(classes(name), semesters(name)),
+           class_meetings(classes(name), semesters(name)),
            registration_orders:registration_batch_id(grand_total, family_id, users:parent_id(first_name, last_name))`
         )
         .eq("status", "confirmed")
@@ -1574,7 +1574,7 @@ export default function AdminDashboardPage() {
       // Deduplicate: one row per dancer+class (keep the most recent)
       const seenRegKey = new Set<string>();
       const recentRegs = (recentRegsRaw ?? []).filter((r: any) => {
-        const key = `${r.dancer_id}-${r.class_sessions?.classes?.name ?? ""}`;
+        const key = `${r.dancer_id}-${r.class_meetings?.classes?.name ?? ""}`;
         if (seenRegKey.has(key)) return false;
         seenRegKey.add(key);
         return true;
@@ -1654,7 +1654,7 @@ export default function AdminDashboardPage() {
             users:users!family_id(first_name, last_name, is_primary_parent),
             dancers:dancers!family_id(
               id, first_name,
-              registrations:registrations!dancer_id(id, status, class_sessions!session_id(classes(name)))
+              registrations:registrations!dancer_id(id, status, class_meetings!meeting_id(classes(name)))
             )
           `)
           .order("family_name", { ascending: true })
@@ -1665,7 +1665,7 @@ export default function AdminDashboardPage() {
           .select(`
             id, position, status, invitation_sent_at,
             dancers(id, first_name, last_name, family_id, families(family_name)),
-            class_sessions!session_id(classes(name), semesters(name))
+            class_meetings!meeting_id(classes(name), semesters(name))
           `)
           .in("status", ["waiting", "invited"])
           .order("position", { ascending: true })
@@ -1677,7 +1677,7 @@ export default function AdminDashboardPage() {
           (d.registrations ?? []).filter((r: any) => r.status === "confirmed")
         );
         const uniqueClasses = new Set(
-          confirmedRegs.map((r: any) => r.class_sessions?.classes?.name).filter(Boolean)
+          confirmedRegs.map((r: any) => r.class_meetings?.classes?.name).filter(Boolean)
         );
         return {
           id: f.id,
@@ -1690,7 +1690,7 @@ export default function AdminDashboardPage() {
 
       const waitlist: WaitlistRow[] = ((waitlistRes.data ?? []) as any[]).map((w) => {
         const dancer = Array.isArray(w.dancers) ? w.dancers[0] : w.dancers;
-        const cs = Array.isArray(w.class_sessions) ? w.class_sessions[0] : w.class_sessions;
+        const cs = Array.isArray(w.class_meetings) ? w.class_meetings[0] : w.class_meetings;
         return {
           id: w.id,
           position: w.position,

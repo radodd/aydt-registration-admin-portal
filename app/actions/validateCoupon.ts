@@ -41,7 +41,7 @@ export async function validateCoupon(
         stackable,
         eligible_sessions_mode,
         is_active,
-        coupon_session_restrictions ( session_id )
+        coupon_session_restrictions ( meeting_id )
       )
     `,
     )
@@ -112,7 +112,7 @@ export async function validateCoupon(
   if (raw.eligible_sessions_mode === "selected") {
     const restrictedSessionIds: string[] = (
       raw.coupon_session_restrictions ?? []
-    ).map((r: { session_id: string }) => r.session_id);
+    ).map((r: { meeting_id: string }) => r.meeting_id);
 
     const hasMatch = input.sessionIds.some((id) =>
       restrictedSessionIds.includes(id),
@@ -137,7 +137,7 @@ export async function validateCoupon(
     stackable: raw.stackable,
     eligibleSessionsMode: raw.eligible_sessions_mode as "all" | "selected",
     sessionIds: (raw.coupon_session_restrictions ?? []).map(
-      (r: { session_id: string }) => r.session_id,
+      (r: { meeting_id: string }) => r.meeting_id,
     ),
     isActive: raw.is_active,
   };

@@ -9,9 +9,9 @@ export async function removeInstructorFromSession(
   const supabase = createAdminClient();
 
   const { error } = await supabase
-    .from("class_session_instructors")
+    .from("class_meeting_instructors")
     .delete()
-    .eq("session_id", sessionId)
+    .eq("meeting_id", sessionId)
     .eq("user_id", userId);
 
   if (error) return { success: false, error: error.message };

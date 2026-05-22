@@ -20,7 +20,7 @@ export type AdminRegInput = {
   semesterName: string;
   scheduleIds: string[];
   /**
-   * Drop-in (per-date) registrations. Each id is a `class_sessions.id` whose
+   * Drop-in (per-date) registrations. Each id is a `class_meetings.id` whose
    * parent schedule has `is_drop_in=true` (or legacy `pricing_model='per_session'`).
    * Writes one row per id into `registrations` (not `section_enrollments`).
    */
@@ -222,13 +222,13 @@ export async function createAdminRegistration(
     if (enrollErr) return { success: false, error: enrollErr.message };
   }
 
-  // Drop-in (per-date) registrations → registrations (one row per session_id).
+  // Drop-in (per-date) registrations → registrations (one row per meeting_id).
   // Per-session capacity and time-conflict are enforced by DB triggers.
   if (input.sessionIds && input.sessionIds.length > 0) {
     const dropInRows = input.sessionIds.map((sessionId) => ({
       dancer_id: dancerId,
       user_id: parentUserId,
-      session_id: sessionId,
+      meeting_id: sessionId,
       registration_batch_id: batchId,
       batch_id: batchId,
       status: "confirmed",
@@ -241,7 +241,7 @@ export async function createAdminRegistration(
     // line-level audit trail. Best-effort: log on failure but don't block the
     // registration since the aggregate totals are already on the batch.
     const { data: sessionRows } = await supabase
-      .from("class_sessions")
+      .from("class_meetings")
       .select("id, schedule_date, drop_in_price, classes(name)")
       .in("id", input.sessionIds);
 
@@ -253,7 +253,7 @@ export async function createAdminRegistration(
         return {
           batch_id: batchId,
           dancer_id: dancerId,
-          session_id: s.id as string,
+          meeting_id: s.id as string,
           schedule_enrollment_id: null,
           item_type: "drop_in",
           label: date ? `${className} — ${date}` : className,

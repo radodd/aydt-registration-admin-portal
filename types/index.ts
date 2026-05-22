@@ -109,7 +109,7 @@ export interface Family {
     registrations: {
       id: string;
       status: string;
-      class_sessions: {
+      class_meetings: {
         id: string;
         day_of_week: string;
         start_time: string | null;
@@ -244,8 +244,8 @@ export interface DanceClass {
   enrollment_type: ClassEnrollmentType;
   created_at: string;
   updated_at: string;
-  /** Nested class_sessions — included when queried with select */
-  class_sessions?: ClassSession[];
+  /** Nested class_meetings — included when queried with select */
+  class_meetings?: ClassSession[];
 }
 
 /**
@@ -271,13 +271,13 @@ export interface ClassSession {
   cancelled_at?: string | null;
   cancellation_reason?: string | null;
   /** Nested occurrence dates — included when queried with select */
-  session_occurrence_dates?: SessionOccurrenceDate[];
+  meeting_occurrence_dates?: SessionOccurrenceDate[];
 }
 
 /** Individual calendar date for a class_session (for day picker / attendance). */
 export interface SessionOccurrenceDate {
   id: string;
-  session_id: string;
+  meeting_id: string;
   date: string;           // "YYYY-MM-DD"
   is_cancelled: boolean;
   cancellation_reason: string | null;
@@ -679,7 +679,7 @@ export type DraftSessionExcludedDate = {
  *   per_session   — user picks individual sessions; each session priced at dropInPrice.
  */
 export type DraftPerDateOverride = {
-  /** YYYY-MM-DD — matches class_sessions.schedule_date */
+  /** YYYY-MM-DD — matches class_meetings.schedule_date */
   date: string;
   capacity?: number | null;
   startTime?: string | null;
@@ -744,13 +744,13 @@ export type DraftClassSchedule = {
   priceTiers?: DraftSchedulePriceTier[];
   /**
    * Mode B (per_session): flat drop-in price propagated to each generated
-   * class_session. Stored in class_sessions.drop_in_price.
+   * class_session. Stored in class_meetings.drop_in_price.
    */
   dropInPrice?: number | null;
   /**
-   * Per-date overrides applied to specific generated class_sessions. Used in
+   * Per-date overrides applied to specific generated class_meetings. Used in
    * drop-in (per_session) mode so the admin can set a different capacity, time,
-   * or price for individual dates. The date key matches `class_sessions.schedule_date`.
+   * or price for individual dates. The date key matches `class_meetings.schedule_date`.
    */
   perDateOverrides?: DraftPerDateOverride[];
 
@@ -763,8 +763,8 @@ export type DraftClassSchedule = {
 
 /**
  * A single generated time-slot within a class, as held in the SemesterDraft state.
- * Maps 1:1 to class_sessions rows in the DB.
- * In the per-day enrollment model, class_sessions are generated from DraftClassSchedule
+ * Maps 1:1 to class_meetings rows in the DB.
+ * In the per-day enrollment model, class_meetings are generated from DraftClassSchedule
  * and should not be edited directly in the admin UI.
  */
 export type DraftClassSession = {
@@ -915,7 +915,7 @@ export type DraftClass = {
    * sessions of this class. Null/undefined → use normal rate-band pricing.
    */
   tuitionOverride?: number | null;
-  /** Schedule blocks — each generates per-day class_sessions automatically.
+  /** Schedule blocks — each generates per-day class_meetings automatically.
    *  INVARIANT: always [] for competition_track classes. */
   schedules: DraftClassSchedule[];
   /**
@@ -1272,8 +1272,8 @@ export type HydratedDiscount = {
     value_type: "flat" | "percent";
   }[];
 
-  discount_rule_sessions: {
-    session_id: string;
+  discount_rule_meetings: {
+    meeting_id: string;
   }[];
 };
 
@@ -1914,7 +1914,7 @@ export interface FamilyDetailParent {
 export interface FamilyDetailRegistration {
   id: string;
   status: string;
-  class_sessions: {
+  class_meetings: {
     id: string;
     day_of_week: string;
     start_time: string | null;
@@ -2025,7 +2025,7 @@ export type AttendanceStatus = "present" | "absent" | "tardy" | "excused";
 /** A row in the `attendance` table. */
 export interface AttendanceRecord {
   id: string;
-  session_id: string;
+  meeting_id: string;
   occurrence_date_id: string | null;
   dancer_id: string;
   status: AttendanceStatus;
@@ -2035,10 +2035,10 @@ export interface AttendanceRecord {
   updated_at: string;
 }
 
-/** A row in the `class_session_instructors` junction table. */
+/** A row in the `class_meeting_instructors` junction table. */
 export interface SessionInstructor {
   id: string;
-  session_id: string;
+  meeting_id: string;
   user_id: string;
   is_lead: boolean;
   created_at: string;

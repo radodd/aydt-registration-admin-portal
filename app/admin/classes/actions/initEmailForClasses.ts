@@ -43,9 +43,9 @@ export async function initEmailForClasses(
   if (emailErr || !email)
     throw new Error(emailErr?.message ?? "Failed to create email draft");
 
-  // Fetch all class_sessions across all selected classes in one query
+  // Fetch all class_meetings across all selected classes in one query
   const { data: sessions } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id")
     .in("class_id", classIds);
 
@@ -53,7 +53,7 @@ export async function initEmailForClasses(
     const selections = (sessions ?? []).map((s) => ({
       email_id: email.id,
       selection_type: "session" as const,
-      session_id: s.id,
+      meeting_id: s.id,
       is_excluded: false,
     }));
     await supabase.from("email_recipient_selections").insert(selections);

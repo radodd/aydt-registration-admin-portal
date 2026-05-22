@@ -18,7 +18,7 @@ type RegRow = {
   dancer_id: string;
   /** Set for tiered full-term enrollments (from section_enrollments). */
   tier_name?: string | null;
-  class_sessions: {
+  class_meetings: {
     id: string;
     day_of_week: string;
     /** Full-term enrollments meet on multiple days (from class_sections). */
@@ -52,7 +52,7 @@ type BatchRow = {
     id: string;
     dancer_id: string;
     dancers: { first_name: string; last_name: string } | null;
-    class_sessions: { classes: { name: string } | null } | null;
+    class_meetings: { classes: { name: string } | null } | null;
   }[];
 };
 
@@ -309,7 +309,7 @@ export const FamilyProfileCard = ({
   const disciplinesByDancer = new Map<string, string[]>();
   for (const r of (registrations ?? [])) {
     if (r.status === "confirmed") {
-      const disc = r.class_sessions?.classes?.discipline;
+      const disc = r.class_meetings?.classes?.discipline;
       if (disc) {
         const arr = disciplinesByDancer.get(r.dancer_id) ?? [];
         if (!arr.includes(disc)) arr.push(disc);
@@ -615,7 +615,7 @@ export const FamilyProfileCard = ({
                   <div style={CARD_STYLE}>
                     <div style={{ padding: "14px 20px" }}>
                       {regs.map((reg, idx) => {
-                        const cs = reg.class_sessions;
+                        const cs = reg.class_meetings;
                         const cls = cs?.classes;
                         const isWaitlisted = reg.status === "waitlisted";
                         return (
@@ -768,7 +768,7 @@ export const FamilyProfileCard = ({
               const classesByDancer = new Map<string, string[]>();
               for (const r of batchRegs) {
                 const dn = r.dancers ? `${r.dancers.first_name} ${r.dancers.last_name}` : "Dancer";
-                const cn = r.class_sessions?.classes?.name ?? "";
+                const cn = r.class_meetings?.classes?.name ?? "";
                 if (!classesByDancer.has(dn)) classesByDancer.set(dn, []);
                 if (cn && !classesByDancer.get(dn)!.includes(cn)) classesByDancer.get(dn)!.push(cn);
               }

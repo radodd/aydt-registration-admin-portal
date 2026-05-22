@@ -116,7 +116,7 @@ export async function computePricingQuote(
        discounts (
          id, name, category, eligible_sessions_mode, give_session_scope, is_active,
          discount_rules ( id, threshold, threshold_unit, value, value_type ),
-         discount_rule_sessions ( session_id )
+         discount_rule_meetings ( meeting_id )
        )`,
     )
     .eq("semester_id", input.semesterId);
@@ -385,7 +385,7 @@ export async function computePricingQuote(
 
     // Fetch the class + schedule_date for each session
     const { data: sessionRows, error: sessionError } = await supabase
-      .from("class_sessions")
+      .from("class_meetings")
       .select(
         "id, schedule_date, day_of_week, classes(id, name, division, discipline, is_competition_track, tuition_override_amount)",
       )
@@ -484,16 +484,16 @@ export async function computePricingQuote(
     //   2. Class-level overrides   → flat class tuition bypassing rate bands
     //   3. Rate-band lookup        → division + weekly count progressive tiers
     const { data: priceRowsData, error: priceRowsError } = await supabase
-      .from("class_session_price_rows")
-      .select("class_session_id, amount")
-      .in("class_session_id", resolvedSessionIds)
+      .from("class_meeting_price_rows")
+      .select("class_meeting_id, amount")
+      .in("class_meeting_id", resolvedSessionIds)
       .eq("is_default", true);
 
     if (priceRowsError) throw new Error(priceRowsError.message);
 
     const priceRowMap = new Map<string, number>();
     for (const row of priceRowsData ?? []) {
-      priceRowMap.set(row.class_session_id as string, Number(row.amount));
+      priceRowMap.set(row.class_meeting_id as string, Number(row.amount));
     }
 
     // Build sessionId → class map for override lookups.
@@ -859,7 +859,7 @@ export async function computePricingQuote(
           valid_from, valid_until, max_total_uses, uses_count,
           max_per_family, stackable, eligible_sessions_mode, is_active,
           applies_to_most_expensive_only, eligible_line_item_types,
-          coupon_session_restrictions ( session_id )
+          coupon_session_restrictions ( meeting_id )
         )`,
       )
       .eq("semester_id", input.semesterId);
@@ -904,7 +904,7 @@ export async function computePricingQuote(
       if (coupon.eligible_sessions_mode === "selected") {
         const restrictedIds = new Set(
           (coupon.coupon_session_restrictions ?? []).map(
-            (r: { session_id: string }) => r.session_id,
+            (r: { meeting_id: string }) => r.meeting_id,
           ),
         );
         if (!allEnrolledSessionIds.some((id) => restrictedIds.has(id)))
@@ -990,7 +990,7 @@ interface ActiveDiscount {
     value: number;
     value_type: "flat" | "percent";
   }>;
-  discount_rule_sessions: Array<{ session_id: string | null }>;
+  discount_rule_meetings: Array<{ meeting_id: string | null }>;
 }
 
 /**
@@ -998,7 +998,7 @@ interface ActiveDiscount {
  * Eligibility checks:
  *   - eligible_sessions_mode === 'all' → always eligible
  *   - eligible_sessions_mode === 'selected' → dancer must have at least one
- *     session that is in discount_rule_sessions
+ *     session that is in discount_rule_meetings
  * Threshold checks:
  *   - threshold_unit === 'person' → familyDancerCount must meet threshold
  *   - threshold_unit === 'session' → weeklyClassCount must meet threshold
@@ -1018,8 +1018,8 @@ function getApplicableRules(
     // Session eligibility
     if (discount.eligible_sessions_mode === "selected") {
       const eligibleSessionIds = new Set(
-        discount.discount_rule_sessions
-          .map((s) => s.session_id)
+        discount.discount_rule_meetings
+          .map((s) => s.meeting_id)
           .filter(Boolean),
       );
       const hasEligibleSession = dancerSessionIds.some((id) =>

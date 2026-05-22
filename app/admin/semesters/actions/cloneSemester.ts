@@ -33,9 +33,9 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
         *,
         class_sections (*, section_price_tiers(*))
       ),
-      session_groups(
+      meeting_groups(
         id, name, description,
-        session_group_sessions(session_id)
+        meeting_group_meetings(meeting_id)
       ),
       semester_payment_plans(*),
       semester_payment_installments(*),
@@ -56,7 +56,7 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
     name: source.name,
     classes: source.classes?.length ?? 0,
     schedules: source.classes?.reduce((n: number, c: any) => n + (c.class_sections?.length ?? 0), 0) ?? 0,
-    session_groups: source.session_groups?.length ?? 0,
+    meeting_groups: source.meeting_groups?.length ?? 0,
     semester_payment_plans: source.semester_payment_plans?.length ?? 0,
     semester_payment_installments: source.semester_payment_installments?.length ?? 0,
     tuition_rate_bands: source.tuition_rate_bands?.length ?? 0,
@@ -89,7 +89,7 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
   console.log("[cloneSemester] new semester created — newId:", newId);
 
   // Clone classes + class_sections (admin config layer); build old section_id → new id map.
-  // class_sessions are generated automatically from class_sections when the admin first saves.
+  // class_meetings are generated automatically from class_sections when the admin first saves.
   const scheduleIdMap: Record<string, string> = {};
 
   if (source.classes?.length > 0) {
@@ -179,11 +179,11 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
   }
 
   // Clone session groups
-  if (source.session_groups?.length > 0) {
-    for (const group of source.session_groups) {
+  if (source.meeting_groups?.length > 0) {
+    for (const group of source.meeting_groups) {
       console.log("[cloneSemester] cloning session group:", group.name);
       const { data: newGroup, error: groupError } = await supabase
-        .from("session_groups")
+        .from("meeting_groups")
         .insert({
           semester_id: newId,
           name: group.name,
@@ -197,21 +197,21 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
         throw new Error(groupError?.message ?? "Group insert failed");
       }
 
-      const groupSessionLinks = (group.session_group_sessions ?? [])
-        .map((sgs: any) => scheduleIdMap[sgs.session_id])
+      const groupSessionLinks = (group.meeting_group_meetings ?? [])
+        .map((sgs: any) => scheduleIdMap[sgs.meeting_id])
         .filter(Boolean)
         .map((newScheduleId: string) => ({
-          session_group_id: newGroup.id,
-          session_id: newScheduleId,
+          meeting_group_id: newGroup.id,
+          meeting_id: newScheduleId,
         }));
 
       if (groupSessionLinks.length > 0) {
         const { error: linksError } = await supabase
-          .from("session_group_sessions")
+          .from("meeting_group_meetings")
           .insert(groupSessionLinks);
 
         if (linksError) {
-          console.error("[cloneSemester] session_group_sessions insert failed:", linksError);
+          console.error("[cloneSemester] meeting_group_meetings insert failed:", linksError);
           throw new Error(linksError.message);
         }
       }

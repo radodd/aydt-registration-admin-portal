@@ -14,13 +14,13 @@ export default async function EditPage({ params }: { params: { id: string } }) {
         *,
         classes (
           *,
-          class_sections (*, section_price_tiers(*), class_sessions(id, schedule_date, capacity, start_time, end_time, drop_in_price)),
+          class_sections (*, section_price_tiers(*), class_meetings(id, schedule_date, capacity, start_time, end_time, drop_in_price)),
           class_tiers (*),
           class_requirements!class_requirements_class_id_fkey (*, class_requirement_approved_dancers(dancer_id)),
           division_info:divisions (is_drop_in)
         ),
-        session_groups(
-          id, name, session_group_sessions(session_id, class_sessions(section_id))
+        meeting_groups(
+          id, name, meeting_group_meetings(meeting_id, class_meetings(section_id))
         ),
         semester_payment_plans(*),
         semester_payment_installments(*),
@@ -30,7 +30,7 @@ export default async function EditPage({ params }: { params: { id: string } }) {
           discount:discounts(
             *,
             discount_rules(*),
-            discount_rule_sessions(*)
+            discount_rule_meetings(*)
           )
         ),
         tuition_rate_bands(*),
@@ -42,11 +42,11 @@ export default async function EditPage({ params }: { params: { id: string } }) {
       .single(),
     supabase
       .from("registrations")
-      .select("*, class_sessions!inner(semester_id)", {
+      .select("*, class_meetings!inner(semester_id)", {
         count: "exact",
         head: true,
       })
-      .eq("class_sessions.semester_id", id),
+      .eq("class_meetings.semester_id", id),
   ]);
 
   console.log("CHECK HERE", semesterResult);

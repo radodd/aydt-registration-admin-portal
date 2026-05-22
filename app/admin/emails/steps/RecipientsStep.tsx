@@ -110,7 +110,7 @@ export default function RecipientsStep({
 
       const { data: semesters } = await supabase
         .from("semesters")
-        .select("id, name, classes(id, name, class_sessions(id, day_of_week, start_time))")
+        .select("id, name, classes(id, name, class_meetings(id, day_of_week, start_time))")
         .in("status", ["published", "archived"])
         .order("created_at", { ascending: false });
 
@@ -122,7 +122,7 @@ export default function RecipientsStep({
       // Collect all session IDs for enrollment count queries
       const allSessionIds: string[] = (semesters as any[]).flatMap((sem: any) =>
         (sem.classes ?? []).flatMap((cls: any) =>
-          (cls.class_sessions ?? []).map((cs: any) => cs.id),
+          (cls.class_meetings ?? []).map((cs: any) => cs.id),
         ),
       );
 
@@ -130,8 +130,8 @@ export default function RecipientsStep({
       const { data: regRows } = allSessionIds.length
         ? await supabase
             .from("registrations")
-            .select("session_id, dancers!inner(family_id)")
-            .in("session_id", allSessionIds)
+            .select("meeting_id, dancers!inner(family_id)")
+            .in("meeting_id", allSessionIds)
             .neq("status", "cancelled")
         : { data: [] };
 
@@ -140,7 +140,7 @@ export default function RecipientsStep({
       for (const row of regRows ?? []) {
         const dancer = Array.isArray((row as any).dancers) ? (row as any).dancers[0] : (row as any).dancers;
         const familyId = dancer?.family_id as string | undefined;
-        const sessionId = (row as any).session_id as string;
+        const sessionId = (row as any).meeting_id as string;
         if (!familyId) continue;
         if (!sessionFamilies.has(sessionId)) sessionFamilies.set(sessionId, new Set());
         sessionFamilies.get(sessionId)!.add(familyId);
@@ -148,7 +148,7 @@ export default function RecipientsStep({
 
       const tree: SemesterNode[] = (semesters as any[]).map((sem: any) => {
         const classes: ClassNode[] = (sem.classes ?? []).map((cls: any) => {
-          const sessions: SessionNode[] = (cls.class_sessions ?? []).map((cs: any) => ({
+          const sessions: SessionNode[] = (cls.class_meetings ?? []).map((cs: any) => ({
             id: cs.id,
             dayOfWeek: cs.day_of_week,
             startTime: cs.start_time,
@@ -282,7 +282,7 @@ export default function RecipientsStep({
       setIsInstructorSearching(true);
       const supabase = createClient();
       const { data } = await supabase
-        .from("class_sessions")
+        .from("class_meetings")
         .select("instructor_name")
         .ilike("instructor_name", `%${instructorSearch}%`)
         .not("instructor_name", "is", null)

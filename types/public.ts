@@ -217,7 +217,7 @@ export interface CartItem {
   classTierId?: string;
   tierLabel?: string;
   /**
-   * Drop-in: `class_sessions.id` for each selected date. One row per id is
+   * Drop-in: `class_meetings.id` for each selected date. One row per id is
    * written to `registrations` at submit. For standard/tiered this is omitted.
    */
   selectedDateIds?: string[];
@@ -251,7 +251,7 @@ export interface ParticipantAssignment {
   dancerId: string | null;
   newDancer?: NewDancerDraft;
   ageStatus: "valid" | "warning" | "error" | "unchecked";
-  /** IDs of session_occurrence_dates selected in the cart for this session */
+  /** IDs of meeting_occurrence_dates selected in the cart for this session */
   selectedDayIds?: string[];
 }
 

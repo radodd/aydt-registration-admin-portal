@@ -884,7 +884,7 @@ export function ParticipantsContent({
     if (sessionIds.length === 0) return;
     const supabase = createClient();
     supabase
-      .from("class_sessions")
+      .from("class_meetings")
       .select(
         "id, day_of_week, start_time, end_time, schedule_date, classes(name, discipline, min_age, max_age, min_grade, max_grade)",
       )

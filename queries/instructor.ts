@@ -128,10 +128,10 @@ export async function getMyInstructorSessions(
   const supabase = createClient();
 
   const { data, error } = await supabase
-    .from("class_session_instructors")
+    .from("class_meeting_instructors")
     .select(`
       is_lead,
-      class_sessions (
+      class_meetings (
         id,
         day_of_week,
         start_time,
@@ -146,7 +146,7 @@ export async function getMyInstructorSessions(
           discipline,
           division
         ),
-        session_occurrence_dates (
+        meeting_occurrence_dates (
           date,
           is_cancelled
         )
@@ -160,12 +160,12 @@ export async function getMyInstructorSessions(
   }
 
   return (data ?? [])
-    .filter((row) => row.class_sessions !== null)
+    .filter((row) => row.class_meetings !== null)
     .map((row) => {
-      const cs  = row.class_sessions as NonNullable<typeof row.class_sessions>;
+      const cs  = row.class_meetings as NonNullable<typeof row.class_meetings>;
       const cls = Array.isArray(cs.classes) ? cs.classes[0] : cs.classes;
-      const occ = Array.isArray(cs.session_occurrence_dates)
-        ? cs.session_occurrence_dates
+      const occ = Array.isArray(cs.meeting_occurrence_dates)
+        ? cs.meeting_occurrence_dates
         : [];
       return {
         sessionId:  cs.id,
@@ -192,7 +192,7 @@ export async function getAllClassSessions(
   const supabase = createClient();
 
   const { data, error } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select(`
       id,
       class_id,
@@ -208,7 +208,7 @@ export async function getAllClassSessions(
         discipline,
         division
       ),
-      class_session_instructors (
+      class_meeting_instructors (
         user_id,
         is_lead,
         users (
@@ -216,7 +216,7 @@ export async function getAllClassSessions(
           last_name
         )
       ),
-      session_occurrence_dates (
+      meeting_occurrence_dates (
         date,
         is_cancelled
       )
@@ -232,8 +232,8 @@ export async function getAllClassSessions(
 
   return (data ?? []).map((cs) => {
     const cls  = Array.isArray(cs.classes) ? cs.classes[0] : cs.classes;
-    const csi  = Array.isArray(cs.class_session_instructors) ? cs.class_session_instructors : [];
-    const occ  = Array.isArray(cs.session_occurrence_dates)  ? cs.session_occurrence_dates  : [];
+    const csi  = Array.isArray(cs.class_meeting_instructors) ? cs.class_meeting_instructors : [];
+    const occ  = Array.isArray(cs.meeting_occurrence_dates)  ? cs.meeting_occurrence_dates  : [];
 
     const instructors = csi.map((i) => {
       const u = Array.isArray(i.users) ? i.users[0] : i.users;
@@ -270,7 +270,7 @@ export async function getInstructorSessionDetail(
   const supabase = createClient();
 
   const { data, error } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select(`
       id,
       class_id,
@@ -286,7 +286,7 @@ export async function getInstructorSessionDetail(
         discipline,
         division
       ),
-      class_session_instructors (
+      class_meeting_instructors (
         user_id,
         is_lead,
         users (
@@ -294,7 +294,7 @@ export async function getInstructorSessionDetail(
           last_name
         )
       ),
-      session_occurrence_dates (
+      meeting_occurrence_dates (
         id,
         date,
         is_cancelled
@@ -309,8 +309,8 @@ export async function getInstructorSessionDetail(
   }
 
   const cls = Array.isArray(data.classes) ? data.classes[0] : data.classes;
-  const csi = Array.isArray(data.class_session_instructors) ? data.class_session_instructors : [];
-  const occ = Array.isArray(data.session_occurrence_dates)  ? data.session_occurrence_dates  : [];
+  const csi = Array.isArray(data.class_meeting_instructors) ? data.class_meeting_instructors : [];
+  const occ = Array.isArray(data.meeting_occurrence_dates)  ? data.meeting_occurrence_dates  : [];
 
   return {
     sessionId:    data.id,
@@ -366,8 +366,8 @@ export async function getAttendanceForSession(
 
   const { data, error } = await supabase
     .from("attendance")
-    .select("id, session_id, occurrence_date_id, dancer_id, status, note, marked_by, created_at, updated_at")
-    .eq("session_id", sessionId)
+    .select("id, meeting_id, occurrence_date_id, dancer_id, status, note, marked_by, created_at, updated_at")
+    .eq("meeting_id", sessionId)
     .order("created_at", { ascending: true });
 
   if (error) console.error("getAttendanceForSession:", error.message);
@@ -402,10 +402,10 @@ export async function getDashboardSessions(userId: string): Promise<DashboardSes
   const endOfWeek = sunday.toISOString().slice(0, 10);
 
   const { data, error } = await supabase
-    .from("class_session_instructors")
+    .from("class_meeting_instructors")
     .select(`
       is_lead,
-      class_sessions (
+      class_meetings (
         id,
         day_of_week,
         start_time,
@@ -414,7 +414,7 @@ export async function getDashboardSessions(userId: string): Promise<DashboardSes
         is_active,
         cancelled_at,
         classes ( name, discipline ),
-        session_occurrence_dates ( date, is_cancelled )
+        meeting_occurrence_dates ( date, is_cancelled )
       )
     `)
     .eq("user_id", userId);
@@ -428,7 +428,7 @@ export async function getDashboardSessions(userId: string): Promise<DashboardSes
     id: string; day_of_week: string; start_time: string | null; end_time: string | null;
     location: string | null; is_active: boolean; cancelled_at: string | null;
     classes: { name: string; discipline: string } | { name: string; discipline: string }[] | null;
-    session_occurrence_dates: { date: string; is_cancelled: boolean }[];
+    meeting_occurrence_dates: { date: string; is_cancelled: boolean }[];
   };
 
   function extractCS(raw: unknown): RawCS | null {
@@ -438,13 +438,13 @@ export async function getDashboardSessions(userId: string): Promise<DashboardSes
 
   return (data ?? [])
     .filter((row) => {
-      const cs = extractCS(row.class_sessions);
+      const cs = extractCS(row.class_meetings);
       return cs && cs.is_active && cs.cancelled_at === null;
     })
     .map((row) => {
-      const cs  = extractCS(row.class_sessions)!;
+      const cs  = extractCS(row.class_meetings)!;
       const cls = Array.isArray(cs.classes) ? cs.classes[0] : cs.classes;
-      const occ = Array.isArray(cs.session_occurrence_dates) ? cs.session_occurrence_dates : [];
+      const occ = Array.isArray(cs.meeting_occurrence_dates) ? cs.meeting_occurrence_dates : [];
 
       const dates = occ
         .filter((d) => !d.is_cancelled && d.date >= today && d.date <= endOfWeek)
@@ -480,7 +480,7 @@ export async function getSessionRoster(sessionId: string): Promise<RosterEntry[]
   // the schedule level — one enrollment per (dancer, schedule) — so every
   // weekly date for the same schedule shares the same roster.
   const { data: session, error: sessionErr } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("section_id")
     .eq("id", sessionId)
     .single();
@@ -524,7 +524,7 @@ export async function getSessionRoster(sessionId: string): Promise<RosterEntry[]
   const { data: attRows } = await supabase
     .from("attendance")
     .select("dancer_id, status")
-    .eq("session_id", sessionId);
+    .eq("meeting_id", sessionId);
 
   const attByDancer = new Map<string, { good: number; total: number }>();
   for (const a of attRows ?? []) {
@@ -669,7 +669,7 @@ export async function getDancerProfile(
 
   // 2. Session + class + semester
   const { data: session, error: sErr } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select(`
       id, section_id, day_of_week, start_time, end_time, location,
       classes ( name, discipline, division ),
@@ -730,9 +730,9 @@ export async function getDancerProfile(
 
   // 4. Occurrence count for "9 of 16" subtitle
   const { count: occurrenceCount } = await supabase
-    .from("session_occurrence_dates")
+    .from("meeting_occurrence_dates")
     .select("id", { count: "exact", head: true })
-    .eq("session_id",   sessionId)
+    .eq("meeting_id",   sessionId)
     .eq("is_cancelled", false);
 
   // 5. Attendance for this dancer on this class — joined with the date
@@ -740,16 +740,16 @@ export async function getDancerProfile(
     .from("attendance")
     .select(`
       id, status, note,
-      session_occurrence_dates:occurrence_date_id ( date )
+      meeting_occurrence_dates:occurrence_date_id ( date )
     `)
-    .eq("session_id", sessionId)
+    .eq("meeting_id", sessionId)
     .eq("dancer_id",  dancerId);
 
   const attendance: AttendanceEntry[] = (attRows ?? [])
     .map((r) => {
-      const occ = Array.isArray(r.session_occurrence_dates)
-        ? r.session_occurrence_dates[0]
-        : r.session_occurrence_dates;
+      const occ = Array.isArray(r.meeting_occurrence_dates)
+        ? r.meeting_occurrence_dates[0]
+        : r.meeting_occurrence_dates;
       return {
         id:     r.id as string,
         date:   (occ?.date as string) ?? "",
@@ -864,9 +864,9 @@ export async function getAllMyClassesForDancer(
 
   // 1. All sessions assigned to this instructor.
   const { data: assignments } = await supabase
-    .from("class_session_instructors")
+    .from("class_meeting_instructors")
     .select(`
-      class_sessions:session_id (
+      class_meetings:meeting_id (
         id, section_id, day_of_week,
         classes ( name ),
         semesters:semester_id ( name, status )
@@ -883,7 +883,7 @@ export async function getAllMyClassesForDancer(
   }>();
 
   for (const a of assignments ?? []) {
-    const cs = Array.isArray(a.class_sessions) ? a.class_sessions[0] : a.class_sessions;
+    const cs = Array.isArray(a.class_meetings) ? a.class_meetings[0] : a.class_meetings;
     if (!cs) continue;
     const cls = Array.isArray(cs.classes) ? cs.classes[0] : cs.classes;
     const sem = Array.isArray(cs.semesters) ? cs.semesters[0] : cs.semesters;
@@ -919,13 +919,13 @@ export async function getAllMyClassesForDancer(
 
   const { data: attRows } = await supabase
     .from("attendance")
-    .select("session_id, status")
+    .select("meeting_id, status")
     .eq("dancer_id", dancerId)
-    .in("session_id", sessionIds);
+    .in("meeting_id", sessionIds);
 
   const attBySession = new Map<string, { present: number; absent: number; tardy: number; excused: number }>();
   for (const r of attRows ?? []) {
-    const sid = r.session_id as string;
+    const sid = r.meeting_id as string;
     const cur = attBySession.get(sid) ?? { present: 0, absent: 0, tardy: 0, excused: 0 };
     const status = r.status as AttendanceStatusValue;
     cur[status] += 1;
@@ -934,14 +934,14 @@ export async function getAllMyClassesForDancer(
 
   // 4. Total occurrences per session (for denominator on the card).
   const { data: occRows } = await supabase
-    .from("session_occurrence_dates")
-    .select("session_id")
-    .in("session_id", sessionIds)
+    .from("meeting_occurrence_dates")
+    .select("meeting_id")
+    .in("meeting_id", sessionIds)
     .eq("is_cancelled", false);
 
   const totalBySession = new Map<string, number>();
   for (const r of occRows ?? []) {
-    const sid = r.session_id as string;
+    const sid = r.meeting_id as string;
     totalBySession.set(sid, (totalBySession.get(sid) ?? 0) + 1);
   }
 
@@ -1056,10 +1056,10 @@ export async function getMyClassGroups(userId: string): Promise<MyClassGroup[]> 
   const supabase = createClient();
 
   const { data, error } = await supabase
-    .from("class_session_instructors")
+    .from("class_meeting_instructors")
     .select(`
       is_lead,
-      class_sessions:session_id (
+      class_meetings:meeting_id (
         id,
         day_of_week,
         start_time,
@@ -1087,7 +1087,7 @@ export async function getMyClassGroups(userId: string): Promise<MyClassGroup[]> 
   }>();
 
   for (const row of data ?? []) {
-    const cs  = Array.isArray(row.class_sessions) ? row.class_sessions[0] : row.class_sessions;
+    const cs  = Array.isArray(row.class_meetings) ? row.class_meetings[0] : row.class_meetings;
     if (!cs) continue;
     const cls = Array.isArray(cs.classes) ? cs.classes[0] : cs.classes;
     const sem = Array.isArray(cs.semesters) ? cs.semesters[0] : cs.semesters;
@@ -1207,15 +1207,15 @@ export async function getClassSeriesByKey(
 
   // 1. Pull every assignment for this instructor matching the class key.
   const { data: rows, error } = await supabase
-    .from("class_session_instructors")
+    .from("class_meeting_instructors")
     .select(`
       is_lead,
-      class_sessions:session_id (
+      class_meetings:meeting_id (
         id, section_id, semester_id,
         day_of_week, start_time, end_time, location, start_date, end_date,
         classes ( name, discipline, division ),
         semesters:semester_id ( name, status ),
-        session_occurrence_dates ( id, date, is_cancelled )
+        meeting_occurrence_dates ( id, date, is_cancelled )
       )
     `)
     .eq("user_id", userId);
@@ -1227,7 +1227,7 @@ export async function getClassSeriesByKey(
 
   // Filter rows in memory by class key (name + day + startTime).
   const matching = (rows ?? []).filter((row) => {
-    const cs = Array.isArray(row.class_sessions) ? row.class_sessions[0] : row.class_sessions;
+    const cs = Array.isArray(row.class_meetings) ? row.class_meetings[0] : row.class_meetings;
     if (!cs) return false;
     const cls = Array.isArray(cs.classes) ? cs.classes[0] : cs.classes;
     if ((cls?.name as string) !== name) return false;
@@ -1240,12 +1240,12 @@ export async function getClassSeriesByKey(
 
   // 2. Pull enrollments + attendance counts in batch for every session.
   const sessionIds  = matching.map((r) => {
-    const cs = Array.isArray(r.class_sessions) ? r.class_sessions[0] : r.class_sessions;
+    const cs = Array.isArray(r.class_meetings) ? r.class_meetings[0] : r.class_meetings;
     return (cs?.id as string) ?? "";
   }).filter(Boolean);
 
   const scheduleIds = matching.map((r) => {
-    const cs = Array.isArray(r.class_sessions) ? r.class_sessions[0] : r.class_sessions;
+    const cs = Array.isArray(r.class_meetings) ? r.class_meetings[0] : r.class_meetings;
     return (cs?.section_id as string) ?? "";
   }).filter(Boolean);
 
@@ -1263,15 +1263,15 @@ export async function getClassSeriesByKey(
 
   const { data: attendanceRows } = await supabase
     .from("attendance")
-    .select("session_id, occurrence_date_id, status")
-    .in("session_id", sessionIds);
+    .select("meeting_id, occurrence_date_id, status")
+    .in("meeting_id", sessionIds);
 
   // For "Done" state on the calendar — set of (sessionId|occurrenceDateId)
   const markedOccurrences = new Set<string>();
   // For attendance percent — counts per session
   const attCountsBySession = new Map<string, { good: number; total: number }>();
   for (const a of attendanceRows ?? []) {
-    const sid    = a.session_id as string;
+    const sid    = a.meeting_id as string;
     const occId  = a.occurrence_date_id as string | null;
     if (occId) markedOccurrences.add(`${sid}|${occId}`);
     const counts = attCountsBySession.get(sid) ?? { good: 0, total: 0 };
@@ -1285,15 +1285,15 @@ export async function getClassSeriesByKey(
   // 3. Build series objects.
   const isLeadAny = matching.some((r) => r.is_lead === true);
   const firstCs = (() => {
-    const cs = Array.isArray(matching[0]!.class_sessions) ? matching[0]!.class_sessions[0] : matching[0]!.class_sessions;
+    const cs = Array.isArray(matching[0]!.class_meetings) ? matching[0]!.class_meetings[0] : matching[0]!.class_meetings;
     return cs as NonNullable<typeof cs>;
   })();
   const firstCls = Array.isArray(firstCs.classes) ? firstCs.classes[0] : firstCs.classes;
 
   const series: ClassSeries[] = matching.map((row) => {
-    const cs = Array.isArray(row.class_sessions) ? row.class_sessions[0] : row.class_sessions!;
+    const cs = Array.isArray(row.class_meetings) ? row.class_meetings[0] : row.class_meetings!;
     const sem = Array.isArray(cs.semesters) ? cs.semesters[0] : cs.semesters;
-    const occRaw = (cs.session_occurrence_dates ?? []) as Array<{
+    const occRaw = (cs.meeting_occurrence_dates ?? []) as Array<{
       id: string; date: string; is_cancelled: boolean;
     }>;
     const sessionId = cs.id as string;
@@ -1435,13 +1435,13 @@ export async function getInstructorThisSeasonStats(
 
   // 1. Sessions I'm assigned to, with class + semester + occurrences.
   const { data: assignments } = await supabase
-    .from("class_session_instructors")
+    .from("class_meeting_instructors")
     .select(`
-      class_sessions:session_id (
+      class_meetings:meeting_id (
         id, section_id, day_of_week, start_time,
         classes ( name ),
         semesters:semester_id ( status ),
-        session_occurrence_dates ( id, date, is_cancelled )
+        meeting_occurrence_dates ( id, date, is_cancelled )
       )
     `)
     .eq("user_id", userId);
@@ -1458,11 +1458,11 @@ export async function getInstructorThisSeasonStats(
   const allOccurrences: { sessionId: string; occurrenceId: string; date: string }[] = [];
 
   for (const a of assignments ?? []) {
-    const cs  = Array.isArray(a.class_sessions) ? a.class_sessions[0] : a.class_sessions;
+    const cs  = Array.isArray(a.class_meetings) ? a.class_meetings[0] : a.class_meetings;
     if (!cs) continue;
     const sem = Array.isArray(cs.semesters) ? cs.semesters[0] : cs.semesters;
     const cls = Array.isArray(cs.classes)   ? cs.classes[0]   : cs.classes;
-    const occRaw = (cs.session_occurrence_dates ?? []) as Array<{
+    const occRaw = (cs.meeting_occurrence_dates ?? []) as Array<{
       id: string; date: string; is_cancelled: boolean;
     }>;
 
@@ -1514,11 +1514,11 @@ export async function getInstructorThisSeasonStats(
   if (pastOccurrences.length > 0 && sessionIds.length > 0) {
     const { data: attRows } = await supabase
       .from("attendance")
-      .select("session_id, occurrence_date_id")
-      .in("session_id", sessionIds);
+      .select("meeting_id, occurrence_date_id")
+      .in("meeting_id", sessionIds);
 
     const marked = new Set(
-      (attRows ?? []).map((r) => `${r.session_id}|${r.occurrence_date_id}`),
+      (attRows ?? []).map((r) => `${r.meeting_id}|${r.occurrence_date_id}`),
     );
     const loggedCount = pastOccurrences.filter((o) =>
       marked.has(`${o.sessionId}|${o.occurrenceId}`),
@@ -1538,11 +1538,11 @@ export async function getInstructorThisSeasonStats(
     // The next occurrence might belong to a non-current semester; still want
     // to render it. Fall back to looking it up from the assignments list.
     const fallback = (assignments ?? []).find((a) => {
-      const cs = Array.isArray(a.class_sessions) ? a.class_sessions[0] : a.class_sessions;
+      const cs = Array.isArray(a.class_meetings) ? a.class_meetings[0] : a.class_meetings;
       return cs && (cs.id as string) === next.sessionId;
     });
     const fallbackCs = fallback
-      ? (Array.isArray(fallback.class_sessions) ? fallback.class_sessions[0] : fallback.class_sessions)
+      ? (Array.isArray(fallback.class_meetings) ? fallback.class_meetings[0] : fallback.class_meetings)
       : null;
     const fallbackCls = fallbackCs
       ? (Array.isArray(fallbackCs.classes) ? fallbackCs.classes[0] : fallbackCs.classes)

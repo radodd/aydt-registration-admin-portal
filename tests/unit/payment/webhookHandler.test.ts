@@ -115,7 +115,7 @@ const MOCK_REGISTRATIONS = [
     id: "reg-001",
     dancer_id: "dnc-001",
     dancers: { first_name: "Lily", last_name: "Doe" },
-    class_sessions: { classes: { name: "Ballet 1A" } },
+    class_meetings: { classes: { name: "Ballet 1A" } },
   },
 ];
 

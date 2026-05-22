@@ -130,10 +130,10 @@ export async function assignInstructorToSession(
   isLead:    boolean,
 ): Promise<void> {
   const { error } = await db()
-    .from("class_session_instructors")
+    .from("class_meeting_instructors")
     .upsert(
-      { session_id: sessionId, user_id: userId, is_lead: isLead },
-      { onConflict: "session_id,user_id" },
+      { meeting_id: sessionId, user_id: userId, is_lead: isLead },
+      { onConflict: "meeting_id,user_id" },
     );
   if (error) throw new Error(`assignInstructorToSession: ${error.message}`);
 }
@@ -143,9 +143,9 @@ export async function unassignInstructorFromSession(
   userId:    string,
 ): Promise<void> {
   await db()
-    .from("class_session_instructors")
+    .from("class_meeting_instructors")
     .delete()
-    .eq("session_id", sessionId)
+    .eq("meeting_id", sessionId)
     .eq("user_id", userId);
 }
 
@@ -168,12 +168,12 @@ export async function findSampleSessionId(): Promise<string> {
   if (!sem) throw new Error("No published semester found — seed first.");
 
   const { data: cs } = await db()
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id")
     .eq("semester_id", sem.id)
     .limit(1)
     .single();
-  if (!cs) throw new Error("No class_sessions in the published semester.");
+  if (!cs) throw new Error("No class_meetings in the published semester.");
   return cs.id as string;
 }
 

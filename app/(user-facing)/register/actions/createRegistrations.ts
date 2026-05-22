@@ -12,7 +12,7 @@ export interface CreateRegistrationsInput {
     sessionId: string;
     dancerId: string;
     newDancer?: NewDancerDraft;
-    /** session_occurrence_dates IDs selected by the parent in the cart */
+    /** meeting_occurrence_dates IDs selected by the parent in the cart */
     selectedDayIds?: string[];
     /**
      * Phase 3b-ii: registration mode for this participant. Drives which table
@@ -139,7 +139,7 @@ export async function createRegistrations(
   // 3. Validate that all sessionIds belong to the given semester
   const sessionIds = [...new Set(input.participants.map((p) => p.sessionId))];
   const { data: sessions, error: sessionError } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id")
     .in("id", sessionIds)
     .eq("semester_id", input.semesterId);
@@ -221,7 +221,7 @@ export async function createRegistrations(
         batch_id: null,
         family_id: earlyFamilyId,
         dancer_id: issue.dancerId || null,
-        session_id: issue.sessionId ?? null,
+        meeting_id: issue.sessionId ?? null,
         semester_id: input.semesterId,
         warning_type: issue.type,
         enforcement: "hard_block",
@@ -478,19 +478,19 @@ export async function createRegistrations(
   // 8b. registrations — for drop-in / legacy participants.
   const rows = dropInParticipants.map((p) => ({
     dancer_id: p.dancerId,
-    session_id: p.sessionId,
+    meeting_id: p.sessionId,
     status: "pending_payment",
     total_amount: 0,
     hold_expires_at: holdExpiresAt,
     registration_batch_id: input.batchId,
   }));
 
-  let created: { id: string; session_id: string; dancer_id: string }[] = [];
+  let created: { id: string; meeting_id: string; dancer_id: string }[] = [];
   if (rows.length > 0) {
     const { data, error: insertError } = await supabase
       .from("registrations")
       .insert(rows)
-      .select("id, session_id, dancer_id");
+      .select("id, meeting_id, dancer_id");
 
     if (insertError) {
       return {
@@ -506,13 +506,13 @@ export async function createRegistrations(
   // 9. Insert registration_days — one row per (registration, selected occurrence date)
   const createdById: Record<string, string> = {};
   for (const r of created ?? []) {
-    createdById[`${r.session_id}:${r.dancer_id}`] = r.id as string;
+    createdById[`${r.meeting_id}:${r.dancer_id}`] = r.id as string;
   }
 
   const allSelectedDayIds = input.participants.flatMap((p) => p.selectedDayIds ?? []);
   if (allSelectedDayIds.length > 0) {
     const { data: occurrenceRows } = await supabase
-      .from("session_occurrence_dates")
+      .from("meeting_occurrence_dates")
       .select("id, date")
       .in("id", [...new Set(allSelectedDayIds)]);
 
@@ -576,7 +576,7 @@ export async function createRegistrations(
       batch_id: input.batchId,
       family_id: familyId,
       dancer_id: issue.dancerId || null,
-      session_id: issue.sessionId ?? null,
+      meeting_id: issue.sessionId ?? null,
       semester_id: input.semesterId,
       warning_type: issue.type,
       enforcement: "soft_warn",

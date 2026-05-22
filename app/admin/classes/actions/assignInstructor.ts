@@ -10,8 +10,8 @@ export async function assignInstructorToSession(
   const supabase = createAdminClient();
 
   const { error } = await supabase
-    .from("class_session_instructors")
-    .insert({ session_id: sessionId, user_id: userId, is_lead: isLead });
+    .from("class_meeting_instructors")
+    .insert({ meeting_id: sessionId, user_id: userId, is_lead: isLead });
 
   if (error) {
     if (error.code === "23505") {

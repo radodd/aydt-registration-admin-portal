@@ -32,7 +32,7 @@ type RecentReg = {
     | { id: string; first_name: string; last_name: string; birth_date: string | null; gender: string | null }
     | { id: string; first_name: string; last_name: string; birth_date: string | null; gender: string | null }[]
     | null;
-  class_sessions:
+  class_meetings:
     | { classes: { name: string } | null }
     | { classes: { name: string } | null }[]
     | null;
@@ -484,7 +484,7 @@ export default function SemesterDashboard({
                 <tbody>
                   {recentRegistrations.map((reg) => {
                     const dancer = single(reg.dancers);
-                    const cs = single(reg.class_sessions);
+                    const cs = single(reg.class_meetings);
                     const cls = cs ? single((cs as any).classes) : null;
                     const age = dancer ? calcAge(dancer.birth_date) : null;
 

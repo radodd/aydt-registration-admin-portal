@@ -10,10 +10,10 @@ import type {
  *
  * Expects the semester query to include:
  *   classes(*, class_sections(*, section_price_tiers(*)), class_requirements(*, class_requirement_approved_dancers(dancer_id)))
- *   session_groups(id, name, session_group_sessions(session_id))
+ *   meeting_groups(id, name, meeting_group_meetings(meeting_id))
  *   semester_payment_plans(*)
  *   semester_payment_installments(*)
- *   semester_discounts(semester_id, discount_id, discount:discounts(*, discount_rules(*), discount_rule_sessions(*)))
+ *   semester_discounts(semester_id, discount_id, discount:discounts(*, discount_rules(*), discount_rule_meetings(*)))
  *   tuition_rate_bands(*)
  *   semester_fee_config(*)
  */
@@ -109,7 +109,7 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
             isDefault: t.is_default ?? false,
           })),
           perDateOverrides: (cs.pricing_model === "per_session"
-            ? (cs.class_sessions ?? [])
+            ? (cs.class_meetings ?? [])
             : []
           )
             .filter((s: any) => s.schedule_date)
@@ -155,14 +155,14 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
     },
 
     sessionGroups: {
-      groups: (semester.session_groups ?? []).map((g: any) => ({
+      groups: (semester.meeting_groups ?? []).map((g: any) => ({
         id: g.id,
         name: g.name,
         // De-duplicate by section_id so each schedule appears once in the group UI.
         sessionIds: [
           ...new Set(
-            (g.session_group_sessions ?? [])
-              .map((sgs: any) => sgs.class_sessions?.section_id)
+            (g.meeting_group_meetings ?? [])
+              .map((sgs: any) => sgs.class_meetings?.section_id)
               .filter(Boolean),
           ),
         ],
@@ -190,7 +190,7 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
         scope: sd.discount.eligible_sessions_mode,
         sessionIds:
           sd.discount.eligible_sessions_mode === "selected"
-            ? (sd.discount.discount_rule_sessions?.map((s: any) => s.session_id) ?? [])
+            ? (sd.discount.discount_rule_meetings?.map((s: any) => s.meeting_id) ?? [])
             : [],
       })),
     },
