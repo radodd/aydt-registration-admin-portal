@@ -186,6 +186,8 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
   process.env.RESEND_API_KEY           = "test-resend-key";
+  // Cleared by default so admin-alert behavior is opt-in per test.
+  delete process.env.ADMIN_NOTIFICATION_EMAIL;
 
   // Default: EPG fetch returns the mock transaction
   mockFetchEpgTransaction.mockResolvedValue(MOCK_TRANSACTION);
@@ -304,12 +306,19 @@ describe("POST /api/webhooks/epg", () => {
       expect(res.status).toBe(500);
     });
 
-    it("returns 200 when transaction has no customReference", async () => {
+    it("returns 200 when no batch identifier is present on the transaction or notification", async () => {
+      // batchId resolves from transaction.customReference → transaction.orderReference
+      // → notification.customReference. Null out all three so the handler hits the
+      // "no batch identifier" early return and never touches the DB.
       mockFetchEpgTransaction.mockResolvedValue({
         ...MOCK_TRANSACTION,
         customReference: null,
+        orderReference: null,
       });
-      const req = makeRequest({ authHeader: VALID_AUTH, body: makeNotification() });
+      const req = makeRequest({
+        authHeader: VALID_AUTH,
+        body: makeNotification({ customReference: null }),
+      });
       const res = await POST(req as any);
       expect(res.status).toBe(200);
       expect(mockFrom).not.toHaveBeenCalled();
@@ -348,6 +357,86 @@ describe("POST /api/webhooks/epg", () => {
         expect(mockEmailSend).not.toHaveBeenCalled();
       },
     );
+  });
+
+  // ── State-machine forward progression (NEW-H) ─────────────────────────────
+
+  describe("state-machine forward progression", () => {
+    it("advances authorized → captured without re-confirming or re-emailing", async () => {
+      const paymentsChain = makeChain({
+        maybeSingleResult: { data: { ...MOCK_PAYMENT_ROW, state: "authorized" } },
+      });
+      // Batch already confirmed by the earlier saleAuthorized → confirmBatch no-ops.
+      const batchChain = makeChain({
+        maybeSingleResult: { data: { ...MOCK_BATCH_ROW, status: "confirmed" } },
+      });
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "payments") return paymentsChain;
+        if (table === "registration_batches") return batchChain;
+        return makeChain();
+      });
+      mockFetchEpgTransaction.mockResolvedValue({ ...MOCK_TRANSACTION, state: "captured" });
+
+      const req = makeRequest({
+        authHeader: VALID_AUTH,
+        body: makeNotification({ eventType: "saleCaptured" }),
+      });
+      const res = await POST(req as any);
+
+      expect(res.status).toBe(200);
+      // payments.state advanced to captured
+      expect(paymentsChain.update).toHaveBeenCalledWith(
+        expect.objectContaining({ state: "captured" }),
+      );
+      // batch already confirmed → no second email
+      expect(mockEmailSend).not.toHaveBeenCalled();
+    });
+
+    it("advances captured → settled", async () => {
+      const paymentsChain = makeChain({
+        maybeSingleResult: { data: { ...MOCK_PAYMENT_ROW, state: "captured" } },
+      });
+      const batchChain = makeChain({
+        maybeSingleResult: { data: { ...MOCK_BATCH_ROW, status: "confirmed" } },
+      });
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "payments") return paymentsChain;
+        if (table === "registration_batches") return batchChain;
+        return makeChain();
+      });
+      mockFetchEpgTransaction.mockResolvedValue({ ...MOCK_TRANSACTION, state: "settled" });
+
+      const req = makeRequest({
+        authHeader: VALID_AUTH,
+        body: makeNotification({ eventType: "saleSettled" }),
+      });
+      const res = await POST(req as any);
+
+      expect(res.status).toBe(200);
+      expect(paymentsChain.update).toHaveBeenCalledWith(
+        expect.objectContaining({ state: "settled" }),
+      );
+      expect(mockEmailSend).not.toHaveBeenCalled();
+    });
+
+    it("ignores a stale saleAuthorized once the payment is already settled", async () => {
+      const paymentsChain = makeChain({
+        maybeSingleResult: { data: { ...MOCK_PAYMENT_ROW, state: "settled" } },
+      });
+      mockFrom.mockReturnValue(paymentsChain);
+      mockFetchEpgTransaction.mockResolvedValue({ ...MOCK_TRANSACTION, state: "authorized" });
+
+      const req = makeRequest({
+        authHeader: VALID_AUTH,
+        body: makeNotification({ eventType: "saleAuthorized" }),
+      });
+      const res = await POST(req as any);
+
+      expect(res.status).toBe(200);
+      // Only the payments lookup ran — no state update, no further tables touched
+      expect(mockFrom).toHaveBeenCalledTimes(1);
+      expect(paymentsChain.update).not.toHaveBeenCalled();
+    });
   });
 
   // ── Declined payment ──────────────────────────────────────────────────────
@@ -452,7 +541,41 @@ describe("POST /api/webhooks/epg", () => {
       const res = await POST(req as any);
 
       expect(res.status).toBe(200);
+      // No parent confirmation email, and no admin alert (ADMIN_NOTIFICATION_EMAIL unset)
       expect(mockEmailSend).not.toHaveBeenCalled();
+    });
+
+    it("alerts ADMIN_NOTIFICATION_EMAIL when the confirmation template is missing", async () => {
+      process.env.ADMIN_NOTIFICATION_EMAIL = "ops@aydt.nyc";
+
+      const paymentsChain      = makeChain({ maybeSingleResult: { data: MOCK_PAYMENT_ROW } });
+      const batchChain         = makeChain({ maybeSingleResult: { data: MOCK_BATCH_ROW } });
+      const registrationsChain = makeChain({ listResult: MOCK_REGISTRATIONS });
+      const semesterChain      = makeChain({ singleResult: { data: { name: "Spring 2026", confirmation_email: null } } });
+      const installmentsChain  = makeChain();
+      const usersChain         = makeChain({ singleResult: { data: MOCK_PARENT_ROW } });
+
+      mockFrom.mockImplementation((table: string) => {
+        switch (table) {
+          case "payments":              return paymentsChain;
+          case "registration_batches":  return batchChain;
+          case "registrations":         return registrationsChain;
+          case "batch_payment_installments": return installmentsChain;
+          case "semesters":             return semesterChain;
+          case "users":                 return usersChain;
+          default:                      return makeChain();
+        }
+      });
+
+      const req = makeRequest({ authHeader: VALID_AUTH, body: makeNotification() });
+      const res = await POST(req as any);
+
+      expect(res.status).toBe(200);
+      // Parent email never sent, but staff got an alert at the admin address.
+      expect(mockEmailSend).toHaveBeenCalledOnce();
+      expect(mockEmailSend.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ to: "ops@aydt.nyc" }),
+      );
     });
   });
 

@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { CartProvider } from "@/app/providers/CartProvider";
-import { CartPageContent } from "./CartPageContent";
+import { CartPageContent, CartSkeleton, EmptyCart } from "./CartPageContent";
 import type { CartState } from "@/types/public";
 
 const STORAGE_KEY_PREFIX = "aydt_cart_";
@@ -31,9 +30,9 @@ export function CartRestorer() {
         const expiresAtMs = new Date(cart.expiresAt).getTime();
         const nowMs = Date.now();
         const expired = expiresAtMs <= nowMs;
-        const hasItems = (cart.sessionIds?.length ?? 0) > 0;
+        const hasItems = (cart.items?.length ?? 0) > 0;
         console.log(
-          `[CartRestorer] key=${key} items=${cart.sessionIds?.length ?? 0} expired=${expired} (expiresAt=${cart.expiresAt} now=${new Date(nowMs).toISOString()})`,
+          `[CartRestorer] key=${key} items=${cart.items?.length ?? 0} expired=${expired} (expiresAt=${cart.expiresAt} now=${new Date(nowMs).toISOString()})`,
         );
         if (hasItems && !expired) {
           found = cart.semesterId;
@@ -58,33 +57,12 @@ export function CartRestorer() {
   }, []);
 
   if (!checked) {
-    // SSR / first paint — nothing yet
-    return null;
+    // SSR / first paint — show the skeleton while we scan localStorage
+    return <CartSkeleton />;
   }
 
   if (!semesterId) {
-    return (
-      <div className="cart-empty-state">
-        <div className="cart-empty-icon">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <path d="M16 10a4 4 0 0 1-8 0"/>
-          </svg>
-        </div>
-        <div className="cart-empty-title">Your cart is empty</div>
-        <div className="cart-empty-desc">
-          Browse available programs to add classes.
-        </div>
-        <Link href="/" className="btn-continue">
-          Browse Classes
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="5" y1="12" x2="19" y2="12"/>
-            <polyline points="12 5 19 12 12 19"/>
-          </svg>
-        </Link>
-      </div>
-    );
+    return <EmptyCart />;
   }
 
   return (

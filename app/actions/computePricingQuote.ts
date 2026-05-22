@@ -672,7 +672,7 @@ export async function computePricingQuote(
 
     const percentRules = getApplicableRules(
       activeDiscounts,
-      sessionIds,
+      sessionIds ?? [],
       familyDancerCount,
       weeklyClassCount,
       "percent",
@@ -691,7 +691,7 @@ export async function computePricingQuote(
 
     const flatRules = getApplicableRules(
       activeDiscounts,
-      sessionIds,
+      sessionIds ?? [],
       familyDancerCount,
       weeklyClassCount,
       "flat",

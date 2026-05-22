@@ -16,9 +16,13 @@ type RegRow = {
   id: string;
   status: string;
   dancer_id: string;
+  /** Set for tiered full-term enrollments (from schedule_enrollments). */
+  tier_name?: string | null;
   class_sessions: {
     id: string;
     day_of_week: string;
+    /** Full-term enrollments meet on multiple days (from class_schedules). */
+    days_of_week?: string[] | null;
     start_time: string | null;
     end_time: string | null;
     location: string | null;
@@ -58,6 +62,8 @@ interface FamilyProfileCardProps {
   registrations?: RegRow[] | null;
   batches?: BatchRow[] | null;
   contacts?: FamilyContact[] | null;
+  /** Tab to open on mount (from the `?tab=` query param). */
+  initialTab?: string;
 }
 
 /* ── Helper functions ─────────────────────────────────────── */
@@ -231,10 +237,13 @@ const CHIP_STYLE: React.CSSProperties = {
 /* ── Main component ──────────────────────────────────────── */
 
 export const FamilyProfileCard = ({
-  user, dancers, registrations, batches, contacts,
+  user, dancers, registrations, batches, contacts, initialTab,
 }: FamilyProfileCardProps) => {
   type Tab = "profile" | "dancers" | "registrations" | "payments" | "notifications";
-  const [activeTab, setActiveTab] = useState<Tab>("profile");
+  const TAB_IDS: Tab[] = ["profile", "dancers", "registrations", "payments", "notifications"];
+  const [activeTab, setActiveTab] = useState<Tab>(
+    TAB_IDS.includes(initialTab as Tab) ? (initialTab as Tab) : "profile",
+  );
   const [showAddDancer, setShowAddDancer] = useState(false);
   const [showAddEmergency, setShowAddEmergency] = useState(false);
   const [newsletter, setNewsletter] = useState(false);
@@ -625,7 +634,16 @@ export const FamilyProfileCard = ({
 
                             {/* Info */}
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13, fontWeight: 700 }}>{cls?.name ?? "Class"}</div>
+                              <div style={{ fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                {cls?.name ?? "Class"}
+                                {reg.tier_name && (
+                                  <span style={{
+                                    fontSize: 10, fontWeight: 700, letterSpacing: "0.3px",
+                                    padding: "1px 7px", borderRadius: 99,
+                                    background: "var(--plum-50)", color: "var(--plum-700)",
+                                  }}>{reg.tier_name}</span>
+                                )}
+                              </div>
                               <div style={{
                                 fontSize: 11, color: "var(--pub-text-muted)", marginTop: 3,
                                 display: "flex", flexWrap: "wrap", gap: 8,
@@ -634,7 +652,9 @@ export const FamilyProfileCard = ({
                                   <>
                                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                       <CalendarIcon />
-                                      {formatDay(cs.day_of_week)}{cs.start_time && cs.end_time ? ` · ${formatTime(cs.start_time)} – ${formatTime(cs.end_time)}` : ""}
+                                      {(cs.days_of_week && cs.days_of_week.length > 0
+                                        ? cs.days_of_week.map(formatDay).join(", ")
+                                        : formatDay(cs.day_of_week))}{cs.start_time && cs.end_time ? ` · ${formatTime(cs.start_time)} – ${formatTime(cs.end_time)}` : ""}
                                     </span>
                                     {cs.location && (
                                       <span style={{ display: "flex", alignItems: "center", gap: 4 }}>

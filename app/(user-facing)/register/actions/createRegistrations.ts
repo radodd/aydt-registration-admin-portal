@@ -14,6 +14,19 @@ export interface CreateRegistrationsInput {
     newDancer?: NewDancerDraft;
     /** session_occurrence_dates IDs selected by the parent in the cart */
     selectedDayIds?: string[];
+    /**
+     * Phase 3b-ii: registration mode for this participant. Drives which table
+     * receives the row.
+     *   - "standard"/"tiered": one row in schedule_enrollments (requires scheduleId).
+     *   - "drop-in" (or undefined, legacy): one row in registrations.
+     */
+    mode?: "standard" | "tiered" | "drop-in";
+    /** Required when mode = "standard" | "tiered". The class_schedules.id to enroll into. */
+    scheduleId?: string;
+    /** Required when mode = "tiered". The class_tiers.id chosen for this dancer. */
+    classTierId?: string;
+    /** Optional informational — class_id, used for audit/back-fill. */
+    classId?: string;
   }>;
   batchId: string;
   /** Client-visible pricing quote — server re-computes and validates it matches. */
@@ -24,6 +37,13 @@ export interface CreateRegistrationsInput {
   creditIdsToApply?: string[];
   /** Total credit amount (dollars) client computed — server validates against DB rows. */
   creditTotal?: number;
+  /**
+   * Payment plan chosen by the parent. "installments" routes through the
+   * stored-card / recurring-charge path. NOTE the deliberate cross-vocabulary
+   * mapping (see below): the pricing engine speaks "auto_pay_monthly", the
+   * batch column + EPG session speak "installments". Defaults to pay_in_full.
+   */
+  paymentPlanType?: "pay_in_full" | "installments";
 }
 
 export interface CreateRegistrationsResult {
@@ -35,6 +55,12 @@ export interface CreateRegistrationsResult {
   /** Set when server-computed price differs from client-visible quote. */
   priceChanged?: boolean;
   newQuote?: PricingQuote;
+  /**
+   * Set to "BATCH_STALE" when the supplied batchId points to a batch that is
+   * no longer payable (failed/cancelled). The client should mint a fresh
+   * batchId and retry. See app/(user-facing)/register/payment/page.tsx.
+   */
+  code?: "BATCH_STALE";
 }
 
 const PRICE_TOLERANCE = 0.01; // cents rounding tolerance
@@ -66,19 +92,39 @@ export async function createRegistrations(
   // 2. Idempotency check — return existing IDs if this batch was already submitted
   const { data: existingBatch } = await supabase
     .from("registration_batches")
-    .select("id")
+    .select("id, status")
     .eq("id", input.batchId)
     .maybeSingle();
 
   if (existingBatch) {
-    const { data: existingRegs } = await supabase
-      .from("registrations")
-      .select("id")
-      .eq("registration_batch_id", input.batchId);
+    // If the cached batchId points to a batch that's no longer payable
+    // (failed/cancelled — e.g. cleaned up by a prior stale-batch sweep), signal
+    // the client to mint a fresh batchId and retry rather than reusing the dead
+    // row (which would later fail with "not in a payable state").
+    if (existingBatch.status === "failed" || existingBatch.status === "cancelled") {
+      console.log(
+        `[createRegistrations] ⚠️ TEMP - batch ${input.batchId} is ${existingBatch.status} — returning BATCH_STALE for client regeneration`,
+      ); // TODO: DELETE
+      return {
+        success: false,
+        registrationIds: [],
+        code: "BATCH_STALE",
+        error: "This registration session expired. Restarting checkout…",
+      };
+    }
+
+    // Phase 3b-ii: a batch may produce rows in either/both tables. Merge both.
+    const [{ data: existingRegs }, { data: existingEnrolls }] = await Promise.all([
+      supabase.from("registrations").select("id").eq("registration_batch_id", input.batchId),
+      supabase.from("schedule_enrollments").select("id").eq("batch_id", input.batchId),
+    ]);
     return {
       success: true,
       batchId: input.batchId,
-      registrationIds: (existingRegs ?? []).map((r) => r.id as string),
+      registrationIds: [
+        ...(existingRegs ?? []).map((r) => r.id as string),
+        ...(existingEnrolls ?? []).map((r) => r.id as string),
+      ],
     };
   }
 
@@ -91,7 +137,7 @@ export async function createRegistrations(
   const earlyFamilyId = (userProfileEarly as any)?.family_id ?? null;
 
   // 3. Validate that all sessionIds belong to the given semester
-  const sessionIds = input.participants.map((p) => p.sessionId);
+  const sessionIds = [...new Set(input.participants.map((p) => p.sessionId))];
   const { data: sessions, error: sessionError } = await supabase
     .from("class_sessions")
     .select("id")
@@ -105,6 +151,57 @@ export async function createRegistrations(
       error:
         "One or more sessions are invalid or do not belong to this semester.",
     };
+  }
+
+  // 3.1 Phase 3b-ii: validate schedule_id ownership for standard/tiered participants
+  const scheduleEnrollmentParticipants = input.participants.filter(
+    (p) => p.mode === "standard" || p.mode === "tiered",
+  );
+  const scheduleIds = [
+    ...new Set(
+      scheduleEnrollmentParticipants
+        .map((p) => p.scheduleId)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  if (scheduleEnrollmentParticipants.length > 0 && scheduleIds.length > 0) {
+    const { data: scheduleRows, error: scheduleError } = await supabase
+      .from("class_schedules")
+      .select("id, classes!inner(semester_id)")
+      .in("id", scheduleIds);
+    if (scheduleError || !scheduleRows || scheduleRows.length !== scheduleIds.length) {
+      return {
+        success: false,
+        registrationIds: [],
+        error: "One or more class schedules are invalid.",
+      };
+    }
+    for (const row of scheduleRows as any[]) {
+      const cls = Array.isArray(row.classes) ? row.classes[0] : row.classes;
+      if (cls?.semester_id !== input.semesterId) {
+        return {
+          success: false,
+          registrationIds: [],
+          error: "One or more schedules do not belong to this semester.",
+        };
+      }
+    }
+  }
+  for (const p of scheduleEnrollmentParticipants) {
+    if (!p.scheduleId) {
+      return {
+        success: false,
+        registrationIds: [],
+        error: "Internal error: scheduleId missing for full-term enrollment.",
+      };
+    }
+    if (p.mode === "tiered" && !p.classTierId) {
+      return {
+        success: false,
+        registrationIds: [],
+        error: "Internal error: classTierId missing for tiered enrollment.",
+      };
+    }
   }
 
   // 3.5 Server-side enrollment validation (Phase 3 — Layer 2)
@@ -176,7 +273,12 @@ export async function createRegistrations(
     serverQuote = await computePricingQuote({
       semesterId: input.semesterId,
       enrollments,
-      paymentPlanType: "pay_in_full",
+      // Pricing engine vocabulary: installments → "auto_pay_monthly" (the only
+      // value buildPaymentSchedule splits + reduces amountDueNow for).
+      paymentPlanType:
+        input.paymentPlanType === "installments"
+          ? "auto_pay_monthly"
+          : "pay_in_full",
       couponCode: input.couponCode,
     });
   } catch (err) {
@@ -218,11 +320,27 @@ export async function createRegistrations(
 
   if (staleBatches?.length) {
     const staleIds = staleBatches.map((b) => b.id as string);
-    await supabase
-      .from("registrations")
-      .update({ status: "cancelled" })
-      .in("registration_batch_id", staleIds)
-      .eq("status", "pending_payment");
+    // Phase 3b-ii: stale batches may have rows in either table.
+    // `registrations` is soft-cancelled (no unique constraint conflict).
+    // `schedule_enrollments` is hard-deleted because its UNIQUE (schedule_id, dancer_id)
+    // constraint ignores status — a soft-cancelled row would block the retry insert with
+    // "duplicate key value violates unique constraint schedule_enrollments_schedule_id_dancer_id_key".
+    // The parent registration_batches row stays as 'failed' for audit.
+    const [regsResult, enrollResult] = await Promise.all([
+      supabase
+        .from("registrations")
+        .update({ status: "cancelled" })
+        .in("registration_batch_id", staleIds)
+        .eq("status", "pending_payment"),
+      supabase
+        .from("schedule_enrollments")
+        .delete()
+        .in("batch_id", staleIds)
+        .eq("status", "pending"),
+    ]);
+    console.log(
+      `[createRegistrations] ⚠️ TEMP - stale batch cleanup parent=${user.id} semester=${input.semesterId} staleBatchCount=${staleIds.length} regsErr=${regsResult.error?.message ?? "ok"} enrollErr=${enrollResult.error?.message ?? "ok"}`,
+    ); // TODO: DELETE
     await supabase
       .from("registration_batches")
       .update({ status: "failed" })
@@ -264,7 +382,11 @@ export async function createRegistrations(
       family_discount_amount: serverQuote?.familyDiscountAmount ?? 0,
       auto_pay_admin_fee_total: serverQuote?.autoPayAdminFeeTotal ?? 0,
       grand_total: grandTotal,
-      payment_plan_type: "pay_in_full",
+      // Batch-column / EPG vocabulary: literal "installments" is what
+      // createEPGPaymentSession + the webhook gate on to set doCapture:false
+      // and store the card. Do NOT write "auto_pay_monthly" here.
+      payment_plan_type:
+        input.paymentPlanType === "installments" ? "installments" : "pay_in_full",
       amount_due_now: amountDueNow,
       cart_snapshot: input.participants.map((p) => ({
         dancerId: p.dancerId,
@@ -314,10 +436,47 @@ export async function createRegistrations(
       });
   }
 
-  // 8. Insert one registration per participant
+  // 8. Insert rows — split by mode (Phase 3b-ii).
+  //   - standard/tiered participants → schedule_enrollments (one row per participant)
+  //   - drop-in (or legacy unset) participants → registrations (one row per participant)
   const holdExpiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-  const rows = input.participants.map((p) => ({
+  const dropInParticipants = input.participants.filter(
+    (p) => p.mode !== "standard" && p.mode !== "tiered",
+  );
+
+  // 8a. schedule_enrollments — for standard/tiered participants.
+  let allRegistrationIds: string[] = [];
+  if (scheduleEnrollmentParticipants.length > 0) {
+    const enrollRows = scheduleEnrollmentParticipants.map((p) => ({
+      schedule_id: p.scheduleId!,
+      batch_id: input.batchId,
+      dancer_id: p.dancerId,
+      price_snapshot: 0, // financial record lives on registration_batches
+      // schedule_enrollments.status CHECK allows ('pending', 'confirmed', 'cancelled') —
+      // distinct from registrations.status which uses 'pending_payment'. The EPG
+      // webhook flips this to 'confirmed' alongside the registrations update.
+      status: "pending",
+      class_tier_id: p.mode === "tiered" ? p.classTierId : null,
+    }));
+    const { data: enrollCreated, error: enrollErr } = await supabase
+      .from("schedule_enrollments")
+      .insert(enrollRows)
+      .select("id");
+    if (enrollErr) {
+      return {
+        success: false,
+        registrationIds: [],
+        error: enrollErr.message,
+      };
+    }
+    allRegistrationIds = allRegistrationIds.concat(
+      (enrollCreated ?? []).map((r: any) => r.id as string),
+    );
+  }
+
+  // 8b. registrations — for drop-in / legacy participants.
+  const rows = dropInParticipants.map((p) => ({
     dancer_id: p.dancerId,
     session_id: p.sessionId,
     status: "pending_payment",
@@ -326,17 +485,22 @@ export async function createRegistrations(
     registration_batch_id: input.batchId,
   }));
 
-  const { data: created, error: insertError } = await supabase
-    .from("registrations")
-    .insert(rows)
-    .select("id, session_id, dancer_id");
+  let created: { id: string; session_id: string; dancer_id: string }[] = [];
+  if (rows.length > 0) {
+    const { data, error: insertError } = await supabase
+      .from("registrations")
+      .insert(rows)
+      .select("id, session_id, dancer_id");
 
-  if (insertError) {
-    return {
-      success: false,
-      registrationIds: [],
-      error: insertError.message,
-    };
+    if (insertError) {
+      return {
+        success: false,
+        registrationIds: [],
+        error: insertError.message,
+      };
+    }
+    created = (data ?? []) as any;
+    allRegistrationIds = allRegistrationIds.concat(created.map((r) => r.id));
   }
 
   // 9. Insert registration_days — one row per (registration, selected occurrence date)
@@ -432,6 +596,6 @@ export async function createRegistrations(
   return {
     success: true,
     batchId: input.batchId,
-    registrationIds: (created ?? []).map((r) => r.id as string),
+    registrationIds: allRegistrationIds,
   };
 }
