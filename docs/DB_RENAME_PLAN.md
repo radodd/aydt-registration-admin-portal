@@ -1,7 +1,27 @@
 # Database Table Rename Plan
 
 > Investigation + phased plan for aligning table names with what they actually represent.
-> Authored: 2026-05-22. Status: **proposal — do not execute before the July 1 launch.**
+> Authored 2026-05-22. **Status: ✅ COMPLETE 2026-05-22.** All four rename clusters landed; the schema has its final names.
+
+## ✅ Final state
+
+| Cluster | Commit | Migration |
+|---|---|---|
+| 0 — drop dead `registrations.batch_id` | `740e129` | `20260522000002` |
+| 1 — `registration_orders` (+ 2 satellites) | `f7ca0d1` | `20260522000003` |
+| 2 — `class_sections` cluster (+ 3 satellites + `schedule_id → section_id`) | `81d14a3` | `20260522000004` |
+| 3a — `class_meetings` cluster (+ 10 satellites + 4 column renames) | `d12a7a0` | `20260522000005` |
+| 3b — `meeting_enrollments` (DB-boundary; embeds aliased) | `2f37906` | `20260522000006` |
+
+**Approach used:** atomic per-cluster (no view shims). Each cluster = table rename + column renames + plpgsql function `CREATE OR REPLACE` (mechanical token swap of latest bodies) + full code sweep, committed as one PR per cluster on a `rename/*` branch off `staging`, then fast-forwarded to `staging` and PR'd to `main`. Edge functions (`process-overdue-payments`, `process-waitlist`) redeployed in lockstep with their cluster's `db push`.
+
+**Intentional 3b naming gap:** the DB table is `meeting_enrollments`, but the app-layer vocabulary (PostgREST result keys, TS type properties, "Registrations" UI copy, `.registrations` accesses) remained `registrations` via embed aliasing (`registrations:meeting_enrollments(...)`). The 5 embeds carry that alias today; renaming app-layer "registrations" was out of scope for the schema-naming goal.
+
+The remaining sections below are preserved as the original plan + historical reasoning. Items still genuinely deferred (not blocked, but not done either) are flagged with **DEFERRED** in §3 and §4.
+
+---
+
+Original framing (preserved for context):
 > Renaming tables crosses every scope zone (queries, types, server actions, edge functions, RLS, triggers). Treat as a post-launch refactor. The one exception is the `batch_id` column collapse (§3), which is a correctness fix and should land regardless.
 
 ---
@@ -84,11 +104,9 @@ Decision: rename all five. `class_sections` / `class_meetings` express the confi
 | `batch_payment_installments` | `order_payment_installments` | 18 |
 | `registration_line_items` | `order_line_items` | 1 |
 
-### ⚠️ Open decision — meeting-level enrollment name
+### ✅ Resolved — meeting-level enrollment name
 
-- **`meeting_enrollments`** — visual symmetry with `section_enrollments`; distinguished by grain. *(recommended)*
-- **`meeting_bookings`** — reads naturally for drop-ins ("book a class"); distinguished by verb (book vs enroll).
-- **keep `registrations`** — lowest risk; do only the column fixes in §3. The sibling asymmetry remains.
+Chose **`meeting_enrollments`** (visual symmetry with `section_enrollments`, distinguished by grain). Shipped in cluster 3b via the DB-boundary approach — app layer keeps the `registrations` vocabulary via embed aliasing.
 
 ---
 
@@ -97,11 +115,12 @@ Decision: rename all five. `class_sections` / `class_meetings` express the confi
 | Table.column | Issue | Action |
 |---|---|---|
 | `registrations.batch_id` (dead) vs `registration_batch_id` (live) | `registration_batch_id` is authoritative (sole column written/read); `batch_id` is vestigial — **zero code refs**, NULL on all rows, plus a backwards UNIQUE index | ✅ **DONE 2026-05-22:** `batch_id` dropped (migration `20260522000002`). `registration_batch_id` later renamed `order_id`. |
-| `schedule_id` (4 FKs → `class_sections`) | **~101 code references** — heaviest single rename | rename `section_id` |
-| `registrations.session_id` | FK → `class_meetings` | rename `meeting_id` |
-| incoming `class_session_id` (3) vs `session_id` (4) | two column names, one parent FK | standardize on `meeting_id` |
-| `*.batch_id` / `source_batch_id` / `used_in_batch_id` (10 FKs) | reference orders | standardize on `*order_id` |
-| `registrations.stripe_amount_cents`, `payment_intent_id` | Stripe vocab on an EPG backend | rename `amount_cents`; drop/rename intent |
+| `schedule_id` (4 FKs → `class_sections`) | ~101 code references — heaviest single rename | ✅ **DONE 2026-05-22:** renamed `section_id` in cluster 2 (`81d14a3`, migration `20260522000004`). |
+| `registrations.session_id` | FK → `class_meetings` | ✅ **DONE 2026-05-22:** renamed `meeting_id` in cluster 3a (`d12a7a0`, migration `20260522000005`). |
+| incoming `class_session_id` (3) vs `session_id` (4) | two column names, one parent FK | ✅ **DONE 2026-05-22:** `class_session_id → class_meeting_id`, `session_id → meeting_id` in cluster 3a. (Did not collapse `class_meeting_id` into bare `meeting_id` — `class_meeting_id` makes the FK context explicit on the few tables that have it.) |
+| `*.batch_id` / `source_batch_id` / `used_in_batch_id` (10 FKs) | reference orders | **DEFERRED** — column rename to `*order_id` not done; columns still named `*batch_id` but now reference `registration_orders`. Mild inconsistency; cosmetic. |
+| `registrations.stripe_amount_cents`, `payment_intent_id` | Stripe vocab on an EPG backend | **DEFERRED** — Stripe-named columns still in place on `meeting_enrollments` and `registration_orders`. Cosmetic. |
+| `meeting_enrollments` (table) but `registrations` (app vocabulary) | DB-boundary rename only — 3b kept embeds aliased so app code/UI keeps saying `registrations` | **DEFERRED (intentional gap):** deeper app-layer rename (`.registrations` accesses, TS type properties, `Registration*` PascalCase types) not done. Schema-naming goal achieved without disturbing domain code. |
 
 > The `schedule_id → section_id` rename (101 refs) is the single biggest line item in the whole plan — bigger than most table renames. A column rename can't hide behind a view shim the way a table rename can, so it must be done as one atomic sweep alongside the `class_schedules → class_sections` rename.
 
@@ -115,7 +134,11 @@ Decision: rename all five. `class_sections` / `class_meetings` express the confi
 
 ---
 
-## 5. Migration strategy — expand/contract per table
+## 5. Migration strategy — **atomic per-cluster** (chosen) vs view-shim (original)
+
+> The view-shim approach below was the original plan. The **chosen and shipped** approach was **atomic per-cluster**: each cluster ran `ALTER TABLE ... RENAME` *and* updated every caller in the same PR, no view shims. This worked because (a) all callers were updatable in one sweep, (b) PostgREST schema cache reloads automatically on DDL, and (c) plpgsql functions were `CREATE OR REPLACE`d in the same migration that did the rename so their late-binding references resolved cleanly. View shims would have added RLS/auto-updatable-view complexity for no incremental-rollout benefit.
+>
+> The expand/contract description below is retained as the original alternative.
 
 `ALTER TABLE ... RENAME` is transactional and cheap but breaks every caller atomically. Use a view shim so callers migrate incrementally:
 
@@ -132,9 +155,10 @@ Notes:
 
 ## 6. Recommended sequencing
 
-1. ✅ **DONE 2026-05-22:** dropped dead `registrations.batch_id` (§3, item 1). Was not a "collapse" — `batch_id` had zero code refs and was NULL on all rows; `registration_batch_id` is canonical. Migration `20260522000002`.
-2. **Post-launch, batch 1:** `registration_batches → registration_orders` (+ 2 satellites). Smallest fan-out; proves the view pattern.
-3. **Post-launch, batch 2 — section cluster:** `class_schedules → class_sections` + `schedule_enrollments → section_enrollments` + 3 satellites + the `schedule_id → section_id` column sweep (101 refs, atomic — no view shim).
-4. **Post-launch, batch 3 — meeting cluster:** `class_sessions → class_meetings` + 9 satellites + `registrations → meeting_enrollments` + `session_id → meeting_id`. Largest blast radius; do last when the pattern is proven.
+1. ✅ **DONE 2026-05-22:** dropped dead `registrations.batch_id` (§3, item 1). Was not a "collapse" — `batch_id` had zero code refs and was NULL on all rows; `registration_batch_id` is canonical. Migration `20260522000002`. Commit `740e129`.
+2. ✅ **DONE 2026-05-22 — cluster 1:** `registration_batches → registration_orders` + `batch_payment_installments → order_payment_installments` + `registration_line_items → order_line_items`. Migration `20260522000003`. Commit `f7ca0d1`. Edge fn `process-overdue-payments` redeployed.
+3. ✅ **DONE 2026-05-22 — cluster 2 (section):** `class_schedules → class_sections` + `schedule_enrollments → section_enrollments` + 3 satellites + `schedule_id → section_id` (101-ref atomic sweep). 2 plpgsql trigger fns replaced. Migration `20260522000004`. Commit `81d14a3`.
+4. ✅ **DONE 2026-05-22 — cluster 3a (meeting):** `class_sessions → class_meetings` + 10 satellites + 4 column renames (`session_id → meeting_id`, `class_session_id → class_meeting_id`, `cloned_from_session_id → cloned_from_meeting_id`, `session_group_id → meeting_group_id`). 7 plpgsql trigger fns replaced (incl. three semester-publish guards). Edge fn `process-waitlist` redeployed. Migration `20260522000005`. Commit `d12a7a0`.
+5. ✅ **DONE 2026-05-22 — cluster 3b (meeting_enrollments):** DB-boundary rename `registrations → meeting_enrollments`; 5 PostgREST embeds aliased to preserve app-layer `registrations` vocabulary. 8 plpgsql functions re-pointed. Migration `20260522000006`. Commit `2f37906`.
 
 **Total Tier 1 blast radius:** ~130 unique code files, ~150 `.from()` rewrites, ~100 `schedule_id` column edits, ~63 type-name edits, 7 migrations, ~12 view shims. ~3–4 day focused refactor. Keep behind the July 1 launch.
