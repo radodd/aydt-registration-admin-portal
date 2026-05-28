@@ -2,6 +2,8 @@
 
 > Investigation + phased plan for aligning table names with what they actually represent.
 > Authored 2026-05-22. **Status: ✅ COMPLETE 2026-05-22.** All four rename clusters landed; the schema has its final names.
+>
+> **For the live schema reference (every table, columns, FKs, normalization candidates), see [SCHEMA.md](./SCHEMA.md).** This doc retains the rename project's history and rationale.
 
 ## ✅ Final state
 
