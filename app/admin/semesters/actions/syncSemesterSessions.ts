@@ -15,14 +15,14 @@ import type {
 
 /**
  * Per-day enrollment model — syncs `classes` + `class_sections` + generated
- * `class_sessions` for a semester.
+ * `class_meetings` for a semester.
  *
  * Given the current DraftClass[] from the SemesterDraft state, this function:
  *  1. Deletes classes removed from the list (CASCADE removes their schedules + sessions).
  *  2. Upserts each DraftClass into `classes`.
  *  3. For each class, syncs its DraftClassSchedule[] into `class_sections`.
  *  4. For each schedule, computes expected calendar dates and diffs against existing
- *     `class_sessions` — INSERTs new dates, UPDATEs non-destructive fields, and
+ *     `class_meetings` — INSERTs new dates, UPDATEs non-destructive fields, and
  *     attempts to DELETE removed dates (blocked by DB trigger if registrations exist).
  *  5. Syncs price rows, options, and excluded dates per schedule.
  *  6. Syncs class_requirements.
@@ -148,7 +148,7 @@ export async function syncSemesterSessions(
     /* 3. Sync class_sections for this class                                */
     /* -------------------------------------------------------------------- */
 
-    // Competition tracks have no class_sessions — they use audition_sessions instead.
+    // Competition tracks have no class_meetings — they use audition_sessions instead.
     // The hard boundary is enforced here: even if a DraftClass with isCompetitionTrack=true
     // arrives with non-empty schedules, we skip session generation entirely.
     // Audition slot creation only happens in manageInvites.createAuditionSession,
@@ -210,7 +210,7 @@ async function syncClassSchedules(
     schedules.map((s) => s.id).filter(Boolean) as string[],
   );
 
-  // Delete removed schedules (only if no class_sessions remain — ON DELETE RESTRICT)
+  // Delete removed schedules (only if no class_meetings remain — ON DELETE RESTRICT)
   const scheduleIdsToDelete = [...existingScheduleIds].filter(
     (id) => !incomingScheduleIds.has(id),
   );
@@ -225,23 +225,23 @@ async function syncClassSchedules(
   for (const scheduleId of scheduleIdsToDelete) {
     // Fetch session IDs so we can clear FK references before deleting
     const { data: sessionsToRemove } = await supabase
-      .from("class_sessions")
+      .from("class_meetings")
       .select("id")
       .eq("section_id", scheduleId);
 
     const removedIds = (sessionsToRemove ?? []).map((s) => s.id);
 
     if (removedIds.length > 0) {
-      // Clear session_group_sessions references first (FK would block class_sessions delete)
+      // Clear meeting_group_meetings references first (FK would block class_meetings delete)
       await supabase
-        .from("session_group_sessions")
+        .from("meeting_group_meetings")
         .delete()
-        .in("session_id", removedIds);
+        .in("meeting_id", removedIds);
     }
 
     // Delete generated sessions (DB trigger blocks if registrations exist)
     const { error: sessionDelErr } = await supabase
-      .from("class_sessions")
+      .from("class_meetings")
       .delete()
       .eq("section_id", scheduleId);
 
@@ -287,7 +287,7 @@ async function syncClassSchedules(
       draftSchedule.excludedDates ?? [],
     );
 
-    // Generate per-day class_sessions
+    // Generate per-day class_meetings
     await generateSessionsForSchedule(
       supabase,
       scheduleId,
@@ -361,7 +361,7 @@ function buildScheduleRow(
 
 /**
  * Computes the expected set of calendar dates for a schedule, diffs against
- * existing class_sessions, and reconciles:
+ * existing class_meetings, and reconciles:
  *   - New dates → INSERT
  *   - Existing dates → UPDATE non-destructive fields
  *   - Removed dates → DELETE (blocked by trigger if registrations exist)
@@ -407,7 +407,7 @@ async function generateSessionsForSchedule(
 
   // Fetch existing sessions for this schedule
   const { data: existingSessions, error: fetchErr } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id, schedule_date")
     .eq("section_id", scheduleId);
   if (fetchErr) throw new Error(fetchErr.message);
@@ -474,7 +474,7 @@ async function generateSessionsForSchedule(
     });
 
     const { data: inserted, error: insErr } = await supabase
-      .from("class_sessions")
+      .from("class_meetings")
       .insert(rows)
       .select("id, schedule_date");
     if (insErr) throw new Error(insErr.message);
@@ -495,9 +495,9 @@ async function generateSessionsForSchedule(
 
     if (pricingModel === "per_session" && eff.capacity != null) {
       const { count: enrolledCount } = await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select("id", { count: "exact", head: true })
-        .eq("session_id", sessionId)
+        .eq("meeting_id", sessionId)
         .neq("status", "cancelled");
       if ((enrolledCount ?? 0) > eff.capacity) {
         throw new Error(
@@ -507,7 +507,7 @@ async function generateSessionsForSchedule(
     }
 
     const { error: updErr } = await supabase
-      .from("class_sessions")
+      .from("class_meetings")
       .update({
         start_time: eff.start_time,
         end_time: eff.end_time,
@@ -532,14 +532,14 @@ async function generateSessionsForSchedule(
   if (datesToDelete.length > 0) {
     const sessionIdsToDelete = datesToDelete.map((d) => existingByDate.get(d)!);
     const { error: groupErr } = await supabase
-      .from("session_group_sessions")
+      .from("meeting_group_meetings")
       .delete()
-      .in("session_id", sessionIdsToDelete);
+      .in("meeting_id", sessionIdsToDelete);
 
     if (groupErr) throw new Error(groupErr.message);
 
     const { error: delErr } = await supabase
-      .from("class_sessions")
+      .from("class_meetings")
       .delete()
       .in("id", sessionIdsToDelete);
     if (delErr) throw new Error(delErr.message);
@@ -604,7 +604,7 @@ async function syncScheduleExcludedDates(
 
 /**
  * Syncs named price tiers for a schedule into section_price_tiers.
- * Replaces the legacy class_session_price_rows approach for full_schedule mode.
+ * Replaces the legacy class_meeting_price_rows approach for full_schedule mode.
  * Uses delete+re-insert to handle label/amount/order changes cleanly.
  */
 async function syncSchedulePriceTiers(
@@ -639,7 +639,7 @@ async function syncSchedulePriceTiers(
 /* -------------------------------------------------------------------------- */
 
 /**
- * Syncs price rows for all class_sessions belonging to a schedule.
+ * Syncs price rows for all class_meetings belonging to a schedule.
  * Uses delete+re-insert strategy identical to the per-session version.
  */
 async function syncPriceRowsForSchedule(
@@ -649,7 +649,7 @@ async function syncPriceRowsForSchedule(
 ) {
   // Fetch all session ids for this schedule
   const { data: sessions, error: fetchErr } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id")
     .eq("section_id", scheduleId);
   if (fetchErr) throw new Error(fetchErr.message);
@@ -659,9 +659,9 @@ async function syncPriceRowsForSchedule(
 
   // Delete existing price rows for all sessions in this schedule
   const { error: delErr } = await supabase
-    .from("class_session_price_rows")
+    .from("class_meeting_price_rows")
     .delete()
-    .in("class_session_id", sessionIds);
+    .in("class_meeting_id", sessionIds);
   if (delErr) throw new Error(delErr.message);
 
   if (priceRows.length === 0) return;
@@ -669,7 +669,7 @@ async function syncPriceRowsForSchedule(
   // Insert fresh rows for every session
   const rows = sessionIds.flatMap((sessionId) =>
     priceRows.map((r, i) => ({
-      class_session_id: sessionId,
+      class_meeting_id: sessionId,
       label: r.label,
       amount: r.amount,
       sort_order: r.sortOrder ?? i,
@@ -678,7 +678,7 @@ async function syncPriceRowsForSchedule(
   );
 
   const { error: insErr } = await supabase
-    .from("class_session_price_rows")
+    .from("class_meeting_price_rows")
     .insert(rows);
   if (insErr) throw new Error(insErr.message);
 }
@@ -693,7 +693,7 @@ async function syncOptionsForSchedule(
   options: DraftSessionOption[],
 ) {
   const { data: sessions, error: fetchErr } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id")
     .eq("section_id", scheduleId);
   if (fetchErr) throw new Error(fetchErr.message);
@@ -702,16 +702,16 @@ async function syncOptionsForSchedule(
   if (sessionIds.length === 0) return;
 
   const { error: delErr } = await supabase
-    .from("class_session_options")
+    .from("class_meeting_options")
     .delete()
-    .in("class_session_id", sessionIds);
+    .in("class_meeting_id", sessionIds);
   if (delErr) throw new Error(delErr.message);
 
   if (options.length === 0) return;
 
   const rows = sessionIds.flatMap((sessionId) =>
     options.map((o, i) => ({
-      class_session_id: sessionId,
+      class_meeting_id: sessionId,
       name: o.name,
       description: o.description ?? null,
       price: o.price,
@@ -721,7 +721,7 @@ async function syncOptionsForSchedule(
   );
 
   const { error: insErr } = await supabase
-    .from("class_session_options")
+    .from("class_meeting_options")
     .insert(rows);
   if (insErr) throw new Error(insErr.message);
 }

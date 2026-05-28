@@ -18,7 +18,7 @@ export default async function WaitlistAcceptPage({ params }: Props) {
       `
       id,
       dancer_id,
-      session_id,
+      meeting_id,
       status,
       invite_token,
       invitation_expires_at,
@@ -85,9 +85,9 @@ export default async function WaitlistAcceptPage({ params }: Props) {
   }
 
   const { count: registrationCount } = await supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select("id", { count: "exact", head: true })
-    .eq("session_id", entry.session_id)
+    .eq("meeting_id", entry.meeting_id)
     .not("status", "in", '("declined","cancelled")');
 
   const capacity = session.capacity ?? 0;
@@ -135,9 +135,9 @@ export default async function WaitlistAcceptPage({ params }: Props) {
   }
 
   // Insert pending registration with 30-minute hold
-  const { error: insertError } = await supabase.from("registrations").insert({
+  const { error: insertError } = await supabase.from("meeting_enrollments").insert({
     dancer_id: entry.dancer_id,
-    session_id: entry.session_id,
+    meeting_id: entry.meeting_id,
     status: "pending",
     hold_expires_at: holdExpiresAt,
     total_amount: 0,

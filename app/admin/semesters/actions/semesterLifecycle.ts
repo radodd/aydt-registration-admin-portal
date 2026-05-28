@@ -21,9 +21,9 @@ export async function saveSemesterDraft(semesterId: string) {
   // Block revert-to-draft if any active enrollments exist (both tables).
   const [{ count: regCount, error: regErr }, { count: enrollCount, error: enrollErr }] = await Promise.all([
     supabase
-      .from("registrations")
-      .select("*, class_sessions!inner(semester_id)", { count: "exact", head: true })
-      .eq("class_sessions.semester_id", semesterId)
+      .from("meeting_enrollments")
+      .select("*, class_meetings!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_meetings.semester_id", semesterId)
       .not("status", "in", "(cancelled,waitlisted)"),
     supabase
       .from("section_enrollments")
@@ -72,7 +72,7 @@ export async function publishSemesterNow(semesterId: string) {
 
   // 1️⃣ Pre-flight: semester must have at least one class session
   const { count, error: countError } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id", { count: "exact", head: true })
     .eq("semester_id", semesterId);
 

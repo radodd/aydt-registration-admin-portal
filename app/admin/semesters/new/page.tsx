@@ -101,7 +101,7 @@ export default function NewSemesterPage() {
         await Promise.all([
           supabase.from("classes").select("semester_id").in("semester_id", semesterIds),
           supabase
-            .from("class_sessions")
+            .from("class_meetings")
             .select("id, semester_id")
             .in("semester_id", semesterIds),
           supabase
@@ -125,11 +125,11 @@ export default function NewSemesterPage() {
           : Promise.resolve({ data: [] as { section_id: string }[] }),
         sessionIds.length
           ? supabase
-              .from("registrations")
-              .select("session_id")
-              .in("session_id", sessionIds)
+              .from("meeting_enrollments")
+              .select("meeting_id")
+              .in("meeting_id", sessionIds)
               .in("status", ["confirmed", "pending"])
-          : Promise.resolve({ data: [] as { session_id: string }[] }),
+          : Promise.resolve({ data: [] as { meeting_id: string }[] }),
       ]);
 
       // Build maps
@@ -175,7 +175,7 @@ export default function NewSemesterPage() {
         if (semId) enrollMap[semId] = (enrollMap[semId] ?? 0) + 1;
       }
       for (const row of sessionRegs ?? []) {
-        const semId = sessionSemMap[row.session_id];
+        const semId = sessionSemMap[row.meeting_id];
         if (semId) enrollMap[semId] = (enrollMap[semId] ?? 0) + 1;
       }
 

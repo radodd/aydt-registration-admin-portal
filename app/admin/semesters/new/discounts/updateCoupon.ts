@@ -47,7 +47,7 @@ export async function updateCoupon(input: UpdateCouponInput): Promise<void> {
   ) {
     const rows = (input.sessionIds ?? []).map((sessionId) => ({
       coupon_id: input.id,
-      session_id: sessionId,
+      meeting_id: sessionId,
     }));
     const { error: insertError } = await supabase
       .from("coupon_session_restrictions")

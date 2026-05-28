@@ -38,7 +38,7 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
       .eq("id", id)
       .single(),
     supabase
-      .from("class_sessions")
+      .from("class_meetings")
       .select("id, section_id, capacity, classes(name)")
       .eq("semester_id", id)
       .is("cancelled_at", null),
@@ -54,11 +54,11 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
     await Promise.all([
       sessionIds.length > 0
         ? supabase
-            .from("registrations")
+            .from("meeting_enrollments")
             .select(
-              "id, created_at, dancers(id, first_name, last_name, birth_date, gender), class_sessions(classes(name))"
+              "id, created_at, dancers(id, first_name, last_name, birth_date, gender), class_meetings(classes(name))"
             )
-            .in("session_id", sessionIds)
+            .in("meeting_id", sessionIds)
             .eq("status", "confirmed")
             .order("created_at", { ascending: false })
             .limit(10)
@@ -66,9 +66,9 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
 
       sessionIds.length > 0
         ? supabase
-            .from("registrations")
-            .select("dancer_id, created_at, session_id")
-            .in("session_id", sessionIds)
+            .from("meeting_enrollments")
+            .select("dancer_id, created_at, meeting_id")
+            .in("meeting_id", sessionIds)
             .eq("status", "confirmed")
         : Promise.resolve({ data: [] as any[] }),
 
@@ -81,7 +81,7 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
         ? supabase
             .from("waitlist_entries")
             .select("id", { count: "exact", head: true })
-            .in("session_id", sessionIds)
+            .in("meeting_id", sessionIds)
             .eq("status", "waiting")
         : Promise.resolve({ count: 0 }),
     ]);
@@ -109,9 +109,9 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
   // Build enrollment count per session ID
   const enrolledBySessionId: Record<string, number> = {};
   for (const r of allRegs) {
-    if (r.session_id) {
-      enrolledBySessionId[r.session_id] =
-        (enrolledBySessionId[r.session_id] ?? 0) + 1;
+    if (r.meeting_id) {
+      enrolledBySessionId[r.meeting_id] =
+        (enrolledBySessionId[r.meeting_id] ?? 0) + 1;
     }
   }
 

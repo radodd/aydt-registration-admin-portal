@@ -70,7 +70,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
   const { data: classes, error } = await supabase
     .from("classes")
     .select(
-      "id, name, division, discipline, min_age, max_age, is_tiered, class_sections(id, pricing_model, is_drop_in), class_sessions(id, section_id, day_of_week, start_time, end_time, start_date, end_date, schedule_date, location, instructor_name, capacity, drop_in_price), class_tiers(id, label, start_time, end_time, price_cents, sort_order, is_default), division_info:divisions(is_drop_in)"
+      "id, name, division, discipline, min_age, max_age, is_tiered, class_sections(id, pricing_model, is_drop_in), class_meetings(id, section_id, day_of_week, start_time, end_time, start_date, end_date, schedule_date, location, instructor_name, capacity, drop_in_price), class_tiers(id, label, start_time, end_time, price_cents, sort_order, is_default), division_info:divisions(is_drop_in)"
     )
     .eq("semester_id", semesterId)
     .order("name");
@@ -81,7 +81,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
   const allScheduleIds = [
     ...new Set(
       (classes as any[]).flatMap((c) =>
-        ((c.class_sessions as any[]) ?? [])
+        ((c.class_meetings as any[]) ?? [])
           .map((s: any) => s.section_id as string)
           .filter(Boolean)
       )
@@ -115,7 +115,7 @@ export async function fetchSemesterClasses(semesterId: string): Promise<AdminCla
       // New source of truth, falls back to legacy division flag for unmigrated rows.
       dropInByScheduleId.set(sched.id as string, sched.is_drop_in === true || legacyDivisionDropIn);
     }
-    const sessions: AdminSessionInfo[] = ((c.class_sessions as any[]) ?? []).map((s) => ({
+    const sessions: AdminSessionInfo[] = ((c.class_meetings as any[]) ?? []).map((s) => ({
       sessionId: s.id as string,
       scheduleId: (s.section_id ?? "") as string,
       classId: c.id as string,

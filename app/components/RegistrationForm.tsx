@@ -86,7 +86,7 @@ export default function RegistrationForm({
 
       if (dancerError) throw dancerError;
 
-      const { error: regError } = await supabase.from("registrations").insert([
+      const { error: regError } = await supabase.from("meeting_enrollments").insert([
         {
           dancer_id: dancerData.id,
           user_id: user.id,

@@ -112,7 +112,7 @@ export function DancerDetailPanel({
   // Deduplicate active registrations by class name — show each class once
   const seenClasses = new Set<string>();
   const uniqueActiveRegs = activeRegs.filter((r) => {
-    const name = r.class_sessions?.classes?.name ?? r.id;
+    const name = r.class_meetings?.classes?.name ?? r.id;
     if (seenClasses.has(name)) return false;
     seenClasses.add(name);
     return true;
@@ -218,7 +218,7 @@ export function DancerDetailPanel({
               </div>
               {/* Rows */}
               {uniqueActiveRegs.map((reg) => {
-                const cs = reg.class_sessions;
+                const cs = reg.class_meetings;
                 const dayStr = cs?.day_of_week
                   ? cs.day_of_week.charAt(0).toUpperCase() + cs.day_of_week.slice(1)
                   : "";
@@ -272,7 +272,7 @@ export function DancerDetailPanel({
                   className="grid grid-cols-[1fr_auto] gap-4 items-center px-4 py-3 border-b border-neutral-100 last:border-b-0 bg-white text-sm"
                 >
                   <p className="text-neutral-500">
-                    {reg.class_sessions?.classes?.name ?? "—"}
+                    {reg.class_meetings?.classes?.name ?? "—"}
                   </p>
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-neutral-100 text-neutral-500">
                     cancelled

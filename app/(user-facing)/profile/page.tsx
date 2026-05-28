@@ -48,9 +48,9 @@ export default async function Profile({
   const [{ data: registrations }, { data: enrollments }, { data: batches }] = await Promise.all([
     dancerIds.length > 0
       ? supabase
-          .from("registrations")
+          .from("meeting_enrollments")
           .select(
-            "id, status, dancer_id, class_sessions(id, day_of_week, start_time, end_time, location, instructor_name, classes(id, name, discipline))",
+            "id, status, dancer_id, class_meetings(id, day_of_week, start_time, end_time, location, instructor_name, classes(id, name, discipline))",
           )
           .in("dancer_id", dancerIds)
           .in("status", ["confirmed", "pending_payment"])
@@ -69,7 +69,7 @@ export default async function Profile({
     supabase
       .from("registration_orders")
       .select(
-        "id, grand_total, payment_plan_type, status, created_at, semesters:semester_id(name), order_payment_installments(id, installment_number, amount_due, due_date, status, paid_at), registrations(id, dancer_id, dancers(first_name, last_name), class_sessions(classes(name)))",
+        "id, grand_total, payment_plan_type, status, created_at, semesters:semester_id(name), order_payment_installments(id, installment_number, amount_due, due_date, status, paid_at), registrations:meeting_enrollments(id, dancer_id, dancers(first_name, last_name), class_meetings(classes(name)))",
       )
       .eq("family_id", user.family_id)
       .order("created_at", { ascending: false }),
@@ -84,7 +84,7 @@ export default async function Profile({
     status: e.status === "confirmed" ? "confirmed" : "pending_payment",
     dancer_id: e.dancer_id,
     tier_name: e.class_tiers?.label ?? null,
-    class_sessions: e.class_sections
+    class_meetings: e.class_sections
       ? {
           id: e.class_sections.id,
           day_of_week: e.class_sections.days_of_week?.[0] ?? "",

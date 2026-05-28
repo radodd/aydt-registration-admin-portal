@@ -47,9 +47,9 @@ export async function sendEmailNow(
   const { data: selectionContext } = await supabase
     .from("email_recipient_selections")
     .select(
-      `selection_type, semester_id, session_id,
+      `selection_type, semester_id, meeting_id,
        semesters:semester_id(name),
-       class_sessions:session_id(classes(name), semesters!class_sessions_semester_id_fkey(name))`,
+       class_meetings:meeting_id(classes(name), semesters!class_sessions_semester_id_fkey(name))`,
     )
     .eq("email_id", emailId)
     .eq("is_excluded", false)
@@ -67,9 +67,9 @@ export async function sendEmailNow(
         : selectionContext.semesters;
       semesterName = (sem as { name?: string } | null)?.name ?? "";
     } else if (selectionContext.selection_type === "session") {
-      const sess = Array.isArray(selectionContext.class_sessions)
-        ? selectionContext.class_sessions[0]
-        : selectionContext.class_sessions;
+      const sess = Array.isArray(selectionContext.class_meetings)
+        ? selectionContext.class_meetings[0]
+        : selectionContext.class_meetings;
       const cls = Array.isArray((sess as any)?.classes)
         ? (sess as any)?.classes[0]
         : (sess as any)?.classes;

@@ -50,9 +50,9 @@ export async function getReportData(
   if (!classIds.length) return [];
 
   // Step 2: get class session IDs + metadata for those classes
-  // class_sessions has direct FKs to both classes and semesters — select them as siblings
+  // class_meetings has direct FKs to both classes and semesters — select them as siblings
   const { data: sessions, error: sessionsError } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select(
       "id, day_of_week, location, instructor_name, class_id, classes(id, name), semesters(id, name)",
     )
@@ -94,11 +94,11 @@ export async function getReportData(
   // admin-created full-term enrollments. The join shape is non-trivial — separate task.
   // Use explicit FK hint for registration_orders since registrations has two FKs to that table
   const { data: regs, error: regsError } = await supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select(
       `
       id, created_at, status,
-      dancer_id, session_id, registration_batch_id,
+      dancer_id, meeting_id, registration_batch_id,
       dancers(
         id, first_name, last_name, birth_date, grade, family_id,
         families!family_id(
@@ -112,7 +112,7 @@ export async function getReportData(
       )
     `,
     )
-    .in("session_id", sessionIds)
+    .in("meeting_id", sessionIds)
     .neq("status", "cancelled");
 
   if (regsError) {
@@ -135,7 +135,7 @@ export async function getReportData(
     const grandTotal = batch?.grand_total ?? 0;
     const balance = Math.max(0, grandTotal - paidAmount);
 
-    const meta = sessionMeta[reg.session_id ?? ""] ?? {
+    const meta = sessionMeta[reg.meeting_id ?? ""] ?? {
       dayOfWeek: "",
       location: null,
       instructor: null,

@@ -8,7 +8,7 @@ interface Semester {
   id: string;
   name: string;
   status: string;
-  class_sessions: { id: string; start_date: string | null; end_date: string | null }[];
+  class_meetings: { id: string; start_date: string | null; end_date: string | null }[];
 }
 
 interface Props {
@@ -220,7 +220,7 @@ export default function HomeV2Client({ semesters, isLoggedIn, firstName, openSem
         ) : (
           <div className="v2-programs-grid">
             {semesters.map((semester) => {
-              const sessions = semester.class_sessions ?? [];
+              const sessions = semester.class_meetings ?? [];
               const allDates = sessions.flatMap(s => [s.start_date, s.end_date].filter(Boolean)) as string[];
               const earliest = allDates.length > 0 ? allDates.reduce((a, b) => a < b ? a : b) : null;
               const latest   = allDates.length > 0 ? allDates.reduce((a, b) => a > b ? a : b) : null;

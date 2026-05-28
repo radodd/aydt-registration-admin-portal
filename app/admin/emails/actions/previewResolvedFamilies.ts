@@ -42,10 +42,10 @@ async function accumulateFromRegistrations(
   excludedFamilyIds: Set<string>,
 ) {
   let query = supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select(`
       dancer_id,
-      session_id,
+      meeting_id,
       dancers!inner(
         id,
         first_name,
@@ -56,7 +56,7 @@ async function accumulateFromRegistrations(
           users!inner(id, email, first_name, last_name, is_primary_parent)
         )
       ),
-      class_sessions!inner(
+      class_meetings!inner(
         id,
         day_of_week,
         start_time,
@@ -67,13 +67,13 @@ async function accumulateFromRegistrations(
     .eq("dancers.families.users.is_primary_parent", true);
 
   if (filter.type === "semester") {
-    query = query.eq("class_sessions.semester_id", filter.semesterId);
+    query = query.eq("class_meetings.semester_id", filter.semesterId);
   } else if (filter.type === "class") {
-    query = query.eq("class_sessions.class_id", filter.classId);
+    query = query.eq("class_meetings.class_id", filter.classId);
   } else if (filter.type === "instructor") {
-    query = query.ilike("class_sessions.instructor_name", `%${filter.instructorName}%`);
+    query = query.ilike("class_meetings.instructor_name", `%${filter.instructorName}%`);
   } else {
-    query = query.eq("session_id", filter.sessionId);
+    query = query.eq("meeting_id", filter.sessionId);
   }
 
   const { data: registrations } = await query;
@@ -87,7 +87,7 @@ async function accumulateFromRegistrations(
     if (!primaryUser) continue;
     if (excludedFamilyIds.has(family.id)) continue;
 
-    const classSession = Array.isArray(reg.class_sessions) ? reg.class_sessions[0] : reg.class_sessions;
+    const classSession = Array.isArray(reg.class_meetings) ? reg.class_meetings[0] : reg.class_meetings;
     const cls = classSession
       ? Array.isArray(classSession.classes) ? classSession.classes[0] : classSession.classes
       : null;
@@ -129,7 +129,7 @@ async function addInstructors(
   familyMap: Map<string, FamilyAccumulator>,
   excludedFamilyIds: Set<string>,
 ) {
-  let query = supabase.from("class_sessions").select("instructor_name");
+  let query = supabase.from("class_meetings").select("instructor_name");
   if (selFilter.type === "class") {
     query = query.eq("class_id", selFilter.classId);
   } else {

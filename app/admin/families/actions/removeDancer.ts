@@ -15,7 +15,7 @@ export async function removeDancer(
 
   const [{ count: regCount, error: regErr }, { count: enrollCount, error: enrollErr }] = await Promise.all([
     supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .select("id", { count: "exact", head: true })
       .eq("dancer_id", dancerId)
       .neq("status", "cancelled"),

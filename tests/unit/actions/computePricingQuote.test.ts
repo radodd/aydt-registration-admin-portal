@@ -69,9 +69,9 @@ function buildMinimalRoutes(opts: {
   return {
     semester_fee_config: feeConfigChain,
     tuition_rate_bands: rateBandChain,
-    class_sessions: sessionChain,
+    class_meetings: sessionChain,
     semester_discounts: discountChain,
-    class_session_price_rows: priceRowsChain,
+    class_meeting_price_rows: priceRowsChain,
     registration_orders: batchCountChain,
     semester_coupons: couponChain,
     coupon_redemptions: redemptionChain,
@@ -110,9 +110,9 @@ describe("computePricingQuote", () => {
   it("family discount applied for 2-dancer enrollment (no prior batch)", async () => {
     const routes = buildMinimalRoutes({ division: "junior", priorBatchCount: 0 });
 
-    // Override class_sessions to return two dancers' session rows
+    // Override class_meetings to return two dancers' session rows
     const dancer2Id = "dnc-0000-0000-0000-000000000002";
-    routes.class_sessions = makeChain({ data: [MOCK_JUNIOR_SESSION_ROW] });
+    routes.class_meetings = makeChain({ data: [MOCK_JUNIOR_SESSION_ROW] });
 
     setupMock(routes);
 

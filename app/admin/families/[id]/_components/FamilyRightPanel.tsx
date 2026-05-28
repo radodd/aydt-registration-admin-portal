@@ -103,13 +103,13 @@ export function FamilyRightPanel({ family }: { family: FamilyDetail }) {
 
   const upcomingSessions: SessionItem[] = family.dancers.flatMap((dancer) =>
     dancer.registrations
-      .filter((r) => r.status !== "cancelled" && r.class_sessions)
+      .filter((r) => r.status !== "cancelled" && r.class_meetings)
       .map((r) => ({
-        key: `${dancer.id}-${r.class_sessions!.id}`,
-        className: r.class_sessions!.classes?.name ?? "Class",
+        key: `${dancer.id}-${r.class_meetings!.id}`,
+        className: r.class_meetings!.classes?.name ?? "Class",
         dancerName: dancer.first_name,
-        day: r.class_sessions!.day_of_week,
-        startTime: r.class_sessions!.start_time,
+        day: r.class_meetings!.day_of_week,
+        startTime: r.class_meetings!.start_time,
       }))
   );
 

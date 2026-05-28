@@ -40,7 +40,7 @@ interface ClassListItem {
   division: string;
   is_active: boolean;
   semester_id: string;
-  class_sessions: ClassSession[];
+  class_meetings: ClassSession[];
 }
 
 interface ClassDetail extends ClassListItem {
@@ -106,7 +106,7 @@ function matchesChip(cls: ClassListItem, key: string): boolean {
 }
 
 function totalCapacity(cls: ClassListItem): number {
-  return cls.class_sessions.reduce((sum, s) => sum + (s.capacity ?? 0), 0);
+  return cls.class_meetings.reduce((sum, s) => sum + (s.capacity ?? 0), 0);
 }
 
 // ─── Email Modal ──────────────────────────────────────────────────────────────
@@ -530,14 +530,14 @@ function ClassListRow({
       : "#C8A09D";
 
   const days =
-    cls.class_sessions.length > 0
+    cls.class_meetings.length > 0
       ? [
           ...new Set(
-            cls.class_sessions.map((s) => s.day_of_week.slice(0, 3))
+            cls.class_meetings.map((s) => s.day_of_week.slice(0, 3))
           ),
         ].join(", ")
       : null;
-  const firstSession = cls.class_sessions[0];
+  const firstSession = cls.class_meetings[0];
 
   return (
     <div
@@ -654,7 +654,7 @@ function ClassDetailPanel({
     {}
   );
 
-  const sortedSessions = [...detail.class_sessions].sort(
+  const sortedSessions = [...detail.class_meetings].sort(
     (a, b) =>
       DAY_ORDER.indexOf(
         a.day_of_week.charAt(0).toUpperCase() + a.day_of_week.slice(1)
@@ -1071,7 +1071,7 @@ function ClassDetailPanel({
             className="text-[22px] font-medium leading-none"
             style={{ color: "#201D18" }}
           >
-            {detail.class_sessions.length}
+            {detail.class_meetings.length}
           </p>
           <p className="text-[10px] mt-1" style={{ color: "#9E9890" }}>
             {[...new Set(sortedSessions.map((s) => s.day_of_week.slice(0, 3)))].join(" + ")}{" "}
@@ -1713,25 +1713,25 @@ function ClassesPageContent() {
   // Load enrollment counts after classes are loaded (per-session model)
   useEffect(() => {
     if (classes.length === 0) return;
-    const sessionIds = classes.flatMap((c) => c.class_sessions.map((s) => s.id));
+    const sessionIds = classes.flatMap((c) => c.class_meetings.map((s) => s.id));
     if (sessionIds.length === 0) return;
 
     const supabase = createClient();
     supabase
-      .from("registrations")
-      .select("session_id")
-      .in("session_id", sessionIds)
+      .from("meeting_enrollments")
+      .select("meeting_id")
+      .in("meeting_id", sessionIds)
       .eq("status", "confirmed")
       .then(({ data }) => {
         const sessionClassMap: Record<string, string> = {};
         for (const cls of classes) {
-          for (const s of cls.class_sessions) {
+          for (const s of cls.class_meetings) {
             sessionClassMap[s.id] = cls.id;
           }
         }
         const counts: Record<string, number> = {};
         for (const r of data ?? []) {
-          const classId = sessionClassMap[r.session_id];
+          const classId = sessionClassMap[r.meeting_id];
           if (classId) counts[classId] = (counts[classId] ?? 0) + 1;
         }
         setEnrolledCounts(counts);

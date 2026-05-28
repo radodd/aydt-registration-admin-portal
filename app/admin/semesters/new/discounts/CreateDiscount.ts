@@ -78,11 +78,11 @@ export async function createDiscount({
     if (validSessionIds.length > 0) {
       const sessionPayload = validSessionIds.map((sessionId) => ({
         discount_id: discountId,
-        session_id: sessionId,
+        meeting_id: sessionId,
       }));
 
       const { error: sessionsError } = await supabase
-        .from("discount_rule_sessions")
+        .from("discount_rule_meetings")
         .insert(sessionPayload);
 
       if (sessionsError) {

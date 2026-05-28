@@ -115,7 +115,7 @@ const MOCK_REGISTRATIONS = [
     id: "reg-001",
     dancer_id: "dnc-001",
     dancers: { first_name: "Lily", last_name: "Doe" },
-    class_sessions: { classes: { name: "Ballet 1A" } },
+    class_meetings: { classes: { name: "Ballet 1A" } },
   },
 ];
 
@@ -210,7 +210,7 @@ function setupHappyPathMock(opts: { batchResult?: unknown } = {}) {
     switch (table) {
       case "payments":              return paymentsChain;
       case "registration_orders":  return batchChain;
-      case "registrations":         return registrationsChain;
+      case "meeting_enrollments":         return registrationsChain;
       case "order_payment_installments": return installmentsChain;
       case "semesters":             return semesterChain;
       case "users":                 return usersChain;
@@ -529,7 +529,7 @@ describe("POST /api/webhooks/epg", () => {
         switch (table) {
           case "payments":              return paymentsChain;
           case "registration_orders":  return batchChain;
-          case "registrations":         return registrationsChain;
+          case "meeting_enrollments":         return registrationsChain;
           case "order_payment_installments": return installmentsChain;
           case "semesters":             return semesterChain;
           case "users":                 return usersChain;
@@ -559,7 +559,7 @@ describe("POST /api/webhooks/epg", () => {
         switch (table) {
           case "payments":              return paymentsChain;
           case "registration_orders":  return batchChain;
-          case "registrations":         return registrationsChain;
+          case "meeting_enrollments":         return registrationsChain;
           case "order_payment_installments": return installmentsChain;
           case "semesters":             return semesterChain;
           case "users":                 return usersChain;

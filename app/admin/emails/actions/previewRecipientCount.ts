@@ -16,7 +16,7 @@ export async function previewRecipientCount(
   for (const sel of selections) {
     if (sel.type === "semester" && sel.semesterId) {
       const { data: sessions } = await supabase
-        .from("class_sessions")
+        .from("class_meetings")
         .select("id")
         .eq("semester_id", sel.semesterId);
 
@@ -25,9 +25,9 @@ export async function previewRecipientCount(
       if (sessionIds.length === 0) continue;
 
       const { data } = await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select("dancers!inner(family_id)")
-        .in("session_id", sessionIds)
+        .in("meeting_id", sessionIds)
         .eq("status", "confirmed");
 
       for (const reg of data ?? []) {
@@ -39,16 +39,16 @@ export async function previewRecipientCount(
       }
     } else if (sel.type === "class" && sel.classId) {
       const { data: sessions } = await supabase
-        .from("class_sessions")
+        .from("class_meetings")
         .select("id")
         .eq("class_id", sel.classId);
 
       const sessionIds = (sessions ?? []).map((s) => s.id);
 
       const { data } = await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select("dancers!inner(family_id)")
-        .in("session_id", sessionIds)
+        .in("meeting_id", sessionIds)
         .eq("status", "confirmed");
       for (const reg of data ?? []) {
         const dancer = Array.isArray(reg.dancers)
@@ -59,9 +59,9 @@ export async function previewRecipientCount(
       }
     } else if (sel.type === "session" && sel.sessionId) {
       const { data } = await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select("dancers!inner(family_id)")
-        .eq("session_id", sel.sessionId)
+        .eq("meeting_id", sel.sessionId)
         .eq("status", "confirmed");
 
       for (const reg of data ?? []) {

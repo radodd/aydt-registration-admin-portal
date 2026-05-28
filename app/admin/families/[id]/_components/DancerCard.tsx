@@ -44,7 +44,7 @@ export function DancerCard({
   // Derive division from the first enrolled class
   const division =
     dancer.grade ||
-    activeRegs[0]?.class_sessions?.classes?.division ||
+    activeRegs[0]?.class_meetings?.classes?.division ||
     null;
 
   return (

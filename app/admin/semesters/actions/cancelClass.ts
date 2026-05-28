@@ -41,7 +41,7 @@ export async function cancelClass(
 
   // 1. Mark session cancelled
   const { error: cancelErr } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .update({
       cancelled_at: new Date().toISOString(),
       cancellation_reason: reason,
@@ -52,7 +52,7 @@ export async function cancelClass(
 
   // 2. Fetch session info for notification content
   const { data: session } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id, classes(name), semesters(name)")
     .eq("id", sessionId)
     .single();
@@ -71,7 +71,7 @@ export async function cancelClass(
   //    Registrations point to ONE representative session per schedule (first occurrence).
   //    We must query by section_id so cancelling any occurrence finds all enrolled families.
   const { data: cancelledSession } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("section_id")
     .eq("id", sessionId)
     .single();
@@ -84,7 +84,7 @@ export async function cancelClass(
   let siblingSessions: string[] = [sessionId];
   if (scheduleId) {
     const { data: siblings } = await supabase
-      .from("class_sessions")
+      .from("class_meetings")
       .select("id")
       .eq("section_id", scheduleId);
     if (siblings && siblings.length > 0) {
@@ -94,11 +94,11 @@ export async function cancelClass(
   console.log("[cancelClass] siblingSessions count:", siblingSessions.length, "ids:", siblingSessions.slice(0, 3));
 
   const { data: registrations, error: regError } = await supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select(
-      "id, session_id, status, registration_batch_id, registration_orders!registrations_registration_batch_id_fkey(family_id, parent_id, users!registration_batches_parent_id_fkey(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified))"
+      "id, meeting_id, status, registration_batch_id, registration_orders!registrations_registration_batch_id_fkey(family_id, parent_id, users!registration_batches_parent_id_fkey(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified))"
     )
-    .in("session_id", siblingSessions)
+    .in("meeting_id", siblingSessions)
     .not("status", "in", '("declined","cancelled")')
     .not("registration_batch_id", "is", null);
 
@@ -108,7 +108,7 @@ export async function cancelClass(
     const sample = registrations[0] as any;
     console.log("[cancelClass] sample reg:", {
       id: sample.id,
-      session_id: sample.session_id,
+      meeting_id: sample.meeting_id,
       status: sample.status,
       batch_id: sample.registration_batch_id,
       batch: sample.registration_orders,

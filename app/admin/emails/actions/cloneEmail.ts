@@ -61,7 +61,7 @@ export async function cloneEmail(
         email_id: newEmail.id,
         selection_type: s.selection_type,
         semester_id: s.semester_id,
-        session_id: s.session_id,
+        meeting_id: s.meeting_id,
         user_id: s.user_id,
         is_excluded: s.is_excluded,
       })),

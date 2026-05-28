@@ -143,7 +143,7 @@ describe("validateCoupon", () => {
     const restrictedCoupon = {
       ...MOCK_COUPON_ROW,
       eligible_sessions_mode: "selected",
-      coupon_session_restrictions: [{ session_id: "different-session-id" }],
+      coupon_session_restrictions: [{ meeting_id: "different-session-id" }],
     };
     setupMock({ couponData: [restrictedCoupon] });
 

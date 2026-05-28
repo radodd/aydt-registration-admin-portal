@@ -56,7 +56,7 @@ export async function updateDiscount(
 
   // Replace session restrictions
   const { error: deleteSessionsError } = await supabase
-    .from("discount_rule_sessions")
+    .from("discount_rule_meetings")
     .delete()
     .eq("discount_id", discountId);
 
@@ -70,11 +70,11 @@ export async function updateDiscount(
     if (validSessionIds.length > 0) {
       const sessionPayload = validSessionIds.map((sessionId) => ({
         discount_id: discountId,
-        session_id: sessionId,
+        meeting_id: sessionId,
       }));
 
       const { error: sessionsError } = await supabase
-        .from("discount_rule_sessions")
+        .from("discount_rule_meetings")
         .insert(sessionPayload);
 
       if (sessionsError) throw new Error(sessionsError.message);

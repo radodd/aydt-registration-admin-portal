@@ -19,8 +19,8 @@ import type { HydratedDiscount, RegistrationFormElement } from "@/types";
 /**
  * Fetches and normalizes a semester for public display.
  *
- * Phase 1 change: data is now sourced from `classes` + `class_sessions` +
- * `session_occurrence_dates` instead of `sessions` + `session_available_days`.
+ * Phase 1 change: data is now sourced from `classes` + `class_meetings` +
+ * `meeting_occurrence_dates` instead of `sessions` + `session_available_days`.
  * Each class_session becomes one PublicSession entry.
  *
  * - mode "live"    → only published semesters are returned
@@ -33,7 +33,7 @@ export async function getSemesterForDisplay(
   const supabase = await createClient();
 
   /* ---------------------------------------------------------------------- */
-  /* 1. Semester + classes (with class_sessions) + groups + payment + discounts */
+  /* 1. Semester + classes (with class_meetings) + groups + payment + discounts */
   /* ---------------------------------------------------------------------- */
 
   const { data: semester, error: semesterError } = await supabase
@@ -67,7 +67,7 @@ export async function getSemesterForDisplay(
         enrollment_type,
         class_requirements!class_requirements_class_id_fkey ( id, requirement_type, description, enforcement ),
         class_tiers ( id, label, start_time, end_time, price_cents, sort_order, is_default ),
-        class_sessions (
+        class_meetings (
           id,
           section_id,
           start_time,
@@ -86,17 +86,17 @@ export async function getSemesterForDisplay(
             days_of_week,
             section_price_tiers ( id, label, amount, sort_order, is_default )
           ),
-          session_occurrence_dates (
+          meeting_occurrence_dates (
             id,
             date,
             is_cancelled
           )
         )
       ),
-      session_groups (
+      meeting_groups (
         id,
         name,
-        session_group_sessions ( session_id )
+        meeting_group_meetings ( meeting_id )
       ),
       semester_payment_plans (*),
       semester_fee_config (
@@ -111,7 +111,7 @@ export async function getSemesterForDisplay(
         discount:discounts (
           *,
           discount_rules (*),
-          discount_rule_sessions (*)
+          discount_rule_meetings (*)
         )
       )
     `,
@@ -151,7 +151,7 @@ export async function getSemesterForDisplay(
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const classSessionIds: string[] = semesterClasses.flatMap((c: ClassRow) =>
-    (c.class_sessions ?? [])
+    (c.class_meetings ?? [])
       .filter((cs: ClassSessionRow) => cs.is_active)
       .map((cs: ClassSessionRow) => cs.id),
   );
@@ -160,16 +160,16 @@ export async function getSemesterForDisplay(
   // This prevents users from seeing available spots that are actually held by others.
   const now = new Date().toISOString();
   const { data: registrationRows } = await supabase
-    .from("registrations")
-    .select("session_id")
-    .in("session_id", classSessionIds)
+    .from("meeting_enrollments")
+    .select("meeting_id")
+    .in("meeting_id", classSessionIds)
     .or(
       `status.eq.confirmed,and(status.eq.pending,or(hold_expires_at.is.null,hold_expires_at.gt.${now}))`,
     );
 
   const enrolledBySession: Record<string, number> = {};
   for (const row of registrationRows ?? []) {
-    const sid = row.session_id as string;
+    const sid = row.meeting_id as string;
     enrolledBySession[sid] = (enrolledBySession[sid] ?? 0) + 1;
   }
 
@@ -180,7 +180,7 @@ export async function getSemesterForDisplay(
   const scheduleIds: string[] = [
     ...new Set(
       semesterClasses.flatMap((c: ClassRow) =>
-        (c.class_sessions ?? [])
+        (c.class_meetings ?? [])
           .filter((cs: ClassSessionRow) => cs.is_active && cs.section_id)
           .map((cs: ClassSessionRow) => cs.section_id as string),
       ),
@@ -211,13 +211,13 @@ export async function getSemesterForDisplay(
   } = (semester.waitlist_settings as Record<string, unknown>) ?? {};
 
   /* ---------------------------------------------------------------------- */
-  /* 4. Normalize class_sessions → PublicSession[]                           */
+  /* 4. Normalize class_meetings → PublicSession[]                           */
   /*    Each active class_session = one enrollable public session.            */
   /* ---------------------------------------------------------------------- */
 
   const publicSessions: PublicSession[] = semesterClasses.flatMap(
     (c: ClassRow) =>
-      (c.class_sessions ?? [])
+      (c.class_meetings ?? [])
         .filter((cs: ClassSessionRow) => cs.is_active)
         .map((cs: ClassSessionRow) => {
           const pricingModel = (cs.class_sections?.pricing_model ??
@@ -225,7 +225,7 @@ export async function getSemesterForDisplay(
 
           // Capacity and enrollment semantics differ by pricing model:
           //   full_schedule → capacity from class_sections, enrolled from section_enrollments
-          //   per_session   → capacity from class_sessions, enrolled from registrations
+          //   per_session   → capacity from class_meetings, enrolled from registrations
           const capacity =
             pricingModel === "full_schedule"
               ? (cs.class_sections?.capacity ?? 0)
@@ -312,12 +312,12 @@ export async function getSemesterForDisplay(
   /* ---------------------------------------------------------------------- */
 
   const publicGroups: PublicSessionGroup[] = (
-    semester.session_groups ?? []
+    semester.meeting_groups ?? []
   ).map((g: GroupRow) => ({
     id: g.id,
     name: g.name,
-    sessionIds: (g.session_group_sessions ?? []).map(
-      (sgs: { session_id: string }) => sgs.session_id,
+    sessionIds: (g.meeting_group_meetings ?? []).map(
+      (sgs: { meeting_id: string }) => sgs.meeting_id,
     ),
   }));
 
@@ -363,7 +363,7 @@ export async function getSemesterForDisplay(
     .filter((d: HydratedDiscount | null): d is HydratedDiscount => d !== null);
 
   /* ---------------------------------------------------------------------- */
-  /* 8. Semester start / end dates derived from class_sessions               */
+  /* 8. Semester start / end dates derived from class_meetings               */
   /* ---------------------------------------------------------------------- */
 
   const allDates = publicSessions
@@ -514,13 +514,13 @@ interface ClassRow {
   class_requirements?: ClassRequirementRow[];
   /** Phase 2: per-class tiers. */
   class_tiers?: ClassTierRow[];
-  class_sessions: ClassSessionRow[];
+  class_meetings: ClassSessionRow[];
 }
 
 interface GroupRow {
   id: string;
   name: string;
-  session_group_sessions: { session_id: string }[];
+  meeting_group_meetings: { meeting_id: string }[];
 }
 
 interface PaymentPlanRow {

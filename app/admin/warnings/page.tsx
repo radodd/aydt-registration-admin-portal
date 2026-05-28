@@ -44,7 +44,7 @@ export default function WarningsPage() {
         is_reviewed, reviewed_at, created_at,
         dancer:dancers ( first_name, last_name ),
         family:families ( family_name ),
-        session:class_sessions ( classes ( name ) ),
+        session:class_meetings ( classes ( name ) ),
         semester:semesters ( id, name )
       `)
       .order("created_at", { ascending: false })

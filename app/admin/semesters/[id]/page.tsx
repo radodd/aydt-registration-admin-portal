@@ -37,12 +37,12 @@ export default async function SemesterDetailPage({ params }: PageProps) {
       .select(`
         *,
         classes(*, class_sections(*, section_price_tiers(*))),
-        session_groups(id, name, session_group_sessions(session_id, class_sessions(section_id))),
+        meeting_groups(id, name, meeting_group_meetings(meeting_id, class_meetings(section_id))),
         semester_payment_plans(*),
         semester_payment_installments(*),
         semester_discounts(
           semester_id, discount_id,
-          discount:discounts(*, discount_rules(*), discount_rule_sessions(session_id))
+          discount:discounts(*, discount_rules(*), discount_rule_meetings(meeting_id))
         ),
         tuition_rate_bands(*),
         semester_fee_config(*),
@@ -52,9 +52,9 @@ export default async function SemesterDetailPage({ params }: PageProps) {
       .single(),
 
     supabase
-      .from("registrations")
-      .select("id, class_sessions!inner(semester_id)", { count: "exact", head: true })
-      .eq("class_sessions.semester_id", id)
+      .from("meeting_enrollments")
+      .select("id, class_meetings!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_meetings.semester_id", id)
       .eq("status", "confirmed"),
 
     supabase
@@ -69,7 +69,7 @@ export default async function SemesterDetailPage({ params }: PageProps) {
   const semester = semesterResult.data;
 
   const sessionIds = (
-    await supabase.from("class_sessions").select("id").eq("semester_id", id)
+    await supabase.from("class_meetings").select("id").eq("semester_id", id)
   ).data?.map((s) => s.id) ?? [];
 
   const waitlistResult =
@@ -77,7 +77,7 @@ export default async function SemesterDetailPage({ params }: PageProps) {
       ? await supabase
           .from("waitlist_entries")
           .select("id", { count: "exact", head: true })
-          .in("session_id", sessionIds)
+          .in("meeting_id", sessionIds)
           .eq("status", "waiting")
       : { count: 0 };
 

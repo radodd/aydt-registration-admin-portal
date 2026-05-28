@@ -60,8 +60,8 @@ export default async function ConfirmationPage({
   // section_enrollments (full-term / tiered).
   const [{ data: regRows }, { data: enrollRows }] = await Promise.all([
     supabase
-      .from("registrations")
-      .select("id, dancers(first_name, last_name), class_sessions(classes(name))")
+      .from("meeting_enrollments")
+      .select("id, dancers(first_name, last_name), class_meetings(classes(name))")
       .eq("registration_batch_id", batchId),
     supabase
       .from("section_enrollments")
@@ -78,7 +78,7 @@ export default async function ConfirmationPage({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...((regRows as any[]) ?? []).map((r) => ({
       dancerName: fullName(r.dancers),
-      className: r.class_sessions?.classes?.name ?? "Class",
+      className: r.class_meetings?.classes?.name ?? "Class",
     })),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...((enrollRows as any[]) ?? []).map((r) => ({

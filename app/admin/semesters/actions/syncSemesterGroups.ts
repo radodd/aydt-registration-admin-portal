@@ -19,7 +19,7 @@ export async function syncSemesterSessionGroups(
 
   // 1️⃣ Fetch existing group IDs for this semester
   const { data: existingGroups, error: fetchError } = await supabase
-    .from("session_groups")
+    .from("meeting_groups")
     .select("id")
     .eq("semester_id", semesterId);
 
@@ -36,7 +36,7 @@ export async function syncSemesterSessionGroups(
   );
   if (groupIdsToDelete.length > 0) {
     const { error: deleteError } = await supabase
-      .from("session_groups")
+      .from("meeting_groups")
       .delete()
       .in("id", groupIdsToDelete);
     if (deleteError) throw new Error(deleteError.message);
@@ -49,7 +49,7 @@ export async function syncSemesterSessionGroups(
   const newGroups = groups.filter((g) => !existingGroupIds.has(g.id));
 
   if (ownedGroups.length > 0) {
-    const { error } = await supabase.from("session_groups").upsert(
+    const { error } = await supabase.from("meeting_groups").upsert(
       ownedGroups.map((g) => ({
         id: g.id,
         semester_id: semesterId,
@@ -63,7 +63,7 @@ export async function syncSemesterSessionGroups(
 
   if (newGroups.length > 0) {
     const { data: inserted, error } = await supabase
-      .from("session_groups")
+      .from("meeting_groups")
       .insert(
         newGroups.map((g) => ({
           semester_id: semesterId,
@@ -82,17 +82,17 @@ export async function syncSemesterSessionGroups(
   const allGroupIds = groups.map((g) => g.id).filter(Boolean);
   if (allGroupIds.length > 0) {
     const { error: deleteMembership } = await supabase
-      .from("session_group_sessions")
+      .from("meeting_group_meetings")
       .delete()
-      .in("session_group_id", allGroupIds);
+      .in("meeting_group_id", allGroupIds);
     if (deleteMembership) throw new Error(deleteMembership.message);
   }
 
   // 5️⃣ Insert fresh membership rows.
   // idMap maps (draftSchedule._clientKey | class_schedule.id) → class_schedule.id.
-  // For each schedule ID in a group, fetch all class_sessions for that schedule
-  // and insert one session_group_sessions row per session.
-  const membershipRows: { session_group_id: string; session_id: string }[] = [];
+  // For each schedule ID in a group, fetch all class_meetings for that schedule
+  // and insert one meeting_group_meetings row per session.
+  const membershipRows: { meeting_group_id: string; meeting_id: string }[] = [];
 
   for (const group of groups) {
     for (const draftScheduleKey of group.sessionIds) {
@@ -100,15 +100,15 @@ export async function syncSemesterSessionGroups(
       if (!dbScheduleId) continue;
 
       const { data: sessions, error: sessionsError } = await supabase
-        .from("class_sessions")
+        .from("class_meetings")
         .select("id")
         .eq("section_id", dbScheduleId);
       if (sessionsError) throw new Error(sessionsError.message);
 
       for (const session of sessions ?? []) {
         membershipRows.push({
-          session_group_id: group.id,
-          session_id: session.id,
+          meeting_group_id: group.id,
+          meeting_id: session.id,
         });
       }
     }
@@ -116,7 +116,7 @@ export async function syncSemesterSessionGroups(
 
   if (membershipRows.length > 0) {
     const { error: insertMembershipError } = await supabase
-      .from("session_group_sessions")
+      .from("meeting_group_meetings")
       .insert(membershipRows);
     if (insertMembershipError) throw new Error(insertMembershipError.message);
   }

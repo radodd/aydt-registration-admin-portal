@@ -61,13 +61,13 @@ export async function fetchEnrollmentsForSemester(
   const supabase = await createClient();
   const includeCancelled = opts?.includeCancelled ?? false;
 
-  // registrations are linked to semester via class_sessions.semester_id.
+  // registrations are linked to semester via class_meetings.semester_id.
   const regQuery = supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select(
-      "id, dancer_id, session_id, status, registration_batch_id, batch_id, created_at, class_sessions!inner(class_id, section_id, semester_id)",
+      "id, dancer_id, meeting_id, status, registration_batch_id, batch_id, created_at, class_meetings!inner(class_id, section_id, semester_id)",
     )
-    .eq("class_sessions.semester_id", semesterId);
+    .eq("class_meetings.semester_id", semesterId);
   if (!includeCancelled) regQuery.neq("status", "cancelled");
 
   // section_enrollments are linked to semester via class_sections.semester_id.
@@ -83,14 +83,14 @@ export async function fetchEnrollmentsForSemester(
 
   const out: UnifiedEnrollment[] = [];
   for (const r of regRows ?? []) {
-    const cs: any = (r as any).class_sessions;
+    const cs: any = (r as any).class_meetings;
     out.push({
       source: "registrations",
       enrollmentId: r.id as string,
       dancerId: r.dancer_id as string,
       classId: cs?.class_id ?? null,
       scheduleId: cs?.section_id ?? null,
-      sessionId: (r as any).session_id ?? null,
+      sessionId: (r as any).meeting_id ?? null,
       semesterId: cs?.semester_id ?? semesterId,
       status: normalizeStatus((r as any).status),
       classTierId: null,
@@ -128,12 +128,12 @@ export async function fetchEnrollmentsForDancer(
   const includeCancelled = opts?.includeCancelled ?? false;
 
   const regQuery = supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select(
-      "id, dancer_id, session_id, status, registration_batch_id, batch_id, created_at, class_sessions!inner(class_id, section_id, semester_id)",
+      "id, dancer_id, meeting_id, status, registration_batch_id, batch_id, created_at, class_meetings!inner(class_id, section_id, semester_id)",
     )
     .eq("dancer_id", dancerId);
-  if (opts?.semesterId) regQuery.eq("class_sessions.semester_id", opts.semesterId);
+  if (opts?.semesterId) regQuery.eq("class_meetings.semester_id", opts.semesterId);
   if (!includeCancelled) regQuery.neq("status", "cancelled");
 
   const enrollQuery = supabase
@@ -149,14 +149,14 @@ export async function fetchEnrollmentsForDancer(
 
   const out: UnifiedEnrollment[] = [];
   for (const r of regRows ?? []) {
-    const cs: any = (r as any).class_sessions;
+    const cs: any = (r as any).class_meetings;
     out.push({
       source: "registrations",
       enrollmentId: r.id as string,
       dancerId: r.dancer_id as string,
       classId: cs?.class_id ?? null,
       scheduleId: cs?.section_id ?? null,
-      sessionId: (r as any).session_id ?? null,
+      sessionId: (r as any).meeting_id ?? null,
       semesterId: cs?.semester_id ?? null,
       status: normalizeStatus((r as any).status),
       classTierId: null,
@@ -196,9 +196,9 @@ export type CancelCounts = { registrations: number; scheduleEnrollments: number 
 export async function cancelEnrollmentsForClass(classId: string): Promise<CancelCounts> {
   const supabase = await createClient();
 
-  // registrations: cancel rows whose class_sessions.class_id matches.
+  // registrations: cancel rows whose class_meetings.class_id matches.
   const { data: sessionIds } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id")
     .eq("class_id", classId);
   const sessionIdList = (sessionIds ?? []).map((r) => r.id as string);
@@ -206,9 +206,9 @@ export async function cancelEnrollmentsForClass(classId: string): Promise<Cancel
   let registrationsCount = 0;
   if (sessionIdList.length > 0) {
     const { data, error } = await supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .update({ status: "cancelled" })
-      .in("session_id", sessionIdList)
+      .in("meeting_id", sessionIdList)
       .neq("status", "cancelled")
       .select("id");
     if (error) throw new Error(error.message);
@@ -252,7 +252,7 @@ export async function cancelEnrollmentsForDancerInSemester(
 
   // For registrations, we need the session ids belonging to this semester first.
   const { data: sessionIds } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id")
     .eq("semester_id", semesterId);
   const sessionIdList = (sessionIds ?? []).map((r) => r.id as string);
@@ -260,10 +260,10 @@ export async function cancelEnrollmentsForDancerInSemester(
   let registrationsCount = 0;
   if (sessionIdList.length > 0) {
     const { data, error } = await supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .update({ status: "cancelled" })
       .eq("dancer_id", dancerId)
-      .in("session_id", sessionIdList)
+      .in("meeting_id", sessionIdList)
       .neq("status", "cancelled")
       .select("id");
     if (error) throw new Error(error.message);
@@ -303,7 +303,7 @@ export async function cancelEnrollmentsForSemester(semesterId: string): Promise<
   const supabase = await createClient();
 
   const { data: sessionIds } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id")
     .eq("semester_id", semesterId);
   const sessionIdList = (sessionIds ?? []).map((r) => r.id as string);
@@ -311,9 +311,9 @@ export async function cancelEnrollmentsForSemester(semesterId: string): Promise<
   let registrationsCount = 0;
   if (sessionIdList.length > 0) {
     const { data, error } = await supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .update({ status: "cancelled" })
-      .in("session_id", sessionIdList)
+      .in("meeting_id", sessionIdList)
       .neq("status", "cancelled")
       .select("id");
     if (error) throw new Error(error.message);

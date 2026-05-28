@@ -76,10 +76,10 @@ export async function sendTestAsFamily(
   // Get active registrations for those dancers with class + semester context
   const { data: registrations } = dancerIds.length
     ? await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select(
           `dancer_id,
-           class_sessions!inner(
+           class_meetings!inner(
              day_of_week,
              start_time,
              classes!inner(name),
@@ -106,8 +106,8 @@ export async function sendTestAsFamily(
   let firstClassName = "";
 
   for (const reg of registrations ?? []) {
-    const r = reg as { dancer_id: string; class_sessions: unknown };
-    const cs = Array.isArray(r.class_sessions) ? r.class_sessions[0] : r.class_sessions;
+    const r = reg as { dancer_id: string; class_meetings: unknown };
+    const cs = Array.isArray(r.class_meetings) ? r.class_meetings[0] : r.class_meetings;
     if (!cs) continue;
 
     const cls = Array.isArray((cs as any).classes)

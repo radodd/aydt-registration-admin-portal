@@ -49,7 +49,7 @@ export async function cancelEntireClass(
 
   // 2. Get all session IDs for this class
   const { data: sessions } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select("id")
     .eq("class_id", classId);
 
@@ -60,11 +60,11 @@ export async function cancelEntireClass(
 
   if (sessionIds.length > 0) {
     const { data: registrations } = await supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .select(
-        "id, session_id, status, registration_batch_id, registration_orders!registrations_registration_batch_id_fkey(family_id, parent_id, users!registration_batches_parent_id_fkey(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified))"
+        "id, meeting_id, status, registration_batch_id, registration_orders!registrations_registration_batch_id_fkey(family_id, parent_id, users!registration_batches_parent_id_fkey(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified))"
       )
-      .in("session_id", sessionIds)
+      .in("meeting_id", sessionIds)
       .not("status", "in", '("declined","cancelled")')
       .not("registration_batch_id", "is", null);
 

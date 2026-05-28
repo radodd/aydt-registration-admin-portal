@@ -98,7 +98,7 @@ export interface TuitionCalculationInput {
   specialRates: DraftSpecialProgramTuition[];
   /**
    * If true, this class belongs to a drop-in division. Tuition is per-session
-   * (`class_sessions.drop_in_price`); the engine returns an unresolved result
+   * (`class_meetings.drop_in_price`); the engine returns an unresolved result
    * with no error so the UI can render the per-date pricing instead.
    */
   isDropInDivision?: boolean;

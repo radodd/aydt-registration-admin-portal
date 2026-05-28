@@ -115,11 +115,11 @@ export default async function EditEmailPage({ params }: Props) {
         className = (cls as any)?.name;
       }
 
-      if (sel.session_id) {
+      if (sel.meeting_id) {
         const { data: session } = await supabase
-          .from("class_sessions")
+          .from("class_meetings")
           .select("id, day_of_week, start_time")
-          .eq("id", sel.session_id)
+          .eq("id", sel.meeting_id)
           .single();
         if (session) {
           const s = session as any;
@@ -137,7 +137,7 @@ export default async function EditEmailPage({ params }: Props) {
         semesterName: (semester as any)?.name ?? sel.semester_id,
         classId: sel.class_id ?? undefined,
         className,
-        sessionId: sel.session_id ?? undefined,
+        sessionId: sel.meeting_id ?? undefined,
         sessionName,
         includeInstructors: sel.include_instructors ?? false,
       });

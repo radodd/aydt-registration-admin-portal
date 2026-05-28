@@ -14,7 +14,7 @@ export default async function AdminSessionsPage() {
   // Fetch all active (non-cancelled) sessions with class + semester info
   // section_id is included so we can aggregate enrollment at the schedule level
   const { data: sessions } = await supabase
-    .from("class_sessions")
+    .from("class_meetings")
     .select(
       `id, section_id, day_of_week, start_time, end_time, start_date, end_date,
        capacity, registration_close_at, cancelled_at,
@@ -26,7 +26,7 @@ export default async function AdminSessionsPage() {
 
   const allSessions = sessions ?? [];
 
-  // Build session_id → section_id map from the already-fetched sessions
+  // Build meeting_id → section_id map from the already-fetched sessions
   const sessionToSchedule: Record<string, string> = {};
   for (const s of allSessions) {
     const schedId = (s as any).section_id;
@@ -38,12 +38,12 @@ export default async function AdminSessionsPage() {
   // Count confirmed registrations per section_id.
   const enrolledBySchedule: Record<string, number> = {};
   const { data: counts } = await supabase
-    .from("registrations")
-    .select("session_id")
+    .from("meeting_enrollments")
+    .select("meeting_id")
     .eq("status", "confirmed");
 
   for (const row of counts ?? []) {
-    const schedId = sessionToSchedule[row.session_id];
+    const schedId = sessionToSchedule[row.meeting_id];
     if (schedId) {
       enrolledBySchedule[schedId] = (enrolledBySchedule[schedId] ?? 0) + 1;
     }

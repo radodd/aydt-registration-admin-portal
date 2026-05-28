@@ -50,7 +50,7 @@ export async function createCoupon(input: CreateCouponInput): Promise<string> {
   ) {
     const rows = (input.sessionIds ?? []).map((sessionId) => ({
       coupon_id: couponId,
-      session_id: sessionId,
+      meeting_id: sessionId,
     }));
     const { error: sessionError } = await supabase
       .from("coupon_session_restrictions")

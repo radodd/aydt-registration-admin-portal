@@ -37,7 +37,7 @@ export function SessionsRightPanel() {
       const todayStr = today.toISOString().split("T")[0];
 
       const { data: todayRows } = await supabase
-        .from("class_sessions")
+        .from("class_meetings")
         .select("id, day_of_week, start_time, section_id, classes(name, discipline)")
         .eq("day_of_week", dayName)
         .lte("start_date", todayStr)
@@ -55,7 +55,7 @@ export function SessionsRightPanel() {
       const endStr = new Date(today.getTime() + 7 * 86_400_000).toISOString().split("T")[0];
 
       const { data: weekRows } = await supabase
-        .from("class_sessions")
+        .from("class_meetings")
         .select("id, day_of_week, start_time, section_id, classes(name, discipline)")
         .in("day_of_week", uniqueDays)
         .lte("start_date", endStr)
