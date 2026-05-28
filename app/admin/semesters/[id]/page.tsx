@@ -52,7 +52,7 @@ export default async function SemesterDetailPage({ params }: PageProps) {
       .single(),
 
     supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .select("id, class_meetings!inner(semester_id)", { count: "exact", head: true })
       .eq("class_meetings.semester_id", id)
       .eq("status", "confirmed"),

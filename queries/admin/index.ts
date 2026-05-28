@@ -56,7 +56,7 @@ export async function getFamilies() {
         last_name,
         is_self,
 
-        registrations:registrations!dancer_id (
+        registrations:meeting_enrollments!dancer_id (
           id,
           status,
           class_meetings!meeting_id (
@@ -226,7 +226,7 @@ export async function getClassRegistrants(
 
   if (sessionIds.length > 0) {
     const { data: regs } = await supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .select(
         "id, status, meeting_id, created_at, dancers(id, first_name, last_name), users(id, first_name, last_name, email), class_meetings(day_of_week, start_time, end_time)"
       )

@@ -125,7 +125,7 @@ export default function NewSemesterPage() {
           : Promise.resolve({ data: [] as { section_id: string }[] }),
         sessionIds.length
           ? supabase
-              .from("registrations")
+              .from("meeting_enrollments")
               .select("meeting_id")
               .in("meeting_id", sessionIds)
               .in("status", ["confirmed", "pending"])

@@ -21,7 +21,7 @@ export async function saveSemesterDraft(semesterId: string) {
   // Block revert-to-draft if any active enrollments exist (both tables).
   const [{ count: regCount, error: regErr }, { count: enrollCount, error: enrollErr }] = await Promise.all([
     supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .select("*, class_meetings!inner(semester_id)", { count: "exact", head: true })
       .eq("class_meetings.semester_id", semesterId)
       .not("status", "in", "(cancelled,waitlisted)"),

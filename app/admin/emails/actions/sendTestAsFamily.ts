@@ -76,7 +76,7 @@ export async function sendTestAsFamily(
   // Get active registrations for those dancers with class + semester context
   const { data: registrations } = dancerIds.length
     ? await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select(
           `dancer_id,
            class_meetings!inner(

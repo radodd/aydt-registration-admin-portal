@@ -1521,7 +1521,7 @@ export default function AdminDashboardPage() {
 
       // Total confirmed enrollments — across both tables.
       const [{ count: totalRegistrationsCount }, { count: totalScheduleEnrollmentsCount }] = await Promise.all([
-        supabase.from("registrations").select("*", { count: "exact", head: true }).eq("status", "confirmed"),
+        supabase.from("meeting_enrollments").select("*", { count: "exact", head: true }).eq("status", "confirmed"),
         supabase
           .from("section_enrollments")
           .select("*", { count: "exact", head: true })
@@ -1532,7 +1532,7 @@ export default function AdminDashboardPage() {
       // Per-semester counts — merge both sources.
       const [{ data: regCounts }, { data: enrollCounts }] = await Promise.all([
         supabase
-          .from("registrations")
+          .from("meeting_enrollments")
           .select("meeting_id, class_meetings(semester_id)")
           .eq("status", "confirmed"),
         supabase
@@ -1560,7 +1560,7 @@ export default function AdminDashboardPage() {
       // TODO(Phase 3a follow-up): merge with section_enrollments so admin-created
       // full-term enrollments also appear in the dashboard activity feed.
       const { data: recentRegsRaw } = await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select(
           `id, created_at, dancer_id,
            dancers(first_name, last_name),
@@ -1654,7 +1654,7 @@ export default function AdminDashboardPage() {
             users:users!family_id(first_name, last_name, is_primary_parent),
             dancers:dancers!family_id(
               id, first_name,
-              registrations:registrations!dancer_id(id, status, class_meetings!meeting_id(classes(name)))
+              registrations:meeting_enrollments!dancer_id(id, status, class_meetings!meeting_id(classes(name)))
             )
           `)
           .order("family_name", { ascending: true })

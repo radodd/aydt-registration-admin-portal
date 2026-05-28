@@ -25,7 +25,7 @@ export async function previewRecipientCount(
       if (sessionIds.length === 0) continue;
 
       const { data } = await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select("dancers!inner(family_id)")
         .in("meeting_id", sessionIds)
         .eq("status", "confirmed");
@@ -46,7 +46,7 @@ export async function previewRecipientCount(
       const sessionIds = (sessions ?? []).map((s) => s.id);
 
       const { data } = await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select("dancers!inner(family_id)")
         .in("meeting_id", sessionIds)
         .eq("status", "confirmed");
@@ -59,7 +59,7 @@ export async function previewRecipientCount(
       }
     } else if (sel.type === "session" && sel.sessionId) {
       const { data } = await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select("dancers!inner(family_id)")
         .eq("meeting_id", sel.sessionId)
         .eq("status", "confirmed");

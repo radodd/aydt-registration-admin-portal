@@ -85,7 +85,7 @@ function DefaultPanel() {
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const [{ count: recentRegCount }, { count: recentEnrollCount }] = await Promise.all([
         supabase
-          .from("registrations")
+          .from("meeting_enrollments")
           .select("*", { count: "exact", head: true })
           .gte("created_at", since)
           .eq("status", "confirmed"),

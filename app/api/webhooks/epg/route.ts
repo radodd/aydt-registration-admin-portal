@@ -329,7 +329,7 @@ async function confirmBatch(params: {
   // Phase 3b-ii: public flow can produce rows in either or both tables for a batch.
   await Promise.all([
     supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .update({ status: "confirmed" })
       .eq("registration_batch_id", batchId),
     supabase
@@ -691,7 +691,7 @@ async function sendConfirmationEmail(
     // tiered/standard-only batches.
     const [{ data: registrations }, { data: enrollments }] = await Promise.all([
       supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select(
           "id, dancer_id, dancers(first_name, last_name), class_meetings(classes(name))",
         )

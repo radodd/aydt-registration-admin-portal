@@ -38,7 +38,7 @@ export default async function AdminSessionsPage() {
   // Count confirmed registrations per section_id.
   const enrolledBySchedule: Record<string, number> = {};
   const { data: counts } = await supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select("meeting_id")
     .eq("status", "confirmed");
 

@@ -129,7 +129,7 @@ export default function RecipientsStep({
       // Fetch enrollment counts: distinct families per session
       const { data: regRows } = allSessionIds.length
         ? await supabase
-            .from("registrations")
+            .from("meeting_enrollments")
             .select("meeting_id, dancers!inner(family_id)")
             .in("meeting_id", allSessionIds)
             .neq("status", "cancelled")

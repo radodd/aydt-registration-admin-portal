@@ -234,7 +234,7 @@ export async function createAdminRegistration(
       status: "confirmed",
       form_data: input.formData ?? {},
     }));
-    const { error: dropInErr } = await supabase.from("registrations").insert(dropInRows);
+    const { error: dropInErr } = await supabase.from("meeting_enrollments").insert(dropInRows);
     if (dropInErr) return { success: false, error: dropInErr.message };
 
     // Write per-session line items so registration_orders.grand_total has a

@@ -94,7 +94,7 @@ export async function cancelClass(
   console.log("[cancelClass] siblingSessions count:", siblingSessions.length, "ids:", siblingSessions.slice(0, 3));
 
   const { data: registrations, error: regError } = await supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select(
       "id, meeting_id, status, registration_batch_id, registration_orders!registrations_registration_batch_id_fkey(family_id, parent_id, users!registration_batches_parent_id_fkey(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified))"
     )

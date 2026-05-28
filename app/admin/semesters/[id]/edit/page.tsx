@@ -41,7 +41,7 @@ export default async function EditPage({ params }: { params: { id: string } }) {
       .eq("id", id)
       .single(),
     supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .select("*, class_meetings!inner(semester_id)", {
         count: "exact",
         head: true,

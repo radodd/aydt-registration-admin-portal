@@ -115,7 +115,7 @@ export async function createRegistrations(
 
     // Phase 3b-ii: a batch may produce rows in either/both tables. Merge both.
     const [{ data: existingRegs }, { data: existingEnrolls }] = await Promise.all([
-      supabase.from("registrations").select("id").eq("registration_batch_id", input.batchId),
+      supabase.from("meeting_enrollments").select("id").eq("registration_batch_id", input.batchId),
       supabase.from("section_enrollments").select("id").eq("batch_id", input.batchId),
     ]);
     return {
@@ -328,7 +328,7 @@ export async function createRegistrations(
     // The parent registration_orders row stays as 'failed' for audit.
     const [regsResult, enrollResult] = await Promise.all([
       supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .update({ status: "cancelled" })
         .in("registration_batch_id", staleIds)
         .eq("status", "pending_payment"),
@@ -488,7 +488,7 @@ export async function createRegistrations(
   let created: { id: string; meeting_id: string; dancer_id: string }[] = [];
   if (rows.length > 0) {
     const { data, error: insertError } = await supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .insert(rows)
       .select("id, meeting_id, dancer_id");
 

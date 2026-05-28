@@ -63,7 +63,7 @@ export async function fetchEnrollmentsForSemester(
 
   // registrations are linked to semester via class_meetings.semester_id.
   const regQuery = supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select(
       "id, dancer_id, meeting_id, status, registration_batch_id, batch_id, created_at, class_meetings!inner(class_id, section_id, semester_id)",
     )
@@ -128,7 +128,7 @@ export async function fetchEnrollmentsForDancer(
   const includeCancelled = opts?.includeCancelled ?? false;
 
   const regQuery = supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select(
       "id, dancer_id, meeting_id, status, registration_batch_id, batch_id, created_at, class_meetings!inner(class_id, section_id, semester_id)",
     )
@@ -206,7 +206,7 @@ export async function cancelEnrollmentsForClass(classId: string): Promise<Cancel
   let registrationsCount = 0;
   if (sessionIdList.length > 0) {
     const { data, error } = await supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .update({ status: "cancelled" })
       .in("meeting_id", sessionIdList)
       .neq("status", "cancelled")
@@ -260,7 +260,7 @@ export async function cancelEnrollmentsForDancerInSemester(
   let registrationsCount = 0;
   if (sessionIdList.length > 0) {
     const { data, error } = await supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .update({ status: "cancelled" })
       .eq("dancer_id", dancerId)
       .in("meeting_id", sessionIdList)
@@ -311,7 +311,7 @@ export async function cancelEnrollmentsForSemester(semesterId: string): Promise<
   let registrationsCount = 0;
   if (sessionIdList.length > 0) {
     const { data, error } = await supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .update({ status: "cancelled" })
       .in("meeting_id", sessionIdList)
       .neq("status", "cancelled")

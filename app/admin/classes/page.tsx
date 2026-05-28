@@ -1718,7 +1718,7 @@ function ClassesPageContent() {
 
     const supabase = createClient();
     supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .select("meeting_id")
       .in("meeting_id", sessionIds)
       .eq("status", "confirmed")

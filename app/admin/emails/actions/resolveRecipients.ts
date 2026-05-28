@@ -59,7 +59,7 @@ async function accumulateFromRegistrations(
   excludedFamilyIds: Set<string>,
 ) {
   let query = supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select(
       `
       dancer_id,

@@ -160,7 +160,7 @@ export async function getSemesterForDisplay(
   // This prevents users from seeing available spots that are actually held by others.
   const now = new Date().toISOString();
   const { data: registrationRows } = await supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select("meeting_id")
     .in("meeting_id", classSessionIds)
     .or(

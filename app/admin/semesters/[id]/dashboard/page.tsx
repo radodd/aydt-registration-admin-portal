@@ -54,7 +54,7 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
     await Promise.all([
       sessionIds.length > 0
         ? supabase
-            .from("registrations")
+            .from("meeting_enrollments")
             .select(
               "id, created_at, dancers(id, first_name, last_name, birth_date, gender), class_meetings(classes(name))"
             )
@@ -66,7 +66,7 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
 
       sessionIds.length > 0
         ? supabase
-            .from("registrations")
+            .from("meeting_enrollments")
             .select("dancer_id, created_at, meeting_id")
             .in("meeting_id", sessionIds)
             .eq("status", "confirmed")

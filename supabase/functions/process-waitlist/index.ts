@@ -126,7 +126,7 @@ Deno.serve(async (_req) => {
     /* ------------------------------------------------------------------ */
 
     const { data: expiredHolds } = await supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .select("id, meeting_id, dancer_id")
       .eq("status", "pending_payment")
       .lt("hold_expires_at", now)
@@ -134,7 +134,7 @@ Deno.serve(async (_req) => {
 
     if (expiredHolds && expiredHolds.length > 0) {
       const expiredIds = expiredHolds.map((r) => r.id);
-      await supabase.from("registrations").delete().in("id", expiredIds);
+      await supabase.from("meeting_enrollments").delete().in("id", expiredIds);
     }
 
     /* ------------------------------------------------------------------ */
@@ -237,7 +237,7 @@ async function processSession(sessionId: string, now: string) {
 
   // 4. Check available capacity
   const { count: activeRegistrations } = await supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select("id", { count: "exact", head: true })
     .eq("meeting_id", sessionId)
     .not("status", "in", '("declined","cancelled")');

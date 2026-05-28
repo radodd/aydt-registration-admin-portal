@@ -60,7 +60,7 @@ export default async function ConfirmationPage({
   // section_enrollments (full-term / tiered).
   const [{ data: regRows }, { data: enrollRows }] = await Promise.all([
     supabase
-      .from("registrations")
+      .from("meeting_enrollments")
       .select("id, dancers(first_name, last_name), class_meetings(classes(name))")
       .eq("registration_batch_id", batchId),
     supabase

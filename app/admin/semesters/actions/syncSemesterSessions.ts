@@ -495,7 +495,7 @@ async function generateSessionsForSchedule(
 
     if (pricingModel === "per_session" && eff.capacity != null) {
       const { count: enrolledCount } = await supabase
-        .from("registrations")
+        .from("meeting_enrollments")
         .select("id", { count: "exact", head: true })
         .eq("meeting_id", sessionId)
         .neq("status", "cancelled");

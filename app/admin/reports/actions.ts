@@ -94,7 +94,7 @@ export async function getReportData(
   // admin-created full-term enrollments. The join shape is non-trivial — separate task.
   // Use explicit FK hint for registration_orders since registrations has two FKs to that table
   const { data: regs, error: regsError } = await supabase
-    .from("registrations")
+    .from("meeting_enrollments")
     .select(
       `
       id, created_at, status,

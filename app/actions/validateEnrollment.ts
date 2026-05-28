@@ -200,7 +200,7 @@ export async function validateEnrollment(
             // If required_class_id is set, match by exact class.
             // Otherwise fall back to required_discipline filter.
             const { data: priorRegs } = await supabase
-              .from("registrations")
+              .from("meeting_enrollments")
               .select(
                 "id, class_meetings(semester_id, class_id, classes(discipline))",
               )

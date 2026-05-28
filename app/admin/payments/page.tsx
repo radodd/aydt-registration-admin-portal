@@ -244,7 +244,7 @@ export default function PaymentsAdmin() {
          semesters:semester_id(name),
          order_payment_installments(id, installment_number, amount_due, due_date, status, paid_at),
          payments(id, transaction_id, state, event_type, amount, currency, updated_at, raw_transaction),
-         registrations!registration_batch_id(
+         registrations:meeting_enrollments!registration_batch_id(
            class_meetings:meeting_id(
              location,
              classes:class_id(name)

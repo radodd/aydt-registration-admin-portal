@@ -54,7 +54,7 @@ export async function getFamilyDetail(
         school,
         is_self,
 
-        registrations:registrations!dancer_id (
+        registrations:meeting_enrollments!dancer_id (
           id,
           status,
           class_meetings!meeting_id (
