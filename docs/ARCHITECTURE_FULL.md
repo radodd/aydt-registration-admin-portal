@@ -394,73 +394,27 @@ interface FamilyAccountCredit {
 
 ---
 
-## 4. Database Schema (Supabase PostgreSQL — 42+ migrations)
+## 4. Database Schema (Supabase PostgreSQL)
 
-### Core Tables
+> **Single source of truth: [SCHEMA.md](./SCHEMA.md)** — every table, columns, FKs,
+> domain groupings, and outstanding column-normalization candidates.
+> The previous table list and index/function snippets here had drifted with the
+> May 2026 rename project and have been replaced by the pointer below.
 
-| Table | Purpose |
-|-------|---------|
-| users | Auth + profile + address + SMS opt-in; role = super_admin / admin / parent |
-| families | Family grouping with `family_name` column |
-| dancers | Student records, linked to users via join table |
-| semesters | Enrollment periods (draft → published → archived); JSONB: registration_form, confirmation_email, waitlist_settings |
-| classes | Curriculum units (discipline, division, visibility, enrollment_type) |
-| class_sessions | Time slots (day, time, capacity, instructor, dates) |
-| session_occurrence_dates | Individual calendar dates for absence tracking |
-| session_groups | Bundled class offerings |
-| registrations | Student enrollments (30-min hold, status = pending/confirmed/cancelled) |
-| registration_batches | Multi-registrant checkout with cart_snapshot + form_data_snapshot JSONB |
-| batch_payment_installments | Auto-pay schedule (installment_number, amount, due_date, status, charge tracking) |
-| payments | EPG payment state + raw_notification + raw_transaction JSONB |
-| installment_charges | Per-charge tracking for recurring auto-pay attempts |
-| shoppers | EPG customer records (linked to user_id) |
-| stored_payment_methods | Card/ACH records (type discriminator, masked data only) |
-| family_account_credits | Dollar credits issued by admin; linked to source/used batches |
-| tuition_rate_bands | Progressive pricing by division + weekly class count |
-| special_program_tuition | Fixed fees for technique/pointe/competition/early_childhood |
-| semester_fee_config | Per-semester fee constants |
-| waitlist_entries | Capacity overflow management with token-based invite |
-| emails | Broadcast email records with TipTap JSON body |
-| email_recipients | Snapshotted recipient list at send time |
-| email_deliveries | Per-recipient delivery tracking via Resend webhooks |
-| email_subscriptions | Opt-in/opt-out tracking |
-| sms_notifications | SMS delivery records (twilio_sid, status, error_message) |
-| discounts / semester_discounts | Global discount definitions linked to semesters |
-| media_images | Image library with folder organization |
-| media_folders | Folder structure for media organization |
-| semester_audit_logs | Admin action history |
+**Where to look for what:**
 
-### Key Indexes
-```sql
-registrations(session_id, dancer_id, status)
-registrations(registration_batch_id)
-batch_payment_installments(registration_batch_id, status)
-waitlist_entries(session_id, status)
-session_occurrence_dates(session_id, date)
-email_recipients(email_id, user_id)
-email_deliveries(email_id, user_id, status)
-stored_payment_methods(shopper_id) WHERE stored_payment_method_id IS NOT NULL
-```
+| Need | Where |
+|---|---|
+| Every table + what it is + columns + FKs | [`docs/SCHEMA.md`](./SCHEMA.md) |
+| Why tables were renamed (plus deferred normalization items) | [`docs/DB_RENAME_PLAN.md`](./DB_RENAME_PLAN.md) |
+| Historical design rationale for pricing/validation/payment-plan | [`docs/CLASS_SESSION_ARCHITECTURE.md`](./CLASS_SESSION_ARCHITECTURE.md) *(pre-rename names)* |
+| Authoritative schema definitions, triggers, RLS, functions | `supabase/migrations/` (chronological, append-only) |
+| Active edge functions (cron consumers) | `supabase/functions/` (notably `process-overdue-payments`, `process-waitlist`, `process-scheduled-emails`) |
 
-### Database Functions & Triggers
-```sql
--- Auth
-handle_new_user()                    -- Auto-creates family + user on Supabase signup
-is_admin_or_super()                  -- RLS helper: role IN ('admin','super_admin')
-is_super_admin()                     -- RLS helper: role = 'super_admin'
-is_instructor()                      -- RLS helper: role = 'instructor'
-
--- Registration
-check_registration_capacity()        -- Enforces session capacity at DB level
-check_registration_time_conflict()   -- Prevents overlapping session times
-prevent_child_modification_if_semester_published()
-prevent_semester_core_edit_if_published()
-
--- Cron Jobs (pg_cron)
-expire_registration_holds_cron()     -- Releases 30-min pending holds
-process_waitlist()                   -- Invites next in line (every 1 minute)
-process_scheduled_emails()           -- Dispatches scheduled sends
-```
+The schema reference doc is grouped by domain (catalog, enrollment, orders/payments,
+discounts, comms, etc.) and includes mermaid ER diagrams for the most navigated
+groups. When this overview disagrees with SCHEMA.md or the migrations, SCHEMA.md
+and the migrations win.
 
 ---
 

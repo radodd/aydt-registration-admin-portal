@@ -1,6 +1,22 @@
 # AYDT — Class, Session, and Tuition Architecture Design
 ### Version: 1.0 | Date: February 26, 2026
-### Status: Formal Design Document — Pre-Implementation
+### Status: ⚠️ Historical design document — *pre-rename, pre-implementation*
+
+> **Read this for design rationale only — not for current names.**
+>
+> This is the original architecture/design document from Feb 2026, written *before*
+> the schema rename project (May 2026) and before most of the implementation
+> landed. It's preserved for the **reasoning** it captures: pricing-engine design,
+> validation architecture, payment-plan modeling, discount-application logic,
+> competition-team architecture, and the phased roadmap.
+>
+> For the **current schema** — table names, columns, FKs, normalization candidates —
+> see **[SCHEMA.md](./SCHEMA.md)**. For how the renames mapped old → new names
+> and why, see **[DB_RENAME_PLAN.md](./DB_RENAME_PLAN.md)**.
+>
+> The table names below (`class_sessions`, `class_schedules`, `registrations`,
+> `registration_batches`, `session_groups`, etc.) reflect the pre-rename schema.
+> The data model still holds; only the identifiers changed.
 
 ---
 
