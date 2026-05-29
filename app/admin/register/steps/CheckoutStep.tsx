@@ -5,6 +5,7 @@ import { ChevronLeft, Check, Tag, AlertCircle, Pencil, X, Plus } from "lucide-re
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
 import type { PricingQuote, AdminAdjustment, FamilyAccountCredit } from "@/types";
 import { createClient } from "@/utils/supabase/client";
+import { buildAdminInstallmentSchedule } from "@/utils/buildPaymentSchedule";
 import {
   createAdminRegistration,
   type NewDancerInput,
@@ -31,6 +32,8 @@ type Props = {
   initialPriceOverride?: number | null;
   // Form answers
   formData: Record<string, unknown>;
+  /** Super-admins can set up auto-charged installment plans + under-collect (#7). */
+  isSuperAdmin: boolean;
   // Callbacks
   onBack: () => void;
   onSuccess: (batchId: string, dancerId: string) => void;
@@ -72,6 +75,7 @@ export default function CheckoutStep({
   classTierIdsBySchedule,
   initialPriceOverride,
   formData,
+  isSuperAdmin,
   onBack,
   onSuccess,
 }: Props) {
@@ -93,6 +97,8 @@ export default function CheckoutStep({
 
   // Payment plan
   const [paymentPlanType, setPaymentPlanType] = useState<"pay_in_full" | "monthly">("pay_in_full");
+  // #7: number of auto-charged installments (super-admin only). Default 5.
+  const [installmentCount, setInstallmentCount] = useState(5);
 
   const toBackendPlan = (p: "pay_in_full" | "monthly") =>
     p === "monthly" ? ("auto_pay_monthly" as const) : ("pay_in_full" as const);
@@ -129,6 +135,18 @@ export default function CheckoutStep({
     ? availableCredits.reduce((sum, c) => sum + c.amount, 0)
     : 0;
   const effectiveTotal = Math.max(0, grandTotal - adjustmentsSum - creditTotal);
+
+  // #7: live preview of the auto-charged installment schedule. Mirrors the
+  // server's buildAdminInstallmentSchedule so the admin sees exact amounts/dates.
+  const isInstallments = paymentPlanType === "monthly";
+  const installmentSchedule =
+    isInstallments && effectiveTotal > 0 && installmentCount >= 2
+      ? buildAdminInstallmentSchedule(
+          effectiveTotal,
+          installmentCount,
+          new Date().toISOString().slice(0, 10),
+        )
+      : [];
 
   const fetchPricing = async (coupon?: string) => {
     setPricingLoading(true);
@@ -270,7 +288,16 @@ export default function CheckoutStep({
 
   async function handleSubmit() {
     const amount = parseFloat(amountInput) || 0;
-    if (!paymentMethod) {
+    if (isInstallments) {
+      if (installmentCount < 2) {
+        setSubmitError("Choose at least 2 installments.");
+        return;
+      }
+      if (effectiveTotal <= 0) {
+        setSubmitError("Installment total must be greater than $0.");
+        return;
+      }
+    } else if (!paymentMethod) {
       setSubmitError("Please select a payment method.");
       return;
     }
@@ -311,20 +338,28 @@ export default function CheckoutStep({
         ? availableCredits.map((c) => c.id)
         : undefined,
       paymentPlanType,
-      paymentMethod,
-      amountCollected: amount,
+      installmentCount: isInstallments ? installmentCount : undefined,
+      paymentMethod: isInstallments ? "card" : paymentMethod,
+      amountCollected: isInstallments ? 0 : amount,
       checkNumber: paymentMethod === "check" ? checkNumber : undefined,
       payerName: payerName || undefined,
       notes: notes || undefined,
     });
 
-    setSubmitting(false);
-
     if (!result.success) {
+      setSubmitting(false);
       setSubmitError(result.error ?? "Registration failed. Please try again.");
       return;
     }
 
+    // Installment plans return a hosted-page URL — redirect so the family can
+    // enter their card. The EPG webhook confirms the batch afterward (#7).
+    if (result.paymentSessionUrl) {
+      window.location.href = result.paymentSessionUrl;
+      return; // keep the button disabled through navigation
+    }
+
+    setSubmitting(false);
     onSuccess(result.batchId!, result.dancerId!);
   }
 
@@ -337,7 +372,10 @@ export default function CheckoutStep({
         <div className="bg-white border border-[#DDD9D2] rounded-xl p-5 space-y-3">
           <h2 className="text-sm font-semibold text-[#201D18]">Payment Plan</h2>
           <div className="grid grid-cols-2 gap-2">
-            {(["pay_in_full", "monthly"] as const).map((plan) => (
+            {(isSuperAdmin
+              ? (["pay_in_full", "monthly"] as const)
+              : (["pay_in_full"] as const)
+            ).map((plan) => (
               <button
                 key={plan}
                 onClick={() => handlePaymentPlanChange(plan)}
@@ -347,43 +385,128 @@ export default function CheckoutStep({
                     : "border-[#DDD9D2] text-[#736D65] hover:bg-[#F7F5F2]"
                 }`}
               >
-                {plan === "pay_in_full" ? "Pay in Full" : "Monthly"}
+                {plan === "pay_in_full" ? "Pay in Full" : "Installments (auto-charge)"}
               </button>
             ))}
           </div>
-          {paymentPlanType === "monthly" && quote && quote.paymentSchedule.length > 0 && (
-            <div className="space-y-1 pt-1">
-              <p className="text-xs font-medium text-[#736D65]">Payment schedule</p>
-              {quote.paymentSchedule.map((inst) => (
-                <div key={inst.installmentNumber} className="flex justify-between text-xs text-[#736D65]">
-                  <span>Installment {inst.installmentNumber} · {new Date(inst.dueDate + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
-                  <span>{fmt$$(inst.amountDue)}</span>
+
+          {isInstallments && (
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-medium text-[#736D65]">
+                  Number of installments
+                </label>
+                <input
+                  type="number"
+                  min={2}
+                  max={12}
+                  value={installmentCount}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    setInstallmentCount(Number.isNaN(n) ? 2 : Math.min(12, Math.max(2, n)));
+                  }}
+                  className="w-20 px-3 py-1.5 border border-[#DDD9D2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23]"
+                />
+              </div>
+
+              {installmentSchedule.length > 0 ? (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-[#736D65]">Auto-charge schedule</p>
+                  {installmentSchedule.map((inst) => (
+                    <div key={inst.installmentNumber} className="flex justify-between text-xs text-[#736D65]">
+                      <span>
+                        Installment {inst.installmentNumber} ·{" "}
+                        {new Date(inst.dueDate + "T12:00:00").toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                        {inst.installmentNumber === 1 ? " (today)" : ""}
+                      </span>
+                      <span>{fmt$$(inst.amountDue)}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-              <p className="text-xs text-[#9E9890] pt-1">Billing managed externally — recording $0 collected today.</p>
+              ) : (
+                <p className="text-xs text-[#9E9890]">
+                  Set a total above $0 to preview the schedule.
+                </p>
+              )}
+
+              <p className="text-xs text-[#9E9890] pt-1">
+                On <strong>Continue to card entry</strong> you&apos;ll be taken to the
+                secure Elavon page to enter the family&apos;s card. Installment 1 is
+                charged immediately; the rest auto-charge on the dates above.
+              </p>
             </div>
-          )}
-          {paymentPlanType === "monthly" && (!quote || quote.paymentSchedule.length === 0) && (
-            <p className="text-xs text-[#736D65]">
-              Billing managed externally — recording $0 collected at this time.
-            </p>
           )}
         </div>
 
-        {/* Adjustments */}
-        <div className="bg-white border border-[#DDD9D2] rounded-xl p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[#201D18]">Adjustments</h2>
-            {!showAdjForm && (
+        {/* Pricing & Discounts — every total-affecting control in one place:
+            the custom total (formerly the sidebar "Override price" toggle),
+            adjustments, coupon, and account credit. "Amount collected" stays in
+            the separate Payment card below, since it's money taken, not a
+            discount. */}
+        <div className="bg-white border border-[#DDD9D2] rounded-xl p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-[#201D18]">Pricing &amp; Discounts</h2>
+
+          {/* Custom total — replaces the engine total with a flat number.
+              ClassesStep pre-activates this for drop-in/mixed carts (the engine
+              can't price drop-in sessions), so leave the plumbing intact. */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-[#736D65]">
+                {overrideActive ? "Custom total" : "Calculated total"}
+              </label>
               <button
-                onClick={() => { setShowAdjForm(true); setAdjError(""); }}
+                onClick={handleOverrideToggle}
                 className="flex items-center gap-1 text-xs text-[#8E2A23] hover:text-[#7A2420]"
               >
-                <Plus className="w-3 h-3" />
-                Add adjustment
+                <Pencil className="w-3 h-3" />
+                {overrideActive ? "Use calculated price" : "Set custom total"}
               </button>
+            </div>
+            {overrideActive ? (
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9890] text-sm">
+                  $
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={overrideInput}
+                  onChange={(e) => {
+                    setOverrideInput(e.target.value);
+                    if (paymentPlanType !== "monthly") setAmountInput(e.target.value);
+                  }}
+                  className="w-full pl-6 pr-3 py-2 border border-[#C8A09D] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23]"
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-[#201D18]">
+                {pricingLoading ? "Calculating…" : fmt$$(grandTotal)}
+              </p>
             )}
           </div>
+
+          {/* Adjustments */}
+          <div className="pt-4 border-t border-[#DDD9D2] space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-[#201D18] uppercase tracking-wide">
+                Adjustments
+              </h3>
+              {!showAdjForm && (
+                <button
+                  onClick={() => { setShowAdjForm(true); setAdjError(""); }}
+                  className="flex items-center gap-1 text-xs text-[#8E2A23] hover:text-[#7A2420]"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add adjustment
+                </button>
+              )}
+            </div>
 
           {/* Inline add form */}
           {showAdjForm && (
@@ -484,9 +607,85 @@ export default function CheckoutStep({
           ) : !showAdjForm ? (
             <p className="text-xs text-[#9E9890]">No adjustments. Use adjustments for proration credits, scholarships, or other deductions visible to the family.</p>
           ) : null}
+          </div>
+
+          {/* Coupon — hidden while a custom total is set (mirrors prior behavior). */}
+          {!overrideActive && (
+            <div className="pt-4 border-t border-[#DDD9D2]">
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-1 text-green-600">
+                    <Tag className="w-3.5 h-3.5" />
+                    {appliedCoupon}
+                  </span>
+                  <button
+                    onClick={handleRemoveCoupon}
+                    className="text-[#9E9890] hover:text-[#736D65]"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Promo code"
+                    value={couponCode}
+                    onChange={(e) => {
+                      setCouponCode(e.target.value.toUpperCase());
+                      setCouponError("");
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
+                    className="flex-1 px-3 py-1.5 border border-[#DDD9D2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23]"
+                  />
+                  <button
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading || !couponCode.trim()}
+                    className="px-3 py-1.5 bg-[#F7F5F2] hover:bg-[#EDEAE5] rounded-xl text-sm text-[#736D65] disabled:opacity-40 transition"
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
+              {couponError && (
+                <p className="text-xs text-red-500 mt-1">{couponError}</p>
+              )}
+            </div>
+          )}
+
+          {/* Account credit */}
+          {availableCredits.length > 0 && (
+            <div className="pt-4 border-t border-[#DDD9D2]">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={applyCredit}
+                  onChange={(e) => {
+                    setApplyCredit(e.target.checked);
+                    if (paymentPlanType !== "monthly") {
+                      const newEff = Math.max(
+                        0,
+                        grandTotal - adjustmentsSum - (e.target.checked ? creditTotal : 0)
+                      );
+                      setAmountInput(newEff.toFixed(2));
+                    }
+                  }}
+                  className="rounded border-[#DDD9D2] text-[#8E2A23] focus:ring-[#8E2A23]"
+                />
+                <span className="text-sm text-[#201D18]">
+                  Apply account credit{" "}
+                  <span className="font-medium text-green-600">
+                    ({fmt$$(availableCredits.reduce((s, c) => s + c.amount, 0))})
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
         </div>
 
-        {/* Payment method */}
+        {/* Payment method — hidden for installment plans (#7): the family enters
+            their card on Elavon's hosted page, so no cash/check entry here. */}
+        {!isInstallments && (
         <div className="bg-white border border-[#DDD9D2] rounded-xl p-5 space-y-4">
           <h2 className="text-sm font-semibold text-[#201D18]">Payment</h2>
 
@@ -567,6 +766,7 @@ export default function CheckoutStep({
             />
           </div>
         </div>
+        )}
 
         {/* Error */}
         {submitError && (
@@ -590,7 +790,13 @@ export default function CheckoutStep({
             disabled={submitting}
             className="flex items-center gap-2 px-6 py-2.5 bg-[#8E2A23] text-white rounded-xl text-sm font-semibold hover:bg-[#7A2420] disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            {submitting ? "Registering…" : "Complete registration"}
+            {submitting
+              ? isInstallments
+                ? "Starting card entry…"
+                : "Registering…"
+              : isInstallments
+                ? "Continue to card entry"
+                : "Complete registration"}
             {!submitting && <Check className="w-4 h-4" />}
           </button>
         </div>
@@ -791,10 +997,18 @@ export default function CheckoutStep({
         {/* Balance due summary */}
         <div className="bg-[#F7F5F2] border border-[#DDD9D2] rounded-xl p-4">
           <div className="flex justify-between text-sm">
-            <span className="text-[#736D65]">Balance due</span>
+            <span className="text-[#736D65]">{isInstallments ? "Plan total" : "Balance due"}</span>
             <span className="font-semibold text-[#201D18]">{fmt$$(effectiveTotal)}</span>
           </div>
-          {!isNaN(parseFloat(amountInput)) && (
+          {isInstallments && installmentSchedule.length > 0 && (
+            <div className="flex justify-between text-sm mt-1">
+              <span className="text-[#736D65]">Charged today (installment 1)</span>
+              <span className="font-medium text-green-600">
+                {fmt$$(installmentSchedule[0].amountDue)}
+              </span>
+            </div>
+          )}
+          {!isInstallments && !isNaN(parseFloat(amountInput)) && (
             <div className="flex justify-between text-sm mt-1">
               <span className="text-[#736D65]">Amount collected</span>
               <span

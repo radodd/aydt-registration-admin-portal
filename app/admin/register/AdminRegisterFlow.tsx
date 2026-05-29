@@ -18,6 +18,8 @@ type Props = {
     familyId: string | null;
     parentUserId: string | null;
   } | null;
+  /** Super-admins can set up auto-charged installment plans + override partial payments (#7). */
+  isSuperAdmin: boolean;
 };
 
 type State = {
@@ -53,6 +55,7 @@ export default function AdminRegisterFlow({
   initialSemesterId,
   initialSemesterName,
   initialDancer,
+  isSuperAdmin,
 }: Props) {
   const [state, setState] = useState<State>({
     step: initialDancer ? 2 : 1,
@@ -226,6 +229,7 @@ export default function AdminRegisterFlow({
           initialPriceOverride={state.priceOverride}
           classTierIdsBySchedule={state.classTierIdsBySchedule}
           formData={state.formData}
+          isSuperAdmin={isSuperAdmin}
           onBack={() => setState((s) => ({ ...s, step: 3 }))}
           onSuccess={handleSuccess}
         />

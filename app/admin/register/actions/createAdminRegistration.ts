@@ -2,8 +2,11 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
+import { buildAdminInstallmentSchedule } from "@/utils/buildPaymentSchedule";
 import type { AdminAdjustment } from "@/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendRegistrationReceipt } from "./sendRegistrationReceipt";
+import { createAdminInstallmentSession } from "./createAdminInstallmentSession";
 
 export type NewDancerInput = {
   firstName: string;
@@ -46,6 +49,12 @@ export type AdminRegInput = {
   adjustments?: AdminAdjustment[];
   creditIdsToApply?: string[];
   paymentPlanType?: "pay_in_full" | "monthly";
+  /**
+   * Meeting-plan #7: number of installments when paymentPlanType === "monthly".
+   * Super-admin only. The effective total is divided into this many auto-charged
+   * installments. Ignored for pay-in-full.
+   */
+  installmentCount?: number;
   paymentMethod: string;
   amountCollected: number;
   checkNumber?: string;
@@ -57,6 +66,12 @@ export type AdminRegResult = {
   success: boolean;
   batchId?: string;
   dancerId?: string;
+  /**
+   * Set for installment plans (meeting-plan #7): the caller must redirect the
+   * browser here so the family can enter their card on Elavon's hosted page.
+   * The EPG webhook then stores the card, charges installment 1, and confirms.
+   */
+  paymentSessionUrl?: string;
   error?: string;
 };
 
@@ -77,8 +92,19 @@ export async function createAdminRegistration(
     .eq("id", user.id)
     .single();
 
-  if (!adminUser || !["admin", "super_admin"].includes((adminUser as any).role)) {
+  const role = (adminUser as { role?: string } | null)?.role;
+  if (!role || !["admin", "super_admin"].includes(role)) {
     return { success: false, error: "Admin access required." };
+  }
+  const isSuperAdmin = role === "super_admin";
+  const isInstallments = input.paymentPlanType === "monthly";
+
+  // Installment setup is a super-admin "God-tier" power (meeting-plan #7).
+  if (isInstallments && !isSuperAdmin) {
+    return {
+      success: false,
+      error: "Installment plans can only be set up by a super-admin.",
+    };
   }
 
   // Create dancer if new
@@ -163,7 +189,7 @@ export async function createAdminRegistration(
             classTierIdsBySchedule: input.classTierIdsBySchedule,
           },
         ],
-        paymentPlanType: input.paymentPlanType === "monthly" ? "auto_pay_monthly" : "pay_in_full",
+        paymentPlanType: isInstallments ? "auto_pay_monthly" : "pay_in_full",
         couponCode: input.couponCode || undefined,
       });
       grandTotal = quote.grandTotal;
@@ -177,8 +203,173 @@ export async function createAdminRegistration(
   const adjustmentsSum = (input.adjustments ?? []).reduce((sum, a) => sum + a.amount, 0);
   const effectiveTotal = Math.max(0, grandTotal - adjustmentsSum);
 
-  // Insert registration_batch as confirmed
+  // Partial collection on a pay-in-full registration is the super-admin
+  // "God-tier" override (meeting-plan #7) — it must not block a regular admin's
+  // full-payment registration, but only a super-admin may under-collect.
+  const isPartial = !isInstallments && input.amountCollected < effectiveTotal;
+  if (isPartial && !isSuperAdmin) {
+    return {
+      success: false,
+      error:
+        "Only a super-admin can complete a registration with a partial payment.",
+    };
+  }
+
   const batchId = crypto.randomUUID();
+
+  /* ------------------------------------------------------------------------ */
+  /* Path A — installment plan (auto-charged via Elavon)                       */
+  /*                                                                          */
+  /* Creates a PENDING order + N scheduled installments, then mints a hosted  */
+  /* session. The EPG webhook stores the card, charges installment 1, links   */
+  /* stored_payment_method_id, and confirms; the recurring cron auto-charges  */
+  /* installments 2..N. Mirrors the public installment flow's batch creation. */
+  /* ------------------------------------------------------------------------ */
+  if (isInstallments) {
+    // The webhook needs a parent_id to create/find the EPG Shopper that owns
+    // the stored card. Without it the card can never be stored.
+    if (!parentUserId) {
+      return {
+        success: false,
+        error:
+          "Installment plans require a parent account on the family (needed to store the card). Add a primary parent first.",
+      };
+    }
+
+    const count = Math.floor(input.installmentCount ?? 0);
+    if (!Number.isFinite(count) || count < 2) {
+      return { success: false, error: "Choose at least 2 installments." };
+    }
+    if (effectiveTotal <= 0) {
+      return { success: false, error: "Installment total must be greater than $0." };
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const schedule = buildAdminInstallmentSchedule(effectiveTotal, count, today);
+    const amountDueNow = schedule[0]?.amountDue ?? 0;
+
+    const { error: batchErr } = await supabase.from("registration_orders").insert({
+      id: batchId,
+      family_id: familyId,
+      parent_id: parentUserId,
+      semester_id: input.semesterId,
+      tuition_total: quote?.tuitionSubtotal ?? effectiveTotal,
+      registration_fee_total: quote?.registrationFeeTotal ?? 0,
+      recital_fee_total: quote?.recitalFeeTotal ?? 0,
+      family_discount_amount: quote?.familyDiscountAmount ?? 0,
+      auto_pay_admin_fee_total: quote?.autoPayAdminFeeTotal ?? 0,
+      grand_total: effectiveTotal,
+      // Canonical batch-column value — createAdminInstallmentSession + the EPG
+      // webhook gate on "installments" to set doCapture:false and store the card.
+      payment_plan_type: "installments",
+      installment_count: count,
+      amount_due_now: amountDueNow,
+      admin_adjustments: input.adjustments?.length ? input.adjustments : null,
+      form_data: input.formData ?? {},
+      // PENDING until the webhook confirms after the card is stored + installment
+      // 1 is charged. payment_reference_id is left unset (the webhook records the
+      // EPG transaction id on confirmation).
+      status: "pending",
+      cart_snapshot: [
+        ...input.scheduleIds.map((sid) => ({ dancerId, scheduleId: sid })),
+        ...(input.sessionIds ?? []).map((sessId) => ({ dancerId, sessionId: sessId, dropIn: true })),
+      ],
+    });
+
+    if (batchErr) return { success: false, error: batchErr.message };
+
+    // Enrollment rows go in PENDING — the webhook flips them to confirmed
+    // (mirrors the public installment flow).
+    if (input.scheduleIds.length > 0) {
+      const tierMap = input.classTierIdsBySchedule ?? {};
+      const enrollRows = input.scheduleIds.map((sid) => ({
+        section_id: sid,
+        batch_id: batchId,
+        dancer_id: dancerId,
+        price_snapshot: 0,
+        status: "pending",
+        class_tier_id: tierMap[sid] ?? null,
+      }));
+      const { error: enrollErr } = await supabase
+        .from("section_enrollments")
+        .insert(enrollRows);
+      if (enrollErr) return { success: false, error: enrollErr.message };
+    }
+
+    if (input.sessionIds && input.sessionIds.length > 0) {
+      // meeting_enrollments (renamed registrations) allows 'pending_payment';
+      // the webhook confirms by registration_batch_id.
+      const holdExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      const dropInRows = input.sessionIds.map((sessionId) => ({
+        dancer_id: dancerId,
+        user_id: parentUserId,
+        meeting_id: sessionId,
+        registration_batch_id: batchId,
+        batch_id: batchId,
+        status: "pending_payment",
+        hold_expires_at: holdExpiresAt,
+        form_data: input.formData ?? {},
+      }));
+      const { error: dropInErr } = await supabase
+        .from("meeting_enrollments")
+        .insert(dropInRows);
+      if (dropInErr) return { success: false, error: dropInErr.message };
+    }
+
+    // N scheduled installment rows (status 'scheduled'). Installment 1 is marked
+    // paid by the webhook once it is captured at the hosted page.
+    const installmentRows = schedule.map((inst) => ({
+      batch_id: batchId,
+      installment_number: inst.installmentNumber,
+      amount_due: inst.amountDue,
+      due_date: inst.dueDate,
+      status: "scheduled",
+    }));
+    const { error: instErr } = await supabase
+      .from("order_payment_installments")
+      .insert(installmentRows);
+    if (instErr) return { success: false, error: instErr.message };
+
+    await applyCouponAndCredits(supabase, {
+      appliedCouponId: quote?.appliedCouponId ?? null,
+      familyId,
+      batchId,
+      creditIds: input.creditIdsToApply,
+    });
+
+    // Mint the hosted session and hand the URL back for redirect.
+    const session = await createAdminInstallmentSession({
+      batchId,
+      amountDueNow,
+      semesterId: input.semesterId,
+      semesterName: input.semesterName,
+      dancerId,
+    });
+    if (session.error || !session.paymentSessionUrl) {
+      return {
+        success: false,
+        error:
+          session.error ??
+          "Could not start the card-entry step. The plan was saved but no payment was taken.",
+      };
+    }
+
+    return {
+      success: true,
+      batchId,
+      dancerId,
+      paymentSessionUrl: session.paymentSessionUrl,
+    };
+  }
+
+  /* ------------------------------------------------------------------------ */
+  /* Path B — pay-in-full / manual (cash, check, card-present, comp)           */
+  /*                                                                          */
+  /* Synchronous: the order is confirmed immediately. A super-admin may       */
+  /* under-collect (partial payment) without blocking the registration.       */
+  /* ------------------------------------------------------------------------ */
+
+  // Insert registration_orders as confirmed
   const today = new Date().toISOString().split("T")[0];
 
   const { error: batchErr } = await supabase.from("registration_orders").insert({
@@ -192,12 +383,7 @@ export async function createAdminRegistration(
     family_discount_amount: quote?.familyDiscountAmount ?? 0,
     auto_pay_admin_fee_total: quote?.autoPayAdminFeeTotal ?? 0,
     grand_total: effectiveTotal,
-    // Canonical batch-column value: write "installments" (not the admin UI
-    // vocab "monthly") so reporting/grouping matches public installment batches.
-    // Safe — admin batches are synchronous and never hit createEPGPaymentSession
-    // / the webhook, which are the only readers that gate on this string.
-    payment_plan_type:
-      input.paymentPlanType === "monthly" ? "installments" : "pay_in_full",
+    payment_plan_type: "pay_in_full",
     amount_due_now: effectiveTotal,
     admin_adjustments: input.adjustments?.length ? input.adjustments : null,
     form_data: input.formData ?? {},
@@ -277,31 +463,12 @@ export async function createAdminRegistration(
     }
   }
 
-  // Record coupon redemption if applicable
-  if (quote?.appliedCouponId && familyId) {
-    await supabase
-      .from("coupon_redemptions")
-      .insert({
-        coupon_id: quote.appliedCouponId,
-        family_id: familyId,
-        registration_batch_id: batchId,
-      })
-      .then(({ error }) => {
-        if (error) console.warn("[createAdminRegistration] Coupon redemption failed:", error.message);
-      });
-    await supabase.rpc("increment_coupon_uses", { p_coupon_id: quote.appliedCouponId });
-  }
-
-  // Mark account credits as used
-  if (input.creditIdsToApply?.length) {
-    await supabase
-      .from("family_account_credits")
-      .update({ used_in_batch_id: batchId, used_at: new Date().toISOString() })
-      .in("id", input.creditIdsToApply)
-      .then(({ error }) => {
-        if (error) console.warn("[createAdminRegistration] Credit marking failed:", error.message);
-      });
-  }
+  await applyCouponAndCredits(supabase, {
+    appliedCouponId: quote?.appliedCouponId ?? null,
+    familyId,
+    batchId,
+    creditIds: input.creditIdsToApply,
+  });
 
   // Insert installment — paid if amount collected covers effective total
   const isPaid = input.amountCollected >= effectiveTotal;
@@ -349,4 +516,44 @@ export async function createAdminRegistration(
   }).catch((err) => console.warn("[createAdminRegistration] Receipt send failed:", err));
 
   return { success: true, batchId, dancerId };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Shared: record coupon redemption + mark account credits used (best-effort) */
+/* -------------------------------------------------------------------------- */
+
+async function applyCouponAndCredits(
+  supabase: SupabaseClient,
+  params: {
+    appliedCouponId: string | null;
+    familyId: string | null;
+    batchId: string;
+    creditIds?: string[];
+  },
+): Promise<void> {
+  const { appliedCouponId, familyId, batchId, creditIds } = params;
+
+  if (appliedCouponId && familyId) {
+    await supabase
+      .from("coupon_redemptions")
+      .insert({
+        coupon_id: appliedCouponId,
+        family_id: familyId,
+        registration_batch_id: batchId,
+      })
+      .then(({ error }) => {
+        if (error) console.warn("[createAdminRegistration] Coupon redemption failed:", error.message);
+      });
+    await supabase.rpc("increment_coupon_uses", { p_coupon_id: appliedCouponId });
+  }
+
+  if (creditIds?.length) {
+    await supabase
+      .from("family_account_credits")
+      .update({ used_in_batch_id: batchId, used_at: new Date().toISOString() })
+      .in("id", creditIds)
+      .then(({ error }) => {
+        if (error) console.warn("[createAdminRegistration] Credit marking failed:", error.message);
+      });
+  }
 }
