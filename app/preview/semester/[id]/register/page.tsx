@@ -26,35 +26,34 @@ function PreviewEmailForm({ semesterId }: { semesterId: string }) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900 mb-1">
-          [Preview] Account step
-        </h1>
-        <p className="text-neutral-500 text-sm">
-          In preview mode, email lookup is skipped. You can use any email.
-        </p>
-      </div>
+    <form onSubmit={handleSubmit(onSubmit)} className="reg-email-wrap">
+      <h1 className="reg-email-heading">Enter your email address</h1>
+      <p className="reg-email-subhead">
+        In preview mode, email lookup is skipped — use any email to walk through
+        the flow as a parent would.
+      </p>
 
       <div>
-        <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+        <label htmlFor="email" className="reg-email-label">
           Email address
         </label>
         <input
+          id="email"
           type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
           {...register("email")}
-          className="w-full border border-neutral-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400"
+          className="reg-email-input"
         />
         {errors.email && (
-          <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+          <p className="mt-1.5 text-sm text-red-600">{errors.email.message}</p>
         )}
+        <p className="reg-email-hint">
+          No sign-in link is sent and no account is created in preview.
+        </p>
       </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full bg-primary-600 text-white py-3 rounded-xl font-semibold hover:bg-primary-700 transition-colors text-sm disabled:opacity-60"
-      >
+      <button type="submit" disabled={isSubmitting} className="reg-email-submit">
         {isSubmitting ? "…" : "Continue"}
       </button>
     </form>

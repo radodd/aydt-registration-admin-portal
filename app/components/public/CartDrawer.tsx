@@ -186,6 +186,9 @@ export function CartDrawer({ isOpen = false, onClose = () => {} }: CartDrawerPro
         },
       ],
       paymentPlanType: "pay_in_full",
+      // Preview walks draft semesters whose prices may not be set yet — don't
+      // hard-fail; surface unpriced items via quote.warnings instead.
+      tolerateMissingPrices: preview,
     })
       .then((q) => {
         if (!cancelled) setLiveQuote(q);
@@ -263,6 +266,18 @@ export function CartDrawer({ isOpen = false, onClose = () => {} }: CartDrawerPro
 
       {itemCount > 0 && (
         <div className="sem-cd-foot">
+          {/* Preview-only: classes whose prices aren't configured yet. The live
+              cart never receives warnings (it doesn't pass tolerateMissingPrices). */}
+          {liveQuote?.warnings && liveQuote.warnings.length > 0 && (
+            <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <p className="mb-1 font-semibold">⚠ Pricing not fully configured</p>
+              <ul className="list-disc space-y-0.5 pl-4">
+                {liveQuote.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <div className="sem-cd-totals">
             <div className="sem-cd-tot-row">
               <span className="sem-cd-tot-label">{itemCount} item{itemCount !== 1 ? "s" : ""}</span>

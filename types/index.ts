@@ -491,6 +491,14 @@ export interface PricingInput {
   paymentPlanType: "pay_in_full" | "deposit_50pct" | "auto_pay_monthly";
   /** Optional promo code entered by the parent at checkout. */
   couponCode?: string;
+  /**
+   * Admin-preview escape hatch. When true, config-completeness problems
+   * (missing drop-in price, special-program tuition, tier price, or rate band)
+   * are treated as $0 and surfaced via PricingQuote.warnings instead of
+   * throwing. ONLY the preview flow sets this — live checkout must keep failing
+   * loudly so a real parent is never charged for an unpriced class.
+   */
+  tolerateMissingPrices?: boolean;
 }
 
 export interface LineItem {
@@ -543,6 +551,12 @@ export interface PricingQuote {
   amountDueNow: number;
   lineItems: LineItem[];
   paymentSchedule: InstallmentPreview[];
+  /**
+   * Non-fatal config-completeness problems collected when the caller passes
+   * PricingInput.tolerateMissingPrices (admin preview only). Each string names
+   * an item whose price isn't configured yet. Empty/undefined in live quotes.
+   */
+  warnings?: string[];
 }
 
 /** Error returned when server-computed price differs from client-visible quote. */

@@ -2,6 +2,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 import { PreviewBanner } from "@/app/components/public/PreviewBanner";
 import { PreviewProviders } from "./PreviewProviders";
+// The public registration components (SessionGrid, ClassCard, CartDrawer, …)
+// are styled entirely by portal.css `sem-*` classes. The preview tree has its
+// own layout and does NOT inherit the (user-facing) layout, so we must import
+// the same stylesheet here or every public component renders unstyled.
+import "@/app/(user-facing)/portal.css";
 
 interface Props {
   params: Promise<{ id: string }>;

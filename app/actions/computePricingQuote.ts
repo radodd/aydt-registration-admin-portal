@@ -40,6 +40,13 @@ export async function computePricingQuote(
 ): Promise<PricingQuote> {
   const supabase = await createClient();
 
+  // Admin-preview escape hatch (see PricingInput.tolerateMissingPrices). When
+  // set, config-completeness gaps become $0 line items + a warning instead of a
+  // hard throw, so a draft semester can be walked end-to-end before its prices
+  // are filled in. Live checkout never sets this.
+  const tolerateMissing = input.tolerateMissingPrices === true;
+  const warnings: string[] = [];
+
   /* ---------------------------------------------------------------------- */
   /* 1. Fetch fee config                                                      */
   /* ---------------------------------------------------------------------- */
@@ -466,20 +473,31 @@ export async function computePricingQuote(
 
         if (bandError) throw new Error(bandError.message);
         if (!rateBand) {
-          throw new Error(
-            `No tuition rate configured for division="${division}", ` +
-              `weekly_class_count=${bandCount} in semester ${input.semesterId}. ` +
-              `Please configure tuition rate bands in the semester's Payment step.`,
+          if (!tolerateMissing) {
+            throw new Error(
+              `No tuition rate configured for division="${division}", ` +
+                `weekly_class_count=${bandCount} in semester ${input.semesterId}. ` +
+                `Please configure tuition rate bands in the semester's Payment step.`,
+            );
+          }
+          warnings.push(
+            `${divisionLabel(division)} (${bandCount}x/week): no tuition rate band configured (counted as $0).`,
           );
+          lineItems.push({
+            type: "tuition",
+            label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
+            amount: 0,
+            description: "Rate band not configured",
+          });
+        } else {
+          const bandTotal = Number(rateBand.base_tuition);
+          tuition += bandTotal;
+          lineItems.push({
+            type: "tuition",
+            label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
+            amount: round2(bandTotal),
+          });
         }
-
-        const bandTotal = Number(rateBand.base_tuition);
-        tuition += bandTotal;
-        lineItems.push({
-          type: "tuition",
-          label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
-          amount: round2(bandTotal),
-        });
       }
 
       // Costume / video fees (same logic as session path)
@@ -808,9 +826,15 @@ export async function computePricingQuote(
         const info = meetingDropInMap.get(sid);
         const cls = sessionClassMap.get(sid);
         if (info?.dropInPrice == null) {
-          throw new Error(
-            `Drop-in meeting ${sid}${cls ? ` (${cls.name})` : ""} has no drop_in_price configured.`,
+          if (!tolerateMissing) {
+            throw new Error(
+              `Drop-in meeting ${sid}${cls ? ` (${cls.name})` : ""} has no drop_in_price configured.`,
+            );
+          }
+          warnings.push(
+            `${cls?.name ?? "Drop-in class"}: no drop-in price configured (counted as $0).`,
           );
+          continue; // treat as $0
         }
         dropInTotal += info.dropInPrice;
       }
@@ -834,11 +858,23 @@ export async function computePricingQuote(
       dancerSpecialKeys.add(key);
       const program = specialProgramMap.get(key);
       if (!program) {
-        throw new Error(
-          `No special program tuition configured for program_key="${key}" ` +
-            `in semester ${input.semesterId}. ` +
-            `Please configure special program tuition in the semester's Payment step.`,
+        if (!tolerateMissing) {
+          throw new Error(
+            `No special program tuition configured for program_key="${key}" ` +
+              `in semester ${input.semesterId}. ` +
+              `Please configure special program tuition in the semester's Payment step.`,
+          );
+        }
+        warnings.push(
+          `${cls.name}: no special-program tuition configured (counted as $0).`,
         );
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${cls.name}`,
+          amount: 0,
+          description: "Price not configured",
+        });
+        continue; // treat as $0
       }
       tuition += program.total;
       lineItems.push({
@@ -855,20 +891,52 @@ export async function computePricingQuote(
       if (!cls) continue;
       const tierId = tierMapForDancer[sid];
       if (!tierId) {
-        throw new Error(
-          `Tier not selected for tiered class "${cls.name}" (session ${sid}).`,
-        );
+        if (!tolerateMissing) {
+          throw new Error(
+            `Tier not selected for tiered class "${cls.name}" (session ${sid}).`,
+          );
+        }
+        warnings.push(`${cls.name}: no tier selected (counted as $0).`);
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${cls.name}`,
+          amount: 0,
+          description: "Tier not selected",
+        });
+        continue; // treat as $0
       }
       const tier = tierPriceMap.get(tierId);
       if (!tier) {
-        throw new Error(
-          `Selected tier ${tierId} for class "${cls.name}" was not found.`,
-        );
+        if (!tolerateMissing) {
+          throw new Error(
+            `Selected tier ${tierId} for class "${cls.name}" was not found.`,
+          );
+        }
+        warnings.push(`${cls.name}: selected tier not found (counted as $0).`);
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${cls.name}`,
+          amount: 0,
+          description: "Tier not found",
+        });
+        continue; // treat as $0
       }
       if (tier.priceCents == null) {
-        throw new Error(
-          `Tier "${tier.label}" for class "${cls.name}" has no price configured.`,
+        if (!tolerateMissing) {
+          throw new Error(
+            `Tier "${tier.label}" for class "${cls.name}" has no price configured.`,
+          );
+        }
+        warnings.push(
+          `${cls.name} (${tier.label}): no tier price configured (counted as $0).`,
         );
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${cls.name} (${tier.label})`,
+          amount: 0,
+          description: "Price not configured",
+        });
+        continue; // treat as $0
       }
       const tierTuition = round2(tier.priceCents / 100);
       tuition += tierTuition;
@@ -929,22 +997,33 @@ export async function computePricingQuote(
 
       if (bandError) throw new Error(bandError.message);
       if (!rateBand) {
-        throw new Error(
-          `No tuition rate configured for division="${division}", ` +
-            `weekly_class_count=${bandCount} in semester ${input.semesterId}. ` +
-            `Please configure tuition rate bands in the semester's Payment step.`,
+        if (!tolerateMissing) {
+          throw new Error(
+            `No tuition rate configured for division="${division}", ` +
+              `weekly_class_count=${bandCount} in semester ${input.semesterId}. ` +
+              `Please configure tuition rate bands in the semester's Payment step.`,
+          );
+        }
+        warnings.push(
+          `${divisionLabel(division)} (${bandCount}x/week): no tuition rate band configured (counted as $0).`,
         );
-      }
-
-      const bandTotal = Number(rateBand.base_tuition);
-      tuition += bandTotal;
-      lineItems.push(
-        {
+        lineItems.push({
           type: "tuition",
           label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
-          amount: round2(bandTotal),
-        },
-      );
+          amount: 0,
+          description: "Rate band not configured",
+        });
+      } else {
+        const bandTotal = Number(rateBand.base_tuition);
+        tuition += bandTotal;
+        lineItems.push(
+          {
+            type: "tuition",
+            label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
+            amount: round2(bandTotal),
+          },
+        );
+      }
     }
 
     // Compute costume fee: per-class rate × standard weekly class count.
@@ -1346,6 +1425,7 @@ export async function computePricingQuote(
     amountDueNow,
     lineItems: familyLineItems,
     paymentSchedule: schedule,
+    warnings: warnings.length > 0 ? warnings : undefined,
   };
 }
 

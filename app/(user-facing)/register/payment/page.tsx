@@ -104,7 +104,7 @@ function DisciplineMark({ k }: { k: DisciplineKey }) {
 
 export function PaymentContent({ semesterId }: { semesterId: string }) {
   const router = useRouter();
-  const { state, setPaymentIntent, reset } = useRegistration();
+  const { state, setPaymentIntent } = useRegistration();
   const { sessionIds, items: cartItems, clear, secondsRemaining, isExpired } = useCart();
 
   const [processing, setProcessing] = useState(false);
@@ -306,7 +306,9 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
   // Fetch pricing quote when participants are available
   useEffect(() => {
     const fullyAssigned = state.participants.filter((p) => p.dancerId);
-    if (fullyAssigned.length === 0 || state.isPreview) return;
+    // Preview computes the quote too (tolerateMissingPrices below) so the
+    // Review & Confirm summary renders identically to the live experience.
+    if (fullyAssigned.length === 0) return;
 
     // Group session IDs by dancer (+ per-dancer tier map for tiered classes).
     const enrollmentMap = new Map<
@@ -367,6 +369,8 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       paymentPlanType:
         planType === "installments" ? "auto_pay_monthly" : "pay_in_full",
       couponCode: appliedCouponCode ?? undefined,
+      // Preview walks draft semesters whose prices may not be set yet.
+      tolerateMissingPrices: state.isPreview,
     })
       .then((q) => {
         setQuote(q);
@@ -403,7 +407,11 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
     setSavingAddress(true);
     try {
       // Address-only save — partial update, so name/phone are left untouched.
-      await updateUserProfile({ ...addressDraft });
+      // Preview never persists to the admin's profile; the address lives only
+      // in local state so the Review & Confirm UI matches the live experience.
+      if (!state.isPreview) {
+        await updateUserProfile({ ...addressDraft });
+      }
       setBillingAddress({ ...addressDraft });
       setEditingAddress(false);
     } catch (e) {
@@ -431,10 +439,12 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
     }
 
     if (state.isPreview) {
+      // Simulate a charge round-trip, then hand off to the in-tree preview
+      // confirmation page. Do NOT clear()/reset() here — the confirmation page
+      // reads the still-live in-memory cart + registration state to render the
+      // order summary and email preview, and clears on exit instead.
       await new Promise((r) => setTimeout(r, 800));
-      clear();
-      reset();
-      router.push(`/register/confirmation?preview=1`);
+      router.push(`/preview/semester/${semesterId}/register/confirmation`);
       return;
     }
 
@@ -773,7 +783,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       </div>
 
       {/* Cart hold countdown — warn when < 5 minutes remain */}
-      {!state.isPreview && secondsRemaining > 0 && secondsRemaining < 300 && (
+      {secondsRemaining > 0 && secondsRemaining < 300 && (
         <div
           className="rounded-xl px-4 py-3 text-sm font-medium"
           style={{
@@ -788,22 +798,8 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
         </div>
       )}
 
-      {/* Preview mode banner */}
-      {state.isPreview && (
-        <div
-          className="rounded-xl px-4 py-3 text-sm font-medium"
-          style={{
-            background: "rgba(122,74,114,0.08)",
-            border: "1px solid var(--plum-200)",
-            color: "var(--plum-700)",
-          }}
-        >
-          Preview mode — no registration will be saved.
-        </div>
-      )}
-
       {/* Loading / error states for pricing quote */}
-      {!state.isPreview && quoteLoading && (
+      {quoteLoading && (
         <div
           className="bg-white rounded-2xl px-5 py-4 text-sm"
           style={{
@@ -815,7 +811,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
           Calculating pricing…
         </div>
       )}
-      {!state.isPreview && quoteError && (
+      {quoteError && (
         <div
           className="rounded-xl px-4 py-3 text-sm"
           style={{
@@ -834,7 +830,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       )}
 
       {/* ══ PER-DANCER CARDS (sessions + pricing rollup combined) ══ */}
-      {!state.isPreview && quote && !quoteLoading && (
+      {quote && !quoteLoading && (
         <>
           {quote.perDancer.map((dancer) => {
             const tuitionItems = dancer.lineItems.filter((li) =>
@@ -1255,19 +1251,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       )}
 
       {/* ══ PAYMENT (minimized) ══ */}
-      {state.isPreview ? (
-        <div
-          className="bg-white rounded-2xl px-[22px] py-4 text-sm"
-          style={{
-            border: "1px solid var(--pub-border-subtle)",
-            boxShadow: "var(--pub-shadow-card)",
-            color: "var(--pub-text-muted)",
-          }}
-        >
-          In preview mode, payment is simulated. Click confirm to see the
-          success screen.
-        </div>
-      ) : (
+      {(
         <div
           className="flex flex-wrap items-start gap-4 bg-white rounded-2xl px-[22px] py-[18px]"
           style={{
@@ -1346,7 +1330,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       {/* Payment plan selector — choice must be made here (sets payment_plan_type
           before createEPGPaymentSession decides doCapture/card storage). Only
           shown when the semester is configured to allow installments. */}
-      {!state.isPreview && quote && installmentsAllowed && (
+      {quote && installmentsAllowed && (
         <div
           className="bg-white rounded-2xl px-5 py-4"
           style={{
@@ -1474,7 +1458,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
 
 
       {/* ══ BILLING ADDRESS ══ */}
-      {!state.isPreview && (
+      {(
         <div
           className="bg-white rounded-2xl overflow-hidden"
           style={{ border: "1px solid var(--pub-border)", boxShadow: "var(--pub-shadow-card)" }}
@@ -1658,11 +1642,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
           disabled={processing || (!state.isPreview && !billingAddress)}
           className="btn-continue"
         >
-          {processing
-            ? "Redirecting to payment…"
-            : state.isPreview
-              ? "Simulate Payment"
-              : "Proceed to Payment"}
+          {processing ? "Redirecting to payment…" : "Proceed to Payment"}
           {!processing && (
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <line x1="5" y1="12" x2="19" y2="12" />
