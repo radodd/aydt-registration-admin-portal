@@ -1,25 +1,49 @@
 "use client";
 
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/app/providers/CartProvider";
 import { useSemesterData } from "@/app/providers/SemesterDataProvider";
 import type { CartItem, PublicSession } from "@/types/public";
+import { computePricingQuote } from "@/app/actions/computePricingQuote";
+import type { PricingQuote } from "@/types";
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
 /* -------------------------------------------------------------------------- */
 
-function fallbackSessionPrice(session: PublicSession): number {
-  if (session.pricingModel === "per_session") return session.dropInPrice ?? 0;
-  const tier = session.priceTiers?.find((t) => t.isDefault) ?? session.priceTiers?.[0];
-  return tier?.amount ?? 0;
+/**
+ * Per-row item price. tiered and drop-in items snapshot their authoritative
+ * price at add-to-cart time and we use that. Standard-mode items have no
+ * snapshot because their tuition depends on the dancer's full enrollment
+ * (progressive rate band) — show "—" per row and rely on the live engine
+ * call for the bottom-line total.
+ */
+function itemPrice(item: CartItem): number {
+  if (item.priceSnapshot != null) return item.priceSnapshot;
+  return 0;
 }
 
-function itemPrice(item: CartItem, sessionMap: Map<string, PublicSession>): number {
-  if (item.priceSnapshot != null) return item.priceSnapshot;
-  const rep = sessionMap.get(item.sessionId);
-  return rep ? fallbackSessionPrice(rep) : 0;
+/** Build engine inputs from cart contents. Drop-in items contribute their
+ * selectedDateIds as sessionIds; tiered/standard contribute the rep sessionId.
+ * Tiered items also populate the classTierIdsBySession map. */
+function buildEngineInputs(items: CartItem[]): {
+  sessionIds: string[];
+  classTierIdsBySession: Record<string, string>;
+} {
+  const sessionIds: string[] = [];
+  const classTierIdsBySession: Record<string, string> = {};
+  for (const item of items) {
+    if (item.mode === "drop-in") {
+      for (const id of item.selectedDateIds ?? []) sessionIds.push(id);
+    } else {
+      sessionIds.push(item.sessionId);
+      if (item.mode === "tiered" && item.classTierId) {
+        classTierIdsBySession[item.sessionId] = item.classTierId;
+      }
+    }
+  }
+  return { sessionIds, classTierIdsBySession };
 }
 
 type DisciplineKey = "ballet" | "contemp" | "jazz" | "default";
@@ -129,7 +153,59 @@ export function CartDrawer({ isOpen = false, onClose = () => {} }: CartDrawerPro
     return map;
   }, [semester.sessions]);
 
-  const subtotal = items.reduce((sum, it) => sum + itemPrice(it, sessionMap), 0);
+  // Live engine quote for the bottom-line total. Standard-mode tuition can't
+  // be attributed per-row (progressive rate band depends on whole-dancer
+  // enrollment), but we CAN call the authoritative engine with all cart
+  // contents projected onto one synthetic dancer to give parents the true
+  // total they'll see at checkout — no surprises.
+  const [liveQuote, setLiveQuote] = useState<PricingQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  useEffect(() => {
+    if (items.length === 0) {
+      setLiveQuote(null);
+      return;
+    }
+    const { sessionIds, classTierIdsBySession } = buildEngineInputs(items);
+    if (sessionIds.length === 0) {
+      setLiveQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setQuoteLoading(true);
+    computePricingQuote({
+      semesterId: semester.id,
+      enrollments: [
+        {
+          dancerId: "00000000-0000-0000-0000-000000000000",
+          dancerName: "Cart Preview",
+          sessionIds,
+          classTierIdsBySession:
+            Object.keys(classTierIdsBySession).length > 0
+              ? classTierIdsBySession
+              : undefined,
+        },
+      ],
+      paymentPlanType: "pay_in_full",
+    })
+      .then((q) => {
+        if (!cancelled) setLiveQuote(q);
+      })
+      .catch(() => {
+        if (!cancelled) setLiveQuote(null);
+      })
+      .finally(() => {
+        if (!cancelled) setQuoteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [items, semester.id]);
+
+  // Sum of per-row snapshots (tiered + drop-in only). Standard items
+  // contribute 0 here and show "—" per row; their real cost is included in
+  // liveQuote.grandTotal below.
+  const itemsSubtotal = items.reduce((sum, it) => sum + itemPrice(it), 0);
+  const displayTotal = liveQuote?.grandTotal ?? itemsSubtotal;
 
   return (
     <div className={`sem-cart-drawer${isOpen ? "" : " hidden"}`}>
@@ -190,15 +266,19 @@ export function CartDrawer({ isOpen = false, onClose = () => {} }: CartDrawerPro
           <div className="sem-cd-totals">
             <div className="sem-cd-tot-row">
               <span className="sem-cd-tot-label">{itemCount} item{itemCount !== 1 ? "s" : ""}</span>
-              <span className="sem-cd-tot-amt">{fmtCurrency(subtotal)}</span>
+              <span className="sem-cd-tot-amt">
+                {quoteLoading && !liveQuote ? "…" : fmtCurrency(displayTotal)}
+              </span>
             </div>
             <div className="sem-cd-tot-row">
               <span className="sem-cd-tot-label">Fees &amp; add-ons</span>
-              <span className="sem-cd-tot-amt"><small>at checkout</small></span>
+              <span className="sem-cd-tot-amt"><small>included in total</small></span>
             </div>
             <div className="sem-cd-tot-row subtotal">
-              <span className="sem-cd-tot-label">Subtotal</span>
-              <span className="sem-cd-tot-amt">{fmtCurrency(subtotal)}</span>
+              <span className="sem-cd-tot-label">Estimated Total</span>
+              <span className="sem-cd-tot-amt">
+                {quoteLoading && !liveQuote ? "…" : fmtCurrency(displayTotal)}
+              </span>
             </div>
           </div>
 
@@ -214,7 +294,9 @@ export function CartDrawer({ isOpen = false, onClose = () => {} }: CartDrawerPro
               </svg>
               Review Cart &amp; Continue
             </span>
-            <span className="sem-cd-cta-total">{fmtCurrency(subtotal)}</span>
+            <span className="sem-cd-cta-total">
+              {quoteLoading && !liveQuote ? "…" : fmtCurrency(displayTotal)}
+            </span>
           </Link>
 
           <button className="sem-cd-browse" onClick={onClose}>
@@ -245,7 +327,7 @@ function CartRow({
   onRemove: () => void;
 }) {
   const rep = sessionMap.get(item.sessionId);
-  const price = itemPrice(item, sessionMap);
+  const price = itemPrice(item);
   const dKey = disciplineKey(rep?.discipline);
 
   const isDropIn = item.mode === "drop-in";

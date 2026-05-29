@@ -5,8 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/app/providers/CartProvider";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
+import { computePricingQuote } from "@/app/actions/computePricingQuote";
 import { gaEvent } from "@/utils/analytics";
 import type { CartItem, PublicSession, PublicFeeConfig } from "@/types/public";
+import type { PricingQuote } from "@/types";
 
 function formatCurrency(cents: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -24,19 +26,35 @@ function formatDollars(dollars: number): string {
   }).format(dollars);
 }
 
-function sessionPrice(session: PublicSession): number {
-  if (session.pricingModel === "per_session") {
-    return session.dropInPrice ?? 0;
-  }
-  const defaultTier =
-    session.priceTiers?.find((t) => t.isDefault) ?? session.priceTiers?.[0];
-  return defaultTier?.amount ?? 0;
+/**
+ * Per-row item price. tiered + drop-in items snapshot their authoritative
+ * price at add-to-cart time. Standard-mode items have no snapshot because
+ * their tuition depends on the dancer's full enrollment (progressive rate
+ * band) — show "—" per row; the live engine quote at the bottom carries
+ * the real total.
+ */
+function itemPrice(item: CartItem): number {
+  if (item.priceSnapshot != null) return item.priceSnapshot;
+  return 0;
 }
 
-function itemPrice(item: CartItem, sessionMap: Map<string, PublicSession>): number {
-  if (item.priceSnapshot != null) return item.priceSnapshot;
-  const rep = sessionMap.get(item.sessionId);
-  return rep ? sessionPrice(rep) : 0;
+function buildEngineInputs(items: CartItem[]): {
+  sessionIds: string[];
+  classTierIdsBySession: Record<string, string>;
+} {
+  const sessionIds: string[] = [];
+  const classTierIdsBySession: Record<string, string> = {};
+  for (const item of items) {
+    if (item.mode === "drop-in") {
+      for (const id of item.selectedDateIds ?? []) sessionIds.push(id);
+    } else {
+      sessionIds.push(item.sessionId);
+      if (item.mode === "tiered" && item.classTierId) {
+        classTierIdsBySession[item.sessionId] = item.classTierId;
+      }
+    }
+  }
+  return { sessionIds, classTierIdsBySession };
 }
 
 function fmtMonth(monthKey: string): string {
@@ -186,9 +204,58 @@ export function CartPageContent() {
   }, [isExpired, clear, router, semesterId, secondsRemaining, hydrated, itemCount]);
 
   const subtotal = useMemo(
-    () => items.reduce((acc, it) => acc + itemPrice(it, sessionMap), 0),
-    [items, sessionMap],
+    () => items.reduce((acc, it) => acc + itemPrice(it), 0),
+    [items],
   );
+
+  // Live engine quote for the bottom-line total. This is the same engine that
+  // runs at checkout, so the parent sees the real number BEFORE leaving the
+  // cart. Standard-mode items don't have a per-row dollar (progressive math
+  // depends on full enrollment), but the engine returns the whole-cart total.
+  const [liveQuote, setLiveQuote] = useState<PricingQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  useEffect(() => {
+    if (items.length === 0) {
+      setLiveQuote(null);
+      return;
+    }
+    const { sessionIds, classTierIdsBySession } = buildEngineInputs(items);
+    if (sessionIds.length === 0) {
+      setLiveQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setQuoteLoading(true);
+    computePricingQuote({
+      semesterId,
+      enrollments: [
+        {
+          dancerId: "00000000-0000-0000-0000-000000000000",
+          dancerName: "Cart Preview",
+          sessionIds,
+          classTierIdsBySession:
+            Object.keys(classTierIdsBySession).length > 0
+              ? classTierIdsBySession
+              : undefined,
+        },
+      ],
+      paymentPlanType: "pay_in_full",
+    })
+      .then((q) => {
+        if (!cancelled) setLiveQuote(q);
+      })
+      .catch(() => {
+        if (!cancelled) setLiveQuote(null);
+      })
+      .finally(() => {
+        if (!cancelled) setQuoteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [items, semesterId]);
+
+  const estimatedTotal = liveQuote?.grandTotal ?? subtotal;
 
   // Fire view_cart once when cart loads with items
   const viewCartFired = useRef(false);
@@ -204,7 +271,7 @@ export function CartPageContent() {
           item_id: it.sessionId,
           item_name: it.className || rep?.name || "",
           item_category: rep?.discipline ?? it.className,
-          price: itemPrice(it, sessionMap),
+          price: itemPrice(it),
           quantity: it.mode === "drop-in" ? (it.selectedDateIds?.length ?? 0) : 1,
         };
       }),
@@ -360,12 +427,12 @@ export function CartPageContent() {
                 const rep = sessionMap.get(item.sessionId);
                 gaEvent("remove_from_cart", {
                   currency: "USD",
-                  value: itemPrice(item, sessionMap),
+                  value: itemPrice(item),
                   items: [{
                     item_id: item.sessionId,
                     item_name: item.className || rep?.name || "",
                     item_category: rep?.discipline ?? item.className,
-                    price: itemPrice(item, sessionMap),
+                    price: itemPrice(item),
                     quantity: item.mode === "drop-in" ? (item.selectedDateIds?.length ?? 0) : 1,
                   }],
                 });
@@ -395,7 +462,7 @@ export function CartPageContent() {
               <OsSectionLabel first>Classes</OsSectionLabel>
               {items.map((item) => {
                 const rep = sessionMap.get(item.sessionId);
-                const price = itemPrice(item, sessionMap);
+                const price = itemPrice(item);
                 const label = item.className || rep?.name || "Class";
                 const sub =
                   item.mode === "tiered" && item.tierLabel
@@ -414,38 +481,78 @@ export function CartPageContent() {
                   />
                 );
               })}
-              {subtotal > 0 && (
-                <div className="flex justify-between items-baseline mt-2 pt-2 border-t border-[#F2E9E3] text-[13px] font-semibold text-[#1F1513]">
-                  <span>Classes subtotal</span>
-                  <span className="tabular-nums">{formatDollars(subtotal)}</span>
-                </div>
-              )}
+              {(() => {
+                // Prefer the live engine's computed tuition subtotal (covers
+                // standard rate-band tuition that has no per-row dollar).
+                const liveTuition = liveQuote?.tuitionSubtotal;
+                const showTuition = liveTuition != null ? liveTuition : subtotal;
+                if (showTuition <= 0) return null;
+                return (
+                  <div className="flex justify-between items-baseline mt-2 pt-2 border-t border-[#F2E9E3] text-[13px] font-semibold text-[#1F1513]">
+                    <span>Classes subtotal</span>
+                    <span className="tabular-nums">{formatDollars(showTuition)}</span>
+                  </div>
+                );
+              })()}
 
               <OsSectionLabel>Fees &amp; Add-ons</OsSectionLabel>
-              <OsRow
-                label="Registration fee"
-                sub="Per dancer enrolled · finalized at Step 3"
-                amt={feeConfig ? formatCurrency(feeConfig.registrationFeePerChild * 100) : "—"}
-                amtSub={feeConfig ? "/ dancer" : undefined}
-              />
-              <OsRow
-                label="Costume fee"
-                sub={
-                  feeConfig
-                    ? `Junior ${formatCurrency(feeConfig.juniorCostumeFeePerClass * 100)} / Senior ${formatCurrency(feeConfig.seniorCostumeFeePerClass * 100)} · per class · finalized by division`
-                    : "Per dancer, per class (varies by division)"
-                }
-                amt="—"
-                amtSub="per class"
-              />
-              {feeConfig && feeConfig.seniorVideoFeePerRegistrant > 0 && (
-                <OsRow
-                  label="Senior video fee"
-                  sub="Senior division dancers only"
-                  amt={formatCurrency(feeConfig.seniorVideoFeePerRegistrant * 100)}
-                  amtSub="/ senior"
-                />
-              )}
+              {(() => {
+                // Derive per-fee totals from the live quote when available;
+                // otherwise show the static fee config preview.
+                const regFeeAmt =
+                  liveQuote?.registrationFeeTotal != null
+                    ? formatDollars(liveQuote.registrationFeeTotal)
+                    : feeConfig
+                      ? formatCurrency(feeConfig.registrationFeePerChild * 100)
+                      : "—";
+                const costumeFromQuote = liveQuote?.lineItems
+                  ?.filter((li) => li.type === "costume_fee")
+                  ?.reduce((sum, li) => sum + li.amount, 0);
+                const costumeAmt =
+                  costumeFromQuote != null && costumeFromQuote > 0
+                    ? formatDollars(costumeFromQuote)
+                    : "—";
+                const videoFromQuote = liveQuote?.lineItems
+                  ?.filter((li) => li.type === "video_fee")
+                  ?.reduce((sum, li) => sum + li.amount, 0);
+                const videoAmt =
+                  videoFromQuote != null && videoFromQuote > 0
+                    ? formatDollars(videoFromQuote)
+                    : feeConfig
+                      ? formatCurrency(feeConfig.seniorVideoFeePerRegistrant * 100)
+                      : "—";
+                return (
+                  <>
+                    <OsRow
+                      label="Registration fee"
+                      sub="Per dancer enrolled · finalized at Step 3"
+                      amt={regFeeAmt}
+                      amtSub={
+                        liveQuote ? undefined : feeConfig ? "/ dancer" : undefined
+                      }
+                    />
+                    <OsRow
+                      label="Costume fee"
+                      sub={
+                        feeConfig
+                          ? `Junior ${formatCurrency(feeConfig.juniorCostumeFeePerClass * 100)} / Senior ${formatCurrency(feeConfig.seniorCostumeFeePerClass * 100)} · per class`
+                          : "Per dancer, per class (varies by division)"
+                      }
+                      amt={costumeAmt}
+                      amtSub={liveQuote ? undefined : "per class"}
+                    />
+                    {((feeConfig && feeConfig.seniorVideoFeePerRegistrant > 0) ||
+                      (videoFromQuote != null && videoFromQuote > 0)) && (
+                      <OsRow
+                        label="Senior video fee"
+                        sub="Senior division dancers only"
+                        amt={videoAmt}
+                        amtSub={liveQuote ? undefined : "/ senior"}
+                      />
+                    )}
+                  </>
+                );
+              })()}
 
               <OsSectionLabel>Discounts</OsSectionLabel>
               <OsRow
@@ -468,11 +575,17 @@ export function CartPageContent() {
                 <div>
                   <div className="text-sm font-bold text-[#1F1513]">Estimated Total</div>
                   <div className="text-[11px] font-medium text-[#A39189] mt-0.5">
-                    Final amount confirmed at payment
+                    {liveQuote
+                      ? "Per dancer — adjustments at payment"
+                      : "Final amount confirmed at payment"}
                   </div>
                 </div>
                 <div className="text-[26px] font-extrabold text-[#7A4A72] tabular-nums leading-none">
-                  {subtotal > 0 ? formatDollars(subtotal) : "—"}
+                  {quoteLoading && !liveQuote
+                    ? "…"
+                    : estimatedTotal > 0
+                      ? formatDollars(estimatedTotal)
+                      : "—"}
                 </div>
               </div>
 
@@ -906,7 +1019,7 @@ function CartPageLine({
   onAddDate: (dateId: string) => void;
 }) {
   const rep = sessionMap.get(item.sessionId);
-  const price = itemPrice(item, sessionMap);
+  const price = itemPrice(item);
   const discipline = getDisciplineKey(rep?.discipline);
   const title = item.className || rep?.name || "Class";
   const [addPickerOpen, setAddPickerOpen] = useState(false);
