@@ -476,6 +476,17 @@ export interface PricingInput {
      * Used for backward compat and drop-in pricing mode.
      */
     sessionIds?: string[];
+    /**
+     * Selected tier IDs for tiered classes (classes.is_tiered = true), keyed
+     * by the scheduleId the dancer is enrolling in. Required for any
+     * scheduleId whose class has is_tiered=true; the engine throws otherwise.
+     */
+    classTierIdsBySchedule?: Record<string, string>;
+    /**
+     * Same as classTierIdsBySchedule but keyed by sessionId (used by the
+     * session-based path).
+     */
+    classTierIdsBySession?: Record<string, string>;
   }>;
   paymentPlanType: "pay_in_full" | "deposit_50pct" | "auto_pay_monthly";
   /** Optional promo code entered by the parent at checkout. */
