@@ -764,6 +764,52 @@ async function sendConfirmationEmail(
       day: "numeric",
     });
 
+    // Installment plans (#7): build a schedule block so auto-charged families see
+    // exactly what will be charged and when. Empty string for pay-in-full.
+    const { data: installments } = await supabase
+      .from("order_payment_installments")
+      .select("installment_number, amount_due, due_date, status")
+      .eq("batch_id", batchId)
+      .order("installment_number", { ascending: true });
+
+    const fmtMoney = (n: number) =>
+      new Intl.NumberFormat("en-US", { style: "currency", currency: currencyCode || "USD" }).format(n);
+
+    let paymentScheduleHtml = "";
+    if (installments && installments.length > 1) {
+      const rows = installments
+        .map((inst) => {
+          const dueLabel = new Date(`${inst.due_date}T12:00:00`).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+          const paid = inst.status === "paid";
+          return `
+            <tr>
+              <td style="padding:6px 0;font-size:14px;color:#555;">
+                Installment ${inst.installment_number} · ${dueLabel}${paid ? " (paid today)" : ""}
+              </td>
+              <td style="padding:6px 0;font-size:14px;text-align:right;color:${paid ? "#16a34a" : "#333"};">
+                ${fmtMoney(Number(inst.amount_due))}
+              </td>
+            </tr>`;
+        })
+        .join("");
+      paymentScheduleHtml = `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 8px;border-collapse:collapse;">
+          <tr>
+            <td colspan="2" style="padding:0 0 8px 0;font-weight:bold;font-size:13px;color:#7B1F1A;border-bottom:2px solid #7B1F1A;text-transform:uppercase;letter-spacing:0.05em;">
+              Auto-charge Schedule
+            </td>
+          </tr>
+          ${rows}
+        </table>
+        <p style="margin:8px 0 0 0;font-size:13px;color:#64748b;">
+          Your card on file will be charged automatically on each date above. No action is needed.
+        </p>`;
+    }
+
     const tokens: Record<string, string> = {
       // Admin-UI tokens (see app/admin/semesters/steps/ConfirmationEmailStep.tsx
       // TOKENS) — these are what the token picker actually inserts. Must stay
@@ -781,6 +827,10 @@ async function sendConfirmationEmail(
       "{{dancer_list}}": dancerNames,
       "{{class_list}}": classNames,
       "{{session_list}}": classNames,
+      // #7: installment schedule block (empty for pay-in-full). Template authors
+      // can place it explicitly; otherwise it is appended below for installment
+      // plans so families always see the schedule.
+      "{{payment_schedule}}": paymentScheduleHtml,
     };
 
     // Substitute tokens in BOTH subject and body. Any unknown token is left
@@ -795,6 +845,11 @@ async function sendConfirmationEmail(
 
     const subject = applyTokens(emailTemplate.subject);
     let htmlBody = applyTokens(emailTemplate.htmlBody);
+    // If this is an installment plan and the template didn't place the schedule
+    // token itself, append the schedule so the family always sees it (#7).
+    if (paymentScheduleHtml && !emailTemplate.htmlBody.includes("{{payment_schedule}}")) {
+      htmlBody += paymentScheduleHtml;
+    }
     htmlBody = prepareEmailHtml(htmlBody);
 
     // Use truthy fallback (not ??) so empty strings saved by the admin UI also
