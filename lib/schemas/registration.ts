@@ -82,6 +82,15 @@ export function buildDynamicFormSchema(elements: RegistrationFormElement[]) {
       case "checkbox":
         base = z.array(z.string());
         break;
+      case "address":
+        base = z.object({
+          street: z.string(),
+          line2: z.string().optional(),
+          city: z.string(),
+          state: z.string(),
+          zip: z.string(),
+        });
+        break;
       case "long_answer":
       case "short_answer":
       default:
@@ -94,6 +103,14 @@ export function buildDynamicFormSchema(elements: RegistrationFormElement[]) {
           1,
           `${el.label ?? "This field"} is required`,
         );
+      } else if (el.inputType === "address") {
+        shape[el.id] = z.object({
+          street: z.string().min(1, "Street address is required"),
+          line2: z.string().optional(),
+          city: z.string().min(1, "City is required"),
+          state: z.string().min(1, "State is required"),
+          zip: z.string().min(1, "ZIP code is required"),
+        });
       } else {
         shape[el.id] = (base as z.ZodString).min(
           1,

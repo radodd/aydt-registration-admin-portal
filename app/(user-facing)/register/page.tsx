@@ -21,7 +21,13 @@ import { createClient } from "@/utils/supabase/client";
 /* Inner form (needs RegistrationProvider in tree)                            */
 /* -------------------------------------------------------------------------- */
 
-function EmailForm({ semesterId }: { semesterId: string }) {
+function EmailForm({
+  semesterId,
+  waitlist,
+}: {
+  semesterId: string;
+  waitlist?: boolean;
+}) {
   const router = useRouter();
   const { setEmail, setParentCheck } = useRegistration();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,7 +35,12 @@ function EmailForm({ semesterId }: { semesterId: string }) {
   // true while we're checking whether the user is already logged in
   const [authChecking, setAuthChecking] = useState(true);
 
-  const participantsPath = `/register/participants?semester=${semesterId}`;
+  // Meeting-plan #5: a waitlist join reuses the full registration flow; the
+  // ?waitlist=1 intent is threaded through every step so the final step writes
+  // a waitlist entry instead of charging.
+  const participantsPath = `/register/participants?semester=${semesterId}${
+    waitlist ? "&waitlist=1" : ""
+  }`;
 
   // --- Auth bypass: skip email step for already-authenticated users ---
   useEffect(() => {
@@ -147,6 +158,7 @@ function EmailForm({ semesterId }: { semesterId: string }) {
 function RegisterPageInner() {
   const params = useSearchParams();
   const semesterId = params.get("semester") ?? "";
+  const waitlist = params.get("waitlist") === "1";
 
   if (!semesterId) {
     return (
@@ -162,7 +174,7 @@ function RegisterPageInner() {
   return (
     <CartRestoreGuard semesterId={semesterId}>
       <RegistrationProvider semesterId={semesterId}>
-        <EmailForm semesterId={semesterId} />
+        <EmailForm semesterId={semesterId} waitlist={waitlist} />
       </RegistrationProvider>
     </CartRestoreGuard>
   );

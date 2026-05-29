@@ -43,12 +43,16 @@ function buildMinimalRoutes(opts: {
   rateBandRow?: object | null;
   feeConfigRow?: object | null;
   sessionRow?: object;
+  sessionRows?: object[];
   couponLinks?: object[] | null;
   redemptionCount?: number;
   priorBatchCount?: number;
+  specialProgramRows?: object[];
+  classTierRows?: object[];
 } = {}) {
   const division = opts.division ?? "junior";
   const sessionRow = opts.sessionRow ?? MOCK_JUNIOR_SESSION_ROW;
+  const sessionRowsData = opts.sessionRows ?? [sessionRow];
   const rateBandRow = opts.rateBandRow !== undefined
     ? opts.rateBandRow
     : (division === "junior" ? MOCK_JUNIOR_RATE_BAND_ROW : MOCK_SENIOR_RATE_BAND_ROW);
@@ -57,24 +61,30 @@ function buildMinimalRoutes(opts: {
     data: opts.feeConfigRow !== undefined ? opts.feeConfigRow : MOCK_FEE_CONFIG_ROW,
   });
   const rateBandChain = makeChain({ data: rateBandRow });
-  const sessionChain = makeChain({ data: [sessionRow] });
+  const sessionChain = makeChain({ data: sessionRowsData });
   const discountChain = makeChain({ data: [] }); // no threshold discounts by default
-  const priceRowsChain = makeChain({ data: [] }); // no per-session price rows
   const batchCountChain = makeChain({ count: opts.priorBatchCount ?? 0 });
   const couponChain = makeChain({
     data: (opts.couponLinks !== undefined ? opts.couponLinks : null) ?? [],
   });
   const redemptionChain = makeChain({ count: opts.redemptionCount ?? 0 });
+  const specialProgramChain = makeChain({
+    data: opts.specialProgramRows ?? [],
+  });
+  const classTiersChain = makeChain({
+    data: opts.classTierRows ?? [],
+  });
 
   return {
     semester_fee_config: feeConfigChain,
     tuition_rate_bands: rateBandChain,
     class_meetings: sessionChain,
     semester_discounts: discountChain,
-    class_meeting_price_rows: priceRowsChain,
     registration_orders: batchCountChain,
     semester_coupons: couponChain,
     coupon_redemptions: redemptionChain,
+    special_program_tuition: specialProgramChain,
+    class_tiers: classTiersChain,
   };
 }
 
@@ -236,7 +246,7 @@ describe("computePricingQuote", () => {
   });
 
   // ── Test 8 ────────────────────────────────────────────────────────────────
-  it("fee-exempt disciplines (technique) → registrationFee === 0", async () => {
+  it("technique special program → semester_total tuition, reg fee = override (0)", async () => {
     const techniqueSession = {
       ...MOCK_JUNIOR_SESSION_ROW,
       classes: {
@@ -248,12 +258,484 @@ describe("computePricingQuote", () => {
     const routes = buildMinimalRoutes({
       division: "junior",
       sessionRow: techniqueSession,
+      // Standard rate-band lookup MUST NOT be hit for a pure special-program
+      // dancer; pass null to fail loudly if the engine falls through.
+      rateBandRow: null,
+      specialProgramRows: [
+        {
+          program_key: "technique",
+          program_label: "Technique 1 / 2 / 3",
+          semester_total: 600,
+          registration_fee_override: 0,
+        },
+      ],
     });
     setupMock(routes);
 
     const quote = await computePricingQuote(makePricingInput());
 
+    expect(quote.perDancer[0].tuition).toBe(600);
     expect(quote.perDancer[0].registrationFee).toBe(0);
     expect(quote.registrationFeeTotal).toBe(0);
+    expect(quote.perDancer[0].costumeFee).toBe(0);
+    expect(quote.perDancer[0].videoFee).toBe(0);
+  });
+
+  // ── Test 9 ────────────────────────────────────────────────────────────────
+  it("early childhood → semester_total + override reg fee ($40)", async () => {
+    const ecSession = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      classes: {
+        ...MOCK_JUNIOR_SESSION_ROW.classes,
+        division: "early_childhood",
+        discipline: "ballet",
+      },
+    };
+
+    const routes = buildMinimalRoutes({
+      sessionRow: ecSession,
+      rateBandRow: null,
+      specialProgramRows: [
+        {
+          program_key: "early_childhood",
+          program_label: "Early Childhood (9-class session)",
+          semester_total: 394.11,
+          registration_fee_override: 40,
+        },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote(makePricingInput());
+
+    expect(quote.perDancer[0].tuition).toBe(394.11);
+    expect(quote.perDancer[0].registrationFee).toBe(40);
+  });
+
+  // ── Test 10 ───────────────────────────────────────────────────────────────
+  it("competition senior → competition_senior key (not junior fallback)", async () => {
+    const compSession = {
+      ...MOCK_SENIOR_SESSION_ROW,
+      classes: {
+        ...MOCK_SENIOR_SESSION_ROW.classes,
+        is_competition_track: true,
+      },
+    };
+
+    const routes = buildMinimalRoutes({
+      division: "senior",
+      sessionRow: compSession,
+      rateBandRow: null,
+      specialProgramRows: [
+        {
+          program_key: "competition_senior",
+          program_label: "Competition Team — Senior",
+          semester_total: 802.94,
+          registration_fee_override: 0,
+        },
+        // Deliberately also include junior to prove disambiguation picks senior.
+        {
+          program_key: "competition_junior",
+          program_label: "Competition Team — Junior",
+          semester_total: 842.61,
+          registration_fee_override: 0,
+        },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote(
+      makePricingInput({ sessionIds: [SESSION_CONTEMP_ID] }),
+    );
+
+    // The #2a contract: the tuition line item is sourced from the
+    // competition_senior special-program row, NOT a rate-band fallback or the
+    // competition_junior key.
+    const tuitionLine = quote.perDancer[0].lineItems.find(
+      (li) => li.type === "tuition",
+    );
+    expect(tuitionLine?.amount).toBe(802.94);
+    expect(tuitionLine?.label).toMatch(/Competition Team — Senior/);
+    expect(quote.perDancer[0].registrationFee).toBe(0);
+    // Post-flag-#1 fix: competition classes (is_competition_track=true) are
+    // fee-exempt even though their division is "senior" (not "competition").
+    expect(quote.perDancer[0].costumeFee).toBe(0);
+    expect(quote.perDancer[0].videoFee).toBe(0);
+    expect(quote.perDancer[0].tuition).toBe(802.94);
+  });
+
+  // ── Flag #1 ───────────────────────────────────────────────────────────────
+  // Junior competition: same exemption rule, no junior costume ($55).
+  it("competition junior → no costume fee (is_competition_track honored)", async () => {
+    const compSession = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      classes: {
+        ...MOCK_JUNIOR_SESSION_ROW.classes,
+        is_competition_track: true,
+      },
+    };
+
+    const routes = buildMinimalRoutes({
+      division: "junior",
+      sessionRow: compSession,
+      rateBandRow: null,
+      specialProgramRows: [
+        {
+          program_key: "competition_junior",
+          program_label: "Competition Team — Junior",
+          semester_total: 842.61,
+          registration_fee_override: 0,
+        },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote(makePricingInput());
+
+    expect(quote.perDancer[0].tuition).toBe(842.61);
+    expect(quote.perDancer[0].costumeFee).toBe(0);
+    expect(quote.perDancer[0].registrationFee).toBe(0);
+  });
+
+  // ── Test 11 ───────────────────────────────────────────────────────────────
+  it("special program enrolled but unconfigured → throws config error", async () => {
+    const techniqueSession = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      classes: {
+        ...MOCK_JUNIOR_SESSION_ROW.classes,
+        discipline: "technique",
+      },
+    };
+
+    const routes = buildMinimalRoutes({
+      sessionRow: techniqueSession,
+      rateBandRow: null,
+      specialProgramRows: [], // none configured
+    });
+    setupMock(routes);
+
+    await expect(computePricingQuote(makePricingInput())).rejects.toThrow(
+      /No special program tuition configured for program_key="technique"/i,
+    );
+  });
+
+  // ── Test 12 ───────────────────────────────────────────────────────────────
+  // #2b: tiered classes pull tuition from class_tiers.price_cents and skip
+  // costume/video/registration fees.
+  it("tiered class → tier price_cents/100 tuition, no fees", async () => {
+    const TIER_ID = "tier-0000-0000-0000-000000000001";
+    const tieredSession = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      classes: {
+        ...MOCK_JUNIOR_SESSION_ROW.classes,
+        is_tiered: true,
+      },
+    };
+
+    const routes = buildMinimalRoutes({
+      sessionRow: tieredSession,
+      rateBandRow: null, // must NOT be queried — tier path takes over
+      classTierRows: [
+        {
+          id: TIER_ID,
+          class_id: "cls-ballet-000000001",
+          label: "Beginner",
+          price_cents: 45000, // $450.00
+        },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote({
+      ...makePricingInput(),
+      enrollments: [
+        {
+          dancerId: DANCER_ID,
+          dancerName: "Test Dancer",
+          sessionIds: [SESSION_BALLET_ID],
+          classTierIdsBySession: { [SESSION_BALLET_ID]: TIER_ID },
+        },
+      ],
+    });
+
+    const tuitionLine = quote.perDancer[0].lineItems.find(
+      (li) => li.type === "tuition",
+    );
+    expect(tuitionLine?.amount).toBe(450);
+    expect(tuitionLine?.label).toMatch(/Beginner/);
+    expect(quote.perDancer[0].registrationFee).toBe(0);
+    expect(quote.perDancer[0].costumeFee).toBe(0);
+    expect(quote.perDancer[0].videoFee).toBe(0);
+    expect(quote.perDancer[0].tuition).toBe(450);
+  });
+
+  // ── Test 13 ───────────────────────────────────────────────────────────────
+  it("tiered class without selected tier → throws", async () => {
+    const tieredSession = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      classes: {
+        ...MOCK_JUNIOR_SESSION_ROW.classes,
+        is_tiered: true,
+      },
+    };
+
+    const routes = buildMinimalRoutes({
+      sessionRow: tieredSession,
+      rateBandRow: null,
+      classTierRows: [],
+    });
+    setupMock(routes);
+
+    await expect(computePricingQuote(makePricingInput())).rejects.toThrow(
+      /Tier not selected/i,
+    );
+  });
+
+  // ── Test 14 ───────────────────────────────────────────────────────────────
+  it("tiered class with NULL price_cents → throws", async () => {
+    const TIER_ID = "tier-0000-0000-0000-000000000002";
+    const tieredSession = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      classes: {
+        ...MOCK_JUNIOR_SESSION_ROW.classes,
+        is_tiered: true,
+      },
+    };
+
+    const routes = buildMinimalRoutes({
+      sessionRow: tieredSession,
+      rateBandRow: null,
+      classTierRows: [
+        {
+          id: TIER_ID,
+          class_id: "cls-ballet-000000001",
+          label: "Unpriced",
+          price_cents: null,
+        },
+      ],
+    });
+    setupMock(routes);
+
+    await expect(
+      computePricingQuote({
+        ...makePricingInput(),
+        enrollments: [
+          {
+            dancerId: DANCER_ID,
+            sessionIds: [SESSION_BALLET_ID],
+            classTierIdsBySession: { [SESSION_BALLET_ID]: TIER_ID },
+          },
+        ],
+      }),
+    ).rejects.toThrow(/has no price configured/i);
+  });
+
+  // ── Test 15 ───────────────────────────────────────────────────────────────
+  // #2c: drop-in meeting reads from class_meetings.drop_in_price (section
+  // marked is_drop_in=true), no costume/video/reg fee.
+  it("drop-in meeting → drop_in_price tuition, no fees", async () => {
+    const dropInSession = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      drop_in_price: 22.5,
+      class_sections: { is_drop_in: true },
+    };
+
+    const routes = buildMinimalRoutes({
+      sessionRow: dropInSession,
+      rateBandRow: null,
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote(makePricingInput());
+
+    const tuitionLine = quote.perDancer[0].lineItems.find(
+      (li) => li.type === "tuition",
+    );
+    expect(tuitionLine?.amount).toBe(22.5);
+    expect(tuitionLine?.label).toMatch(/drop-in/i);
+    expect(quote.perDancer[0].registrationFee).toBe(0);
+    expect(quote.perDancer[0].costumeFee).toBe(0);
+    expect(quote.perDancer[0].videoFee).toBe(0);
+    expect(quote.perDancer[0].tuition).toBe(22.5);
+  });
+
+  // ── Test 16 ───────────────────────────────────────────────────────────────
+  it("drop-in meeting without drop_in_price → throws", async () => {
+    const dropInSession = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      drop_in_price: null,
+      class_sections: { is_drop_in: true },
+    };
+
+    const routes = buildMinimalRoutes({
+      sessionRow: dropInSession,
+      rateBandRow: null,
+    });
+    setupMock(routes);
+
+    await expect(computePricingQuote(makePricingInput())).rejects.toThrow(
+      /has no drop_in_price configured/i,
+    );
+  });
+
+  // ── Test 17 (#2g) ─────────────────────────────────────────────────────────
+  // The legacy class_meeting_price_rows fallback was removed in #2g. A
+  // non-drop-in session with no other tuition source must now throw the
+  // standard "rate band missing" error instead of silently picking up a
+  // legacy price row.
+  it("non-drop-in session with no rate band → throws (legacy fallback removed)", async () => {
+    const routes = buildMinimalRoutes({
+      rateBandRow: null,
+    });
+    setupMock(routes);
+
+    await expect(computePricingQuote(makePricingInput())).rejects.toThrow(
+      /No tuition rate configured/i,
+    );
+  });
+
+  // ── Test 18 ───────────────────────────────────────────────────────────────
+  // #2d: rate-band lookup must be mode-scoped. A dancer with 1 standard + 1
+  // drop-in session should hit the junior 1×/wk band, not 2×/wk.
+  it("standard + drop-in → bandCount counts standard only", async () => {
+    const SESSION_STANDARD = SESSION_BALLET_ID;
+    const SESSION_DROPIN = SESSION_CONTEMP_ID;
+    const standardSession = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      id: SESSION_STANDARD,
+      day_of_week: "monday",
+    };
+    const dropInSession = {
+      id: SESSION_DROPIN,
+      schedule_date: null,
+      day_of_week: "tuesday",
+      drop_in_price: 22.5,
+      class_sections: { is_drop_in: true },
+      classes: {
+        id: "cls-dropin-000000001",
+        name: "Dropin Class",
+        division: "junior",
+        discipline: "ballet",
+        is_competition_track: false,
+      },
+    };
+
+    const routes = buildMinimalRoutes({
+      division: "junior",
+      sessionRows: [standardSession, dropInSession],
+      // 1×/wk band must be the lookup — anything else fails this test.
+      rateBandRow: MOCK_JUNIOR_RATE_BAND_ROW,
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote({
+      ...makePricingInput(),
+      enrollments: [
+        {
+          dancerId: DANCER_ID,
+          dancerName: "Test Dancer",
+          sessionIds: [SESSION_STANDARD, SESSION_DROPIN],
+        },
+      ],
+    });
+
+    // Verify the rate-band line carries the 1x/week label (not 2x/week).
+    const rateBandLine = quote.perDancer[0].lineItems.find(
+      (li) =>
+        li.type === "tuition" && /Junior, 1x\/week/i.test(li.label),
+    );
+    expect(rateBandLine?.amount).toBe(775.93);
+    // Standard tuition (775.93) + drop-in (22.5), plus junior costume ($55)
+    // for the one standard class. Tuition field includes costume.
+    expect(quote.perDancer[0].tuition).toBe(775.93 + 22.5 + 55);
+    // Per Q2: returned weeklyClassCount reports total enrollments (2).
+    expect(quote.perDancer[0].weeklyClassCount).toBe(2);
+  });
+
+  // ── Test 19 ───────────────────────────────────────────────────────────────
+  // #2d: two different rate-band classes both on Monday → bandCount = 2.
+  it("two different rate-band classes same weekday → bandCount = 2", async () => {
+    const TWOWK_BAND = {
+      semester_id: SEM_ID,
+      division: "junior",
+      weekly_class_count: 2,
+      base_tuition: 1551.86, // arbitrary 2x band
+    };
+    const SESSION_A = "ses-0000-0000-0000-aaaaaaaaa00001";
+    const SESSION_B = "ses-0000-0000-0000-bbbbbbbbb00001";
+    const sessionA = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      id: SESSION_A,
+      day_of_week: "monday",
+      classes: { ...MOCK_JUNIOR_SESSION_ROW.classes, id: "cls-A" },
+    };
+    const sessionB = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      id: SESSION_B,
+      day_of_week: "monday",
+      classes: { ...MOCK_JUNIOR_SESSION_ROW.classes, id: "cls-B" },
+    };
+
+    const routes = buildMinimalRoutes({
+      sessionRows: [sessionA, sessionB],
+      rateBandRow: TWOWK_BAND,
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote({
+      ...makePricingInput(),
+      enrollments: [
+        {
+          dancerId: DANCER_ID,
+          sessionIds: [SESSION_A, SESSION_B],
+        },
+      ],
+    });
+
+    const rateBandLine = quote.perDancer[0].lineItems.find(
+      (li) => li.type === "tuition" && /2x\/week/i.test(li.label),
+    );
+    expect(rateBandLine?.amount).toBe(1551.86);
+  });
+
+  // ── Test 20 (#2e end-to-end) ──────────────────────────────────────────────
+  // tuitionEngine (admin preview) and computePricingQuote (authoritative
+  // charge) must produce identical totals for the same inputs. This is the
+  // convergence guarantee of #2e.
+  it("convergence: tuitionEngine.semesterTotal === computePricingQuote tuition for same band", async () => {
+    // Use the unit-test version of tuitionEngine directly.
+    const { calculateClassTuition } = await import("@/utils/tuitionEngine");
+
+    // Admin draft: junior, 1×/week, base $775.93.
+    const draftBand = {
+      id: "band-jr-1",
+      division: "junior",
+      weekly_class_count: 1,
+      base_tuition: 775.93,
+      semester_total: 999_999, // legacy column — ignored post-#2e
+      autopay_installment_amount: null,
+      recital_fee: 0,
+      progressive_discount_percent: 0,
+    };
+    const previewResult = calculateClassTuition({
+      division: "junior",
+      weeklyClassCount: 1,
+      discipline: "ballet",
+      rateBands: [draftBand],
+      specialRates: [],
+    });
+
+    // Authoritative side: same band shape lives in tuition_rate_bands.
+    const routes = buildMinimalRoutes({
+      division: "junior",
+      rateBandRow: { ...draftBand },
+    });
+    setupMock(routes);
+    const quote = await computePricingQuote(makePricingInput());
+
+    // The preview's semesterTotal (which folds base + reg + video + costume)
+    // must equal the authoritative grand total for a single-dancer enrollment
+    // with no family discount, coupon, or autopay fee.
+    expect(previewResult.semesterTotal).toBe(quote.grandTotal);
   });
 });

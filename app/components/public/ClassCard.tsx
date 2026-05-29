@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCart } from "@/app/providers/CartProvider";
 import type { PublicSession } from "@/types/public";
 import { GroupedClass } from "./SessionGrid";
@@ -102,8 +103,28 @@ function ScCard({
   discStripeColor: string;
   spotsThreshold: number;
 }) {
-  const { add, remove, sessionIds } = useCart();
+  const { add, remove, sessionIds, semesterId } = useCart();
+  const router = useRouter();
   const rep = group.representative;
+
+  // Meeting-plan #5: a full + waitlist-enabled class doesn't go through the
+  // paid cart/checkout. Add the representative session so the registration flow
+  // can capture the dancer + form, then enter the flow in waitlist mode — the
+  // final step writes a capacity-neutral waitlist entry instead of charging.
+  function handleJoinWaitlist() {
+    // Object-form add so the cart item carries classId (the waitlist flow needs
+    // it; the bare string form leaves classId empty).
+    if (!sessionIds.includes(rep.id)) {
+      add({
+        semesterId,
+        classId: rep.classId ?? "",
+        sessionId: rep.id,
+        className: rep.name,
+        mode: "standard",
+      });
+    }
+    router.push(`/register?semester=${semesterId}&waitlist=1`);
+  }
 
   // Use representative session's ID for cart operations
   const inCart = sessionIds.includes(rep.id);
@@ -143,6 +164,10 @@ function ScCard({
 
   function handleClick() {
     if (isFull && !rep.waitlistEnabled) return;
+    if (isFull && rep.waitlistEnabled) {
+      handleJoinWaitlist();
+      return;
+    }
     if (inCart) remove(rep.id);
     else add(rep.id);
   }
@@ -223,7 +248,7 @@ function ScCard({
         ) : isFull && rep.waitlistEnabled ? (
           <button
             className="sem-atc waitlist"
-            onClick={(e) => { e.stopPropagation(); add(rep.id); }}
+            onClick={(e) => { e.stopPropagation(); handleJoinWaitlist(); }}
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
@@ -272,16 +297,25 @@ export function ClassCard({ group, spotsThreshold = 0 }: { group: GroupedClass; 
   const stripeColor = discColor(group.discipline);
 
   // Overall availability for the class header badge
-  const allFull = scheduleGroups.every(
-    (sg) => sg.representative.spotsRemaining <= 0 && !sg.representative.waitlistEnabled
+  const allAtCapacity = scheduleGroups.every(
+    (sg) => sg.representative.spotsRemaining <= 0
   );
-  const anyLow = spotsThreshold > 0 && !allFull && scheduleGroups.some(
+  // Meeting-plan #5: a full class with the waitlist toggle on should surface a
+  // "Waitlist" header — not "Spots available" / "All sessions full".
+  const anyWaitlist = scheduleGroups.some(
+    (sg) => sg.representative.spotsRemaining <= 0 && sg.representative.waitlistEnabled
+  );
+  const allFull = allAtCapacity && !anyWaitlist;
+  const anyLow = spotsThreshold > 0 && !allAtCapacity && scheduleGroups.some(
     (sg) => sg.representative.spotsRemaining > 0 && sg.representative.spotsRemaining <= spotsThreshold
   );
 
   let headerBadgeClass = "sem-badge-sage";
   let headerBadgeLabel = "Spots available";
-  if (allFull) {
+  if (allAtCapacity && anyWaitlist) {
+    headerBadgeClass = "sem-badge-rose";
+    headerBadgeLabel = "Waitlist";
+  } else if (allFull) {
     headerBadgeClass = "sem-badge-rose";
     headerBadgeLabel = "All sessions full";
   } else if (anyLow) {
@@ -487,9 +521,40 @@ export function ClassCard({ group, spotsThreshold = 0 }: { group: GroupedClass; 
 /* selection but does NOT touch cart state or write to any persistence layer.   */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Meeting-plan #5: shown inside a tiered/drop-in class body when the class is
+ * full and the waitlist is enabled, in place of the tier/date picker. Mirrors
+ * the standard ScCard "Join Waitlist" CTA so all three modes have a waitlist
+ * entry point.
+ */
+function WaitlistJoinPanel({ onJoin }: { onJoin: () => void }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 4px 4px" }}>
+      <div style={{ fontSize: 13, color: "var(--pub-text-muted)", lineHeight: 1.6 }}>
+        This class is full. Join the waitlist and an AYDT administrator will reach
+        out if a spot opens up — you won&apos;t be charged now.
+      </div>
+      <button
+        type="button"
+        className="sem-atc waitlist"
+        style={{ alignSelf: "flex-start" }}
+        onClick={onJoin}
+      >
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <line x1="23" y1="11" x2="17" y2="11" />
+        </svg>
+        Join Waitlist
+      </button>
+    </div>
+  );
+}
+
 function TieredBookingBlock({ group }: { group: GroupedClass }) {
   const tiers = group.classTiers ?? [];
   const { items, add, removeItem, updateItem, semesterId } = useCart();
+  const router = useRouter();
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null);
   const [selectedPrice, setSelectedPrice] = useState<number | null>(null);
 
@@ -499,6 +564,27 @@ function TieredBookingBlock({ group }: { group: GroupedClass }) {
   const inCart = !!cartItem;
 
   const repSession = group.sessions.find((s) => !s.isDropIn) ?? group.sessions[0];
+
+  // Meeting-plan #5: full + waitlist-enabled → offer Join Waitlist instead of
+  // the tier picker.
+  const atCapacity = (repSession?.spotsRemaining ?? 0) <= 0;
+  const waitlistEnabled = repSession?.waitlistEnabled ?? false;
+  function handleJoinWaitlist() {
+    if (!inCart && repSession) {
+      const tier = tiers.find((t) => t.isDefault) ?? tiers[0];
+      add({
+        semesterId,
+        classId: group.classId,
+        sessionId: repSession.id,
+        className: group.name,
+        mode: "tiered",
+        classTierId: tier?.id,
+        tierLabel: tier?.label,
+        priceSnapshot: tier?.price ?? undefined,
+      });
+    }
+    router.push(`/register?semester=${semesterId}&waitlist=1`);
+  }
 
   function handleClick() {
     if (!selectedTier || !repSession) return;
@@ -520,6 +606,10 @@ function TieredBookingBlock({ group }: { group: GroupedClass }) {
         priceSnapshot: selectedTier.price ?? undefined,
       });
     }
+  }
+
+  if (atCapacity && waitlistEnabled) {
+    return <WaitlistJoinPanel onJoin={handleJoinWaitlist} />;
   }
 
   return (
@@ -555,6 +645,7 @@ function TieredBookingBlock({ group }: { group: GroupedClass }) {
 
 function DropInBookingBlock({ group }: { group: GroupedClass }) {
   const { items, add, removeItem, updateItem, semesterId } = useCart();
+  const router = useRouter();
   // Stable identity across renders so DropInPicker's internal memo over `sessions`
   // doesn't churn — otherwise its effect that calls onChange re-fires every
   // render and creates an update loop with our setSelectedIds below.
@@ -566,8 +657,35 @@ function DropInBookingBlock({ group }: { group: GroupedClass }) {
   const cartItem = items.find((it) => it.classId === group.classId && it.mode === "drop-in");
   const inCart = !!cartItem;
 
+  const hasOpenDates = dropInSessions.some((s) => s.spotsRemaining > 0);
+
   const [selectedIds, setSelectedIds] = useState<string[]>(cartItem?.selectedDateIds ?? []);
   const [total, setTotal] = useState<number>(cartItem?.priceSnapshot ?? 0);
+  // Meeting-plan #5: full dates whose class has the waitlist on are selected for
+  // the waitlist (per-date, separate from paid selections) and committed here.
+  const [waitlistIds, setWaitlistIds] = useState<string[]>([]);
+
+  function handleJoinWaitlist() {
+    if (waitlistIds.length === 0) return;
+    if (inCart) {
+      updateItem(cartItem!.id, {
+        sessionId: waitlistIds[0]!,
+        selectedDateIds: waitlistIds,
+        priceSnapshot: 0,
+      });
+    } else {
+      add({
+        semesterId,
+        classId: group.classId,
+        sessionId: waitlistIds[0]!,
+        className: group.name,
+        mode: "drop-in",
+        selectedDateIds: waitlistIds,
+        priceSnapshot: 0,
+      });
+    }
+    router.push(`/register?semester=${semesterId}&waitlist=1`);
+  }
 
   function handleClick() {
     if (selectedIds.length === 0) return;
@@ -608,24 +726,52 @@ function DropInBookingBlock({ group }: { group: GroupedClass }) {
           setSelectedIds(ids);
           setTotal(sum);
         }}
+        onWaitlistChange={setWaitlistIds}
       />
-      <BookingFooter
-        priceLabel={formatDollars(total)}
-        priceSub={`${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`}
-        buttonLabel={
-          selectedIds.length === 0
-            ? "Pick at least one date"
-            : inCart && sameAsCart
-              ? `In Cart · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
-              : inCart
-                ? `Update · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
-                : `Register · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
-        }
-        disabled={selectedIds.length === 0}
-        onClick={handleClick}
-        secondaryLabel={inCart ? "Remove from cart" : undefined}
-        onSecondaryClick={inCart ? () => removeItem(cartItem!.id) : undefined}
-      />
+      {hasOpenDates && (
+        <BookingFooter
+          priceLabel={formatDollars(total)}
+          priceSub={`${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`}
+          buttonLabel={
+            selectedIds.length === 0
+              ? "Pick at least one date"
+              : inCart && sameAsCart
+                ? `In Cart · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
+                : inCart
+                  ? `Update · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
+                  : `Register · ${selectedIds.length} session${selectedIds.length !== 1 ? "s" : ""}`
+          }
+          disabled={selectedIds.length === 0}
+          onClick={handleClick}
+          secondaryLabel={inCart ? "Remove from cart" : undefined}
+          onSecondaryClick={inCart ? () => removeItem(cartItem!.id) : undefined}
+        />
+      )}
+      {waitlistIds.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "10px 12px",
+            borderTop: "1px dashed var(--pub-border, #e0dcd6)",
+          }}
+        >
+          <div style={{ fontSize: 12, color: "var(--pub-text-muted, #736d65)" }}>
+            {waitlistIds.length} full date{waitlistIds.length !== 1 ? "s" : ""} · join the
+            waitlist (no charge now)
+          </div>
+          <button type="button" className="sem-atc waitlist" onClick={handleJoinWaitlist}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <line x1="23" y1="11" x2="17" y2="11" />
+            </svg>
+            Join Waitlist · {waitlistIds.length}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

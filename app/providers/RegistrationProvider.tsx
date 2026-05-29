@@ -15,6 +15,10 @@ import type {
 } from "@/types/public";
 
 const STORAGE_KEY_PREFIX = "aydt_registration_";
+// Preview keeps its flow state under a separate key so a preview walkthrough
+// survives navigation/reload without colliding with a real registration in the
+// same tab. Both live and preview use sessionStorage.
+const PREVIEW_STORAGE_KEY_PREFIX = "aydt_preview_registration_";
 
 /* -------------------------------------------------------------------------- */
 /* Initial state factory                                                       */
@@ -116,7 +120,9 @@ export function RegistrationProvider({
   preview = false,
   children,
 }: RegistrationProviderProps) {
-  const storageKey = `${STORAGE_KEY_PREFIX}${semesterId}`;
+  const storageKey = `${
+    preview ? PREVIEW_STORAGE_KEY_PREFIX : STORAGE_KEY_PREFIX
+  }${semesterId}`;
 
   const [state, dispatch] = useReducer(
     registrationReducer,
@@ -126,7 +132,6 @@ export function RegistrationProvider({
 
   /* Hydrate from sessionStorage on mount */
   useEffect(() => {
-    if (preview) return;
     console.log("[Registration] Hydrating — key:", storageKey);
     try {
       const raw = sessionStorage.getItem(storageKey);
@@ -168,7 +173,6 @@ export function RegistrationProvider({
 
   /* Persist on every state change */
   useEffect(() => {
-    if (preview) return;
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(state));
     } catch {

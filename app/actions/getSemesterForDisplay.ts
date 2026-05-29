@@ -63,6 +63,7 @@ export async function getSemesterForDisplay(
         is_active,
         is_competition_track,
         is_tiered,
+        waitlist_enabled,
         visibility,
         enrollment_type,
         class_requirements!class_requirements_class_id_fkey ( id, requirement_type, description, enforcement ),
@@ -202,15 +203,6 @@ export async function getSemesterForDisplay(
   }
 
   /* ---------------------------------------------------------------------- */
-  /* 3. Waitlist settings                                                    */
-  /* ---------------------------------------------------------------------- */
-
-  const waitlistSettings: {
-    enabled?: boolean;
-    sessionSettings?: Record<string, { enabled: boolean }>;
-  } = (semester.waitlist_settings as Record<string, unknown>) ?? {};
-
-  /* ---------------------------------------------------------------------- */
   /* 4. Normalize class_meetings → PublicSession[]                           */
   /*    Each active class_session = one enrollable public session.            */
   /* ---------------------------------------------------------------------- */
@@ -235,9 +227,10 @@ export async function getSemesterForDisplay(
               ? (enrolledBySchedule[cs.section_id ?? ""] ?? 0)
               : (enrolledBySession[cs.id] ?? 0);
 
-          const sessionWaitlistEnabled =
-            (waitlistSettings.enabled ?? false) &&
-            (waitlistSettings.sessionSettings?.[cs.id]?.enabled ?? false);
+          // Meeting-plan #5: the waitlist toggle now lives per-CLASS on
+          // classes.waitlist_enabled (manual model). The legacy semester-level
+          // waitlist_settings JSONB is no longer consulted for the public flag.
+          const sessionWaitlistEnabled = c.waitlist_enabled ?? false;
 
           const priceTiers = (cs.class_sections?.section_price_tiers ?? [])
             .slice()
@@ -412,7 +405,9 @@ export async function getSemesterForDisplay(
     sessions: publicSessions,
     sessionGroups: publicGroups,
     discounts: publicDiscounts,
-    waitlistEnabled: waitlistSettings.enabled ?? false,
+    // Meeting-plan #5: semester-level flag now means "any class has the manual
+    // waitlist toggled on" (per-class source of truth: classes.waitlist_enabled).
+    waitlistEnabled: semesterClasses.some((c) => c.waitlist_enabled ?? false),
   };
 }
 
@@ -509,6 +504,8 @@ interface ClassRow {
   is_competition_track: boolean;
   /** Phase 2: per-class tiered flag. */
   is_tiered?: boolean | null;
+  /** Meeting-plan #5: per-class manual-waitlist toggle. */
+  waitlist_enabled?: boolean | null;
   visibility?: string;
   enrollment_type?: string;
   class_requirements?: ClassRequirementRow[];

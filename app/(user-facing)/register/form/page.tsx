@@ -13,6 +13,13 @@ import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
 import { buildDynamicFormSchema } from "@/lib/schemas/registration";
 import { createClient } from "@/utils/supabase/client";
 import { formatPhone } from "@/utils/formatPhone";
+import AddressBlockField from "@/app/components/semester-flow/AddressBlockField";
+import { EMPTY_ADDRESS } from "@/lib/address";
+import {
+  isAcknowledged,
+  makeAcknowledgment,
+  DEFAULT_ACKNOWLEDGMENT_LABEL,
+} from "@/lib/waiver";
 import type { FamilyContact, RegistrationFormElement, ProfileFieldKey } from "@/types";
 import type { PublicSemester } from "@/types/public";
 import { saveReferralSource } from "../actions/saveReferralSource";
@@ -154,6 +161,21 @@ function renderField(
         <input type="date" {...register(el.id)} className="reg-input" />
       )}
 
+      {el.inputType === "address" && (
+        <Controller
+          name={el.id}
+          control={control}
+          defaultValue={EMPTY_ADDRESS}
+          render={({ field }) => (
+            <AddressBlockField
+              value={field.value}
+              onChange={field.onChange}
+              inputClassName="reg-input"
+            />
+          )}
+        />
+      )}
+
       {el.inputType === "phone_number" && (
         <Controller
           name={el.id}
@@ -201,6 +223,7 @@ export function FormContent({
   const isFirstRegistration = !userRecord?.referral_source;
   const [referralSource, setReferralSource] = useState("");
   const [referralError, setReferralError] = useState(false);
+  const [waiverErrors, setWaiverErrors] = useState<Record<string, boolean>>({});
 
   // Family contacts + dancers for profile auto-fill
   const [familyContacts, setFamilyContacts] = useState<FamilyContact[]>([]);
@@ -348,7 +371,20 @@ export function FormContent({
 
     const profileSeeded: Record<string, unknown> = {};
     for (const el of elements) {
-      if (el.profileField) {
+      if (el.inputType === "address") {
+        // Address block prefills from the parent's saved address (multi-field,
+        // so it bypasses the single-field `profileField` mapping above).
+        const addr = {
+          street: userRecord?.address_line1 ?? "",
+          line2: userRecord?.address_line2 ?? "",
+          city: userRecord?.city ?? "",
+          state: userRecord?.state ?? "",
+          zip: userRecord?.zipcode ?? "",
+        };
+        if (addr.street || addr.city || addr.state || addr.zip) {
+          profileSeeded[el.id] = addr;
+        }
+      } else if (el.profileField) {
         const val = profileMap[el.profileField];
         if (val) profileSeeded[el.id] = val;
       }
@@ -362,6 +398,18 @@ export function FormContent({
   }, [semester, contactsLoaded]);
 
   async function onSubmit(data: Record<string, unknown>) {
+    // Required waivers must be acknowledged before continuing.
+    const nextWaiverErrors: Record<string, boolean> = {};
+    for (const el of elements) {
+      if (el.type === "waiver" && el.required && !isAcknowledged(data[el.id])) {
+        nextWaiverErrors[el.id] = true;
+      }
+    }
+    if (Object.keys(nextWaiverErrors).length > 0) {
+      setWaiverErrors(nextWaiverErrors);
+      return;
+    }
+
     if (isFirstRegistration && !referralSource) {
       setReferralError(true);
       return;
@@ -371,6 +419,99 @@ export function FormContent({
     }
     setFormData(data);
     router.push(continueUrl);
+  }
+
+  /* ── Waiver render (view document + required acknowledgment) ── */
+  function renderWaiver(el: RegistrationFormElement) {
+    return (
+      <div key={el.id} className="reg-field">
+        <label className="reg-label">
+          {el.label}
+          {el.required && <span style={{ color: "var(--wine)", marginLeft: 3 }}>*</span>}
+        </label>
+
+        <div
+          style={{
+            maxHeight: 220,
+            overflowY: "auto",
+            whiteSpace: "pre-wrap",
+            fontSize: 13,
+            lineHeight: 1.6,
+            color: "var(--pub-text-muted)",
+            border: "1.5px solid var(--pub-border)",
+            borderRadius: 8,
+            padding: "12px 14px",
+            background: "var(--pub-surface)",
+          }}
+        >
+          {el.waiverBody}
+        </div>
+
+        {el.waiverFileUrl && (
+          <a
+            href={el.waiverFileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: "inline-block",
+              marginTop: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--plum)",
+            }}
+          >
+            View / download waiver (PDF) ↗
+          </a>
+        )}
+
+        <Controller
+          name={el.id}
+          control={control}
+          defaultValue={{ acknowledged: false }}
+          render={({ field }) => (
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 9,
+                cursor: "pointer",
+                marginTop: 10,
+                fontSize: 13,
+                color: "var(--pub-text-primary)",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isAcknowledged(field.value)}
+                onChange={(e) => {
+                  field.onChange(
+                    makeAcknowledgment(e.target.checked, new Date().toISOString()),
+                  );
+                  if (e.target.checked) {
+                    setWaiverErrors((prev) => ({ ...prev, [el.id]: false }));
+                  }
+                }}
+                style={{
+                  accentColor: "var(--plum)",
+                  width: 15,
+                  height: 15,
+                  marginTop: 2,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              />
+              {el.acknowledgmentLabel ?? DEFAULT_ACKNOWLEDGMENT_LABEL}
+            </label>
+          )}
+        />
+
+        {waiverErrors[el.id] && (
+          <span className="reg-error">
+            You must acknowledge this waiver to continue.
+          </span>
+        )}
+      </div>
+    );
   }
 
   /* ── Loading ── */
@@ -492,7 +633,11 @@ export function FormContent({
 
       {/* Form fields */}
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        {elements.map((el) => renderField(el, register, control, errors))}
+        {elements.map((el) =>
+          el.type === "waiver"
+            ? renderWaiver(el)
+            : renderField(el, register, control, errors),
+        )}
       </div>
 
       {/* CTAs */}
@@ -526,13 +671,16 @@ export function FormContent({
 function FormPageInner() {
   const params = useSearchParams();
   const semesterId = params.get("semester") ?? "";
+  // Meeting-plan #5: a waitlist join ends at the waitlist-confirm step instead
+  // of payment. Everything before this (dancer + form capture) is identical.
+  const isWaitlist = params.get("waitlist") === "1";
+  const continueUrl = isWaitlist
+    ? `/register/waitlist/confirm?semester=${semesterId}`
+    : `/register/payment?semester=${semesterId}`;
 
   return (
     <CartRestoreGuard semesterId={semesterId}>
-      <FormContent
-        semesterId={semesterId}
-        continueUrl={`/register/payment?semester=${semesterId}`}
-      />
+      <FormContent semesterId={semesterId} continueUrl={continueUrl} />
     </CartRestoreGuard>
   );
 }

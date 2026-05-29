@@ -10,7 +10,6 @@ import type {
   DraftSchedulePriceTier,
   DraftSessionExcludedDate,
   DraftSessionOption,
-  DraftSessionPriceRow,
 } from "@/types";
 
 /**
@@ -634,54 +633,6 @@ async function syncSchedulePriceTiers(
   if (insErr) throw new Error(insErr.message);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Price rows per schedule (legacy — applied to all generated sessions)        */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Syncs price rows for all class_meetings belonging to a schedule.
- * Uses delete+re-insert strategy identical to the per-session version.
- */
-async function syncPriceRowsForSchedule(
-  supabase: SupabaseClient,
-  scheduleId: string,
-  priceRows: DraftSessionPriceRow[],
-) {
-  // Fetch all session ids for this schedule
-  const { data: sessions, error: fetchErr } = await supabase
-    .from("class_meetings")
-    .select("id")
-    .eq("section_id", scheduleId);
-  if (fetchErr) throw new Error(fetchErr.message);
-
-  const sessionIds = (sessions ?? []).map((s) => s.id as string);
-  if (sessionIds.length === 0) return;
-
-  // Delete existing price rows for all sessions in this schedule
-  const { error: delErr } = await supabase
-    .from("class_meeting_price_rows")
-    .delete()
-    .in("class_meeting_id", sessionIds);
-  if (delErr) throw new Error(delErr.message);
-
-  if (priceRows.length === 0) return;
-
-  // Insert fresh rows for every session
-  const rows = sessionIds.flatMap((sessionId) =>
-    priceRows.map((r, i) => ({
-      class_meeting_id: sessionId,
-      label: r.label,
-      amount: r.amount,
-      sort_order: r.sortOrder ?? i,
-      is_default: r.isDefault,
-    })),
-  );
-
-  const { error: insErr } = await supabase
-    .from("class_meeting_price_rows")
-    .insert(rows);
-  if (insErr) throw new Error(insErr.message);
-}
 
 /* -------------------------------------------------------------------------- */
 /* Session options per schedule                                                 */

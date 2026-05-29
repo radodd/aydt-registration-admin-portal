@@ -459,7 +459,11 @@ export default function ReviewStep({
                           >
                             <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{cls.name}</td>
                             <td className="px-3.5 py-2.5 text-sm text-neutral-600">{toTitle(cls.discipline)}</td>
-                            <td className="px-3.5 py-2.5 text-sm text-neutral-600">{toTitle(cls.division)}</td>
+                            <td className="px-3.5 py-2.5 text-sm text-neutral-600">{
+                              (cls.isTiered || (cls.schedules ?? []).some((s) => s.isDropIn === true))
+                                ? "—"
+                                : toTitle(cls.division)
+                            }</td>
                             <td className="px-3.5 py-2.5">{visBadge}</td>
                             <td
                               className="px-3.5 py-2.5 text-right text-sm font-bold"

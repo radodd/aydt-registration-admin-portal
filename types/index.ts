@@ -476,10 +476,29 @@ export interface PricingInput {
      * Used for backward compat and drop-in pricing mode.
      */
     sessionIds?: string[];
+    /**
+     * Selected tier IDs for tiered classes (classes.is_tiered = true), keyed
+     * by the scheduleId the dancer is enrolling in. Required for any
+     * scheduleId whose class has is_tiered=true; the engine throws otherwise.
+     */
+    classTierIdsBySchedule?: Record<string, string>;
+    /**
+     * Same as classTierIdsBySchedule but keyed by sessionId (used by the
+     * session-based path).
+     */
+    classTierIdsBySession?: Record<string, string>;
   }>;
   paymentPlanType: "pay_in_full" | "deposit_50pct" | "auto_pay_monthly";
   /** Optional promo code entered by the parent at checkout. */
   couponCode?: string;
+  /**
+   * Admin-preview escape hatch. When true, config-completeness problems
+   * (missing drop-in price, special-program tuition, tier price, or rate band)
+   * are treated as $0 and surfaced via PricingQuote.warnings instead of
+   * throwing. ONLY the preview flow sets this — live checkout must keep failing
+   * loudly so a real parent is never charged for an unpriced class.
+   */
+  tolerateMissingPrices?: boolean;
 }
 
 export interface LineItem {
@@ -532,6 +551,12 @@ export interface PricingQuote {
   amountDueNow: number;
   lineItems: LineItem[];
   paymentSchedule: InstallmentPreview[];
+  /**
+   * Non-fatal config-completeness problems collected when the caller passes
+   * PricingInput.tolerateMissingPrices (admin preview only). Each string names
+   * an item whose price isn't configured yet. Empty/undefined in live quotes.
+   */
+  warnings?: string[];
 }
 
 /** Error returned when server-computed price differs from client-visible quote. */
@@ -982,7 +1007,11 @@ export interface Registration {
 /* Registration Form Domain                                                   */
 /* -------------------------------------------------------------------------- */
 
-export type RegistrationElementType = "question" | "subheader" | "text_block";
+export type RegistrationElementType =
+  | "question"
+  | "subheader"
+  | "text_block"
+  | "waiver";
 
 export type QuestionInputType =
   | "short_answer"
@@ -990,7 +1019,22 @@ export type QuestionInputType =
   | "select"
   | "checkbox"
   | "date"
-  | "phone_number";
+  | "phone_number"
+  | "address";
+
+/**
+ * Structured value stored for an `inputType: "address"` question. Persisted as a
+ * nested object under the element id inside the `form_data` JSONB blob (no
+ * dedicated columns). `line2` is always optional; the others are required when
+ * the element is marked required. See `lib/address.ts` for the helpers.
+ */
+export type AddressValue = {
+  street: string;
+  line2?: string;
+  city: string;
+  state: string;
+  zip: string;
+};
 
 export type TextBlockFormatting = {
   style: "normal" | "header";
@@ -1062,6 +1106,23 @@ export type RegistrationFormElement = {
   // Text block fields
   textFormatting?: TextBlockFormatting;
   htmlContent?: string; // TipTap HTML output (preferred for new elements)
+
+  // Waiver fields (type === "waiver"). The family views the PDF (or the
+  // fallback body text) and must check the acknowledgment box. Multiple waiver
+  // elements per form are supported. See `lib/waiver.ts` for defaults/helpers.
+  waiverFileUrl?: string; // uploaded PDF (email-assets bucket via /api/upload-pdf)
+  waiverFileName?: string; // original file name, for display
+  waiverBody?: string; // shown to the family; defaults to a generic template
+  acknowledgmentLabel?: string; // the checkbox label
+};
+
+/**
+ * Value stored for a `type: "waiver"` element under its id in the `form_data`
+ * JSONB blob: whether the family checked the box, and when.
+ */
+export type WaiverAcknowledgmentValue = {
+  acknowledged: boolean;
+  acknowledgedAt?: string; // ISO timestamp captured when the box was checked
 };
 
 /* -------------------------------------------------------------------------- */
@@ -1070,6 +1131,14 @@ export type RegistrationFormElement = {
 
 export type SemesterStatus = "draft" | "scheduled" | "published" | "archived";
 
+/**
+ * @deprecated Legacy AUTO-invite waitlist settings (semester-level, per-meeting
+ * toggle, automated invite email). Superseded by meeting-plan #5's MANUAL model:
+ * the per-class toggle now lives on `classes.waitlist_enabled` and entries are
+ * rows in `waitlist_entries` (see {@link WaitlistEntry}). Retained only so the
+ * legacy `process-waitlist` cron + WaitlistStep wizard continue to type-check
+ * while they are being retired.
+ */
 export type WaitlistConfig = {
   enabled: boolean;
   sessionSettings: Record<string, { enabled: boolean }>; // keyed by sessionId
@@ -1082,6 +1151,49 @@ export type WaitlistConfig = {
     htmlBody: string;
     includeSignature?: boolean;
   };
+};
+
+/**
+ * Meeting-plan #5: a single manual-waitlist entry. Capacity-neutral queue row
+ * that stores a full registration record MINUS payment, so an admin can later
+ * convert it into a real registration (Path A: emailed payment link; Path B:
+ * in-portal register). Mirrors the `waitlist_entries` table.
+ */
+export type WaitlistEntryStatus =
+  | "waiting" // on the list, no action taken
+  | "invited" // admin emailed a tokenized payment link (Path A)
+  | "accepted" // legacy auto-model value, retained for back-compat
+  | "registered" // converted into a real registration (Path A paid or Path B)
+  | "declined"
+  | "expired"
+  | "cancelled";
+
+export type WaitlistEntry = {
+  id: string;
+  status: WaitlistEntryStatus;
+  /** Chronological queue order in the admin view. */
+  signedUpAt: string;
+  createdAt: string;
+  position: number;
+  /** Target class whose waitlist was joined (authoritative). */
+  classId: string | null;
+  /** Booking-grain target: section (full-term/tiered) or meeting (drop-in). */
+  sectionId: string | null;
+  meetingId: string | null;
+  classTierId: string | null;
+  /** NULL until an admin converts the entry into a real registration. */
+  dancerId: string | null;
+  familyId: string | null;
+  parentUserId: string | null;
+  /** Captured registration form answers (registration minus payment). */
+  formData: Record<string, unknown>;
+  /** Display + invite contact, captured even for brand-new (no-account) users. */
+  contactName: string | null;
+  contactEmail: string | null;
+  /** Tokenized Path-A invite link bookkeeping. */
+  inviteToken: string;
+  invitationSentAt: string | null;
+  invitationExpiresAt: string | null;
 };
 
 export type SemesterDraft = {
@@ -1404,6 +1516,52 @@ export type EmailTemplate = {
   updated_by_admin_id: string;
   created_at: string;
   updated_at: string;
+};
+
+/**
+ * Receipt-style "Registration summary" rendered into every confirmation email
+ * (meeting-plan item #4). System-generated and NOT editable in the email
+ * designer. Built from BOTH enrollment tables (`meeting_enrollments` drop-in +
+ * `section_enrollments` full-term) plus the order's money figures, so tiered/
+ * standard enrollments are never silently dropped.
+ *
+ * The render layer omits any empty field, so optional members that have no
+ * backing data yet (e.g. location address / classroom until an authoring UI
+ * populates them) simply don't appear.
+ */
+export type RegistrationSummarySession = {
+  /** Class display name (falls back to `classes.name`). */
+  name: string;
+  /** Human-readable date/time line, e.g. "Mondays · 4:00–5:00 PM" or "Jun 3, 2026 · 4:00–5:00 PM". */
+  schedule?: string;
+  location?: string;
+  locationAddress?: string;
+  classroom?: string;
+  instructor?: string;
+  /** Group assignment name (drop-in/meeting enrollments only). */
+  group?: string;
+  /** Excluded/skipped dates, formatted (e.g. "Jul 4, 2026"). */
+  excludedDates?: string[];
+  /** Per-session price, formatted as currency. */
+  amount?: string;
+};
+
+export type RegistrationSummaryParticipant = {
+  /** Dancer's full name. */
+  name: string;
+  /** Formatted registered-on date for this participant. */
+  registeredOn?: string;
+  sessions: RegistrationSummarySession[];
+  /** Add-on purchases (option line items), formatted "Label — $X". */
+  purchases?: string[];
+};
+
+export type RegistrationSummary = {
+  participants: RegistrationSummaryParticipant[];
+  /** Order-level total paid so far, formatted as currency. */
+  amountPaid?: string;
+  /** Order-level outstanding season balance, formatted as currency. */
+  seasonBalance?: string;
 };
 
 export type EmailRecipient = {

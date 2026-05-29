@@ -3,6 +3,13 @@
 import { useState, useEffect } from "react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import AddressBlockField from "@/app/components/semester-flow/AddressBlockField";
+import { isAddressComplete } from "@/lib/address";
+import {
+  isAcknowledged,
+  makeAcknowledgment,
+  DEFAULT_ACKNOWLEDGMENT_LABEL,
+} from "@/lib/waiver";
 import type { RegistrationFormElement } from "@/types";
 
 type Props = {
@@ -62,9 +69,19 @@ export default function QuestionsStep({
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
     for (const el of visibleElements) {
+      if (el.type === "waiver") {
+        if (el.required && !isAcknowledged(formData[el.id])) {
+          newErrors[el.id] = "You must acknowledge this waiver to continue.";
+        }
+        continue;
+      }
       if (el.type !== "question" || !el.required) continue;
       const val = formData[el.id];
-      if (!val || (typeof val === "string" && !val.trim())) {
+      if (el.inputType === "address") {
+        if (!isAddressComplete(val)) {
+          newErrors[el.id] = "Please complete the address.";
+        }
+      } else if (!val || (typeof val === "string" && !val.trim())) {
         newErrors[el.id] = "This field is required.";
       }
     }
@@ -185,6 +202,46 @@ function FormElement({
     return <p className="text-sm text-[#736D65]">{el.label}</p>;
   }
 
+  if (el.type === "waiver") {
+    return (
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-[#201D18]">
+          {el.label}
+          {el.required && <span className="text-red-500 ml-0.5">*</span>}
+        </label>
+
+        <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-xl border border-[#DDD9D2] bg-[#FAF9F7] px-4 py-3 text-sm leading-relaxed text-[#736D65]">
+          {el.waiverBody}
+        </div>
+
+        {el.waiverFileUrl && (
+          <a
+            href={el.waiverFileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-sm font-medium text-[#8E2A23] hover:underline"
+          >
+            View / download waiver (PDF) ↗
+          </a>
+        )}
+
+        <label className="flex items-start gap-2 cursor-pointer text-sm text-[#201D18]">
+          <input
+            type="checkbox"
+            checked={isAcknowledged(value)}
+            onChange={(e) =>
+              onChange(makeAcknowledgment(e.target.checked, new Date().toISOString()))
+            }
+            className="mt-0.5 rounded border-[#DDD9D2] text-[#8E2A23] focus:ring-[#8E2A23]"
+          />
+          {el.acknowledgmentLabel ?? DEFAULT_ACKNOWLEDGMENT_LABEL}
+        </label>
+
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </div>
+    );
+  }
+
   const inputId = `q-${el.id}`;
   const strVal = typeof value === "string" ? value : "";
   const baseInputClass = `w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23] ${
@@ -260,6 +317,13 @@ function FormElement({
           value={strVal}
           onChange={(e) => onChange(e.target.value)}
           className={baseInputClass}
+        />
+      ) : el.inputType === "address" ? (
+        <AddressBlockField
+          value={value}
+          onChange={(v) => onChange(v)}
+          inputClassName={baseInputClass}
+          selectClassName={`${baseInputClass} bg-white`}
         />
       ) : (
         <input

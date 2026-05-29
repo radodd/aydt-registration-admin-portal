@@ -7,6 +7,7 @@ import {
   ProfileFieldKey,
 } from "@/types";
 import { v4 as uuid } from "uuid";
+import AddressBlockField from "@/app/components/semester-flow/AddressBlockField";
 
 type Props = {
   initialElement: RegistrationFormElement | null;
@@ -22,7 +23,18 @@ const QUESTION_TYPES: QuestionInputType[] = [
   "checkbox",
   "date",
   "phone_number",
+  "address",
 ];
+
+const QUESTION_TYPE_LABELS: Record<QuestionInputType, string> = {
+  short_answer: "Short answer",
+  long_answer: "Long answer",
+  select: "Dropdown (select)",
+  checkbox: "Checkbox",
+  date: "Date",
+  phone_number: "Phone number",
+  address: "Address block",
+};
 
 export default function CustomQuestionModal({
   initialElement,
@@ -196,7 +208,7 @@ export default function CustomQuestionModal({
           >
             {QUESTION_TYPES.map((type) => (
               <option key={type} value={type}>
-                {type.replace("_", " ")}
+                {QUESTION_TYPE_LABELS[type]}
               </option>
             ))}
           </select>
@@ -238,6 +250,32 @@ export default function CustomQuestionModal({
           </div>
         )}
 
+        {/* Address block preview (Conditional) */}
+        {inputType === "address" && (
+          <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-sm font-medium text-neutral-700">
+                What families will see
+              </span>
+              <span className="text-xs text-neutral-400">Preview</span>
+            </div>
+            <div className="pointer-events-none opacity-90">
+              <AddressBlockField
+                value={undefined}
+                onChange={() => {}}
+                disabled
+                inputClassName="w-full border border-neutral-300 rounded-xl px-4 py-2 text-sm text-slate-700 bg-white placeholder:text-slate-400"
+              />
+            </div>
+            <p className="text-xs text-neutral-400">
+              Renders as one block: street, apt/suite (optional), city, a U.S.
+              state dropdown, and ZIP. State is enforced and ZIP/city auto-format,
+              so addresses stay uniform. Signed-in families have this prefilled
+              from their saved address.
+            </p>
+          </div>
+        )}
+
         {/* Required Toggle */}
         <div className="flex items-center gap-2">
           <input
@@ -249,7 +287,8 @@ export default function CustomQuestionModal({
           <label className="text-sm text-neutral-700">Required</label>
         </div>
 
-        {/* Auto-fill from profile */}
+        {/* Auto-fill from profile (not shown for address — it prefills the whole block automatically) */}
+        {inputType !== "address" && (
         <div className="space-y-2">
           <label className="text-sm font-medium text-neutral-700">
             Auto-fill from profile
@@ -313,6 +352,7 @@ export default function CustomQuestionModal({
             When a registered user fills out this form, this field will be pre-filled with the value from their profile.
           </p>
         </div>
+        )}
 
         {/* Session Applicability */}
         <div className="space-y-3">

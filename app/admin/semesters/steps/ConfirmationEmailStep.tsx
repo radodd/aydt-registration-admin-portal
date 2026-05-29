@@ -8,6 +8,10 @@ import TipTapEditor from "@/app/components/semester-flow/TipTapEditor";
 import { autosaveSemesterField } from "../actions/autosaveSemesterField";
 import { sendTestEmail } from "../actions/sendTestEmail";
 import { wrapEmailLayout } from "@/utils/prepareEmailHtml";
+import {
+  renderRegistrationSummaryHtml,
+  SAMPLE_REGISTRATION_SUMMARY,
+} from "@/utils/email/buildRegistrationSummary";
 
 type Props = {
   state: SemesterDraft;
@@ -44,7 +48,12 @@ function applyTokens(html: string): string {
 }
 
 function buildPreviewHtml(html: string): string {
-  return wrapEmailLayout(applyTokens(html)).replace(
+  // #4: every confirmation email also gets a system-generated, non-editable
+  // "Registration Summary" receipt appended after the body. Show it in the
+  // preview (with sample data) so admins see exactly what families receive.
+  const bodyWithSummary =
+    applyTokens(html) + renderRegistrationSummaryHtml(SAMPLE_REGISTRATION_SUMMARY);
+  return wrapEmailLayout(bodyWithSummary).replace(
     "</head>",
     `<style>
       body { overflow-x: hidden !important; }
@@ -413,6 +422,9 @@ export default function ConfirmationEmailStep({
                   </button>
                 </div>
               </div>
+              <p className="shrink-0 px-4 py-1.5 text-[11px] leading-snug text-neutral-400 border-b border-neutral-200">
+                A system-generated <span className="font-medium text-neutral-500">Registration Summary</span> receipt is added to the bottom of every email automatically (shown below with sample data). It is not editable.
+              </p>
 
               <div className="flex-1 overflow-y-auto flex items-start justify-center p-5 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
                 {htmlBody ? (

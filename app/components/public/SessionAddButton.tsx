@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCart } from "@/app/providers/CartProvider";
 import type { PublicSession } from "@/types/public";
 
@@ -8,7 +9,8 @@ interface Props {
 }
 
 export function SessionAddButton({ session }: Props) {
-  const { add, remove, sessionIds } = useCart();
+  const { add, remove, sessionIds, semesterId } = useCart();
+  const router = useRouter();
 
   const inCart = sessionIds.includes(session.id);
   const isFull = session.spotsRemaining <= 0;
@@ -19,6 +21,22 @@ export function SessionAddButton({ session }: Props) {
 
   const handleRemove = () => {
     remove(session.id);
+  };
+
+  // Meeting-plan #5: enter the registration flow in waitlist mode rather than
+  // adding a full class to the paid cart.
+  const handleJoinWaitlist = () => {
+    // Object-form add so the cart item carries classId for the waitlist flow.
+    if (!sessionIds.includes(session.id)) {
+      add({
+        semesterId,
+        classId: session.classId ?? "",
+        sessionId: session.id,
+        className: session.name,
+        mode: "standard",
+      });
+    }
+    router.push(`/register?semester=${semesterId}&waitlist=1`);
   };
 
   // FULL + NO WAITLIST
@@ -37,7 +55,7 @@ export function SessionAddButton({ session }: Props) {
   if (isFull && session.waitlistEnabled) {
     return (
       <button
-        onClick={() => add(session.id)} // or separate waitlist handler
+        onClick={handleJoinWaitlist}
         className="text-xs bg-mauve/10 text-mauve-text px-3 py-1.5 rounded-lg"
       >
         Join Waitlist

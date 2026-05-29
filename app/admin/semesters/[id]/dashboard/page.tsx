@@ -39,7 +39,7 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
       .single(),
     supabase
       .from("class_meetings")
-      .select("id, section_id, capacity, classes(name)")
+      .select("id, section_id, class_id, capacity, classes(name)")
       .eq("semester_id", id)
       .is("cancelled_at", null),
   ]);
@@ -48,6 +48,15 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
   const semester = semesterResult.data;
   const capSessions = sessionsResult.data ?? [];
   const sessionIds = capSessions.map((s) => s.id);
+  // Meeting-plan #5: waitlist entries are linked per-class, so count by class_id
+  // (standard/tiered entries have no meeting_id).
+  const classIds = [
+    ...new Set(
+      capSessions
+        .map((s) => (s as { class_id?: string | null }).class_id)
+        .filter((c): c is string => !!c),
+    ),
+  ];
 
   // Phase 2: operational data (all in parallel)
   const [recentRegsResult, allRegsResult, batchesResult, waitlistResult] =
@@ -77,12 +86,12 @@ export default async function SemesterDashboardPage({ params }: PageProps) {
         .select("id, status, order_payment_installments(amount_due, status)")
         .eq("semester_id", id),
 
-      sessionIds.length > 0
+      classIds.length > 0
         ? supabase
             .from("waitlist_entries")
             .select("id", { count: "exact", head: true })
-            .in("meeting_id", sessionIds)
-            .eq("status", "waiting")
+            .in("class_id", classIds)
+            .in("status", ["waiting", "invited"])
         : Promise.resolve({ count: 0 }),
     ]);
 

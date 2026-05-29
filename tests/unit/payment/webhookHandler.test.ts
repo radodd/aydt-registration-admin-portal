@@ -505,14 +505,17 @@ describe("POST /api/webhooks/epg", () => {
         .map((args, i) => ({ table: args[0], chain: mockFrom.mock.results[i].value }))
         .filter(({ table }) => table === "registration_orders");
 
-      // Two calls: one SELECT (step 9a status check) + one UPDATE (inside confirmBatch)
-      expect(batchChainCalls).toHaveLength(2);
-      const batchChain = batchChainCalls[0].chain;
-      // The second .eq() call should be .eq("status", "pending") — not "pending_payment"
-      const eqCalls = (batchChain.eq as ReturnType<typeof vi.fn>).mock.calls;
-      const statusEqCall = eqCalls.find(
-        ([col]: [string]) => col === "status",
-      );
+      // registration_orders is touched 3×: step 9a status SELECT + confirmBatch
+      // UPDATE + the registration-summary SELECT for grand_total (#4). The bug
+      // fix is about the conditional update, so find the chain carrying the
+      // status eq rather than relying on call order.
+      expect(batchChainCalls).toHaveLength(3);
+      const statusEqCall = batchChainCalls
+        .flatMap(({ chain }) =>
+          (chain.eq as ReturnType<typeof vi.fn>).mock.calls,
+        )
+        .find(([col]: [string]) => col === "status");
+      // The status eq must be .eq("status", "pending") — not "pending_payment"
       expect(statusEqCall).toBeDefined();
       expect(statusEqCall![1]).toBe("pending");
     });

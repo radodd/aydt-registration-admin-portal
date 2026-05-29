@@ -405,7 +405,12 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                           <div className="flex-1 min-w-0">
                             <p className="text-[13px] font-bold text-neutral-900 truncate">{cls.name}</p>
                             <p className="text-[11.5px] text-neutral-500 mt-0.5 truncate">
-                              {[toTitle(cls.discipline), toTitle(cls.division)].filter((v) => v && v !== "—").join(" · ")}
+                              {[
+                                toTitle(cls.discipline),
+                                (cls.isTiered || (cls.schedules ?? []).some((s) => s.isDropIn === true))
+                                  ? null
+                                  : toTitle(cls.division),
+                              ].filter((v) => v && v !== "—").join(" · ")}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -453,7 +458,11 @@ export default function SemesterTabs({ data, publishActions }: SemesterTabsProps
                             >
                               <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{cls.name}</td>
                               <td className="px-3.5 py-2.5 text-sm text-neutral-600">{toTitle(cls.discipline)}</td>
-                              <td className="px-3.5 py-2.5 text-sm text-neutral-600">{toTitle(cls.division)}</td>
+                              <td className="px-3.5 py-2.5 text-sm text-neutral-600">{
+                                (cls.isTiered || (cls.schedules ?? []).some((s) => s.isDropIn === true))
+                                  ? "—"
+                                  : toTitle(cls.division)
+                              }</td>
                               <td className="px-3.5 py-2.5">{visBadge}</td>
                               <td
                                 className="px-3.5 py-2.5 text-right text-sm font-bold"

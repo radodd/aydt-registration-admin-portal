@@ -7,7 +7,7 @@ import {
   PaymentFormState,
   PaymentStepProps,
 } from "@/types";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 
 /* -------------------------------------------------------------------------- */
@@ -66,6 +66,64 @@ const EMPTY_PROGRAM: Omit<DraftSpecialProgramTuition, "_clientKey" | "id"> = {
   autoPayInstallmentCount: 5,
   notes: "",
 };
+
+/* -------------------------------------------------------------------------- */
+/* Established AYDT tuition defaults                                          */
+/* -------------------------------------------------------------------------- */
+/*
+ * Source: AYDT internal tuition sheet. base_tuition is the cumulative class
+ * fee for that many classes/week with the progressive discount already applied
+ * (1×: 0%, 2×: 5%, 3×: 10%, 4×: 15%, 5×: 20%, 6×: 25%). semester_total adds
+ * costume + video fees. Auto-pay amounts are over 5 monthly installments.
+ *
+ * Admins can edit any row at creation time; these are seeded on a brand-new
+ * semester and re-seeded if the Tuition Rates tab is opened with zero rows.
+ */
+const DEFAULT_TUITION_RATE_BANDS: Omit<
+  DraftTuitionRateBand,
+  "_clientKey" | "id"
+>[] = [
+  { division: "junior", weekly_class_count: 1, base_tuition: 775.93,  progressive_discount_percent: 0,  semester_total: 870.93,  autopay_installment_amount: 179.19 },
+  { division: "junior", weekly_class_count: 2, base_tuition: 1513.06, progressive_discount_percent: 5,  semester_total: 1663.06, autopay_installment_amount: 337.61 },
+  { division: "junior", weekly_class_count: 3, base_tuition: 2211.39, progressive_discount_percent: 10, semester_total: 2416.39, autopay_installment_amount: 488.28 },
+  { division: "senior", weekly_class_count: 1, base_tuition: 796.43,  progressive_discount_percent: 0,  semester_total: 916.43,  autopay_installment_amount: 188.29 },
+  { division: "senior", weekly_class_count: 2, base_tuition: 1553.04, progressive_discount_percent: 5,  semester_total: 1738.04, autopay_installment_amount: 352.61 },
+  { division: "senior", weekly_class_count: 3, base_tuition: 2269.83, progressive_discount_percent: 10, semester_total: 2519.83, autopay_installment_amount: 508.97 },
+  { division: "senior", weekly_class_count: 4, base_tuition: 2946.80, progressive_discount_percent: 15, semester_total: 3261.80, autopay_installment_amount: 657.36 },
+  { division: "senior", weekly_class_count: 5, base_tuition: 3583.94, progressive_discount_percent: 20, semester_total: 3963.94, autopay_installment_amount: 797.79 },
+  { division: "senior", weekly_class_count: 6, base_tuition: 4181.26, progressive_discount_percent: 25, semester_total: 4626.26, autopay_installment_amount: 930.25 },
+];
+
+/*
+ * Established defaults for Special Programs keyed by programKey. Used by
+ * autoPopulatePrograms when matching a class discipline → program row.
+ * Auto-pay amounts for Technique/Pointe deliberately exclude the standard
+ * $5/mo admin fee per AYDT's policy.
+ */
+const DEFAULT_SPECIAL_PROGRAM_BY_KEY: Record<
+  string,
+  Pick<
+    DraftSpecialProgramTuition,
+    "programLabel" | "semesterTotal" | "autoPayInstallmentAmount" | "autoPayInstallmentCount" | "registrationFeeOverride"
+  >
+> = {
+  early_childhood:     { programLabel: "Early Childhood (9-class session)", semesterTotal: 434.11, autoPayInstallmentAmount: null,   autoPayInstallmentCount: 5, registrationFeeOverride: undefined },
+  technique:           { programLabel: "Technique 1 / 2 / 3",               semesterTotal: 716.78, autoPayInstallmentAmount: 143.36, autoPayInstallmentCount: 5, registrationFeeOverride: 0 },
+  pre_pointe:          { programLabel: "Pre-Pointe (2×/week)",              semesterTotal: 457.63, autoPayInstallmentAmount: 91.53,  autoPayInstallmentCount: 5, registrationFeeOverride: 0 },
+  pointe:              { programLabel: "Pointe (2×/week)",                  semesterTotal: 517.49, autoPayInstallmentAmount: 103.50, autoPayInstallmentCount: 5, registrationFeeOverride: 0 },
+  competition_junior:  { programLabel: "Competition Team — Junior",         semesterTotal: 842.61, autoPayInstallmentAmount: 168.52, autoPayInstallmentCount: 5, registrationFeeOverride: 0 },
+  competition_senior:  { programLabel: "Competition Team — Senior",         semesterTotal: 802.94, autoPayInstallmentAmount: 160.59, autoPayInstallmentCount: 5, registrationFeeOverride: 0 },
+};
+
+// Stable display order for the seeded Special Programs list.
+const DEFAULT_SPECIAL_PROGRAM_ORDER: string[] = [
+  "early_childhood",
+  "technique",
+  "pre_pointe",
+  "pointe",
+  "competition_junior",
+  "competition_senior",
+];
 
 /* -------------------------------------------------------------------------- */
 /* Component                                                                   */
@@ -257,19 +315,25 @@ export default function PaymentStep({
           : "Competition Team — Junior";
         if (!seen.has(key)) {
           seen.add(key);
+          const d = DEFAULT_SPECIAL_PROGRAM_BY_KEY[key];
           toAdd.push({ _clientKey: crypto.randomUUID(), programKey: key, programLabel: label,
-            semesterTotal: 0, autoPayInstallmentAmount: null, autoPayInstallmentCount: 5,
-            registrationFeeOverride: 0 });
+            semesterTotal: d?.semesterTotal ?? 0,
+            autoPayInstallmentAmount: d?.autoPayInstallmentAmount ?? null,
+            autoPayInstallmentCount: d?.autoPayInstallmentCount ?? 5,
+            registrationFeeOverride: d?.registrationFeeOverride ?? 0 });
         }
         continue;
       }
       const mapping = disciplineToProgram[cls.discipline];
       if (mapping && !seen.has(mapping.key)) {
         seen.add(mapping.key);
+        const d = DEFAULT_SPECIAL_PROGRAM_BY_KEY[mapping.key];
         toAdd.push({ _clientKey: crypto.randomUUID(), programKey: mapping.key,
-          programLabel: mapping.label, semesterTotal: 0,
-          autoPayInstallmentAmount: null, autoPayInstallmentCount: 5,
-          registrationFeeOverride: 0 });
+          programLabel: mapping.label,
+          semesterTotal: d?.semesterTotal ?? 0,
+          autoPayInstallmentAmount: d?.autoPayInstallmentAmount ?? null,
+          autoPayInstallmentCount: d?.autoPayInstallmentCount ?? 5,
+          registrationFeeOverride: d?.registrationFeeOverride ?? 0 });
       }
     }
 
@@ -381,6 +445,144 @@ export default function PaymentStep({
     }
   }
 
+  // Tuition rate bands and Special Programs both depend on standard rate-band
+  // classes. If the semester contains only drop-in/tiered classes, both tabs
+  // (and the Junior Division Fees panel) are hidden — they have nothing to
+  // act on. Special Programs is a subset of the rate-band model.
+  const semesterClasses = state.sessions?.classes ?? [];
+  const hasStandardClass = semesterClasses.some(
+    (c) =>
+      c.offeringType !== "competition_track" &&
+      !c.isTiered &&
+      !(c.schedules ?? []).some((s) => s.isDropIn === true),
+  );
+
+  /* ------------------------------------------------------------------------ */
+  /* Applicability — which seeded rows actually match the semester's classes  */
+  /* ------------------------------------------------------------------------ */
+  // A band (division, weekly_class_count) applies if some standard class has
+  // that division AND meets that many days/week (counted from its first
+  // schedule's daysOfWeek). A program applies if some class matches its
+  // discipline (or, for Competition JR/SR, if any competition-track class
+  // exists — JR/SR routing is a separate follow-up).
+  // If no classes have been added yet, treat every row as applicable
+  // (admin hasn't told us what to filter against — don't fade the whole table).
+  const standardClasses = semesterClasses.filter(
+    (c) =>
+      c.offeringType !== "competition_track" &&
+      !c.isTiered &&
+      !(c.schedules ?? []).some((s) => s.isDropIn === true),
+  );
+  const applicableBandKeys = new Set<string>();
+  for (const cls of standardClasses) {
+    if (!cls.division) continue;
+    const freq = (cls.schedules ?? []).reduce(
+      (max, s) => Math.max(max, (s.daysOfWeek ?? []).length),
+      0,
+    );
+    if (freq > 0) applicableBandKeys.add(`${cls.division}:${freq}`);
+  }
+
+  const disciplineToProgramKey: Record<string, string> = {
+    technique: "technique",
+    pre_pointe: "pre_pointe",
+    pointe: "pointe",
+    early_childhood: "early_childhood",
+  };
+  const hasCompetitionClass = semesterClasses.some(
+    (c) => c.offeringType === "competition_track" || c.isCompetitionTrack,
+  );
+  const applicableProgramKeys = new Set<string>();
+  if (hasCompetitionClass) {
+    applicableProgramKeys.add("competition_junior");
+    applicableProgramKeys.add("competition_senior");
+  }
+  for (const cls of semesterClasses) {
+    const k = disciplineToProgramKey[cls.discipline];
+    if (k) applicableProgramKeys.add(k);
+  }
+
+  const noClassesYet = semesterClasses.length === 0;
+  const isBandApplicable = (b: DraftTuitionRateBand): boolean =>
+    noClassesYet
+      ? true
+      : applicableBandKeys.has(`${b.division}:${b.weekly_class_count}`);
+  const isProgramApplicable = (p: DraftSpecialProgramTuition): boolean =>
+    noClassesYet ? true : applicableProgramKeys.has(p.programKey);
+
+  // Per-row expansion: admin can click a collapsed row to reveal its inputs.
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  function toggleRowExpanded(clientKey: string) {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(clientKey)) next.delete(clientKey);
+      else next.add(clientKey);
+      return next;
+    });
+  }
+  const visibleSubSteps = hasStandardClass
+    ? SUB_STEPS
+    : SUB_STEPS.filter((s) => s.key !== "tuition" && s.key !== "programs");
+  useEffect(() => {
+    if (
+      !hasStandardClass &&
+      (activeSubStep === "tuition" || activeSubStep === "programs")
+    ) {
+      setActiveSubStep("plans");
+    }
+  }, [hasStandardClass, activeSubStep]);
+
+  // Auto-seed established AYDT tuition rate bands when the Tuition Rates tab
+  // is opened with zero rows (brand-new semester OR admin has cleared them).
+  // Per product decision: re-seed on revisit if empty — treat empty as "not
+  // configured yet," not as "intentionally none."
+  useEffect(() => {
+    if (
+      activeSubStep === "tuition" &&
+      hasStandardClass &&
+      bands.length === 0
+    ) {
+      setBands(
+        DEFAULT_TUITION_RATE_BANDS.map((b) => ({
+          ...b,
+          _clientKey: crypto.randomUUID(),
+        })),
+      );
+    }
+    // bands intentionally omitted: we only seed on tab change, not on every
+    // band edit (otherwise deleting the last row would immediately re-seed).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSubStep, hasStandardClass]);
+
+  // Auto-seed ALL established Special Programs (EC, Technique, Pre-Pointe,
+  // Pointe, Comp JR, Comp SR) when the Special Programs tab is opened with
+  // zero rows. Mirrors the Tuition Rate Bands seed behavior — admin sees the
+  // full known catalog pre-filled and can delete what doesn't apply. Re-seeds
+  // on revisit if empty.
+  useEffect(() => {
+    if (
+      activeSubStep === "programs" &&
+      hasStandardClass &&
+      programs.length === 0
+    ) {
+      setPrograms(
+        DEFAULT_SPECIAL_PROGRAM_ORDER.map((key) => {
+          const d = DEFAULT_SPECIAL_PROGRAM_BY_KEY[key];
+          return {
+            _clientKey: crypto.randomUUID(),
+            programKey: key,
+            programLabel: d.programLabel,
+            semesterTotal: d.semesterTotal,
+            autoPayInstallmentAmount: d.autoPayInstallmentAmount,
+            autoPayInstallmentCount: d.autoPayInstallmentCount ?? 5,
+            registrationFeeOverride: d.registrationFeeOverride,
+          };
+        }),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSubStep, hasStandardClass]);
+
   return (
     <div className="max-w-4xl mx-auto space-y-5">
       {/* Header */}
@@ -413,7 +615,7 @@ export default function PaymentStep({
       {/* Sub-step Tabs */}
       <div style={{ borderBottom: "0.5px solid var(--admin-border)" }}>
         <div className="flex gap-1 overflow-x-auto">
-          {SUB_STEPS.map((s) => (
+          {visibleSubSteps.map((s) => (
             <button
               key={s.key}
               onClick={() => setActiveSubStep(s.key)}
@@ -633,7 +835,7 @@ export default function PaymentStep({
       {/* ------------------------------------------------------------------ */}
       {/* Tab: Tuition Rates                                                  */}
       {/* ------------------------------------------------------------------ */}
-      {activeSubStep === "tuition" && (
+      {activeSubStep === "tuition" && hasStandardClass && (
         <div className="space-y-5">
           <div
             className="rounded-xl px-4 py-3 text-sm"
@@ -679,7 +881,69 @@ export default function PaymentStep({
                     </tr>
                   </thead>
                   <tbody>
-                    {bands.map((band) => (
+                    {bands.map((band) => {
+                      const applicable = isBandApplicable(band);
+                      const expanded = expandedRows.has(band._clientKey);
+                      if (!applicable && !expanded && !isLocked) {
+                        const divLabel =
+                          DIVISIONS.find((d) => d.value === band.division)?.label ??
+                          band.division;
+                        return (
+                          <tr
+                            key={band._clientKey}
+                            style={{
+                              borderBottom: "0.5px solid var(--admin-table-border)",
+                              opacity: 0.55,
+                              background: "var(--admin-surface-subtle, transparent)",
+                            }}
+                          >
+                            <td colSpan={7} className="px-4 py-2 text-sm">
+                              <div className="flex items-center gap-3">
+                                <span
+                                  className="badge"
+                                  style={divisionBadgeStyle(band.division)}
+                                >
+                                  {divLabel}
+                                </span>
+                                <span style={{ color: "var(--admin-text)" }}>
+                                  {band.weekly_class_count}×/week
+                                </span>
+                                <span
+                                  className="badge"
+                                  style={{
+                                    background: "rgba(158,152,144,0.15)",
+                                    color: "var(--admin-text-faint)",
+                                    fontSize: 10,
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.05em",
+                                  }}
+                                  title="No class in this semester matches this division + frequency"
+                                >
+                                  Not used in this semester
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleRowExpanded(band._clientKey)}
+                                  className="text-xs underline"
+                                  style={{ color: "var(--admin-text-faint)" }}
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2 text-sm">
+                              <button
+                                onClick={() => removeBand(band._clientKey)}
+                                className="text-xs transition-colors hover:text-red-600"
+                                style={{ color: "var(--admin-text-faint)" }}
+                              >
+                                ×
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      }
+                      return (
                       <tr
                         key={band._clientKey}
                         className="hover:bg-[#EDE9E4] transition-colors"
@@ -880,7 +1144,8 @@ export default function PaymentStep({
                           </td>
                         )}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1086,7 +1351,7 @@ export default function PaymentStep({
         {/* ------------------------------------------------------------------ */}
         {/* Tab: Special Programs                                               */}
         {/* ------------------------------------------------------------------ */}
-        {activeSubStep === "programs" && (
+        {activeSubStep === "programs" && hasStandardClass && (
           <div className="space-y-5">
             <div
               className="rounded-xl px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
@@ -1139,7 +1404,66 @@ export default function PaymentStep({
                       </tr>
                     </thead>
                     <tbody>
-                      {programs.map((prog) => (
+                      {programs.map((prog) => {
+                        const applicable = isProgramApplicable(prog);
+                        const expanded = expandedRows.has(prog._clientKey);
+                        if (!applicable && !expanded && !isLocked) {
+                          return (
+                            <tr
+                              key={prog._clientKey}
+                              style={{
+                                opacity: 0.55,
+                                background: "var(--admin-surface-subtle, transparent)",
+                              }}
+                            >
+                              <td colSpan={6} className="px-4 py-2 text-sm">
+                                <div className="flex items-center gap-3">
+                                  <span style={{ color: "var(--admin-text)" }}>
+                                    {prog.programLabel}
+                                  </span>
+                                  <span
+                                    className="badge"
+                                    style={{
+                                      background: "rgba(158,152,144,0.15)",
+                                      color: "var(--admin-text-faint)",
+                                      fontSize: 10,
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.05em",
+                                    }}
+                                    title="No class in this semester matches this program"
+                                  >
+                                    Not used in this semester
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleRowExpanded(prog._clientKey)}
+                                    className="text-xs underline"
+                                    style={{ color: "var(--admin-text-faint)" }}
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="px-4 py-2 text-sm">
+                                <button
+                                  onClick={() => removeProgram(prog._clientKey)}
+                                  className="text-xs transition-colors"
+                                  style={{ color: "var(--admin-text-faint)" }}
+                                  onMouseEnter={(e) =>
+                                    ((e.target as HTMLElement).style.color = "#DC2626")
+                                  }
+                                  onMouseLeave={(e) =>
+                                    ((e.target as HTMLElement).style.color =
+                                      "var(--admin-text-faint)")
+                                  }
+                                >
+                                  ×
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        }
+                        return (
                         <tr key={prog._clientKey}>
                           <td>
                             {isLocked ? (
@@ -1336,7 +1660,8 @@ export default function PaymentStep({
                             </td>
                           )}
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1712,7 +2037,9 @@ export default function PaymentStep({
               </div>
             </div>
 
-            {/* Junior Division Fees */}
+            {/* Junior Division Fees — only meaningful when the semester
+                actually has standard rate-band classes. */}
+            {hasStandardClass && (
             <div
               className="rounded-xl overflow-hidden"
               style={{ border: "0.5px solid var(--admin-border)" }}
@@ -1774,6 +2101,7 @@ export default function PaymentStep({
                 </div>
               </div>
             </div>
+            )}
 
             {/* Senior Division Fees */}
             <div

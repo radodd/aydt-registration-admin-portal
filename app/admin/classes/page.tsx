@@ -49,6 +49,8 @@ interface ClassDetail extends ClassListItem {
   max_age: number | null;
   min_grade: number | null;
   max_grade: number | null;
+  /** Meeting-plan #5: per-class manual-waitlist toggle. */
+  waitlist_enabled: boolean | null;
   semesters:
     | { id: string; name: string; status: string }
     | { id: string; name: string; status: string }[]
@@ -307,6 +309,7 @@ function EditClassModal({
     max_age: cls.max_age,
     min_grade: cls.min_grade,
     max_grade: cls.max_grade,
+    waitlist_enabled: cls.waitlist_enabled ?? false,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -386,6 +389,26 @@ function EditClassModal({
               className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none text-slate-700"
             />
           </div>
+
+          {/* Meeting-plan #5: per-class manual waitlist toggle */}
+          <label className="flex items-start gap-3 rounded-lg border border-neutral-200 px-3 py-3 cursor-pointer hover:bg-neutral-50 transition">
+            <input
+              type="checkbox"
+              checked={form.waitlist_enabled ?? false}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, waitlist_enabled: e.target.checked }))
+              }
+              className="mt-0.5 h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-400"
+            />
+            <span className="text-sm text-slate-700">
+              <span className="font-medium block">Enable waitlist</span>
+              <span className="text-xs text-neutral-500">
+                When this class is full, families can join a waitlist instead of
+                registering. Admins manually invite waitlisted families — no
+                automatic invitations are sent.
+              </span>
+            </span>
+          </label>
         </div>
 
         <div className="flex items-center justify-between pt-1">

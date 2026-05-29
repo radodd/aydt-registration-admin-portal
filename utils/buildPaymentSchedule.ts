@@ -85,6 +85,48 @@ export function buildPaymentSchedule(
   };
 }
 
+/**
+ * Builds an admin-controlled installment schedule for the manual-registration
+ * flow (meeting-plan #7). Unlike buildPaymentSchedule's auto_pay_monthly path,
+ * the super-admin sets the count directly and the total is taken as-is (the
+ * admin price override already reflects any proration / admin fee), so there is
+ * NO per-installment admin fee added here.
+ *
+ * - Divides `total` evenly across `count` installments, rounding each to cents.
+ * - Any rounding remainder lands on the LAST installment (matches
+ *   buildPaymentSchedule + createRegistrations conventions, so charged sums
+ *   reconcile exactly to `total`).
+ * - Installment 1 is due on `firstPaymentDate` (charged when the card is stored
+ *   at the hosted page); installments 2..N fall on monthly anniversaries.
+ *
+ * @param total             The effective total to split (after override/adjustments).
+ * @param count             Number of installments (>= 1).
+ * @param firstPaymentDate  ISO date string for installment 1 (YYYY-MM-DD).
+ */
+export function buildAdminInstallmentSchedule(
+  total: number,
+  count: number,
+  firstPaymentDate: string,
+): InstallmentPreview[] {
+  const n = Math.max(1, Math.floor(count));
+  const basePerInstallment = round2(total / n);
+  const schedule: InstallmentPreview[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const isLast = i === n - 1;
+    const amountDue = isLast
+      ? round2(total - basePerInstallment * (n - 1))
+      : basePerInstallment;
+    schedule.push({
+      installmentNumber: i + 1,
+      amountDue,
+      dueDate: addMonths(firstPaymentDate, i),
+    });
+  }
+
+  return schedule;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
 /* -------------------------------------------------------------------------- */

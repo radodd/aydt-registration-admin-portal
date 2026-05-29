@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
 import { SemesterDataProvider } from "@/app/providers/SemesterDataProvider";
 import { SessionGrid } from "@/app/components/public/SessionGrid";
-import { CartDrawer } from "@/app/components/public/CartDrawer";
+import { PreviewCartDrawer } from "./PreviewCartDrawer";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -81,8 +81,8 @@ export default async function PreviewSemesterPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Cart drawer (in-memory preview cart) */}
-        <CartDrawer />
+        {/* Cart drawer (in-memory preview cart) — auto-opens on add */}
+        <PreviewCartDrawer />
     </SemesterDataProvider>
   );
 }

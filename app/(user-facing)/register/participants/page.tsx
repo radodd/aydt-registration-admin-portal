@@ -261,6 +261,7 @@ function AddDancerForm({
 }: AddDancerFormProps) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const { state } = useRegistration();
   const {
     register,
     handleSubmit,
@@ -269,6 +270,23 @@ function AddDancerForm({
   } = useForm<NewDancerInput>({ resolver: zodResolver(newDancerSchema) });
 
   async function onSubmit(data: NewDancerInput) {
+    if (state.isPreview) {
+      // Preview: no DB write (the admin has no family). Mint a client-side
+      // dancer so the flow proceeds and the Review & Confirm summary renders
+      // the real name, identical to the live experience.
+      onCreated({
+        id: crypto.randomUUID(),
+        first_name: data.firstName,
+        last_name: data.lastName,
+        birth_date: data.dateOfBirth,
+        gender: data.gender ?? null,
+        grade: null,
+        email: null,
+        phone_number: null,
+      } as unknown as Dancer);
+      reset();
+      return;
+    }
     if (!familyId) return;
     setCreating(true);
     setCreateError(null);
@@ -1012,9 +1030,26 @@ export function ParticipantsContent({
   const allAssigned = cartItems.every(itemIsComplete);
 
   function handleContinue() {
-    const enriched = assignments
+    const enriched: ParticipantAssignment[] = assignments
       .filter((a) => a.dancerId)
-      .map((a) => ({ ...a, selectedDayIds: [] }));
+      .map((a) => {
+        const base: ParticipantAssignment = { ...a, selectedDayIds: [] };
+        // Preview dancers exist only client-side, so the payment quote can't
+        // look up their names from the DB. Carry the name via newDancer (the
+        // same field new-dancer registrations use) so the summary resolves it.
+        if (state.isPreview) {
+          const d = dancers.find((dn) => dn.id === a.dancerId);
+          if (d) {
+            base.newDancer = {
+              firstName: d.first_name,
+              lastName: d.last_name,
+              dateOfBirth: d.birth_date ?? "",
+              gender: d.gender ?? undefined,
+            };
+          }
+        }
+        return base;
+      });
     setParticipants(enriched);
     router.push(continueUrl);
   }
@@ -1307,12 +1342,14 @@ export function ParticipantsContent({
 function ParticipantsPageInner() {
   const params = useSearchParams();
   const semesterId = params.get("semester") ?? "";
+  // Meeting-plan #5: forward the waitlist intent to the form step.
+  const waitlistQuery = params.get("waitlist") === "1" ? "&waitlist=1" : "";
 
   return (
     <CartRestoreGuard semesterId={semesterId}>
       <ParticipantsContent
         semesterId={semesterId}
-        continueUrl={`/register/form?semester=${semesterId}`}
+        continueUrl={`/register/form?semester=${semesterId}${waitlistQuery}`}
       />
     </CartRestoreGuard>
   );

@@ -16,6 +16,7 @@ import {
   Plus,
   UserCheck,
   AlertTriangle,
+  ClipboardList,
 } from "lucide-react";
 import { TopBar } from "./_components/TopBar";
 import { MobileNav } from "./_components/MobileNav";
@@ -27,6 +28,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/admin/classes",      label: "Classes",     icon: GraduationCap },
       { href: "/admin/instructors",  label: "Instructors", icon: UserCheck },
+      { href: "/admin/waitlist",     label: "Waitlist",    icon: ClipboardList },
     ],
   },
   {

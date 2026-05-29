@@ -108,6 +108,11 @@ export interface TuitionCalculationInput {
   seniorCostumeFeePerClass?: number;
   /** Flat video fee for senior registrants (default 15). */
   seniorVideoFeePerRegistrant?: number;
+  /**
+   * Per-child registration fee. Matches semester_fee_config.registration_fee_per_child
+   * — pass through from PaymentStep so preview matches checkout. Default 40.
+   */
+  registrationFeePerChild?: number;
 }
 
 export interface TuitionCalculationResult {
@@ -164,6 +169,7 @@ export function calculateClassTuition(
     juniorCostumeFeePerClass = 55,
     seniorCostumeFeePerClass = 65,
     seniorVideoFeePerRegistrant = 15,
+    registrationFeePerChild = 40,
   } = input;
 
   // 0. Drop-in divisions: tuition is per-session, not via rate bands.
@@ -217,27 +223,36 @@ export function calculateClassTuition(
       validationError: `No tuition rate configured for ${division} division with ${weeklyClassCount} class${weeklyClassCount !== 1 ? "es" : ""} per week. Contact the studio administrator.`,
     };
   }
-  if (!band.semester_total) {
-    // Band exists but semester_total not yet set — return unresolved without error
+  if (band.base_tuition == null) {
+    // Band exists but base_tuition not yet set — return unresolved without error
     return { ...UNRESOLVED };
   }
 
-  const registrationFee = 40; // global default; PaymentStep feeConfig is authoritative
+  // Per #2e: semesterTotal is DERIVED from base_tuition + fees so this preview
+  // agrees with what computePricingQuote charges. The legacy band.semester_total
+  // column is no longer the source — match the authoritative engine.
+  const registrationFee = registrationFeePerChild;
   const videoFee = division === "senior" ? seniorVideoFeePerRegistrant : 0;
   const costumeFeePerClass =
     division === "senior" ? seniorCostumeFeePerClass : juniorCostumeFeePerClass;
   const costumeFee =
     division === "early_childhood" ? 0 : Math.round(costumeFeePerClass * weeklyClassCount * 100) / 100;
 
+  const derivedSemesterTotal =
+    Math.round(
+      (Number(band.base_tuition) + registrationFee + videoFee + costumeFee) *
+        100,
+    ) / 100;
+
   return {
-    semesterTotal: band.semester_total,
+    semesterTotal: derivedSemesterTotal,
     autoPayInstallmentAmount: band.autopay_installment_amount ?? null,
     autoPayInstallmentCount: null, // Installment count comes from semester_fee_config
     isSpecialProgram: false,
     source: "rate_band",
     validationError: null,
     fees: {
-      baseTuition: band.base_tuition,
+      baseTuition: Number(band.base_tuition),
       registrationFee,
       videoFee,
       costumeFee,

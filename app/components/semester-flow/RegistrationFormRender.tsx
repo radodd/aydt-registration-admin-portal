@@ -1,7 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RegistrationFormElement, TextBlockFormatting } from "@/types";
+import {
+  RegistrationFormElement,
+  TextBlockFormatting,
+  AddressValue,
+  WaiverAcknowledgmentValue,
+} from "@/types";
+import AddressBlockField from "@/app/components/semester-flow/AddressBlockField";
+import { isAddressComplete } from "@/lib/address";
+import {
+  isAcknowledged,
+  makeAcknowledgment,
+  DEFAULT_ACKNOWLEDGMENT_LABEL,
+} from "@/lib/waiver";
 
 type Props = {
   elements: RegistrationFormElement[];
@@ -98,9 +110,9 @@ export default function RegistrationFormRenderer({
   sessions,
   mode = "preview",
 }: Props) {
-  const [responses, setResponses] = useState<Record<string, string | string[]>>(
-    {},
-  );
+  const [responses, setResponses] = useState<
+    Record<string, string | string[] | AddressValue | WaiverAcknowledgmentValue>
+  >({});
 
   /* -------------------------------------------------------------------------- */
   /* Session Filtering                                                          */
@@ -121,7 +133,10 @@ export default function RegistrationFormRenderer({
   /* Response Handling                                                          */
   /* -------------------------------------------------------------------------- */
 
-  function updateResponse(id: string, value: string | string[]) {
+  function updateResponse(
+    id: string,
+    value: string | string[] | AddressValue | WaiverAcknowledgmentValue,
+  ) {
     setResponses((prev) => ({
       ...prev,
       [id]: value,
@@ -131,6 +146,8 @@ export default function RegistrationFormRenderer({
   function isFieldInvalid(el: RegistrationFormElement) {
     if (!el.required) return false;
     const value = responses[el.id];
+    if (el.type === "waiver") return !isAcknowledged(value);
+    if (el.inputType === "address") return !isAddressComplete(value);
     if (value === undefined || value === null) return true;
     if (typeof value === "string" && value.trim() === "") return true;
     if (Array.isArray(value) && value.length === 0) return true;
@@ -181,6 +198,54 @@ export default function RegistrationFormRenderer({
           );
         }
 
+        if (el.type === "waiver") {
+          return (
+            <div key={el.id} className="space-y-2">
+              <label className="block text-sm font-medium text-neutral-800">
+                {el.label}
+                {el.required && <span className="text-red-500 ml-1">*</span>}
+              </label>
+
+              <div className="max-h-56 overflow-y-auto whitespace-pre-wrap rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm leading-relaxed text-neutral-600">
+                {el.waiverBody}
+              </div>
+
+              {el.waiverFileUrl && (
+                <a
+                  href={el.waiverFileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block text-sm font-medium text-primary-600 hover:underline"
+                >
+                  View / download waiver (PDF) ↗
+                </a>
+              )}
+
+              <label className="flex items-start gap-2 text-sm text-neutral-800">
+                <input
+                  type="checkbox"
+                  disabled={mode === "preview"}
+                  checked={isAcknowledged(responses[el.id])}
+                  onChange={(e) =>
+                    updateResponse(
+                      el.id,
+                      makeAcknowledgment(e.target.checked, new Date().toISOString()),
+                    )
+                  }
+                  className="mt-0.5"
+                />
+                {el.acknowledgmentLabel ?? DEFAULT_ACKNOWLEDGMENT_LABEL}
+              </label>
+
+              {isFieldInvalid(el) && mode === "live" && (
+                <div className="text-xs text-red-500">
+                  You must acknowledge this waiver to continue.
+                </div>
+              )}
+            </div>
+          );
+        }
+
         // Question
         return (
           <div key={el.id} className="space-y-2">
@@ -193,7 +258,7 @@ export default function RegistrationFormRenderer({
               <input
                 type="text"
                 disabled={mode === "preview"}
-                value={responses[el.id] ?? ""}
+                value={(responses[el.id] as string) ?? ""}
                 onChange={(e) => updateResponse(el.id, e.target.value)}
                 className={`w-full border rounded-xl px-4 py-2 text-sm ${
                   isFieldInvalid(el) ? "border-red-400" : "border-neutral-300"
@@ -204,7 +269,7 @@ export default function RegistrationFormRenderer({
             {el.inputType === "long_answer" && (
               <textarea
                 disabled={mode === "preview"}
-                value={responses[el.id] ?? ""}
+                value={(responses[el.id] as string) ?? ""}
                 onChange={(e) => updateResponse(el.id, e.target.value)}
                 className={`w-full border rounded-xl px-4 py-2 text-sm ${
                   isFieldInvalid(el) ? "border-red-400" : "border-neutral-300"
@@ -217,7 +282,7 @@ export default function RegistrationFormRenderer({
               <input
                 type="date"
                 disabled={mode === "preview"}
-                value={responses[el.id] ?? ""}
+                value={(responses[el.id] as string) ?? ""}
                 onChange={(e) => updateResponse(el.id, e.target.value)}
                 className={`w-full border rounded-xl px-4 py-2 text-sm ${
                   isFieldInvalid(el) ? "border-red-400" : "border-neutral-300"
@@ -229,7 +294,7 @@ export default function RegistrationFormRenderer({
               el.options?.map((opt) => {
                 const checked =
                   el.inputType === "checkbox"
-                    ? responses[el.id]?.includes(opt)
+                    ? (responses[el.id] as string[] | undefined)?.includes(opt)
                     : responses[el.id] === opt;
 
                 return (
@@ -259,10 +324,21 @@ export default function RegistrationFormRenderer({
               <input
                 type="tel"
                 disabled={mode === "preview"}
-                value={responses[el.id] ?? ""}
+                value={(responses[el.id] as string) ?? ""}
                 onChange={(e) => updateResponse(el.id, e.target.value)}
                 placeholder="(555) 123-4567"
                 className={`w-full border rounded-xl px-4 py-2 text-sm ${
+                  isFieldInvalid(el) ? "border-red-400" : "border-neutral-300"
+                }`}
+              />
+            )}
+
+            {el.inputType === "address" && (
+              <AddressBlockField
+                value={responses[el.id]}
+                onChange={(v) => updateResponse(el.id, v)}
+                disabled={mode === "preview"}
+                inputClassName={`w-full border rounded-xl px-4 py-2 text-sm ${
                   isFieldInvalid(el) ? "border-red-400" : "border-neutral-300"
                 }`}
               />

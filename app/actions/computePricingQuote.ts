@@ -40,6 +40,13 @@ export async function computePricingQuote(
 ): Promise<PricingQuote> {
   const supabase = await createClient();
 
+  // Admin-preview escape hatch (see PricingInput.tolerateMissingPrices). When
+  // set, config-completeness gaps become $0 line items + a warning instead of a
+  // hard throw, so a draft semester can be walked end-to-end before its prices
+  // are filled in. Live checkout never sets this.
+  const tolerateMissing = input.tolerateMissingPrices === true;
+  const warnings: string[] = [];
+
   /* ---------------------------------------------------------------------- */
   /* 1. Fetch fee config                                                      */
   /* ---------------------------------------------------------------------- */
@@ -73,7 +80,7 @@ export async function computePricingQuote(
       feeConfigRow?.junior_costume_fee_per_class ?? 55,
     ),
     costume_fee_exempt_keys: (feeConfigRow?.costume_fee_exempt_keys ??
-      ["technique", "pointe", "competition"]) as string[],
+      ["technique", "pre_pointe", "pointe", "early_childhood", "competition"]) as string[],
   };
 
   /* ---------------------------------------------------------------------- */
@@ -137,6 +144,73 @@ export async function computePricingQuote(
   ).length;
 
   /* ---------------------------------------------------------------------- */
+  /* 3b. Fetch special program tuition (fixed-fee programs that bypass       */
+  /*     rate bands: technique, pre_pointe, pointe, early_childhood,         */
+  /*     competition_junior, competition_senior).                            */
+  /* ---------------------------------------------------------------------- */
+  const { data: specialProgramRows, error: specialProgramError } =
+    await supabase
+      .from("special_program_tuition")
+      .select(
+        "program_key, program_label, semester_total, registration_fee_override",
+      )
+      .eq("semester_id", input.semesterId);
+  if (specialProgramError) throw new Error(specialProgramError.message);
+
+  const specialProgramMap = new Map<
+    string,
+    { label: string; total: number; regOverride: number | null }
+  >();
+  for (const row of specialProgramRows ?? []) {
+    specialProgramMap.set(row.program_key as string, {
+      label: row.program_label as string,
+      total: Number(row.semester_total),
+      regOverride:
+        (row as { registration_fee_override: number | null })
+          .registration_fee_override != null
+          ? Number(
+              (row as { registration_fee_override: number | null })
+                .registration_fee_override,
+            )
+          : null,
+    });
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* 3c. Fetch class_tiers prices for all tier IDs referenced in the input.   */
+  /*     Tiered classes (classes.is_tiered=true) bypass rate bands and pull   */
+  /*     their tuition from the selected tier's price_cents.                 */
+  /* ---------------------------------------------------------------------- */
+  const allTierIds = new Set<string>();
+  for (const e of input.enrollments) {
+    for (const id of Object.values(e.classTierIdsBySchedule ?? {})) {
+      if (id) allTierIds.add(id);
+    }
+    for (const id of Object.values(e.classTierIdsBySession ?? {})) {
+      if (id) allTierIds.add(id);
+    }
+  }
+  const tierPriceMap = new Map<
+    string,
+    { classId: string; label: string; priceCents: number | null }
+  >();
+  if (allTierIds.size > 0) {
+    const { data: tierRows, error: tierError } = await supabase
+      .from("class_tiers")
+      .select("id, class_id, label, price_cents")
+      .in("id", [...allTierIds]);
+    if (tierError) throw new Error(tierError.message);
+    for (const row of tierRows ?? []) {
+      tierPriceMap.set(row.id as string, {
+        classId: row.class_id as string,
+        label: row.label as string,
+        priceCents:
+          (row as { price_cents: number | null }).price_cents ?? null,
+      });
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* 4. Per-dancer computation                                                */
   /* ---------------------------------------------------------------------- */
   const perDancer: DancerPricingBreakdown[] = [];
@@ -171,7 +245,7 @@ export async function computePricingQuote(
       const { data: scheduleRows, error: scheduleError } = await supabase
         .from("class_sections")
         .select(
-          "id, days_of_week, classes(id, name, division, discipline, is_competition_track, tuition_override_amount)",
+          "id, days_of_week, classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount)",
         )
         .in("id", scheduleIds!);
 
@@ -186,6 +260,7 @@ export async function computePricingQuote(
         division: string;
         discipline: string;
         is_competition_track: boolean;
+        is_tiered: boolean;
         tuition_override_amount: number | null;
       };
 
@@ -204,18 +279,30 @@ export async function computePricingQuote(
       ];
       const division = resolveDivision(divisions);
 
-      // weeklyClassCount = total distinct calendar days across all enrolled schedules
-      const allDays = new Set<number>();
+      // displayWeeklyCount = total weekly meetings across ALL enrolled
+      // schedules (used for reporting). Counts (schedule_id, day) pairs so a
+      // class meeting on Mon+Wed counts as 2, and two different classes both
+      // on Monday also count as 2.
+      const allPairs = new Set<string>();
       for (const s of scheduleRows) {
         const daysArr: number[] = (s as any).days_of_week ?? [];
-        for (const d of daysArr) allDays.add(d);
+        for (const d of daysArr) allPairs.add(`${s.id}:${d}`);
       }
-      const weeklyClassCount = allDays.size || scheduleRows.length;
+      const weeklyClassCount = allPairs.size || scheduleRows.length;
 
+      // Tiered classes default to no division-based fees (no costume / video /
+      // reg fee). Per-tier fee opt-in is a future toggle that doesn't exist
+      // yet — treat is_tiered as fee-exempt at the engine level. Competition
+      // classes use the is_competition_track boolean (set in PaymentStep);
+      // the division on the row is the dancer's age tier, not "competition".
       const isFeeExemptClass = (cls: {
         discipline: string;
         division: string;
+        is_tiered?: boolean;
+        is_competition_track?: boolean;
       }): boolean => {
+        if (cls.is_tiered === true) return true;
+        if (cls.is_competition_track === true) return true;
         const keys = feeConfig.costume_fee_exempt_keys;
         return (
           keys.includes(cls.discipline) ||
@@ -227,30 +314,125 @@ export async function computePricingQuote(
         (c) => c !== null && !isFeeExemptClass(c),
       );
 
-      // standardWeeklyCount: distinct days occupied by standard (non-exempt) classes
-      const standardDays = new Set<number>();
+      // standardWeeklyCount: (schedule_id, day) pairs across standard
+      // (non-exempt) schedules. Drives costume/video fee and is the count
+      // passed to discount-rule threshold evaluation (mode-scoped per #2d:
+      // tiered/drop-in/special enrollments don't count toward standard-mode
+      // discount thresholds).
+      const standardPairs = new Set<string>();
       for (const s of scheduleRows) {
         const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
         if (cls && !isFeeExemptClass(cls as ScheduleClassInfo)) {
           const daysArr: number[] = (s as any).days_of_week ?? [];
-          for (const d of daysArr) standardDays.add(d);
+          for (const d of daysArr) standardPairs.add(`${s.id}:${d}`);
         }
       }
-      const standardWeeklyCount = standardDays.size || standardClasses.length;
+      const standardWeeklyCount = standardPairs.size || standardClasses.length;
 
       const lineItems: LineItem[] = [];
       let tuition = 0;
       let recitalFee = 0;
 
-      // Class-level overrides (flat tuition bypass) vs rate-band lookup
+      // Classification priority: special-program > tiered > class-level override > rate band.
+      const tierMapForDancer = input.enrollments.find(
+        (e) => e.dancerId === dancerId,
+      )?.classTierIdsBySchedule ?? {};
+
+      const specialSchedules = scheduleRows.filter((s) => {
+        const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+        return cls
+          ? classifySpecialProgramKey(cls as ScheduleClassInfo) !== null
+          : false;
+      });
+      const tieredSchedules = scheduleRows.filter((s) => {
+        const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+        const c = cls as ScheduleClassInfo | null;
+        return (
+          c != null &&
+          classifySpecialProgramKey(c) === null &&
+          c.is_tiered === true
+        );
+      });
       const overrideSchedules = scheduleRows.filter((s) => {
         const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
-        return (cls as ScheduleClassInfo | null)?.tuition_override_amount != null;
+        const c = cls as ScheduleClassInfo | null;
+        return (
+          c != null &&
+          classifySpecialProgramKey(c) === null &&
+          c.is_tiered !== true &&
+          c.tuition_override_amount != null
+        );
       });
       const rateBandSchedules = scheduleRows.filter((s) => {
         const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
-        return (cls as ScheduleClassInfo | null)?.tuition_override_amount == null;
+        const c = cls as ScheduleClassInfo | null;
+        return (
+          c != null &&
+          classifySpecialProgramKey(c) === null &&
+          c.is_tiered !== true &&
+          c.tuition_override_amount == null
+        );
       });
+
+      // Tiered path: each enrolled tiered section must have a tier selected.
+      // Tuition = sum of class_tiers.price_cents/100; no costume/video/reg fee.
+      for (const s of tieredSchedules) {
+        const cls = (Array.isArray(s.classes) ? s.classes[0] : s.classes) as
+          | ScheduleClassInfo
+          | null;
+        if (!cls) continue;
+        const tierId = tierMapForDancer[s.id];
+        if (!tierId) {
+          throw new Error(
+            `Tier not selected for tiered class "${cls.name}" (schedule ${s.id}).`,
+          );
+        }
+        const tier = tierPriceMap.get(tierId);
+        if (!tier) {
+          throw new Error(
+            `Selected tier ${tierId} for class "${cls.name}" was not found.`,
+          );
+        }
+        if (tier.priceCents == null) {
+          throw new Error(
+            `Tier "${tier.label}" for class "${cls.name}" has no price configured.`,
+          );
+        }
+        const tierTuition = round2(tier.priceCents / 100);
+        tuition += tierTuition;
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${cls.name} (${tier.label})`,
+          amount: tierTuition,
+        });
+      }
+
+      // Special-program path: dedupe by program_key (each program billed once
+      // per dancer even if they're enrolled in multiple sections of it).
+      const dancerSpecialKeys = new Set<string>();
+      for (const s of specialSchedules) {
+        const cls = (Array.isArray(s.classes) ? s.classes[0] : s.classes) as
+          | ScheduleClassInfo
+          | null;
+        if (!cls) continue;
+        const key = classifySpecialProgramKey(cls);
+        if (!key || dancerSpecialKeys.has(key)) continue;
+        dancerSpecialKeys.add(key);
+        const program = specialProgramMap.get(key);
+        if (!program) {
+          throw new Error(
+            `No special program tuition configured for program_key="${key}" ` +
+              `in semester ${input.semesterId}. ` +
+              `Please configure special program tuition in the semester's Payment step.`,
+          );
+        }
+        tuition += program.total;
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${program.label}`,
+          amount: round2(program.total),
+        });
+      }
 
       // Override path: one line item per unique class with an override
       if (overrideSchedules.length > 0) {
@@ -271,12 +453,15 @@ export async function computePricingQuote(
 
       // Rate-band path: one lookup for all non-override schedules
       if (rateBandSchedules.length > 0) {
-        const bandDays = new Set<number>();
+        // bandCount: (schedule_id, day) pairs across rate-band-eligible
+        // schedules only. Mode-scoped — tiered/drop-in/special/override
+        // are billed separately and must not inflate the band lookup.
+        const bandPairs = new Set<string>();
         for (const s of rateBandSchedules) {
           const daysArr: number[] = (s as any).days_of_week ?? [];
-          for (const d of daysArr) bandDays.add(d);
+          for (const d of daysArr) bandPairs.add(`${s.id}:${d}`);
         }
-        const bandCount = bandDays.size || rateBandSchedules.length;
+        const bandCount = bandPairs.size || rateBandSchedules.length;
 
         const { data: rateBand, error: bandError } = await supabase
           .from("tuition_rate_bands")
@@ -288,20 +473,31 @@ export async function computePricingQuote(
 
         if (bandError) throw new Error(bandError.message);
         if (!rateBand) {
-          throw new Error(
-            `No tuition rate configured for division="${division}", ` +
-              `weekly_class_count=${bandCount} in semester ${input.semesterId}. ` +
-              `Please configure tuition rate bands in the semester's Payment step.`,
+          if (!tolerateMissing) {
+            throw new Error(
+              `No tuition rate configured for division="${division}", ` +
+                `weekly_class_count=${bandCount} in semester ${input.semesterId}. ` +
+                `Please configure tuition rate bands in the semester's Payment step.`,
+            );
+          }
+          warnings.push(
+            `${divisionLabel(division)} (${bandCount}x/week): no tuition rate band configured (counted as $0).`,
           );
+          lineItems.push({
+            type: "tuition",
+            label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
+            amount: 0,
+            description: "Rate band not configured",
+          });
+        } else {
+          const bandTotal = Number(rateBand.base_tuition);
+          tuition += bandTotal;
+          lineItems.push({
+            type: "tuition",
+            label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
+            amount: round2(bandTotal),
+          });
         }
-
-        const bandTotal = Number(rateBand.base_tuition);
-        tuition += bandTotal;
-        lineItems.push({
-          type: "tuition",
-          label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
-          amount: round2(bandTotal),
-        });
       }
 
       // Costume / video fees (same logic as session path)
@@ -336,16 +532,17 @@ export async function computePricingQuote(
         }
       }
 
-      // Session/class discount rules (pass empty sessionIds for schedule path)
+      // Session/class discount rules — threshold count is the STANDARD-mode
+      // count (mode-scoped per #2d), not the all-modes display count.
       let sessionDiscountTotal = 0;
-      const percentRules = getApplicableRules(activeDiscounts, [], familyDancerCount, weeklyClassCount, "percent");
+      const percentRules = getApplicableRules(activeDiscounts, [], familyDancerCount, standardWeeklyCount, "percent");
       for (const rule of percentRules) {
         const reduction = round2(tuition * (rule.value / 100));
         tuition = round2(tuition - reduction);
         sessionDiscountTotal = round2(sessionDiscountTotal - reduction);
         lineItems.push({ type: "session_discount", label: `Discount: ${rule.discountName}`, amount: -reduction, description: `${rule.value}% off tuition` });
       }
-      const flatRules = getApplicableRules(activeDiscounts, [], familyDancerCount, weeklyClassCount, "flat");
+      const flatRules = getApplicableRules(activeDiscounts, [], familyDancerCount, standardWeeklyCount, "flat");
       for (const rule of flatRules) {
         const reduction = Math.min(rule.value, tuition);
         tuition = round2(tuition - reduction);
@@ -353,10 +550,38 @@ export async function computePricingQuote(
         lineItems.push({ type: "session_discount", label: `Discount: ${rule.discountName}`, amount: -reduction });
       }
 
-      const allClassesAreExempt =
-        classesForDancer.length > 0 &&
-        classesForDancer.every((c) => c !== null && isFeeExemptClass(c));
-      const registrationFee = allClassesAreExempt ? 0 : feeConfig.registration_fee_per_child;
+      // Registration fee:
+      //  - Dancer enrolled ONLY in special-program classes → use the program's
+      //    registration_fee_override. Multi-special-program edge case picks
+      //    the max override deterministically (memory says specials don't mix,
+      //    so this is defensive against Set iteration ordering).
+      //  - Else fall back to the existing exempt-list rule.
+      const nonSpecialClasses = classesForDancer.filter(
+        (c) => c !== null && classifySpecialProgramKey(c) === null,
+      );
+      let registrationFee: number;
+      if (
+        nonSpecialClasses.length === 0 &&
+        dancerSpecialKeys.size > 0
+      ) {
+        let maxOverride: number | null = null;
+        for (const key of dancerSpecialKeys) {
+          const program = specialProgramMap.get(key);
+          const candidate = program?.regOverride ?? null;
+          if (candidate != null) {
+            maxOverride = maxOverride == null ? candidate : Math.max(maxOverride, candidate);
+          }
+        }
+        registrationFee =
+          maxOverride ?? feeConfig.registration_fee_per_child;
+      } else {
+        const allClassesAreExempt =
+          classesForDancer.length > 0 &&
+          classesForDancer.every((c) => c !== null && isFeeExemptClass(c));
+        registrationFee = allClassesAreExempt
+          ? 0
+          : feeConfig.registration_fee_per_child;
+      }
       if (registrationFee > 0) {
         lineItems.push({ type: "registration_fee", label: "Registration Fee", amount: registrationFee });
       }
@@ -387,7 +612,7 @@ export async function computePricingQuote(
     const { data: sessionRows, error: sessionError } = await supabase
       .from("class_meetings")
       .select(
-        "id, schedule_date, day_of_week, classes(id, name, division, discipline, is_competition_track, tuition_override_amount)",
+        "id, schedule_date, day_of_week, drop_in_price, class_sections(is_drop_in), classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount)",
       )
       .in("id", resolvedSessionIds);
 
@@ -405,9 +630,31 @@ export async function computePricingQuote(
         division: string;
         discipline: string;
         is_competition_track: boolean;
+        is_tiered: boolean;
         tuition_override_amount: number | null;
       } | null;
     });
+
+    // Per-meeting drop-in detection: section's is_drop_in flag is the source
+    // of truth (Phase 2). Map each sessionId → { isDropIn, dropInPrice }.
+    type MeetingDropInInfo = { isDropIn: boolean; dropInPrice: number | null };
+    const meetingDropInMap = new Map<string, MeetingDropInInfo>();
+    for (const row of sessionRows) {
+      const section = Array.isArray((row as any).class_sections)
+        ? (row as any).class_sections[0]
+        : (row as any).class_sections;
+      const isDropIn = section?.is_drop_in === true;
+      const dropInPrice =
+        (row as { drop_in_price: number | null }).drop_in_price != null
+          ? Number((row as { drop_in_price: number | null }).drop_in_price)
+          : null;
+      meetingDropInMap.set(row.id, { isDropIn, dropInPrice });
+    }
+    const dropInSessionIds = new Set(
+      resolvedSessionIds.filter(
+        (id) => meetingDropInMap.get(id)?.isDropIn === true,
+      ),
+    );
 
     const divisions = [
       ...new Set(
@@ -442,10 +689,19 @@ export async function computePricingQuote(
     // Fee-exempt programs (technique, pointe, competition) skip the
     // registration fee and video/costume fees entirely.
     // Early childhood has no video/costume fees but DOES pay registration.
+    // Tiered classes default to no division-based fees (no costume / video /
+    // reg fee). Per-tier fee opt-in is a future toggle that doesn't exist
+    // yet — treat is_tiered as fee-exempt at the engine level. Competition
+    // classes use the is_competition_track boolean (set in PaymentStep);
+    // the division on the row is the dancer's age tier, not "competition".
     const isFeeExemptClass = (cls: {
       discipline: string;
       division: string;
+      is_tiered?: boolean;
+      is_competition_track?: boolean;
     }): boolean => {
+      if (cls.is_tiered === true) return true;
+      if (cls.is_competition_track === true) return true;
       const keys = feeConfig.costume_fee_exempt_keys;
       return (
         keys.includes(cls.discipline) ||
@@ -453,7 +709,26 @@ export async function computePricingQuote(
       );
     };
 
-    const standardClasses = classesForDancer.filter(
+    // Costume / video fee math is keyed off the dancer's standard (non-exempt,
+    // non-drop-in) classes. Drop-in meetings always count as fee-exempt per the
+    // Phase 2 pricing model (see #2c).
+    const nonDropInSessionRows = sessionRows.filter(
+      (s) => !dropInSessionIds.has(s.id),
+    );
+    const nonDropInClassesForDancer = nonDropInSessionRows.map((s) => {
+      const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+      return cls as {
+        id: string;
+        name: string;
+        division: string;
+        discipline: string;
+        is_competition_track: boolean;
+        is_tiered: boolean;
+        tuition_override_amount: number | null;
+      } | null;
+    });
+
+    const standardClasses = nonDropInClassesForDancer.filter(
       (c) => c !== null && !isFeeExemptClass(c),
     );
 
@@ -461,7 +736,7 @@ export async function computePricingQuote(
     let standardWeeklyCount: number;
     if (isPerDayModel) {
       const stdClassDayPairs = new Set(
-        sessionRows
+        nonDropInSessionRows
           .filter((s) => {
             const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
             return (
@@ -479,28 +754,22 @@ export async function computePricingQuote(
       standardWeeklyCount = standardClasses.length;
     }
 
-    // Tri-path pricing (priority order):
-    //   1. Per-session price rows  → explicit per-session amounts
-    //   2. Class-level overrides   → flat class tuition bypassing rate bands
-    //   3. Rate-band lookup        → division + weekly count progressive tiers
-    const { data: priceRowsData, error: priceRowsError } = await supabase
-      .from("class_meeting_price_rows")
-      .select("class_meeting_id, amount")
-      .in("class_meeting_id", resolvedSessionIds)
-      .eq("is_default", true);
+    // Pricing paths (priority order):
+    //   1. Drop-in              → class_meetings.drop_in_price (section.is_drop_in)
+    //   2. Special program      → special_program_tuition.semester_total
+    //   3. Tiered               → class_tiers.price_cents of the selected tier
+    //   4. Class-level override → flat class tuition bypassing rate bands
+    //   5. Rate-band lookup     → division + weekly count progressive tiers
+    // The legacy class_meeting_price_rows table is no longer consulted (#2g).
 
-    if (priceRowsError) throw new Error(priceRowsError.message);
-
-    const priceRowMap = new Map<string, number>();
-    for (const row of priceRowsData ?? []) {
-      priceRowMap.set(row.class_meeting_id as string, Number(row.amount));
-    }
-
-    // Build sessionId → class map for override lookups.
+    // Build sessionId → class map for override + special-program lookups.
     type SessionClassInfo = {
       id: string;
       name: string;
       division: string;
+      discipline: string;
+      is_competition_track: boolean;
+      is_tiered: boolean;
       tuition_override_amount: number | null;
     };
     const sessionClassMap = new Map<string, SessionClassInfo>();
@@ -509,10 +778,33 @@ export async function computePricingQuote(
       if (cls) sessionClassMap.set(row.id, cls as SessionClassInfo);
     }
 
-    const perSessionIds = resolvedSessionIds.filter((id) => priceRowMap.has(id));
-    const remainingIds = resolvedSessionIds.filter((id) => !priceRowMap.has(id));
+    const tierMapForDancer =
+      input.enrollments.find((e) => e.dancerId === dancerId)
+        ?.classTierIdsBySession ?? {};
 
-    // Among remaining, split by whether the class has a flat override.
+    // Classification priority: drop-in > special-program > tiered >
+    // per-session price rows (legacy) > class override > rate band.
+    const dropInIds = resolvedSessionIds.filter((id) =>
+      dropInSessionIds.has(id),
+    );
+    const nonDropInIds = resolvedSessionIds.filter(
+      (id) => !dropInSessionIds.has(id),
+    );
+
+    const afterPerSessionIds = nonDropInIds;
+
+    const specialIds = afterPerSessionIds.filter((id) => {
+      const cls = sessionClassMap.get(id);
+      return cls != null && classifySpecialProgramKey(cls) !== null;
+    });
+    const tieredIds = afterPerSessionIds.filter((id) => {
+      if (specialIds.includes(id)) return false;
+      const cls = sessionClassMap.get(id);
+      return cls != null && cls.is_tiered === true;
+    });
+    const remainingIds = afterPerSessionIds.filter(
+      (id) => !specialIds.includes(id) && !tieredIds.includes(id),
+    );
     const overrideIds = remainingIds.filter((id) => {
       const cls = sessionClassMap.get(id);
       return cls != null && cls.tuition_override_amount != null;
@@ -526,16 +818,132 @@ export async function computePricingQuote(
     let tuition = 0;
     let recitalFee = 0;
 
-    // Path 1: Per-session priced sessions (additive, no recital fee)
-    if (perSessionIds.length > 0) {
-      const perSessionTotal = round2(
-        perSessionIds.reduce((sum, id) => sum + priceRowMap.get(id)!, 0),
-      );
-      tuition += perSessionTotal;
+    // Path -1: Drop-in meetings. Tuition = class_meetings.drop_in_price; one
+    // line item per meeting. No costume/video/registration fee.
+    if (dropInIds.length > 0) {
+      let dropInTotal = 0;
+      for (const sid of dropInIds) {
+        const info = meetingDropInMap.get(sid);
+        const cls = sessionClassMap.get(sid);
+        if (info?.dropInPrice == null) {
+          if (!tolerateMissing) {
+            throw new Error(
+              `Drop-in meeting ${sid}${cls ? ` (${cls.name})` : ""} has no drop_in_price configured.`,
+            );
+          }
+          warnings.push(
+            `${cls?.name ?? "Drop-in class"}: no drop-in price configured (counted as $0).`,
+          );
+          continue; // treat as $0
+        }
+        dropInTotal += info.dropInPrice;
+      }
+      const total = round2(dropInTotal);
+      tuition += total;
       lineItems.push({
         type: "tuition",
-        label: `Tuition (${perSessionIds.length} session${perSessionIds.length !== 1 ? "s" : ""}, per-session pricing)`,
-        amount: perSessionTotal,
+        label: `Tuition (${dropInIds.length} drop-in${dropInIds.length !== 1 ? "s" : ""})`,
+        amount: total,
+      });
+    }
+
+    // Path 0: Special-program classes (fixed semester tuition; bypass rate bands).
+    // Dedupe by program_key so each program bills once per dancer.
+    const dancerSpecialKeys = new Set<string>();
+    for (const sid of specialIds) {
+      const cls = sessionClassMap.get(sid);
+      if (!cls) continue;
+      const key = classifySpecialProgramKey(cls);
+      if (!key || dancerSpecialKeys.has(key)) continue;
+      dancerSpecialKeys.add(key);
+      const program = specialProgramMap.get(key);
+      if (!program) {
+        if (!tolerateMissing) {
+          throw new Error(
+            `No special program tuition configured for program_key="${key}" ` +
+              `in semester ${input.semesterId}. ` +
+              `Please configure special program tuition in the semester's Payment step.`,
+          );
+        }
+        warnings.push(
+          `${cls.name}: no special-program tuition configured (counted as $0).`,
+        );
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${cls.name}`,
+          amount: 0,
+          description: "Price not configured",
+        });
+        continue; // treat as $0
+      }
+      tuition += program.total;
+      lineItems.push({
+        type: "tuition",
+        label: `Tuition — ${program.label}`,
+        amount: round2(program.total),
+      });
+    }
+
+    // Path 0b: Tiered classes (classes.is_tiered=true). Tuition = the selected
+    // tier's price_cents/100; no costume/video/registration fees.
+    for (const sid of tieredIds) {
+      const cls = sessionClassMap.get(sid);
+      if (!cls) continue;
+      const tierId = tierMapForDancer[sid];
+      if (!tierId) {
+        if (!tolerateMissing) {
+          throw new Error(
+            `Tier not selected for tiered class "${cls.name}" (session ${sid}).`,
+          );
+        }
+        warnings.push(`${cls.name}: no tier selected (counted as $0).`);
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${cls.name}`,
+          amount: 0,
+          description: "Tier not selected",
+        });
+        continue; // treat as $0
+      }
+      const tier = tierPriceMap.get(tierId);
+      if (!tier) {
+        if (!tolerateMissing) {
+          throw new Error(
+            `Selected tier ${tierId} for class "${cls.name}" was not found.`,
+          );
+        }
+        warnings.push(`${cls.name}: selected tier not found (counted as $0).`);
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${cls.name}`,
+          amount: 0,
+          description: "Tier not found",
+        });
+        continue; // treat as $0
+      }
+      if (tier.priceCents == null) {
+        if (!tolerateMissing) {
+          throw new Error(
+            `Tier "${tier.label}" for class "${cls.name}" has no price configured.`,
+          );
+        }
+        warnings.push(
+          `${cls.name} (${tier.label}): no tier price configured (counted as $0).`,
+        );
+        lineItems.push({
+          type: "tuition",
+          label: `Tuition — ${cls.name} (${tier.label})`,
+          amount: 0,
+          description: "Price not configured",
+        });
+        continue; // treat as $0
+      }
+      const tierTuition = round2(tier.priceCents / 100);
+      tuition += tierTuition;
+      lineItems.push({
+        type: "tuition",
+        label: `Tuition — ${cls.name} (${tier.label})`,
+        amount: tierTuition,
       });
     }
 
@@ -576,7 +984,8 @@ export async function computePricingQuote(
         );
         bandCount = bandClassDayPairs.size;
       } else {
-        bandCount = weeklyClassCount;
+        // Legacy model: scope to rate-band-eligible sessions only (per #2d).
+        bandCount = rateBandIds.length;
       }
       const { data: rateBand, error: bandError } = await supabase
         .from("tuition_rate_bands")
@@ -588,22 +997,33 @@ export async function computePricingQuote(
 
       if (bandError) throw new Error(bandError.message);
       if (!rateBand) {
-        throw new Error(
-          `No tuition rate configured for division="${division}", ` +
-            `weekly_class_count=${bandCount} in semester ${input.semesterId}. ` +
-            `Please configure tuition rate bands in the semester's Payment step.`,
+        if (!tolerateMissing) {
+          throw new Error(
+            `No tuition rate configured for division="${division}", ` +
+              `weekly_class_count=${bandCount} in semester ${input.semesterId}. ` +
+              `Please configure tuition rate bands in the semester's Payment step.`,
+          );
+        }
+        warnings.push(
+          `${divisionLabel(division)} (${bandCount}x/week): no tuition rate band configured (counted as $0).`,
         );
-      }
-
-      const bandTotal = Number(rateBand.base_tuition);
-      tuition += bandTotal;
-      lineItems.push(
-        {
+        lineItems.push({
           type: "tuition",
           label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
-          amount: round2(bandTotal),
-        },
-      );
+          amount: 0,
+          description: "Rate band not configured",
+        });
+      } else {
+        const bandTotal = Number(rateBand.base_tuition);
+        tuition += bandTotal;
+        lineItems.push(
+          {
+            type: "tuition",
+            label: `Tuition (${divisionLabel(division)}, ${bandCount}x/week)`,
+            amount: round2(bandTotal),
+          },
+        );
+      }
     }
 
     // Compute costume fee: per-class rate × standard weekly class count.
@@ -670,11 +1090,14 @@ export async function computePricingQuote(
     /* -------------------------------------------------------------------- */
     let sessionDiscountTotal = 0;
 
+    // Discount-rule threshold count is STANDARD-mode scoped (per #2d);
+    // tiered/drop-in/special enrollments do not count toward standard-mode
+    // discount thresholds.
     const percentRules = getApplicableRules(
       activeDiscounts,
       sessionIds ?? [],
       familyDancerCount,
-      weeklyClassCount,
+      standardWeeklyCount,
       "percent",
     );
     for (const rule of percentRules) {
@@ -693,7 +1116,7 @@ export async function computePricingQuote(
       activeDiscounts,
       sessionIds ?? [],
       familyDancerCount,
-      weeklyClassCount,
+      standardWeeklyCount,
       "flat",
     );
     for (const rule of flatRules) {
@@ -712,12 +1135,45 @@ export async function computePricingQuote(
     /* Exempt when ALL of the dancer's classes are fee-exempt programs       */
     /* (technique, pointe, competition). Early childhood is NOT exempt.      */
     /* -------------------------------------------------------------------- */
-    const allClassesAreExempt =
-      classesForDancer.length > 0 &&
-      classesForDancer.every((c) => c !== null && isFeeExemptClass(c));
-    const registrationFee = allClassesAreExempt
-      ? 0
-      : feeConfig.registration_fee_per_child;
+    // Registration fee:
+    //  - Dancer enrolled ONLY in special-program classes (drop-in meetings
+    //    excluded from this check — they have their own no-fee model) →
+    //    use the program's registration_fee_override.
+    //  - Else fall back to the existing exempt-list rule.
+    const nonSpecialNonDropInClasses = nonDropInClassesForDancer.filter(
+      (c) => c !== null && classifySpecialProgramKey(c) === null,
+    );
+    let registrationFee: number;
+    if (
+      nonSpecialNonDropInClasses.length === 0 &&
+      dancerSpecialKeys.size > 0
+    ) {
+      // Multi-special-program edge case: pick the max override deterministically
+      // (Set iteration would otherwise be insertion-order dependent). Memory's
+      // resolved interpretation says specials don't mix in a single semester,
+      // so this is defensive; max keeps us conservative if it ever happens.
+      let maxOverride: number | null = null;
+      for (const key of dancerSpecialKeys) {
+        const program = specialProgramMap.get(key);
+        const candidate = program?.regOverride ?? null;
+        if (candidate != null) {
+          maxOverride = maxOverride == null ? candidate : Math.max(maxOverride, candidate);
+        }
+      }
+      registrationFee =
+        maxOverride ?? feeConfig.registration_fee_per_child;
+    } else {
+      // Drop-in meetings count as fee-exempt (no reg fee). Use the
+      // non-drop-in projection so a dancer with ONLY drop-in meetings pays $0.
+      const allClassesAreExempt =
+        nonDropInClassesForDancer.length === 0 ||
+        nonDropInClassesForDancer.every(
+          (c) => c !== null && isFeeExemptClass(c),
+        );
+      registrationFee = allClassesAreExempt
+        ? 0
+        : feeConfig.registration_fee_per_child;
+    }
     if (registrationFee > 0) {
       lineItems.push({
         type: "registration_fee",
@@ -969,6 +1425,7 @@ export async function computePricingQuote(
     amountDueNow,
     lineItems: familyLineItems,
     paymentSchedule: schedule,
+    warnings: warnings.length > 0 ? warnings : undefined,
   };
 }
 
@@ -1091,6 +1548,33 @@ function resolveDivision(divisions: string[]): string {
 
   // Any other mixed case → use the first non-early_childhood division (best effort)
   return unique.filter((d) => d !== "early_childhood")[0];
+}
+
+/**
+ * Returns the `special_program_tuition.program_key` a class maps to,
+ * or null if the class is a standard rate-band class.
+ *
+ * Mirrors how PaymentStep authors the program rows (the source of truth):
+ *   - `is_competition_track` → competition_junior / competition_senior
+ *     (disambiguated by the class's own `division` column)
+ *   - discipline = technique / pre_pointe / pointe → matching key
+ *   - division = early_childhood → "early_childhood"
+ */
+function classifySpecialProgramKey(cls: {
+  discipline: string;
+  division: string;
+  is_competition_track: boolean;
+}): string | null {
+  if (cls.is_competition_track) {
+    return cls.division === "senior"
+      ? "competition_senior"
+      : "competition_junior";
+  }
+  if (cls.discipline === "technique") return "technique";
+  if (cls.discipline === "pre_pointe") return "pre_pointe";
+  if (cls.discipline === "pointe") return "pointe";
+  if (cls.division === "early_childhood") return "early_childhood";
+  return null;
 }
 
 function divisionLabel(division: string): string {

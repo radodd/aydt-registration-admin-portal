@@ -16,6 +16,20 @@ export default async function AdminRegisterPage({ searchParams }: Props) {
   const { semester: semesterId, dancer: dancerParam, family: familyParam } = await searchParams;
   const supabase = await createClient();
 
+  // Installment setup + partial-payment overrides are super-admin powers (#7).
+  let isSuperAdmin = false;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const { data: adminUser } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    isSuperAdmin = (adminUser as { role?: string } | null)?.role === "super_admin";
+  }
+
   let initialSemester: { id: string; name: string } | null = null;
   if (semesterId) {
     const { data } = await supabase
@@ -85,6 +99,7 @@ export default async function AdminRegisterPage({ searchParams }: Props) {
         initialSemesterId={initialSemester?.id ?? ""}
         initialSemesterName={initialSemester?.name ?? ""}
         initialDancer={initialDancer}
+        isSuperAdmin={isSuperAdmin}
       />
     </div>
   );

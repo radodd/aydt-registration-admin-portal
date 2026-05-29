@@ -14,7 +14,17 @@ import type { CartItem, CartItemMode, CartState } from "@/types/public";
 
 const CART_TTL_MS = 20 * 60 * 1000;
 const STORAGE_KEY_PREFIX = "aydt_cart_";
+// Preview carts persist to sessionStorage under their own prefix so an admin's
+// preview walkthrough survives navigation/reload but never collides with a real
+// family's localStorage cart, and auto-clears when the tab closes.
+const PREVIEW_STORAGE_KEY_PREFIX = "aydt_preview_cart_";
 const CART_VERSION = 2;
+
+/** Which Web Storage backs the cart: sessionStorage for preview, else localStorage. */
+function cartStore(preview: boolean): Storage | null {
+  if (typeof window === "undefined") return null;
+  return preview ? window.sessionStorage : window.localStorage;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                       */
@@ -229,7 +239,9 @@ export function CartProvider({
   preview?: boolean;
   children: React.ReactNode;
 }) {
-  const storageKey = `${STORAGE_KEY_PREFIX}${semesterId}`;
+  const storageKey = `${
+    preview ? PREVIEW_STORAGE_KEY_PREFIX : STORAGE_KEY_PREFIX
+  }${semesterId}`;
 
   console.log(`[Cart] mounted semesterId=${semesterId} key=${storageKey}`);
 
@@ -244,19 +256,21 @@ export function CartProvider({
   stateRef.current = state;
 
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
-  const [hydrated, setHydrated] = useState(preview);
+  // Both live and preview hydrate from their respective Web Storage on mount.
+  const [hydrated, setHydrated] = useState(false);
 
   /* ---------------------------------------------------------------------- */
   /* Hydrate                                                                */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
-    if (preview) return;
+    const store = cartStore(preview);
+    if (!store) return;
 
     console.log(`[Cart] hydrate start key=${storageKey}`);
 
     try {
-      const raw = localStorage.getItem(storageKey);
+      const raw = store.getItem(storageKey);
 
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<CartState> & {
@@ -269,7 +283,7 @@ export function CartProvider({
           parsed.version === CART_VERSION && parsed.semesterId === semesterId;
 
         console.log(
-          `[Cart] localStorage raw found: items=${(parsed as CartState).items?.length ?? "?"}, expired=${expired}, versionOk=${versionOk}`,
+          `[Cart] storage raw found: items=${(parsed as CartState).items?.length ?? "?"}, expired=${expired}, versionOk=${versionOk}`,
         );
 
         if (versionOk && !expired && Array.isArray((parsed as CartState).items)) {
@@ -278,14 +292,14 @@ export function CartProvider({
           console.warn(
             `[Cart] cart invalid (versionOk=${versionOk} expired=${expired}) → removing`,
           );
-          localStorage.removeItem(storageKey);
+          store.removeItem(storageKey);
         }
       } else {
-        console.log("[Cart] no cart found in localStorage");
+        console.log("[Cart] no cart found in storage");
       }
     } catch (err) {
       console.warn("[Cart] hydration error — corrupt entry removed", err);
-      localStorage.removeItem(storageKey);
+      store.removeItem(storageKey);
     }
 
     console.log("[Cart] hydration complete");
@@ -297,11 +311,12 @@ export function CartProvider({
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
-    if (preview) return;
     if (!hydrated) return;
+    const store = cartStore(preview);
+    if (!store) return;
 
     try {
-      localStorage.setItem(storageKey, JSON.stringify(state));
+      store.setItem(storageKey, JSON.stringify(state));
       console.log(
         `[Cart] persisted ${state.items.length} items to ${storageKey}`,
       );
@@ -367,12 +382,13 @@ export function CartProvider({
   const persistNext = useCallback(
     (next: CartState) => {
       stateRef.current = next;
-      if (!preview) {
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(next));
-          window.dispatchEvent(new Event("aydt-cart-change"));
-        } catch {}
-      }
+      const store = cartStore(preview);
+      if (!store) return;
+      try {
+        store.setItem(storageKey, JSON.stringify(next));
+        // Live-only: NavCartButton listens for this to refresh its badge.
+        if (!preview) window.dispatchEvent(new Event("aydt-cart-change"));
+      } catch {}
     },
     [preview, storageKey],
   );
@@ -417,10 +433,7 @@ export function CartProvider({
   const clear = useCallback(() => {
     console.log("[Cart] clear called");
     dispatch({ type: "CLEAR" });
-
-    if (!preview) {
-      localStorage.removeItem(storageKey);
-    }
+    cartStore(preview)?.removeItem(storageKey);
   }, [storageKey, preview]);
 
   const sessionIds = useMemo(() => deriveSessionIds(state.items), [state.items]);
