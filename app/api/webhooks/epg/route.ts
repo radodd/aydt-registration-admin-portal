@@ -13,6 +13,7 @@ import {
   createEpgTransaction,
 } from "@/utils/payment/epg";
 import { prepareEmailHtml } from "@/utils/prepareEmailHtml";
+import { buildRegistrationSummaryHtml } from "@/utils/email/buildRegistrationSummary";
 
 // Node runtime required — never edge for payment webhooks.
 // Edge runtimes lack crypto.timingSafeEqual and may strip env vars.
@@ -850,6 +851,19 @@ async function sendConfirmationEmail(
     if (paymentScheduleHtml && !emailTemplate.htmlBody.includes("{{payment_schedule}}")) {
       htmlBody += paymentScheduleHtml;
     }
+
+    // #4: append the system-generated, non-editable "Registration Summary"
+    // receipt. Always rendered regardless of the admin's free-text body, and
+    // reads BOTH meeting_enrollments + section_enrollments so tiered/standard
+    // enrollments are included. Returns "" on empty/error — never blocks the send.
+    const registrationSummaryHtml = await buildRegistrationSummaryHtml(supabase, {
+      batchId,
+      currencyCode,
+    });
+    if (registrationSummaryHtml) {
+      htmlBody += registrationSummaryHtml;
+    }
+
     htmlBody = prepareEmailHtml(htmlBody);
 
     // Use truthy fallback (not ??) so empty strings saved by the admin UI also

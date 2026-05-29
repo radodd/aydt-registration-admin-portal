@@ -4,6 +4,10 @@ import { Resend } from "resend";
 import { createClient } from "@/utils/supabase/server";
 import { prepareEmailHtml } from "@/utils/prepareEmailHtml";
 import { requireAdmin } from "@/utils/requireAdmin";
+import {
+  renderRegistrationSummaryHtml,
+  SAMPLE_REGISTRATION_SUMMARY,
+} from "@/utils/email/buildRegistrationSummary";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -54,7 +58,13 @@ export async function sendTestEmail(
     return { success: false, error: "No email body configured" };
   }
 
-  const processedHtml = prepareEmailHtml(replaceTokens(email.htmlBody, MOCK_TOKENS));
+  // Append the same non-editable Registration Summary block the real
+  // confirmation email gets (#4), using sample data so the test reflects
+  // production output.
+  const bodyWithSummary =
+    replaceTokens(email.htmlBody, MOCK_TOKENS) +
+    renderRegistrationSummaryHtml(SAMPLE_REGISTRATION_SUMMARY);
+  const processedHtml = prepareEmailHtml(bodyWithSummary);
   const subject = email.subject
     ? replaceTokens(email.subject, MOCK_TOKENS)
     : "Test: Registration Confirmation";

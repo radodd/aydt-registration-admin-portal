@@ -1467,6 +1467,52 @@ export type EmailTemplate = {
   updated_at: string;
 };
 
+/**
+ * Receipt-style "Registration summary" rendered into every confirmation email
+ * (meeting-plan item #4). System-generated and NOT editable in the email
+ * designer. Built from BOTH enrollment tables (`meeting_enrollments` drop-in +
+ * `section_enrollments` full-term) plus the order's money figures, so tiered/
+ * standard enrollments are never silently dropped.
+ *
+ * The render layer omits any empty field, so optional members that have no
+ * backing data yet (e.g. location address / classroom until an authoring UI
+ * populates them) simply don't appear.
+ */
+export type RegistrationSummarySession = {
+  /** Class display name (falls back to `classes.name`). */
+  name: string;
+  /** Human-readable date/time line, e.g. "Mondays · 4:00–5:00 PM" or "Jun 3, 2026 · 4:00–5:00 PM". */
+  schedule?: string;
+  location?: string;
+  locationAddress?: string;
+  classroom?: string;
+  instructor?: string;
+  /** Group assignment name (drop-in/meeting enrollments only). */
+  group?: string;
+  /** Excluded/skipped dates, formatted (e.g. "Jul 4, 2026"). */
+  excludedDates?: string[];
+  /** Per-session price, formatted as currency. */
+  amount?: string;
+};
+
+export type RegistrationSummaryParticipant = {
+  /** Dancer's full name. */
+  name: string;
+  /** Formatted registered-on date for this participant. */
+  registeredOn?: string;
+  sessions: RegistrationSummarySession[];
+  /** Add-on purchases (option line items), formatted "Label — $X". */
+  purchases?: string[];
+};
+
+export type RegistrationSummary = {
+  participants: RegistrationSummaryParticipant[];
+  /** Order-level total paid so far, formatted as currency. */
+  amountPaid?: string;
+  /** Order-level outstanding season balance, formatted as currency. */
+  seasonBalance?: string;
+};
+
 export type EmailRecipient = {
   id: string;
   email_id: string;
