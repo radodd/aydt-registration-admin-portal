@@ -826,59 +826,37 @@ export default function CheckoutStep({
           </ul>
         </div>
 
-        {/* Pricing */}
+        {/* Pricing — read-only breakdown. All total-affecting controls now live
+            in the "Pricing & Discounts" card in the main column. */}
         <div className="bg-white border border-[#DDD9D2] rounded-xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide">
-              Pricing
-            </p>
-            <button
-              onClick={handleOverrideToggle}
-              className="flex items-center gap-1 text-xs text-[#8E2A23] hover:text-[#7A2420]"
-            >
-              <Pencil className="w-3 h-3" />
-              {overrideActive ? "Cancel override" : "Override price"}
-            </button>
-          </div>
+          <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide">
+            Pricing
+          </p>
 
           {pricingLoading ? (
             <p className="text-xs text-[#9E9890]">Calculating…</p>
           ) : overrideActive ? (
-            <div className="space-y-2">
-              <div>
-                <label className="block text-xs text-[#736D65] mb-1">Custom base total</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9E9890] text-sm">
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={overrideInput}
-                    onChange={(e) => {
-                      setOverrideInput(e.target.value);
-                      if (paymentPlanType !== "monthly") setAmountInput(e.target.value);
-                    }}
-                    className="w-full pl-6 pr-3 py-2 border border-[#C8A09D] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23]"
-                    autoFocus
-                  />
-                </div>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between gap-4">
+                <span className="text-[#736D65] truncate">Custom total</span>
+                <span className="text-[#201D18] shrink-0">{fmt$$(grandTotal)}</span>
               </div>
-              {adjustments.length > 0 && (
-                <div className="space-y-1.5 text-sm pt-1">
-                  {adjustments.map((adj, i) => (
-                    <div key={i} className="flex justify-between gap-4">
-                      <span className="text-[#736D65] truncate">{adj.label}</span>
-                      <span className="text-green-600 shrink-0">-{fmt$$(adj.amount)}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between gap-4 pt-2 border-t border-[#DDD9D2] font-semibold">
-                    <span className="text-[#201D18]">Total Due</span>
-                    <span className="text-[#201D18]">{fmt$$(effectiveTotal)}</span>
-                  </div>
+              {adjustments.map((adj, i) => (
+                <div key={i} className="flex justify-between gap-4">
+                  <span className="text-[#736D65] truncate">{adj.label}</span>
+                  <span className="text-green-600 shrink-0">-{fmt$$(adj.amount)}</span>
+                </div>
+              ))}
+              {applyCredit && creditTotal > 0 && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#736D65] truncate">Account Credit</span>
+                  <span className="text-green-600 shrink-0">-{fmt$$(creditTotal)}</span>
                 </div>
               )}
+              <div className="flex justify-between gap-4 pt-2 border-t border-[#DDD9D2] font-semibold">
+                <span className="text-[#201D18]">Total Due</span>
+                <span className="text-[#201D18]">{fmt$$(effectiveTotal)}</span>
+              </div>
             </div>
           ) : quote ? (
             <div className="space-y-1.5 text-sm">
@@ -917,82 +895,7 @@ export default function CheckoutStep({
             <p className="text-xs text-[#9E9890]">Pricing unavailable.</p>
           )}
 
-          {/* Coupon */}
-          {!overrideActive && (
-            <div className="pt-2 border-t border-[#DDD9D2]">
-              {appliedCoupon ? (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1 text-green-600">
-                    <Tag className="w-3.5 h-3.5" />
-                    {appliedCoupon}
-                  </span>
-                  <button
-                    onClick={handleRemoveCoupon}
-                    className="text-[#9E9890] hover:text-[#736D65]"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Promo code"
-                    value={couponCode}
-                    onChange={(e) => {
-                      setCouponCode(e.target.value.toUpperCase());
-                      setCouponError("");
-                    }}
-                    onKeyDown={(e) => e.key === "Enter" && handleApplyCoupon()}
-                    className="flex-1 px-3 py-1.5 border border-[#DDD9D2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23]"
-                  />
-                  <button
-                    onClick={handleApplyCoupon}
-                    disabled={couponLoading || !couponCode.trim()}
-                    className="px-3 py-1.5 bg-[#F7F5F2] hover:bg-[#EDEAE5] rounded-xl text-sm text-[#736D65] disabled:opacity-40 transition"
-                  >
-                    Apply
-                  </button>
-                </div>
-              )}
-              {couponError && (
-                <p className="text-xs text-red-500 mt-1">{couponError}</p>
-              )}
-            </div>
-          )}
         </div>
-
-        {/* Account credits */}
-        {availableCredits.length > 0 && (
-          <div className="bg-white border border-[#DDD9D2] rounded-xl p-4 space-y-2">
-            <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide">
-              Account Credit
-            </p>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={applyCredit}
-                onChange={(e) => {
-                  setApplyCredit(e.target.checked);
-                  if (paymentPlanType !== "monthly") {
-                    const newEff = Math.max(
-                      0,
-                      grandTotal - adjustmentsSum - (e.target.checked ? creditTotal : 0)
-                    );
-                    setAmountInput(newEff.toFixed(2));
-                  }
-                }}
-                className="rounded border-[#DDD9D2] text-[#8E2A23] focus:ring-[#8E2A23]"
-              />
-              <span className="text-sm text-[#201D18]">
-                Apply account credit{" "}
-                <span className="font-medium text-green-600">
-                  ({fmt$$(availableCredits.reduce((s, c) => s + c.amount, 0))})
-                </span>
-              </span>
-            </label>
-          </div>
-        )}
 
         {/* Balance due summary */}
         <div className="bg-[#F7F5F2] border border-[#DDD9D2] rounded-xl p-4">
