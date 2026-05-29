@@ -193,6 +193,15 @@ export default function ClassesStep({
       setFeeRows([]);
       return;
     }
+    const tierMap: Record<string, string> = {};
+    for (const sid of scheduleIds) {
+      const owner = classes.find((c) =>
+        c.sessions.some((s) => s.scheduleId === sid),
+      );
+      if (!owner || !owner.isTiered) continue;
+      const tierId = selectedTierIdByClass[owner.classId];
+      if (tierId) tierMap[sid] = tierId;
+    }
     setPricingLoading(true);
     computePricingQuote({
       semesterId,
@@ -202,6 +211,8 @@ export default function ClassesStep({
           dancerId: dancerId ?? NIL_UUID,
           dancerName: isNewDancer ? dancerName : undefined,
           scheduleIds,
+          classTierIdsBySchedule:
+            Object.keys(tierMap).length > 0 ? tierMap : undefined,
         },
       ],
       paymentPlanType: "pay_in_full",

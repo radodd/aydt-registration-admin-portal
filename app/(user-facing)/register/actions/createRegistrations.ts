@@ -242,27 +242,41 @@ export async function createRegistrations(
   }
 
   // 4. Server-side pricing computation
-  // Group session IDs by dancer
+  // Group session IDs by dancer (+ tier map for tiered participants).
   const enrollmentMap = new Map<
     string,
-    { dancerName?: string; sessionIds: string[] }
+    {
+      dancerName?: string;
+      sessionIds: string[];
+      classTierIdsBySession: Record<string, string>;
+    }
   >();
   for (const p of input.participants) {
     if (!enrollmentMap.has(p.dancerId)) {
-      enrollmentMap.set(p.dancerId, { sessionIds: [] });
+      enrollmentMap.set(p.dancerId, {
+        sessionIds: [],
+        classTierIdsBySession: {},
+      });
     }
     const entry = enrollmentMap.get(p.dancerId)!;
     entry.sessionIds.push(p.sessionId);
+    if (p.mode === "tiered" && p.classTierId) {
+      entry.classTierIdsBySession[p.sessionId] = p.classTierId;
+    }
     if (p.newDancer && !entry.dancerName) {
       entry.dancerName = `${p.newDancer.firstName} ${p.newDancer.lastName}`;
     }
   }
 
   const enrollments = Array.from(enrollmentMap.entries()).map(
-    ([dancerId, { dancerName, sessionIds: sids }]) => ({
+    ([dancerId, { dancerName, sessionIds: sids, classTierIdsBySession }]) => ({
       dancerId,
       dancerName,
       sessionIds: sids,
+      classTierIdsBySession:
+        Object.keys(classTierIdsBySession).length > 0
+          ? classTierIdsBySession
+          : undefined,
     }),
   );
 

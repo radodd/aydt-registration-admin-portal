@@ -156,7 +156,13 @@ export async function createAdminRegistration(
       quote = await computePricingQuote({
         semesterId: input.semesterId,
         familyId: familyId ?? undefined,
-        enrollments: [{ dancerId, scheduleIds: input.scheduleIds }],
+        enrollments: [
+          {
+            dancerId,
+            scheduleIds: input.scheduleIds,
+            classTierIdsBySchedule: input.classTierIdsBySchedule,
+          },
+        ],
         paymentPlanType: input.paymentPlanType === "monthly" ? "auto_pay_monthly" : "pay_in_full",
         couponCode: input.couponCode || undefined,
       });

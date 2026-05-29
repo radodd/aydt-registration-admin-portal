@@ -6,6 +6,7 @@ import {
   DraftClassRequirement,
   DraftClassSchedule,
   DraftClassTier,
+  DraftFeeConfig,
   DraftSchedulePriceTier,
   DraftSessionOption,
   DraftSpecialProgramTuition,
@@ -156,6 +157,7 @@ function buildDefaultPriceTierFromState(
   discipline: string,
   rateBands: DraftTuitionRateBand[],
   specialRates: DraftSpecialProgramTuition[],
+  feeConfig?: DraftFeeConfig,
 ): DraftSchedulePriceTier | null {
   const result = calculateClassTuition({
     division,
@@ -163,6 +165,10 @@ function buildDefaultPriceTierFromState(
     discipline,
     rateBands,
     specialRates,
+    registrationFeePerChild: feeConfig?.registration_fee_per_child,
+    juniorCostumeFeePerClass: feeConfig?.junior_costume_fee_per_class,
+    seniorCostumeFeePerClass: feeConfig?.senior_costume_fee_per_class,
+    seniorVideoFeePerRegistrant: feeConfig?.senior_video_fee_per_registrant,
   });
   if (result.source === "unresolved" || result.semesterTotal === 0) return null;
   return {
@@ -208,7 +214,9 @@ function emptyStandardClass(): DraftClass {
     name: "",
     displayName: "",
     discipline: "ballet",
-    division: "junior",
+    // Division is only meaningful for standard (rate-band) classes.
+    // Left null so toggling drop-in/tiered never inherits a stale "junior".
+    division: null,
     description: "",
     minAge: undefined,
     maxAge: undefined,
@@ -313,6 +321,12 @@ export default function SessionsStep({
           : existing.map((s) => ({ ...s, isDropIn: patch.dropIn }));
       update.schedules = next;
     }
+    // Division only applies to standard rate-band classes. Turning ON either
+    // drop-in or tiered must drop any inherited division so it isn't silently
+    // persisted (e.g. the legacy "junior" default).
+    if (patch.dropIn === true || patch.tiered === true) {
+      update.division = null;
+    }
     handleUpdateClass(idx, update);
   }
 
@@ -322,6 +336,9 @@ export default function SessionsStep({
 
   const rateBands: DraftTuitionRateBand[] = state.tuitionRateBands ?? [];
   const specialRates: DraftSpecialProgramTuition[] = state.specialProgramTuition ?? [];
+  // Pass the admin-set feeConfig through to the engine so SessionsStep preview
+  // matches what computePricingQuote will charge at checkout.
+  const feeConfig: DraftFeeConfig | undefined = state.feeConfig;
 
   useEffect(() => {
     getDivisions().then(setDivisions);
@@ -754,6 +771,7 @@ export default function SessionsStep({
           setActiveTab={setActiveTab}
           rateBands={rateBands}
           specialRates={specialRates}
+          feeConfig={feeConfig}
           semesterId={state.id}
           allClasses={classes}
           divisions={divisions}
@@ -807,6 +825,7 @@ function ClassEditPanel({
   setActiveTab,
   rateBands,
   specialRates,
+  feeConfig,
   semesterId,
   allClasses,
   divisions,
@@ -836,6 +855,7 @@ function ClassEditPanel({
   setActiveTab: (t: PanelTab) => void;
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
+  feeConfig?: DraftFeeConfig;
   semesterId?: string;
   allClasses: DraftClass[];
   divisions: Division[];
@@ -935,6 +955,7 @@ function ClassEditPanel({
             isLocked={isLocked}
             rateBands={rateBands}
             specialRates={specialRates}
+            feeConfig={feeConfig}
             semesterId={semesterId}
             divisions={divisions}
             isDropInDivision={isDropInDivision}
@@ -954,6 +975,7 @@ function ClassEditPanel({
             isLocked={isLocked}
             rateBands={rateBands}
             specialRates={specialRates}
+            feeConfig={feeConfig}
             isDropInDivision={isDropInDivision}
             uiFlags={uiFlags}
             uiTiers={uiTiers}
@@ -1030,6 +1052,7 @@ function DetailsTab({
   isLocked,
   rateBands,
   specialRates,
+  feeConfig,
   semesterId,
   divisions,
   isDropInDivision,
@@ -1046,6 +1069,7 @@ function DetailsTab({
   isLocked: boolean;
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
+  feeConfig?: DraftFeeConfig;
   semesterId?: string;
   divisions: Division[];
   isDropInDivision: boolean;
@@ -1174,7 +1198,7 @@ function DetailsTab({
       </div>
 
       {/* Discipline + Division */}
-      <div className={`grid ${uiFlags.dropIn ? "grid-cols-1" : "grid-cols-2"} gap-3`}>
+      <div className={`grid ${uiFlags.dropIn || uiFlags.tiered ? "grid-cols-1" : "grid-cols-2"} gap-3`}>
         <div>
           <label className="block text-xs font-medium text-neutral-600 mb-1.5">
             Discipline <span className="text-red-500">*</span>
@@ -1192,7 +1216,7 @@ function DetailsTab({
             ))}
           </select>
         </div>
-        {!uiFlags.dropIn && (
+        {!uiFlags.dropIn && !uiFlags.tiered && (
         <div>
           <label className="block text-xs font-medium text-neutral-600 mb-1.5">
             Division <span className="text-red-500">*</span>
@@ -1221,7 +1245,7 @@ function DetailsTab({
                 if ((sched.priceTiers ?? []).length === 0) {
                   const tier = buildDefaultPriceTierFromState(
                     value, Math.max(1, sched.daysOfWeek.length),
-                    cls.discipline, rateBands, specialRates,
+                    cls.discipline, rateBands, specialRates, feeConfig,
                   );
                   if (tier) onUpdateSchedule(idx, { pricingModel: "full_schedule", priceTiers: [tier] });
                 }
@@ -1617,6 +1641,7 @@ function ScheduleTab({
   isLocked,
   rateBands,
   specialRates,
+  feeConfig,
   isDropInDivision,
   uiFlags,
   uiTiers,
@@ -1630,6 +1655,7 @@ function ScheduleTab({
   isLocked: boolean;
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
+  feeConfig?: DraftFeeConfig;
   isDropInDivision: boolean;
   uiFlags: UiClassFlags;
   uiTiers: DraftClassTier[];
@@ -1688,6 +1714,7 @@ function ScheduleTab({
           discipline={cls.discipline}
           rateBands={rateBands}
           specialRates={specialRates}
+          feeConfig={feeConfig}
           isDropInDivision={isDropInDivision}
           uiFlags={uiFlags}
           uiTiers={uiTiers}
@@ -1866,6 +1893,7 @@ function ScheduleEditor({
   discipline,
   rateBands,
   specialRates,
+  feeConfig,
   isDropInDivision,
   uiFlags,
   uiTiers,
@@ -1882,6 +1910,7 @@ function ScheduleEditor({
   discipline: string;
   rateBands: DraftTuitionRateBand[];
   specialRates: DraftSpecialProgramTuition[];
+  feeConfig?: DraftFeeConfig;
   isDropInDivision: boolean;
   uiFlags: UiClassFlags;
   uiTiers: DraftClassTier[];
@@ -1899,7 +1928,7 @@ function ScheduleEditor({
     const updated = current.includes(day) ? current.filter((d) => d !== day) : [...current, day];
     const patch: Partial<DraftClassSchedule> = { daysOfWeek: updated };
     if ((schedule.priceTiers ?? []).length === 0 && updated.length > 0) {
-      const tier = buildDefaultPriceTierFromState(division, updated.length, discipline, rateBands, specialRates);
+      const tier = buildDefaultPriceTierFromState(division, updated.length, discipline, rateBands, specialRates, feeConfig);
       if (tier) { patch.pricingModel = "full_schedule"; patch.priceTiers = [tier]; }
     }
     onChange(patch);
@@ -1928,8 +1957,18 @@ function ScheduleEditor({
   }
 
   const weeklyCount = Math.max(1, (schedule.daysOfWeek ?? []).length);
-  const engineResult = calculateClassTuition({ division, weeklyClassCount: weeklyCount, discipline, rateBands, specialRates });
-  const defaultTierFromEngine = buildDefaultPriceTierFromState(division, weeklyCount, discipline, rateBands, specialRates);
+  const engineResult = calculateClassTuition({
+    division,
+    weeklyClassCount: weeklyCount,
+    discipline,
+    rateBands,
+    specialRates,
+    registrationFeePerChild: feeConfig?.registration_fee_per_child,
+    juniorCostumeFeePerClass: feeConfig?.junior_costume_fee_per_class,
+    seniorCostumeFeePerClass: feeConfig?.senior_costume_fee_per_class,
+    seniorVideoFeePerRegistrant: feeConfig?.senior_video_fee_per_registrant,
+  });
+  const defaultTierFromEngine = buildDefaultPriceTierFromState(division, weeklyCount, discipline, rateBands, specialRates, feeConfig);
   const existingTier = priceTiers[0] ?? null;
 
   return (

@@ -308,17 +308,33 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
     const fullyAssigned = state.participants.filter((p) => p.dancerId);
     if (fullyAssigned.length === 0 || state.isPreview) return;
 
-    // Group session IDs by dancer
+    // Group session IDs by dancer (+ per-dancer tier map for tiered classes).
     const enrollmentMap = new Map<
       string,
-      { dancerName?: string; sessionIds: string[] }
+      {
+        dancerName?: string;
+        sessionIds: string[];
+        classTierIdsBySession: Record<string, string>;
+      }
     >();
     for (const p of fullyAssigned) {
       if (!p.dancerId) continue;
       if (!enrollmentMap.has(p.dancerId)) {
-        enrollmentMap.set(p.dancerId, { sessionIds: [] });
+        enrollmentMap.set(p.dancerId, {
+          sessionIds: [],
+          classTierIdsBySession: {},
+        });
       }
-      enrollmentMap.get(p.dancerId)!.sessionIds.push(p.sessionId);
+      const entry = enrollmentMap.get(p.dancerId)!;
+      entry.sessionIds.push(p.sessionId);
+      const owner = cartItems.find((it) => {
+        if (it.mode === "drop-in")
+          return (it.selectedDateIds ?? []).includes(p.sessionId);
+        return it.sessionId === p.sessionId;
+      });
+      if (owner?.mode === "tiered" && owner.classTierId) {
+        entry.classTierIdsBySession[p.sessionId] = owner.classTierId;
+      }
     }
 
     // Include new-dancer name overrides
@@ -331,10 +347,14 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
     }
 
     const enrollments = Array.from(enrollmentMap.entries()).map(
-      ([dancerId, { dancerName, sessionIds }]) => ({
+      ([dancerId, { dancerName, sessionIds, classTierIdsBySession }]) => ({
         dancerId,
         dancerName,
         sessionIds,
+        classTierIdsBySession:
+          Object.keys(classTierIdsBySession).length > 0
+            ? classTierIdsBySession
+            : undefined,
       }),
     );
 
