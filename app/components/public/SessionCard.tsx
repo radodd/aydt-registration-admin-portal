@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCart } from "@/app/providers/CartProvider";
 import type { PublicSession } from "@/types/public";
 
@@ -16,11 +17,15 @@ function formatCurrency(cents: number): string {
 }
 
 export function SessionCard({ session, groupName }: SessionCardProps) {
-  const { add, remove, sessionIds } = useCart();
+  const { add, remove, sessionIds, semesterId } = useCart();
+  const router = useRouter();
 
   const inCart = sessionIds.includes(session.id);
   const price = session.dropInPrice ?? 0;
-  const isFull = session.spotsRemaining === 0 && !session.waitlistEnabled;
+  const atCapacity = session.spotsRemaining <= 0;
+  // Meeting-plan #5: full + waitlist routes to the waitlist flow, not the cart.
+  const isWaitlist = atCapacity && session.waitlistEnabled;
+  const isFull = atCapacity && !session.waitlistEnabled;
 
   function handleAddToCart() {
     add(session.id);
@@ -28,6 +33,20 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
 
   function handleRemove() {
     remove(session.id);
+  }
+
+  function handleJoinWaitlist() {
+    // Object-form add so the cart item carries classId for the waitlist flow.
+    if (!sessionIds.includes(session.id)) {
+      add({
+        semesterId,
+        classId: session.classId ?? "",
+        sessionId: session.id,
+        className: session.name,
+        mode: "standard",
+      });
+    }
+    router.push(`/register?semester=${semesterId}&waitlist=1`);
   }
 
   return (
@@ -214,6 +233,14 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
               View Cart
             </a>
           </div>
+        ) : isWaitlist ? (
+          <button
+            type="button"
+            onClick={handleJoinWaitlist}
+            className="w-full text-sm py-2.5 rounded-xl bg-mauve/10 text-mauve-text font-semibold hover:bg-mauve/20 transition-colors"
+          >
+            Join Waitlist
+          </button>
         ) : (
           <button
             type="button"
@@ -221,11 +248,7 @@ export function SessionCard({ session, groupName }: SessionCardProps) {
             disabled={isFull}
             className="w-full text-sm py-2.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isFull
-              ? session.waitlistEnabled
-                ? "Join Waitlist"
-                : "Full"
-              : "Add to Cart"}
+            {isFull ? "Full" : "Add to Cart"}
           </button>
         )}
       </div>

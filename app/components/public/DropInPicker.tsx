@@ -23,11 +23,19 @@ type SessionRow = {
 export function DropInPicker({
   sessions,
   initialSelectedIds,
+  initialWaitlistIds,
   onChange,
+  onWaitlistChange,
 }: {
   sessions: PublicSession[];
   initialSelectedIds?: string[];
+  initialWaitlistIds?: string[];
   onChange?: (selectedSessionIds: string[], totalPrice: number) => void;
+  /**
+   * Meeting-plan #5: full dates whose class has the waitlist enabled are
+   * selectable for the waitlist (not for paid registration). Reported here.
+   */
+  onWaitlistChange?: (waitlistSessionIds: string[]) => void;
 }) {
   // Normalize + sort the bookable sessions by date.
   const rows: SessionRow[] = useMemo(
@@ -69,6 +77,9 @@ export function DropInPicker({
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(initialSelectedIds ?? []),
   );
+  const [waitlistSel, setWaitlistSel] = useState<Set<string>>(
+    () => new Set(initialWaitlistIds ?? []),
+  );
   // Expand the first month by default; the rest start collapsed for tidiness.
   const [openMonths, setOpenMonths] = useState<Set<string>>(
     () => new Set(months[0] ? [months[0].key] : []),
@@ -84,9 +95,16 @@ export function DropInPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, rows]);
 
-  function toggle(id: string, isFull: boolean) {
-    if (isFull) return;
-    setSelected((prev) => {
+  useEffect(() => {
+    onWaitlistChange?.([...waitlistSel]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitlistSel]);
+
+  // kind: "open" (paid) | "waitlist" (full + waitlist) | "closed" (full, no waitlist)
+  function toggle(id: string, kind: "open" | "waitlist" | "closed") {
+    if (kind === "closed") return;
+    const setter = kind === "waitlist" ? setWaitlistSel : setSelected;
+    setter((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -212,8 +230,17 @@ export function DropInPicker({
                 }}
               >
                 {m.rows.map((row, i) => {
-                  const isFull = row.spotsRemaining <= 0 && !row.waitlistEnabled;
-                  const checked = selected.has(row.id);
+                  const atCapacity = row.spotsRemaining <= 0;
+                  const isWaitlist = atCapacity && row.waitlistEnabled;
+                  const isClosed = atCapacity && !row.waitlistEnabled;
+                  const kind: "open" | "waitlist" | "closed" = isClosed
+                    ? "closed"
+                    : isWaitlist
+                      ? "waitlist"
+                      : "open";
+                  const checked = isWaitlist
+                    ? waitlistSel.has(row.id)
+                    : selected.has(row.id);
                   const dateLabel = new Date(row.scheduleDate + "T00:00:00").toLocaleDateString(
                     "en-US",
                     { weekday: "short", month: "short", day: "numeric" },
@@ -231,18 +258,24 @@ export function DropInPicker({
                         gap: 10,
                         padding: "9px 12px",
                         borderTop: i > 0 ? "1px solid var(--pub-border-subtle, #ede9e4)" : "none",
-                        cursor: isFull ? "not-allowed" : "pointer",
-                        opacity: isFull ? 0.5 : 1,
-                        background: checked ? "var(--plum-50, #faf6f9)" : "transparent",
+                        cursor: isClosed ? "not-allowed" : "pointer",
+                        opacity: isClosed ? 0.5 : 1,
+                        background: checked
+                          ? isWaitlist
+                            ? "var(--pub-badge-rose-bg, #fdf2f5)"
+                            : "var(--plum-50, #faf6f9)"
+                          : "transparent",
                       }}
                     >
                       <input
                         type="checkbox"
                         checked={checked}
-                        disabled={isFull}
-                        onChange={() => toggle(row.id, isFull)}
+                        disabled={isClosed}
+                        onChange={() => toggle(row.id, kind)}
                         style={{
-                          accentColor: "var(--plum-600, #8a4d83)",
+                          accentColor: isWaitlist
+                            ? "var(--rose-700, #984459)"
+                            : "var(--plum-600, #8a4d83)",
                           width: 14,
                           height: 14,
                           flexShrink: 0,
@@ -258,8 +291,24 @@ export function DropInPicker({
                           )}
                         </div>
                       </div>
-                      {isFull ? (
+                      {isClosed ? (
                         <span style={{ fontSize: 11, color: "var(--rose-700, #984459)" }}>Full</span>
+                      ) : isWaitlist ? (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                            color: "var(--rose-700, #984459)",
+                            background: "var(--pub-badge-rose-bg, #fdf2f5)",
+                            border: "1px solid var(--rose-700, #984459)",
+                            padding: "1px 7px",
+                            borderRadius: 999,
+                          }}
+                        >
+                          Waitlist
+                        </span>
                       ) : row.spotsRemaining <= 3 ? (
                         <span style={{ fontSize: 11, color: "var(--pub-text-muted, #736d65)" }}>
                           {row.spotsRemaining} left
@@ -270,10 +319,13 @@ export function DropInPicker({
                           style={{
                             fontSize: 13,
                             fontWeight: 600,
-                            color: "var(--pub-text, #201d18)",
+                            color: isWaitlist
+                              ? "var(--pub-text-faint, #999)"
+                              : "var(--pub-text, #201d18)",
                             fontVariantNumeric: "tabular-nums",
                             minWidth: 56,
                             textAlign: "right",
+                            textDecoration: isWaitlist ? "line-through" : "none",
                           }}
                         >
                           {formatDollars(row.dropInPrice)}

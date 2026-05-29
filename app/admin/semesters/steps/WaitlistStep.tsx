@@ -247,6 +247,16 @@ export default function WaitlistStep({
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: "var(--admin-page-bg)" }}>
 
+      {/* ── Meeting-plan #5 deprecation notice ────────────────────────── */}
+      <div className="shrink-0 mx-6 mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+        <span className="font-semibold">Heads up — the waitlist works differently now.</span>{" "}
+        Waitlists are enabled <span className="font-medium">per class</span> (on each
+        class&apos;s edit screen), and invitations are sent <span className="font-medium">manually</span>{" "}
+        from the <span className="font-medium">Waitlist</span> admin page. These
+        semester-level settings and the automatic invitation email below are no longer
+        used by the registration flow.
+      </div>
+
       {/* ── Locked banner ─────────────────────────────────────────────── */}
       {isLocked && (
         <div className="shrink-0 mx-6 mt-3 rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">

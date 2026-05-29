@@ -1342,12 +1342,14 @@ export function ParticipantsContent({
 function ParticipantsPageInner() {
   const params = useSearchParams();
   const semesterId = params.get("semester") ?? "";
+  // Meeting-plan #5: forward the waitlist intent to the form step.
+  const waitlistQuery = params.get("waitlist") === "1" ? "&waitlist=1" : "";
 
   return (
     <CartRestoreGuard semesterId={semesterId}>
       <ParticipantsContent
         semesterId={semesterId}
-        continueUrl={`/register/form?semester=${semesterId}`}
+        continueUrl={`/register/form?semester=${semesterId}${waitlistQuery}`}
       />
     </CartRestoreGuard>
   );

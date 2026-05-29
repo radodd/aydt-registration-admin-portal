@@ -380,12 +380,14 @@ export default function SemesterDashboard({
             sub="total enrollments"
             accentColor={C.okText}
           />
-          <StatCard
-            label="Waitlist"
-            value={waitlistCount}
-            sub="pending spots"
-            accentColor={C.warnText}
-          />
+          <Link href="/admin/waitlist" className="block">
+            <StatCard
+              label="Waitlist"
+              value={waitlistCount}
+              sub={waitlistCount > 0 ? "view list →" : "pending spots"}
+              accentColor={C.warnText}
+            />
+          </Link>
           <StatCard
             label="Total Revenue"
             value={fmt$$(totalRevenue)}

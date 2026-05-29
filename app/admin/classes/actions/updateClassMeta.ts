@@ -10,6 +10,8 @@ export interface ClassMetaUpdate {
   max_age?: number | null;
   min_grade?: number | null;
   max_grade?: number | null;
+  /** Meeting-plan #5: per-class manual-waitlist toggle. */
+  waitlist_enabled?: boolean;
 }
 
 export async function updateClassMeta(

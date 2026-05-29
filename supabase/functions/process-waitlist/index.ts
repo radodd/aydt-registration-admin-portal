@@ -119,6 +119,21 @@ function prepareEmailHtml(html: string): string {
 
 Deno.serve(async (_req) => {
   try {
+    // Meeting-plan #5: the waitlist is now a MANUAL model — admins invite
+    // explicitly and the system never auto-invites. This legacy auto-invite cron
+    // is disabled by default. Set WAITLIST_AUTO_INVITE_ENABLED="true" only to
+    // temporarily restore the old automatic behavior. (Seat-hold expiry is also
+    // handled by the separate expire-registration-holds cron.)
+    if (Deno.env.get("WAITLIST_AUTO_INVITE_ENABLED") !== "true") {
+      return new Response(
+        JSON.stringify({
+          disabled: true,
+          reason: "manual waitlist model (meeting-plan #5)",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     const now = new Date().toISOString();
 
     /* ------------------------------------------------------------------ */

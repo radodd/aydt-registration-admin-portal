@@ -1131,6 +1131,14 @@ export type WaiverAcknowledgmentValue = {
 
 export type SemesterStatus = "draft" | "scheduled" | "published" | "archived";
 
+/**
+ * @deprecated Legacy AUTO-invite waitlist settings (semester-level, per-meeting
+ * toggle, automated invite email). Superseded by meeting-plan #5's MANUAL model:
+ * the per-class toggle now lives on `classes.waitlist_enabled` and entries are
+ * rows in `waitlist_entries` (see {@link WaitlistEntry}). Retained only so the
+ * legacy `process-waitlist` cron + WaitlistStep wizard continue to type-check
+ * while they are being retired.
+ */
 export type WaitlistConfig = {
   enabled: boolean;
   sessionSettings: Record<string, { enabled: boolean }>; // keyed by sessionId
@@ -1143,6 +1151,49 @@ export type WaitlistConfig = {
     htmlBody: string;
     includeSignature?: boolean;
   };
+};
+
+/**
+ * Meeting-plan #5: a single manual-waitlist entry. Capacity-neutral queue row
+ * that stores a full registration record MINUS payment, so an admin can later
+ * convert it into a real registration (Path A: emailed payment link; Path B:
+ * in-portal register). Mirrors the `waitlist_entries` table.
+ */
+export type WaitlistEntryStatus =
+  | "waiting" // on the list, no action taken
+  | "invited" // admin emailed a tokenized payment link (Path A)
+  | "accepted" // legacy auto-model value, retained for back-compat
+  | "registered" // converted into a real registration (Path A paid or Path B)
+  | "declined"
+  | "expired"
+  | "cancelled";
+
+export type WaitlistEntry = {
+  id: string;
+  status: WaitlistEntryStatus;
+  /** Chronological queue order in the admin view. */
+  signedUpAt: string;
+  createdAt: string;
+  position: number;
+  /** Target class whose waitlist was joined (authoritative). */
+  classId: string | null;
+  /** Booking-grain target: section (full-term/tiered) or meeting (drop-in). */
+  sectionId: string | null;
+  meetingId: string | null;
+  classTierId: string | null;
+  /** NULL until an admin converts the entry into a real registration. */
+  dancerId: string | null;
+  familyId: string | null;
+  parentUserId: string | null;
+  /** Captured registration form answers (registration minus payment). */
+  formData: Record<string, unknown>;
+  /** Display + invite contact, captured even for brand-new (no-account) users. */
+  contactName: string | null;
+  contactEmail: string | null;
+  /** Tokenized Path-A invite link bookkeeping. */
+  inviteToken: string;
+  invitationSentAt: string | null;
+  invitationExpiresAt: string | null;
 };
 
 export type SemesterDraft = {
