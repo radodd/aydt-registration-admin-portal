@@ -17,9 +17,9 @@ This doc clusters the meeting into **9 independent work items**. Spin up one Cla
 ## Priority tiers
 
 **Tier 1 — launch‑blocking (pricing + payments correctness):**
-- #1 Division removal for drop‑in & tiered
-- #2 Pricing engine consolidation
-- #7 Manual registration: installments + super‑admin overrides
+- #1 Division removal for drop‑in & tiered ✅ SHIPPED 2026-05-28
+- #2 Pricing engine consolidation ✅ SHIPPED 2026-05-28
+- #7 Manual registration: installments + super‑admin overrides ← ONLY TIER 1 REMAINING
 
 **Tier 2 — launch features (committed for July 1):**
 - #3 Registration form builder (address block + waivers)
@@ -57,9 +57,22 @@ This doc clusters the meeting into **9 independent work items**. Spin up one Cla
 
 ---
 
-## 2. Pricing engine consolidation ("one super engine") — EPIC, split into sub-windows
+## 2. Pricing engine consolidation ("one super engine") — ✅ SHIPPED 2026-05-28
 
-**Tier 1 · Refactor — single source of truth**
+**Tier 1 · Refactor — single source of truth · DONE**
+
+**Landed in 3 commits on `staging`:**
+- `0d6f142` refactor(pricing): consolidate engine across modes (#2a–#2g + bug fixes) — `computePricingQuote.ts` (+530), `tuitionEngine.ts` convergence, new `tests/unit/integration/pricingConvergence.test.ts` (+545), legacy `class_meeting_price_rows` sunset.
+- `50df59e` feat(pricing): thread tier maps + feeConfig through engine callsites — all 6 callsites pass `classTierIdsBySchedule/BySession`; SessionsStep forwards admin `feeConfig`.
+- `611ac4d` feat(cart): show live engine-computed tuition before checkout — CartDrawer + CartPageContent call the engine; standard-mode rows show `—` instead of stale `section_price_tiers`.
+
+**What's covered:** #2a special programs ✓, #2b tiered ✓, #2c drop-in canonical ✓, #2d weekly_class_count + mode-scoping ✓, #2e tuitionEngine convergence ✓, #2g legacy sunset ✓. Plus exemption-flag honoring for competition track, drop-in/special-program override gate, default exempt keys including `pre_pointe + early_childhood`, deterministic max() for multi-special override.
+
+**#2f catalog display drift — still deferred** (per 2026-05-28 decision). Standard class cards now render `—` in cart pre-checkout, so the worst drift is gone, but the catalog/ClassCard surface decision is still open for whoever next touches the public catalog.
+
+---
+
+(Sub-window breakdown below kept for historical reference; all but #2f are shipped.)
 
 **Decomposition decision (2026-05-28):** After audit, this is 6+ PR-sized changes touching the highest-blast-radius file in the codebase ([`app/actions/computePricingQuote.ts`](app/actions/computePricingQuote.ts), Payments zone). Each sub-window closes one gap, ships with regression tests, and is independently verifiable against AYDT's sheet. **Open one Claude window per sub-item below.**
 
