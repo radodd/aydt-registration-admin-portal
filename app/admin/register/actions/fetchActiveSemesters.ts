@@ -12,10 +12,12 @@ export type SemesterOption = {
 export async function fetchActiveSemesters(): Promise<SemesterOption[]> {
   await requireAdmin();
   const supabase = await createClient();
+  // Only published semesters are registerable from the admin flow — drafts are
+  // not yet open and should not appear in the register picker.
   const { data } = await supabase
     .from("semesters")
     .select("id, name, status")
-    .in("status", ["published", "draft"])
+    .eq("status", "published")
     .order("created_at", { ascending: false })
     .limit(20);
 

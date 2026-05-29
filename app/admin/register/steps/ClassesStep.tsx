@@ -130,6 +130,8 @@ export default function ClassesStep({
   const [semesterId, setSemesterId] = useState(initialSemesterId);
   const [semesterName, setSemesterName] = useState(initialSemesterName);
   const [semesters, setSemesters] = useState<SemesterOption[]>([]);
+  const [semestersLoading, setSemestersLoading] = useState(false);
+  const [semesterSearch, setSemesterSearch] = useState("");
   const [classes, setClasses] = useState<AdminClassGroup[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -156,9 +158,41 @@ export default function ClassesStep({
 
   useEffect(() => {
     if (!initialSemesterId) {
-      fetchActiveSemesters().then(setSemesters);
+      setSemestersLoading(true);
+      fetchActiveSemesters().then((data) => {
+        setSemesters(data);
+        setSemestersLoading(false);
+      });
     }
   }, [initialSemesterId]);
+
+  const filteredSemesters = useMemo(() => {
+    const q = semesterSearch.trim().toLowerCase();
+    if (!q) return semesters;
+    return semesters.filter((s) => s.name.toLowerCase().includes(q));
+  }, [semesters, semesterSearch]);
+
+  // Picking — or changing — the semester invalidates every prior class/session
+  // selection, so reset them all together.
+  function selectSemester(s: SemesterOption) {
+    setSemesterId(s.id);
+    setSemesterName(s.name);
+    setSelectedClassIds(new Set());
+    setSelectedSessionIds(new Set());
+    setSelectedScheduleIds(new Set());
+    setSelectedTierIdByClass({});
+  }
+
+  function clearSemester() {
+    setSemesterId("");
+    setSemesterName("");
+    setSemesterSearch("");
+    setClasses([]);
+    setSelectedClassIds(new Set());
+    setSelectedSessionIds(new Set());
+    setSelectedScheduleIds(new Set());
+    setSelectedTierIdByClass({});
+  }
 
   useEffect(() => {
     if (!semesterId) return;
@@ -467,31 +501,69 @@ export default function ClassesStep({
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 items-start">
       {/* Main content */}
       <div className="space-y-5">
-        {/* Semester picker (only when not pre-selected) */}
+        {/* Semester picker (only when not pre-selected) — searchable list with a
+            "Change" affordance so the admin can re-pick a different semester. */}
         {!initialSemesterId && (
           <div className="bg-white border border-[#DDD9D2] rounded-xl p-5">
             <label className="block text-sm font-semibold text-[#201D18] mb-2">
               Semester
             </label>
-            <select
-              value={semesterId}
-              onChange={(e) => {
-                const id = e.target.value;
-                const s = semesters.find((s) => s.id === id);
-                setSemesterId(id);
-                setSemesterName(s?.name ?? "");
-                setSelectedClassIds(new Set());
-              }}
-              className="w-full px-3 py-2 border border-[#DDD9D2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23] bg-white"
-            >
-              <option value="">Select a semester…</option>
-              {semesters.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                  {s.status === "draft" && " (Draft)"}
-                </option>
-              ))}
-            </select>
+            {semesterId ? (
+              <div className="flex items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[#201D18]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#8E2A23] inline-block" />
+                  {semesterName}
+                </span>
+                <button
+                  onClick={clearSemester}
+                  className="text-xs font-medium text-[#8E2A23] hover:text-[#7A2420] transition"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9E9890] pointer-events-none" />
+                  <input
+                    type="text"
+                    value={semesterSearch}
+                    onChange={(e) => setSemesterSearch(e.target.value)}
+                    placeholder="Search semesters…"
+                    className="w-full pl-9 pr-9 py-2.5 border border-[#DDD9D2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23] bg-white placeholder:text-[#9E9890]"
+                  />
+                  {semesterSearch && (
+                    <button
+                      onClick={() => setSemesterSearch("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9E9890] hover:text-[#736D65] transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <ul className="max-h-56 overflow-y-auto divide-y divide-[#EDE9E4] border border-[#DDD9D2] rounded-xl">
+                  {semestersLoading ? (
+                    <li className="px-3 py-2.5 text-sm text-[#9E9890]">Loading semesters…</li>
+                  ) : filteredSemesters.length === 0 ? (
+                    <li className="px-3 py-2.5 text-sm text-[#9E9890]">No semesters found.</li>
+                  ) : (
+                    filteredSemesters.map((s) => (
+                      <li key={s.id}>
+                        <button
+                          onClick={() => selectSemester(s)}
+                          className="w-full text-left px-3 py-2.5 text-sm text-[#201D18] hover:bg-[#F7F5F2] transition flex items-center justify-between gap-2"
+                        >
+                          <span>{s.name}</span>
+                          {s.status === "draft" && (
+                            <span className="text-xs text-[#9E9890] shrink-0">Draft</span>
+                          )}
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
