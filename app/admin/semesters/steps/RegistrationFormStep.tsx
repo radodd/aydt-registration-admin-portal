@@ -5,6 +5,8 @@ import { RegistrationFormElement, SemesterAction, SemesterDraft } from "@/types"
 import CustomQuestionModal from "@/app/components/semester-flow/CustomQuestionModal";
 import SubheaderModal from "@/app/components/semester-flow/SubheaderModal";
 import TextBlockModal from "@/app/components/semester-flow/TextBlockModal";
+import WaiverModal from "@/app/components/semester-flow/WaiverModal";
+import { DEFAULT_WAIVER_TITLE, DEFAULT_WAIVER_BODY, DEFAULT_ACKNOWLEDGMENT_LABEL } from "@/lib/waiver";
 import { autosaveSemesterField } from "../actions/autosaveSemesterField";
 import { ChevronDown, ChevronRight, GripVertical, MoreHorizontal, Plus } from "lucide-react";
 import {
@@ -46,10 +48,14 @@ function buildDefaultRegistrationElements(): RegistrationFormElement[] {
     },
     { id: crypto.randomUUID(), type: "question", label: "Email Address", inputType: "short_answer", required: true },
     { id: crypto.randomUUID(), type: "question", label: "Phone Number", inputType: "phone_number", required: true },
-    { id: crypto.randomUUID(), type: "question", label: "Address", inputType: "long_answer", required: false },
+    { id: crypto.randomUUID(), type: "question", label: "Address", inputType: "address", required: false },
     { id: crypto.randomUUID(), type: "question", label: "Nanny / Caregiver Name (if applicable)", inputType: "short_answer", required: false },
     { id: crypto.randomUUID(), type: "subheader", label: "Emergency Contact" },
     { id: crypto.randomUUID(), type: "question", label: "Emergency Contact Name", inputType: "short_answer", required: true },
+    {
+      id: crypto.randomUUID(), type: "waiver", label: DEFAULT_WAIVER_TITLE, required: true,
+      waiverBody: DEFAULT_WAIVER_BODY, acknowledgmentLabel: DEFAULT_ACKNOWLEDGMENT_LABEL,
+    },
     {
       id: crypto.randomUUID(), type: "question", label: "How did you hear about us?", inputType: "select", required: false,
       options: ["Social Media","Google Search","Word of Mouth","Returning Family","Flyer / Brochure","Other"],
@@ -69,6 +75,7 @@ function inputTypeLabel(type: string | undefined): string {
     case "select":        return "select";
     case "phone_number":  return "phone number";
     case "checkbox":      return "checkbox";
+    case "address":       return "address block";
     default:              return type ?? "unknown";
   }
 }
@@ -133,7 +140,12 @@ function SortableFieldRowItem({
     return () => document.removeEventListener("mousedown", onOutside);
   }, [rowMenuOpen]);
 
-  const typeLabel = el.type === "text_block" ? "text block" : inputTypeLabel(el.inputType);
+  const typeLabel =
+    el.type === "text_block"
+      ? "text block"
+      : el.type === "waiver"
+        ? "waiver + acknowledgment"
+        : inputTypeLabel(el.inputType);
 
   return (
     <div
@@ -218,7 +230,7 @@ function SortableSectionCard({
   onToggleCollapse: () => void;
   onEditHeader: () => void;
   onDeleteHeader: () => void;
-  onAddField: (afterIndex: number, type: "question" | "text_block") => void;
+  onAddField: (afterIndex: number, type: "question" | "text_block" | "waiver") => void;
   onEditField: (el: RegistrationFormElement) => void;
   onDeleteField: (id: string) => void;
 }) {
@@ -367,6 +379,12 @@ function SortableSectionCard({
                   >
                     Text block
                   </button>
+                  <button
+                    onClick={() => { setAddMenuOpen(false); onAddField(lastIndex, "waiver"); }}
+                    className="w-full px-3 py-2.5 text-left text-sm text-neutral-700 hover:bg-neutral-50 transition-colors border-t border-neutral-100"
+                  >
+                    Waiver
+                  </button>
                 </div>
               )}
             </div>
@@ -390,7 +408,7 @@ type Props = {
   semesterId?: string;
 };
 
-type ActiveModal = "question" | "subheader" | "text_block" | null;
+type ActiveModal = "question" | "subheader" | "text_block" | "waiver" | null;
 
 export default function RegistrationFormStep({ state, dispatch, isLocked = false, semesterId }: Props) {
   const elements = state.registrationForm?.elements ?? [];
@@ -477,7 +495,7 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
     dispatch({ type: "REMOVE_FORM_ELEMENT", payload: id });
   }
 
-  function openAddFieldToSection(afterIndex: number, type: "question" | "text_block") {
+  function openAddFieldToSection(afterIndex: number, type: "question" | "text_block" | "waiver") {
     setEditingElement(null);
     setAddingToSectionAfterIndex(afterIndex);
     setActiveModal(type);
@@ -599,6 +617,12 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
           >
             + Text block
           </button>
+          <button
+            onClick={() => openModal("waiver")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-neutral-300 text-neutral-600 hover:bg-neutral-50 transition text-sm"
+          >
+            + Waiver
+          </button>
         </div>
       )}
 
@@ -660,7 +684,11 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
                   </span>
                 </div>
                 <div className="text-xs text-neutral-400 mt-0.5 pl-[18px]">
-                  {activeDragField.type === "text_block" ? "text block" : inputTypeLabel(activeDragField.inputType)}
+                  {activeDragField.type === "text_block"
+                    ? "text block"
+                    : activeDragField.type === "waiver"
+                      ? "waiver + acknowledgment"
+                      : inputTypeLabel(activeDragField.inputType)}
                 </div>
               </div>
             </div>
@@ -687,6 +715,9 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
       )}
       {activeModal === "text_block" && (
         <TextBlockModal initialElement={editingElement} onClose={closeModal} onSave={handleSaveElement} />
+      )}
+      {activeModal === "waiver" && (
+        <WaiverModal initialElement={editingElement} onClose={closeModal} onSave={handleSaveElement} />
       )}
     </div>
   );

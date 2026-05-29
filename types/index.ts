@@ -1007,7 +1007,11 @@ export interface Registration {
 /* Registration Form Domain                                                   */
 /* -------------------------------------------------------------------------- */
 
-export type RegistrationElementType = "question" | "subheader" | "text_block";
+export type RegistrationElementType =
+  | "question"
+  | "subheader"
+  | "text_block"
+  | "waiver";
 
 export type QuestionInputType =
   | "short_answer"
@@ -1015,7 +1019,22 @@ export type QuestionInputType =
   | "select"
   | "checkbox"
   | "date"
-  | "phone_number";
+  | "phone_number"
+  | "address";
+
+/**
+ * Structured value stored for an `inputType: "address"` question. Persisted as a
+ * nested object under the element id inside the `form_data` JSONB blob (no
+ * dedicated columns). `line2` is always optional; the others are required when
+ * the element is marked required. See `lib/address.ts` for the helpers.
+ */
+export type AddressValue = {
+  street: string;
+  line2?: string;
+  city: string;
+  state: string;
+  zip: string;
+};
 
 export type TextBlockFormatting = {
   style: "normal" | "header";
@@ -1087,6 +1106,23 @@ export type RegistrationFormElement = {
   // Text block fields
   textFormatting?: TextBlockFormatting;
   htmlContent?: string; // TipTap HTML output (preferred for new elements)
+
+  // Waiver fields (type === "waiver"). The family views the PDF (or the
+  // fallback body text) and must check the acknowledgment box. Multiple waiver
+  // elements per form are supported. See `lib/waiver.ts` for defaults/helpers.
+  waiverFileUrl?: string; // uploaded PDF (email-assets bucket via /api/upload-pdf)
+  waiverFileName?: string; // original file name, for display
+  waiverBody?: string; // shown to the family; defaults to a generic template
+  acknowledgmentLabel?: string; // the checkbox label
+};
+
+/**
+ * Value stored for a `type: "waiver"` element under its id in the `form_data`
+ * JSONB blob: whether the family checked the box, and when.
+ */
+export type WaiverAcknowledgmentValue = {
+  acknowledged: boolean;
+  acknowledgedAt?: string; // ISO timestamp captured when the box was checked
 };
 
 /* -------------------------------------------------------------------------- */
