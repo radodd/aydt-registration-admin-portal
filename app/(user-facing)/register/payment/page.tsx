@@ -1295,14 +1295,19 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                 Payment via Elavon
               </strong>
               You&apos;ll be redirected to Elavon&apos;s secure checkout to enter
-              card details.{" "}
-              <span
-                style={{ color: "var(--plum-700)", fontWeight: 600 }}
-              >
-                Choose your payment plan below
-              </span>{" "}
-              — pay in full or split into monthly installments ($5/month service
-              fee applies).
+              card details.
+              {installmentsAllowed && (
+                <>
+                  {" "}
+                  <span
+                    style={{ color: "var(--plum-700)", fontWeight: 600 }}
+                  >
+                    Choose your payment plan below
+                  </span>{" "}
+                  — pay in full or split into monthly installments ($5/month
+                  service fee applies).
+                </>
+              )}
             </div>
           </div>
           <span
