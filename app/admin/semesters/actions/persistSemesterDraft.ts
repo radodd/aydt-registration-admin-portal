@@ -142,7 +142,20 @@ export async function persistSemesterDraft(
 
   // Phase 2: upsert fee config
   if (state.feeConfig !== undefined) {
-    await upsertFeeConfig(supabase, semesterId, state.feeConfig);
+    // Option B sync: the Payment Plan section's "Number of installments" is the
+    // source of truth for the installment count. If installments are enabled
+    // with a non-null count, override fee-config's auto_pay_installment_count
+    // here so this upsert doesn't clobber the sync syncSemesterPayment just
+    // performed. Immutable spread — does not mutate the caller's state.feeConfig.
+    const feeConfigForUpsert =
+      state.paymentPlan?.type === "installments" &&
+      state.paymentPlan.installmentCount != null
+        ? {
+            ...state.feeConfig,
+            auto_pay_installment_count: state.paymentPlan.installmentCount,
+          }
+        : state.feeConfig;
+    await upsertFeeConfig(supabase, semesterId, feeConfigForUpsert);
   }
 
   // Tuition engine: sync special program tuition overrides
