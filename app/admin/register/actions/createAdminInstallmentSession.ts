@@ -25,12 +25,14 @@ export interface CreateAdminInstallmentSessionResult {
 }
 
 /**
- * Admin analogue of createEPGPaymentSession for meeting-plan #7. Mints a hosted
- * payment-page session (doCapture: false) so the family's card can be entered
- * on the spot and stored as a reusable token. The EXISTING EPG webhook
- * (storePaymentMethodAndCaptureInstallment) then stores the card, charges
- * installment 1, links stored_payment_method_id, and confirms the batch — and
- * the recurring cron auto-charges installments 2..N. No new EPG client code.
+ * Admin analogue of createEPGPaymentSession for meeting-plan #7. Mints a
+ * tokenize-only hosted payment-page session (doCreateTransaction:false) so the
+ * family's card can be entered on the spot and stored as a reusable token. The
+ * returnUrl handoff (/admin/register/confirmation) then calls
+ * ensureStoredCardAndChargeInstallment1, which stores the card, charges
+ * installment 1 server-to-server, links stored_payment_method_id, and confirms
+ * the batch — and the recurring cron auto-charges installments 2..N. The EPG
+ * webhook + reconciliation cron are idempotent backups for the same logic.
  *
  * Differs from the public createEPGPaymentSession only by:
  *   - super_admin gate (installment setup is a super-admin power)
@@ -133,9 +135,12 @@ export async function createAdminInstallmentSession(
     return { error: "Failed to create payment order. Please try again." };
   }
 
-  // 6. Create the hosted session with doCapture: false so EPG returns a
-  //    hostedCard token for storage (same contract the public installment flow
-  //    and the webhook rely on). Ref: docs/elavon/api_stored_cards.md.
+  // 6. Create a tokenize-only hosted session (doCreateTransaction:false) so EPG
+  //    returns a hostedCard token for storage without consuming it on a
+  //    transaction. The admin returnUrl handoff (/admin/register/confirmation)
+  //    then stores the card + charges installment 1 server-to-server, and the
+  //    recurring cron auto-charges installments 2..N.
+  //    Ref: docs/elavon/api_stored_cards.md.
   let session;
   try {
     session = await createEpgPaymentSession({
@@ -144,7 +149,7 @@ export async function createAdminInstallmentSession(
       cancelUrl,
       customReference: batchId,
       doThreeDSecure: true,
-      doCapture: false,
+      doCreateTransaction: false,
     });
   } catch (err) {
     console.error("[createAdminInstallmentSession] createEpgPaymentSession failed:", err);

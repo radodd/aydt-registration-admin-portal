@@ -112,6 +112,13 @@ async function chargeInstallmentEpg(params: {
           amount: params.amountDollars.toFixed(2),
           currencyCode: "USD",
         },
+        // Merchant-initiated recurring charge (no cardholder present in this
+        // cron). Required to exempt the charge from 3DS2 enforcement, otherwise
+        // it is declined with `3dsEnforcedOnEcommerceSales`. Accepted values
+        // confirmed by Elavon (Justin Huffines, 2026-05-30). Mirrors
+        // createEpgTransaction in utils/payment/epg.ts.
+        credentialOnFileType: "recurring",
+        shopperInteraction: "merchantInitiated",
         customReference: params.installmentId,
         description: `AYDT Installment ${params.installmentNumber}`,
         doCapture: true,

@@ -191,10 +191,13 @@ describe("createAdminInstallmentSession (#7)", () => {
     expect(mockCreateEpgOrder).toHaveBeenCalledWith(
       expect.objectContaining({ amountDollars: 200, customReference: BATCH_ID }),
     );
-    // doCapture:false is the load-bearing flag — it makes EPG return a hostedCard
-    // token for storage instead of capturing a one-time charge.
+    // doCreateTransaction:false is the load-bearing flag — it makes the hosted
+    // page tokenize-only, so EPG returns a hostedCard token for storage WITHOUT
+    // consuming it on a transaction (a doCreateTransaction:true session consumes
+    // the token and POST /stored-cards then 404s). Confirmed two-step pattern
+    // with Elavon (Justin Huffines, 2026-05-30).
     expect(mockCreateEpgPaymentSession).toHaveBeenCalledWith(
-      expect.objectContaining({ orderHref: ORDER_HREF, doCapture: false, customReference: BATCH_ID }),
+      expect.objectContaining({ orderHref: ORDER_HREF, doCreateTransaction: false, customReference: BATCH_ID }),
     );
   });
 

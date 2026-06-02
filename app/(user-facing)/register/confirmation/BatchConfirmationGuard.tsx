@@ -45,6 +45,34 @@ export function BatchConfirmationGuard({
   const MAX_POLLS = 15; // 15 × 2s = 30s
   const MAX_CONSECUTIVE_FAILURES = 3;
   const purchaseFired = useRef(false);
+  const finalizeFired = useRef(false);
+
+  // Installment plans use a tokenize-only hosted session (doCreateTransaction:
+  // false), so NO webhook fires to confirm them. Trigger the store-and-charge
+  // handoff once on return. Idempotent server-side (the reconciliation cron is a
+  // backstop); the polling effect below still picks up the resulting status.
+  useEffect(() => {
+    if (isPreview || finalizeFired.current) return;
+    if (paymentPlanType !== "installments") return;
+    if (status === "confirmed") return;
+    finalizeFired.current = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/register/finalize-installment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ batchId }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as { status?: string };
+          if (data.status === "confirmed") setStatus("confirmed");
+        }
+      } catch {
+        /* polling effect handles the fallback */
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // No polling needed if already confirmed or in preview mode
