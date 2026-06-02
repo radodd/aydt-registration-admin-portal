@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { requireAdmin } from "@/utils/requireAdmin";
+import { grantAccountCredits } from "@/queries/credits";
 import type { FamilyAccountCredit } from "@/types";
 
 export async function issueAccountCredit(params: {
@@ -24,19 +25,14 @@ export async function issueAccountCredit(params: {
 
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("family_account_credits")
-    .insert({
-      family_id: params.familyId,
-      amount: params.amount,
-      reason: params.reason?.trim() || null,
-      issued_by_admin_id: adminUserId,
-      source_batch_id: params.sourceBatchId ?? null,
-    })
-    .select()
-    .single();
+  // Single source of truth: all grants go through the canonical query layer.
+  const { credits, error } = await grantAccountCredits(supabase, {
+    familyId: params.familyId,
+    credits: [{ amount: params.amount, reason: params.reason }],
+    issuedByAdminId: adminUserId,
+    sourceBatchId: params.sourceBatchId ?? null,
+  });
 
-  if (error) return { error: error.message };
-
-  return { credit: data as FamilyAccountCredit };
+  if (error) return { error };
+  return { credit: credits[0] };
 }

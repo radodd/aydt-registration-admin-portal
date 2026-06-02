@@ -19,11 +19,13 @@ const {
   mockCreateClient,
   mockComputePricingQuote,
   mockCreateAdminInstallmentSession,
+  mockCreateAdminAchSession,
   mockSendReceipt,
 } = vi.hoisted(() => ({
   mockCreateClient: vi.fn(),
   mockComputePricingQuote: vi.fn(),
   mockCreateAdminInstallmentSession: vi.fn(),
+  mockCreateAdminAchSession: vi.fn(),
   mockSendReceipt: vi.fn(),
 }));
 
@@ -33,6 +35,9 @@ vi.mock("@/app/actions/computePricingQuote", () => ({
 }));
 vi.mock("@/app/admin/register/actions/createAdminInstallmentSession", () => ({
   createAdminInstallmentSession: mockCreateAdminInstallmentSession,
+}));
+vi.mock("@/app/admin/register/actions/createAdminAchSession", () => ({
+  createAdminAchSession: mockCreateAdminAchSession,
 }));
 vi.mock("@/app/admin/register/actions/sendRegistrationReceipt", () => ({
   sendRegistrationReceipt: mockSendReceipt,
@@ -73,7 +78,12 @@ function baseInput(overrides: Record<string, unknown> = {}) {
  * the role lookup. `users.select(role).single()` returns the configured role;
  * everything else resolves empty/no-error.
  */
-function makeSupabaseMock(role: "admin" | "super_admin" | null) {
+function makeSupabaseMock(
+  role: "admin" | "super_admin" | null,
+  // Rows returned for `family_account_credits` selects — lets a test simulate
+  // the canonical getApplicableCredits validation returning verified credits.
+  creditRows: { id: string; amount: number }[] = [],
+) {
   const inserts: Record<string, unknown[]> = {};
 
   const from = vi.fn((table: string) => {
@@ -89,9 +99,13 @@ function makeSupabaseMock(role: "admin" | "super_admin" | null) {
       table === "users" ? { data: { role }, error: null } : { data: null, error: null },
     );
     chain.maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
-    // Awaited insert()/select() (no terminal) resolves here.
+    // Awaited insert()/select() (no terminal) resolves here. The canonical
+    // credit layer reads family_account_credits, so return the test's rows there.
     chain.then = (resolve: (v: unknown) => void) =>
-      Promise.resolve({ data: [], error: null }).then(resolve);
+      Promise.resolve({
+        data: table === "family_account_credits" ? creditRows : [],
+        error: null,
+      }).then(resolve);
     return chain;
   });
 
@@ -107,6 +121,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockCreateAdminInstallmentSession.mockResolvedValue({
     paymentSessionUrl: "https://uat.epg.example.com/hpp/session-xyz",
+  });
+  mockCreateAdminAchSession.mockResolvedValue({
+    paymentSessionUrl: "https://uat.epg.example.com/hpp/ach-session-xyz",
   });
   mockSendReceipt.mockResolvedValue(undefined); // action chains .catch on this
 });
@@ -283,6 +300,57 @@ describe("createAdminRegistration — manual registration simulation (#7)", () =
   });
 
   /* ----------------------------------------------------------------------- */
+  /* Path A2 — one-time ACH debit (#18)                                        */
+  /* ----------------------------------------------------------------------- */
+  it("Path A2: ACH creates a PENDING pay_in_full order and redirects to the bank-entry page", async () => {
+    const { client, inserts } = makeSupabaseMock("admin");
+    mockCreateClient.mockResolvedValue(client);
+
+    const result = await createAdminRegistration(
+      baseInput({ paymentPlanType: "pay_in_full", paymentMethod: "ach", amountCollected: 0 }),
+    );
+
+    // Redirects to the hosted ACH page (like the installment path), not synchronous.
+    expect(result.success).toBe(true);
+    expect(result.paymentSessionUrl).toBe("https://uat.epg.example.com/hpp/ach-session-xyz");
+    expect(mockCreateAdminAchSession).toHaveBeenCalledTimes(1);
+
+    // Order is PENDING pay_in_full, tagged payment_method 'ach', full total due.
+    const order = (inserts["registration_orders"]?.[0] ?? {}) as Record<string, unknown>;
+    expect(order.status).toBe("pending");
+    expect(order.payment_plan_type).toBe("pay_in_full");
+    expect(order.payment_method).toBe("ach");
+    expect(order.amount_due_now).toBe(1000);
+
+    // Enrollments go in PENDING; the webhook flips them on capture.
+    const enrollRows = (inserts["section_enrollments"]?.[0] ?? []) as Array<Record<string, unknown>>;
+    expect(enrollRows.every((r) => r.status === "pending")).toBe(true);
+
+    // One scheduled installment — confirmBatch marks it paid on capture.
+    const inst = (inserts["order_payment_installments"]?.[0] ?? {}) as Record<string, unknown>;
+    expect(inst.installment_number).toBe(1);
+    expect(inst.amount_due).toBe(1000);
+    expect(inst.status).toBe("scheduled");
+
+    // No synchronous receipt — the webhook owns confirmation (mirrors Path A).
+    expect(mockSendReceipt).not.toHaveBeenCalled();
+  });
+
+  it("Path A2: a failed ACH session surfaces the error and does not redirect", async () => {
+    const { client } = makeSupabaseMock("admin");
+    mockCreateClient.mockResolvedValue(client);
+    mockCreateAdminAchSession.mockResolvedValueOnce({ error: "EPG down" });
+
+    const result = await createAdminRegistration(
+      baseInput({ paymentPlanType: "pay_in_full", paymentMethod: "ach", amountCollected: 0 }),
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.paymentSessionUrl).toBeUndefined();
+    expect(result.error).toBe("EPG down");
+  });
+
+  /* ----------------------------------------------------------------------- */
   /* Path B — pay-in-full / manual                                            */
   /* ----------------------------------------------------------------------- */
   it("Path B: regular admin pay-in-full confirms the order and marks installment 1 paid", async () => {
@@ -309,7 +377,7 @@ describe("createAdminRegistration — manual registration simulation (#7)", () =
     expect(mockSendReceipt).toHaveBeenCalledTimes(1);
   });
 
-  it("Path B: super-admin partial payment confirms the order but leaves installment 1 unpaid (override)", async () => {
+  it("Path B: super-admin partial payment marks the order PARTIAL and records the collected amount (#19)", async () => {
     const { client, inserts } = makeSupabaseMock("super_admin");
     mockCreateClient.mockResolvedValue(client);
 
@@ -319,11 +387,118 @@ describe("createAdminRegistration — manual registration simulation (#7)", () =
 
     expect(result.success).toBe(true);
     const order = (inserts["registration_orders"]?.[0] ?? {}) as Record<string, unknown>;
-    expect(order.status).toBe("confirmed"); // not blocked
+    // #19: under-collected orders read as 'partial', not 'confirmed', and
+    // amount_due_now reflects what was actually collected.
+    expect(order.status).toBe("partial");
+    expect(order.amount_due_now).toBe(400);
 
     const inst = (inserts["order_payment_installments"]?.[0] ?? {}) as Record<string, unknown>;
     expect(inst.status).toBe("scheduled"); // balance remains due
     expect(inst.paid_at).toBeNull();
+    // #19: the collected $400 is persisted instead of being dropped to null.
+    expect(inst.paid_amount).toBe(400);
+  });
+
+  it("Path B: a partial payment dates the remaining balance to the chosen balanceDueDate (#19)", async () => {
+    const { client, inserts } = makeSupabaseMock("super_admin");
+    mockCreateClient.mockResolvedValue(client);
+
+    const result = await createAdminRegistration(
+      baseInput({ paymentPlanType: "pay_in_full", amountCollected: 400, balanceDueDate: "2026-09-01" }),
+    );
+
+    expect(result.success).toBe(true);
+    const inst = (inserts["order_payment_installments"]?.[0] ?? {}) as Record<string, unknown>;
+    expect(inst.due_date).toBe("2026-09-01");
+  });
+
+  it("Path B: a full payment ignores balanceDueDate and stays due today (#19)", async () => {
+    const { client, inserts } = makeSupabaseMock("admin");
+    mockCreateClient.mockResolvedValue(client);
+
+    const today = new Date().toISOString().split("T")[0];
+    const result = await createAdminRegistration(
+      baseInput({ paymentPlanType: "pay_in_full", amountCollected: 1000, balanceDueDate: "2026-09-01" }),
+    );
+
+    expect(result.success).toBe(true);
+    const inst = (inserts["order_payment_installments"]?.[0] ?? {}) as Record<string, unknown>;
+    expect(inst.status).toBe("paid");
+    expect(inst.due_date).toBe(today); // full payment: balanceDueDate is irrelevant
+  });
+
+  /* ----------------------------------------------------------------------- */
+  /* #17 — granting new account credits (injury make-up, etc.)                */
+  /* ----------------------------------------------------------------------- */
+  it("#17: a granted credit posts to family_account_credits and does NOT reduce the order total", async () => {
+    const { client, inserts } = makeSupabaseMock("admin");
+    mockCreateClient.mockResolvedValue(client);
+
+    const result = await createAdminRegistration(
+      baseInput({
+        paymentPlanType: "pay_in_full",
+        amountCollected: 1000, // full payment — grant is independent of the total
+        creditsToGrant: [{ label: "Injury make-up credit", amount: 120 }],
+      }),
+    );
+
+    expect(result.success).toBe(true);
+
+    // The order total is untouched — a grant banks money, it doesn't discount.
+    const order = (inserts["registration_orders"]?.[0] ?? {}) as Record<string, unknown>;
+    expect(order.grand_total).toBe(1000);
+
+    // A family_account_credits row is inserted, tied to this batch + admin.
+    const creditRows = (inserts["family_account_credits"]?.[0] ?? []) as Array<Record<string, unknown>>;
+    expect(creditRows).toHaveLength(1);
+    expect(creditRows[0]).toMatchObject({
+      family_id: FAMILY_ID,
+      amount: 120,
+      reason: "Injury make-up credit",
+      issued_by_admin_id: ADMIN_ID,
+      source_batch_id: result.batchId,
+    });
+  });
+
+  it("#17: grants also fire on the installment path", async () => {
+    const { client, inserts } = makeSupabaseMock("super_admin");
+    mockCreateClient.mockResolvedValue(client);
+
+    const result = await createAdminRegistration(
+      baseInput({
+        paymentPlanType: "monthly",
+        installmentCount: 4,
+        creditsToGrant: [{ label: "Make-up", amount: 50 }],
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    const order = (inserts["registration_orders"]?.[0] ?? {}) as Record<string, unknown>;
+    expect(order.grand_total).toBe(1000); // unchanged by the grant
+    const creditRows = (inserts["family_account_credits"]?.[0] ?? []) as Array<Record<string, unknown>>;
+    expect(creditRows).toHaveLength(1);
+    expect(creditRows[0]).toMatchObject({ amount: 50, source_batch_id: result.batchId });
+  });
+
+  it("#consolidation: an applied account credit reduces the total by the SERVER-verified amount", async () => {
+    // Client asks to apply credit "c1"; the canonical layer verifies it is worth
+    // $200. $1000 base − $200 verified credit = $800 effective.
+    const { client, inserts } = makeSupabaseMock("admin", [{ id: "c1", amount: 200 }]);
+    mockCreateClient.mockResolvedValue(client);
+
+    const result = await createAdminRegistration(
+      baseInput({
+        paymentPlanType: "pay_in_full",
+        amountCollected: 800, // full payment of the post-credit total
+        creditIdsToApply: ["c1"],
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    const order = (inserts["registration_orders"]?.[0] ?? {}) as Record<string, unknown>;
+    expect(order.grand_total).toBe(800); // 1000 − 200 verified credit
+    const inst = (inserts["order_payment_installments"]?.[0] ?? {}) as Record<string, unknown>;
+    expect(inst.status).toBe("paid"); // 800 collected covers the 800 effective total
   });
 
   it("rejects an unauthenticated caller", async () => {

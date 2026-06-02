@@ -14,6 +14,7 @@ import { createEPGPaymentSession } from "@/app/actions/createEPGPaymentSession";
 import { updateUserProfile } from "@/app/(user-facing)/profile/actions/updateUserProfile";
 import { getSemesterForDisplay } from "@/app/actions/getSemesterForDisplay";
 import { createClient } from "@/utils/supabase/client";
+import { getAvailableCredits } from "@/queries/credits";
 import type { PricingQuote, FamilyAccountCredit } from "@/types";
 import type { PublicSession } from "@/types/public";
 import { gaEvent } from "@/utils/analytics";
@@ -236,18 +237,12 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
         .then(({ data: profile }) => {
           const familyId = (profile as any)?.family_id;
           if (!familyId) return;
-          supabase
-            .from("family_account_credits")
-            .select("*")
-            .eq("family_id", familyId)
-            .is("used_in_batch_id", null)
-            .eq("is_active", true)
-            .then(({ data }) => {
-              if (data && data.length > 0) {
-                setAvailableCredits(data as FamilyAccountCredit[]);
-                setApplyCredit(true);
-              }
-            });
+          getAvailableCredits(supabase, familyId).then((data) => {
+            if (data.length > 0) {
+              setAvailableCredits(data);
+              setApplyCredit(true);
+            }
+          });
         });
     });
   }, [state.isPreview]);
