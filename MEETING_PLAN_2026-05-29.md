@@ -25,15 +25,17 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ## Priority tiers
 
+> **Progress (as of 2026‑06‑01):** 4 items shipped (#10, #12, #13, #14) and #21's add‑ons portion shipped + harness‑verified. 13 items remain.
+
 **Tier 1 — committed for next meeting / launch‑blocking payments:**
 - #19 Partial‑payment balance must propagate to dancer profile + payment dashboard
-- #21 Pricing / order‑summary engine completion (add‑ons, costume, registration fee)
+- #21 Pricing / order‑summary engine completion — 🟡 **add‑ons SHIPPED + harness‑verified 2026‑06‑01** (`ec32006`); costume + registration‑fee line items still to confirm
 - #25 Classes tab — capacity + waitlist overview (the headline next‑meeting build)
 - #26 Concurrency stress test (first‑to‑payment) + live human test
 
 **Tier 2 — functional bugs/asks surfaced in the demo:**
-- #10 Class builder field persistence (default drop‑in price, add‑ons)
-- #12 Form‑builder edit‑question modal responsiveness
+- #10 Class builder field persistence (default drop‑in price, add‑ons) — ✅ SHIPPED 2026‑06‑01 (`bc2d9e5`)
+- #12 Form‑builder edit‑question modal responsiveness — ✅ SHIPPED 2026‑06‑01 (`f320c99`)
 - #16 Auto‑populate existing dancer info (manual reg + waitlist + preview)
 - #17 Credits + tuition adjustment in both pay modes
 - #18 Add ACH to manual‑reg payment methods (keep check)
@@ -42,8 +44,8 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 **Tier 3 — polish / smaller refinements:**
 - #11 Remove stale "Junior" division artifact from drop‑in display
-- #13 Custom discipline option for camps
-- #14 Duplicate‑a‑week (copy camp week within a semester)
+- #13 Custom discipline option for camps — ✅ SHIPPED 2026‑06‑01 (`1aa79ea`); harness‑verify checkpoint open
+- #14 Duplicate‑a‑week (copy camp week within a semester) — ✅ SHIPPED 2026‑06‑01 (`1aa79ea`, `033d0cc`)
 - #15 Confirmation‑email field cleanup (drop online sessions + classroom name)
 - #20 Preview‑mode data sync (old/blank address, summary in final preview)
 - #24 Confirm payment‑link offer window configurability
@@ -53,9 +55,11 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ---
 
-## 10. Class builder — field persistence (default price + add‑ons)
+## 10. Class builder — field persistence (default price + add‑ons) — ✅ SHIPPED 2026‑06‑01
 
-**Tier 2 · Bug (data not saving in Classes & Offerings editor)**
+**Tier 2 · Bug (data not saving in Classes & Offerings editor) · DONE**
+
+**Landed:** `bc2d9e5` fix(semesters/class-builder): persist default drop-in price and add-ons on reopen. Both the default drop‑in price and add‑ons now survive save → reopen.
 
 **What happened (transcript ~2:05–2:51, ~28:05–29:14):** Two separate fields in the class/offering editor don't persist:
 - **Default drop‑in price:** editing Adult Jazz, setting the default price to **$40**, it "always disappears" on re‑edit — unclear if it's saving. Ethan: "you're absolutely correct, I've noticed that as well, I am working on that."
@@ -91,9 +95,11 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ---
 
-## 12. Form‑builder edit‑question modal — responsiveness
+## 12. Form‑builder edit‑question modal — responsiveness — ✅ SHIPPED 2026‑06‑01
 
-**Tier 2 · Bug (UX blocker)**
+**Tier 2 · Bug (UX blocker) · DONE**
+
+**Landed:** `f320c99` fix(form-builder): make edit-question modal fit short viewports. Modal now scrolls/fits so the Update button is reachable and the user can exit.
 
 **What happened (transcript ~6:04–8:17):** Toggling a registration‑form question (e.g. **Grade**) to required, then clicking edit, opens a modal you must scroll inside — and the **"Update question" button is unreachable**. Monique got stuck and had to back out ("I couldn't get out of it"). Also zoom/scaling awkwardness. Ethan: "I need to edit the modal so it fits more responsive to the screen."
 
@@ -107,9 +113,11 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ---
 
-## 13. Custom discipline option for camps
+## 13. Custom discipline option for camps — ✅ SHIPPED 2026‑06‑01
 
-**Tier 3 · Feature (small)**
+**Tier 3 · Feature (small) · DONE (harness‑verify checkpoint open)**
+
+**Landed:** `1aa79ea` feat(semesters/class-builder): add custom discipline option and duplicate-week action. Camp/non‑standard offerings can now set a custom discipline. Visual verification is queued as a create‑semester harness checkpoint (memory `project_create_semester_harness_checkpoints`).
 
 **What happened (transcript ~9:24–10:12):** Creating a week of **dance camp**, the **discipline** dropdown had no option for "camp," so she left it on **Ballet** even though it's a camp. Wants the ability to add/select a custom discipline.
 
@@ -121,9 +129,11 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ---
 
-## 14. Duplicate‑a‑week (copy a camp week within a semester)
+## 14. Duplicate‑a‑week (copy a camp week within a semester) — ✅ SHIPPED 2026‑06‑01
 
-**Tier 3 · Feature**
+**Tier 3 · Feature · DONE**
+
+**Landed:** `1aa79ea` (duplicate-week action) + `033d0cc` feat(semesters/class-builder): add per-row duplicate button to class list. A configured week/class can be cloned, then dates edited.
 
 **What happened (transcript ~10:12–10:50):** Monique's "big one": after setting up one week of camp she wants to **duplicate that week and just change the dates**, keeping all other info, instead of re‑entering everything. "There's no option for me to copy this week."
 
@@ -249,9 +259,11 @@ Real use case (Monique): a parent pays "$1,000 in cash and then the rest" — pa
 
 ---
 
-## 21. Pricing / order‑summary engine completion (add‑ons, costume, registration fee)
+## 21. Pricing / order‑summary engine completion (add‑ons, costume, registration fee) — 🟡 PARTIAL
 
-**Tier 1 · Pricing — committed ("ironed out by next week")**
+**Tier 1 · Pricing — committed ("ironed out by next week") · ADD‑ONS DONE**
+
+**Landed:** `ec32006` feat(pricing): charge required add-ons per enrolled section in pricing quote — IMPLEMENTED + harness‑verified 2026‑06‑01 (memory `project_meeting_plan_21_addons`). `computePricingQuote` now reads `class_meeting_options`; ALL add‑ons auto‑apply once per section (note: `is_required` is currently ignored, and there is **NO rounding** — confirm both are intended). **Still open:** costume line item + registration‑fee surfacing in the order summary (and the rounding behavior Monique liked at ~29:14).
 
 **What happened (transcript ~25:30–29:14):** In the preview order summary, the registration fee showed but **no costume** and **no early‑drop‑off add‑on** appeared, even though they were configured. Ethan: "it looks like we still need to finalize the payment engine here… I was doing a lot of work getting this pricing engine to work well; I think I just didn't address these." Also a **rounding** nicety: a $…7.43.52 value rounded up cleanly ("you rounded it up, I love that"). Add‑on persistence root cause overlaps #10.
 
@@ -375,12 +387,14 @@ Real use case (Monique): a parent pays "$1,000 in cash and then the rest" — pa
 
 ## Suggested build order
 
-1. **#10 + #21** (persistence → order‑summary engine) — add‑ons must save before they can render; finishes the pricing thread. *(Committed for next week.)*
+1. ~~**#10**~~ ✅ + **#21** (persistence → order‑summary engine) — add‑ons saved (#10) and now charged (#21 add‑ons); **remaining: #21 costume + registration‑fee line items.** *(Committed for next week.)*
 2. **#19** (partial‑payment balance everywhere) — launch‑critical payments visibility. *(Committed.)*
 3. **#25** (Classes tab capacity + waitlist overview) — the headline next‑meeting deliverable.
 4. **#26** (concurrency stress + human test) — run alongside #25's capacity work.
 5. **#16 + #17 + #18** (prefill, credits/adjustment parity, ACH) — manual‑reg correctness.
-6. **#12 + #23** (modal responsiveness, waitlist waiver) — flow completeness.
-7. **#11 + #13 + #14 + #15 + #22 + #24** (display artifact, custom discipline, duplicate week, email field cleanup, reg‑fee toggle, offer‑window confirm) — refinements.
+6. ~~**#12**~~ ✅ + **#23** (modal responsiveness done; waitlist waiver remaining) — flow completeness.
+7. **#11 + ~~#13~~ ✅ + ~~#14~~ ✅ + #15 + #22 + #24** (display artifact, ~~custom discipline~~, ~~duplicate week~~, email field cleanup, reg‑fee toggle, offer‑window confirm) — refinements.
 8. **#20** (preview sync polish).
 9. **#27** (palette) — next week with Miguel.
+
+**Remaining open (13):** #11, #15, #16, #17, #18, #19, #20, #21 (costume + reg‑fee only), #22, #23, #24, #25, #26. Deferred: #27.
