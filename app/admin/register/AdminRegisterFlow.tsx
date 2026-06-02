@@ -207,6 +207,8 @@ export default function AdminRegisterFlow({
           semesterName={state.semesterName}
           sessionIds={state.sessionIds}
           dancerName={state.dancerName}
+          familyId={state.familyId}
+          dancerId={state.dancerId}
           initialFormData={state.formData}
           onNext={handleQuestionsNext}
           onBack={() => setState((s) => ({ ...s, step: 2 }))}
