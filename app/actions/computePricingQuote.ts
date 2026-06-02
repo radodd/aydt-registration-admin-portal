@@ -211,23 +211,23 @@ export async function computePricingQuote(
   }
 
   /* ---------------------------------------------------------------------- */
-  /* 3c. Required add-ons (class_meeting_options)                            */
+  /* 3c. Add-ons (class_meeting_options)                                     */
   /* Authored per section in the class builder, then fanned out identically  */
   /* across every meeting of that section (see syncOptionsForSchedule). We    */
-  /* charge each REQUIRED option once per section. Optional (is_required =     */
-  /* false) options need a checkout picker that does not exist yet, so they    */
-  /* are intentionally skipped here.                                          */
+  /* charge EVERY configured option once per section. There is no checkout    */
+  /* picker yet, so the is_required flag is not consulted — once a deselect   */
+  /* picker exists, optional options can be gated on the parent's choice.     */
   /* ---------------------------------------------------------------------- */
-  type RequiredAddOn = {
+  type AddOn = {
     name: string;
     description: string | null;
     price: number;
     sortOrder: number;
   };
-  async function fetchRequiredAddOns(
+  async function fetchAddOns(
     sectionIds: string[],
-  ): Promise<Map<string, RequiredAddOn[]>> {
-    const bySection = new Map<string, RequiredAddOn[]>();
+  ): Promise<Map<string, AddOn[]>> {
+    const bySection = new Map<string, AddOn[]>();
     const uniqueSectionIds = [...new Set(sectionIds.filter(Boolean))];
     if (uniqueSectionIds.length === 0) return bySection;
 
@@ -236,7 +236,6 @@ export async function computePricingQuote(
       .select(
         "name, description, price, sort_order, class_meetings!inner(section_id)",
       )
-      .eq("is_required", true)
       .in("class_meetings.section_id", uniqueSectionIds);
     if (error) throw new Error(error.message);
 
@@ -610,9 +609,9 @@ export async function computePricingQuote(
         lineItems.push({ type: "session_discount", label: `Discount: ${rule.discountName}`, amount: -reduction });
       }
 
-      // Required add-ons: charged once per enrolled section, after discounts so
-      // they are never reduced (add-ons are not discountable). No rounding.
-      const addOnsBySection = await fetchRequiredAddOns(scheduleIds!);
+      // Add-ons: charged once per enrolled section, after discounts so they are
+      // never reduced (add-ons are not discountable). No rounding.
+      const addOnsBySection = await fetchAddOns(scheduleIds!);
       for (const sid of scheduleIds!) {
         for (const opt of addOnsBySection.get(sid) ?? []) {
           tuition += opt.price;
@@ -1206,7 +1205,7 @@ export async function computePricingQuote(
     }
 
     /* -------------------------------------------------------------------- */
-    /* Required add-ons (charged once per enrolled section)                   */
+    /* Add-ons (charged once per enrolled section)                            */
     /* Same model as the schedule path; applied after discounts so they are   */
     /* never reduced. No rounding.                                            */
     /* -------------------------------------------------------------------- */
@@ -1217,7 +1216,7 @@ export async function computePricingQuote(
           .filter((id): id is string => Boolean(id)),
       ),
     ];
-    const addOnsBySection = await fetchRequiredAddOns(sectionIdsForDancer);
+    const addOnsBySection = await fetchAddOns(sectionIdsForDancer);
     for (const sid of sectionIdsForDancer) {
       for (const opt of addOnsBySection.get(sid) ?? []) {
         tuition += opt.price;
