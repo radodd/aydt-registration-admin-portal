@@ -119,7 +119,7 @@ Add a migration that calls the function URL with the service role key. Requires 
 ## 6. Production Checklist (before going live)
 
 - [ ] All env vars set in Vercel production environment
-- [ ] Webhook URL registered in Elavon **production** portal (not just sandbox) — production URL: `https://aydt.com/api/webhooks/epg`
+- [ ] Webhook URL registered in Elavon **production** portal (not just sandbox) — production URL: `https://register.aydt.nyc/api/webhooks/epg` (the `aydt.nyc` root is the stakeholders' existing marketing site; the registration app is served from the `register.` subdomain)
 - [ ] `EPG_BASE_URL` updated to production endpoint (remove `uat.` prefix) once Elavon provides it
 - [ ] Migrations applied to production Supabase instance
 - [ ] `process-overdue-payments` scheduled in production
