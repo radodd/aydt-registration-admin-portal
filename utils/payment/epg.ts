@@ -224,6 +224,16 @@ export async function createEpgPaymentSession(params: {
    * Ref: docs/elavon/api_stored_cards.md § "How to Get a Hosted Card Token"
    */
   doCapture?: boolean;
+  /**
+   * Meeting-plan #18: confine the hosted session to the ACH (bank-account) form
+   * for a one-time admin-initiated debit, via the documented
+   * `allowedPaymentMethods` / `allowedPaymentMethodOrigins` session fields
+   * (PaymentMethod enum includes "ACH"; EPG API reference, added 2024-03-20).
+   * Combined with doCreateTransaction:true the HPP runs the ACH sale end-to-end
+   * and creates a Transaction, so the existing webhook → confirmBatch path
+   * applies unchanged. Card sessions omit this and keep EPG's default methods.
+   */
+  enableAch?: boolean;
 }): Promise<EpgPaymentSession> {
   const doCreateTransaction = params.doCreateTransaction ?? true;
   const res = await fetch(`${getBaseUrl()}/payment-sessions`, {
@@ -239,6 +249,13 @@ export async function createEpgPaymentSession(params: {
       ...(doCreateTransaction ? { doCapture: params.doCapture ?? true } : {}),
       doThreeDSecure: params.doThreeDSecure ?? true,
       customReference: params.customReference,
+      // #18: restrict the HPP to the ACH form for a one-time bank debit.
+      ...(params.enableAch
+        ? {
+            allowedPaymentMethods: ["ACH"],
+            allowedPaymentMethodOrigins: ["ACH"],
+          }
+        : {}),
     }),
   });
   await assertOk(res, "POST /payment-sessions");
