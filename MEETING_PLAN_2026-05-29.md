@@ -25,28 +25,28 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ## Priority tiers
 
-> **Progress (as of 2026‑06‑01):** 4 items shipped (#10, #12, #13, #14) and #21's add‑ons portion shipped + harness‑verified. 13 items remain.
+> **Progress (as of 2026‑06‑02):** 7 items shipped (#10, #11, #12, #13, #14, #15, #16) plus #21's add‑ons portion shipped + harness‑verified. **#17, #18, #19 in progress (uncommitted in working tree).** 10 items remain (1 deferred).
 
 **Tier 1 — committed for next meeting / launch‑blocking payments:**
-- #19 Partial‑payment balance must propagate to dancer profile + payment dashboard
-- #21 Pricing / order‑summary engine completion — 🟡 **add‑ons SHIPPED + harness‑verified 2026‑06‑01** (`ec32006`); costume + registration‑fee line items still to confirm
+- #19 Partial‑payment balance must propagate to dancer profile + payment dashboard — 🚧 IN PROGRESS (uncommitted: `order_partial_status` migration, CheckoutStep/createRegistrations/payments‑page/BillingHistory/getFamilyDetail changes, harnesses `meetingplan-19-partial`/`-verify`)
+- #21 Pricing / order‑summary engine completion — 🟡 **add‑ons SHIPPED + harness‑verified 2026‑06‑01** (`ec32006`, `e6f888f`); costume + registration‑fee line items still to confirm
 - #25 Classes tab — capacity + waitlist overview (the headline next‑meeting build)
 - #26 Concurrency stress test (first‑to‑payment) + live human test
 
 **Tier 2 — functional bugs/asks surfaced in the demo:**
 - #10 Class builder field persistence (default drop‑in price, add‑ons) — ✅ SHIPPED 2026‑06‑01 (`bc2d9e5`)
 - #12 Form‑builder edit‑question modal responsiveness — ✅ SHIPPED 2026‑06‑01 (`f320c99`)
-- #16 Auto‑populate existing dancer info (manual reg + waitlist + preview)
-- #17 Credits + tuition adjustment in both pay modes
-- #18 Add ACH to manual‑reg payment methods (keep check)
+- #16 Auto‑populate existing dancer info (manual reg + waitlist + preview) — ✅ SHIPPED 2026‑06‑01 (`ec50984`); preview surface tracked under #20
+- #17 Credits + tuition adjustment in both pay modes — 🚧 IN PROGRESS (uncommitted: `queries/credits.ts`, `issueAccountCredit`/`issueBulkCredits` actions, `family_account_credits_rls` migration, harness `meetingplan-17-credits`)
+- #18 Add ACH to manual‑reg payment methods (keep check) — 🚧 IN PROGRESS (uncommitted: `createAdminAchSession.ts`, `epg.ts`, `order_payment_method` migration)
 - #22 Registration‑fee toggle per offering (setup)
 - #23 Waitlist flow — add waiver (complete all‑but‑payment)
 
 **Tier 3 — polish / smaller refinements:**
-- #11 Remove stale "Junior" division artifact from drop‑in display
+- #11 Remove stale "Junior" division artifact from drop‑in display — ✅ SHIPPED 2026‑06‑01 (`d9407e6`)
 - #13 Custom discipline option for camps — ✅ SHIPPED 2026‑06‑01 (`1aa79ea`); harness‑verify checkpoint open
 - #14 Duplicate‑a‑week (copy camp week within a semester) — ✅ SHIPPED 2026‑06‑01 (`1aa79ea`, `033d0cc`)
-- #15 Confirmation‑email field cleanup (drop online sessions + classroom name)
+- #15 Confirmation‑email field cleanup (drop online sessions + classroom name) — ✅ SHIPPED 2026‑06‑01 (`2fda53a`)
 - #20 Preview‑mode data sync (old/blank address, summary in final preview)
 - #24 Confirm payment‑link offer window configurability
 
@@ -79,9 +79,11 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ---
 
-## 11. Remove stale "Junior" division artifact from drop‑in display
+## 11. Remove stale "Junior" division artifact from drop‑in display — ✅ SHIPPED 2026‑06‑01
 
-**Tier 3 · UX cleanup (follow‑up to 2026‑05‑22 #1)**
+**Tier 3 · UX cleanup (follow‑up to 2026‑05‑22 #1) · DONE**
+
+**Landed:** `d9407e6` fix(semesters/class-builder): blank division cell for tiered/drop-in rows. The class‑list table now gates the division cell on `rowFlags` — tiered/drop‑in rows show an em‑dash even with a lingering legacy value; standard rows keep their label. Harness scenario `classbuilder-11-division-cell.cjs` added.
 
 **What happened (transcript ~4:25–5:12):** Division removal shipped, but the drop‑in class **still visually shows "Junior."** Confirmed it is **not applied** to pricing — it's a leftover display artifact. Ethan: "this is just an artifact… I need to remove this."
 
@@ -147,9 +149,11 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ---
 
-## 15. Confirmation‑email field cleanup (drop online sessions + classroom name)
+## 15. Confirmation‑email field cleanup (drop online sessions + classroom name) — ✅ SHIPPED 2026‑06‑01
 
-**Tier 3 · Cleanup**
+**Tier 3 · Cleanup · DONE**
+
+**Landed:** `2fda53a` fix(confirmation-email): remove classroom line from registration summary. Dropped the Classroom line + `classroom` field, both `classroom_name` mappings/selects, and the sample value; location name + address kept. **"Online sessions" had no representation anywhere in the codebase** — nothing to remove (resolves that part of the ask).
 
 **What happened (transcript ~12:37–13:27):** Ethan asked about three email fields he was unsure of:
 - **Online sessions** → remove. "We don't do online anymore" (Active/COVID artifact).
@@ -166,9 +170,11 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ---
 
-## 16. Auto‑populate existing dancer info (manual reg + waitlist + preview)
+## 16. Auto‑populate existing dancer info (manual reg + waitlist + preview) — ✅ SHIPPED 2026‑06‑01
 
-**Tier 2 · Bug (recurring across flows)**
+**Tier 2 · Bug (recurring across flows) · DONE (preview surface → #20)**
+
+**Landed:** `ec50984` feat(admin/register): prefill Questions step from saved profile. New `fetchProfilePrefill` server action resolves users + family_contacts + dancer; seeds address blocks + profile‑mapped questions in the admin manual‑reg Questions step, **mirroring the existing parent‑facing seeding** (so the public/waitlist flow already prefills). Existing answers always win — nothing overwritten. Harness scenario `meetingplan-16-prefill.cjs` in progress. The **preview**'s blank/old address is a separate surface — tracked under #20.
 
 **What happened (transcript ~15:04–15:25, ~33:50, ~30:57):** For an **existing** account / logged‑in parent, the child‑info step is shown blank and demands re‑entry. Seen three times:
 - Manual reg: "if it's an existing account, this shouldn't be necessary… this should have auto‑populated. I will look into that."
@@ -183,9 +189,11 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ---
 
-## 17. Credits + tuition adjustment in both pay modes
+## 17. Credits + tuition adjustment in both pay modes — 🚧 IN PROGRESS
 
-**Tier 2 · Feature / clarify**
+**Tier 2 · Feature / clarify · uncommitted in working tree**
+
+**In progress (not yet committed):** new `queries/credits.ts`, `app/admin/credits/actions/issueAccountCredit.ts` + `issueBulkCredits.ts`, RLS migration `20260602010000_family_account_credits_rls.sql`, harness `meetingplan-17-credits.cjs`. Credit issuance + query/RLS layer is being built (tuition adjustment already worked live). Still confirm: credit appears in **both** pay‑in‑full and installment views, and the grant‑vs‑apply question from the open item below.
 
 **What happened (transcript ~16:26–18:23):** Ethan was unsure how the **Credits** section should behave (apply existing account credits? grant new credits? remove it?). Monique's answer:
 - Need **both** a **tuition adjustment** *and* a **credit** option.
@@ -205,9 +213,11 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ---
 
-## 18. Add ACH to manual‑reg payment methods (keep check)
+## 18. Add ACH to manual‑reg payment methods (keep check) — 🚧 IN PROGRESS
 
-**Tier 2 · Payments**
+**Tier 2 · Payments · uncommitted in working tree**
+
+**In progress (not yet committed):** new `app/admin/register/actions/createAdminAchSession.ts`, `utils/payment/epg.ts` changes, migration `20260602000000_order_payment_method.sql`. ACH session path for admin manual reg being wired (check stays).
 
 **What happened (transcript ~18:23–19:13):** Ethan moved to remove `check`, but Monique kept it — in‑person manual payers do pay by check. Then: "We do want the option for people to pay through **ACH** as well… if we're providing that as an option, we need it in manual form." Ethan: "we need an ACH option here in this payment card."
 
@@ -221,9 +231,11 @@ This meeting was a **live demo of work shipped since 2026‑05‑22**, not a fre
 
 ---
 
-## 19. Partial‑payment balance must propagate to dancer profile + payment dashboard
+## 19. Partial‑payment balance must propagate to dancer profile + payment dashboard — 🚧 IN PROGRESS
 
-**Tier 1 · Payments — committed**
+**Tier 1 · Payments — committed (next meeting) · uncommitted in working tree**
+
+**In progress (not yet committed):** migrations `20260602020000_order_partial_status.sql` + `20260602000000_order_payment_method.sql`; changes across `createRegistrations.ts`, `createAdminRegistration.ts`, `CheckoutStep.tsx`, `markInstallmentPaid.ts`, `payments/page.tsx`, `BillingHistorySection.tsx`, `getFamilyDetail.ts`, `sendRegistrationReceipt.ts`; harnesses `meetingplan-19-partial.cjs` + `meetingplan-19-verify.cjs`. Partial‑status + balance now threading into family detail / billing history / payments dashboard. Verify against the acceptance criteria below before marking shipped.
 
 **What happened (transcript ~19:20–20:49, ~44:50):** Monique put **$400 cash** on an **$800** balance and registered. On the **dancer profile / payment dashboard** the balance was wrong / not shown, and the **due date was incorrect**. Ethan live: "Ooh, didn't like that at all. I need to fix that flow… I need to continue that flow into this portion." At wrap‑up he reconfirmed: payments must be "seen everywhere in the portal, including the dancer profiles, where Heather did not finish payment" — it looked like she paid everything or paid nothing.
 
@@ -263,7 +275,7 @@ Real use case (Monique): a parent pays "$1,000 in cash and then the rest" — pa
 
 **Tier 1 · Pricing — committed ("ironed out by next week") · ADD‑ONS DONE**
 
-**Landed:** `ec32006` feat(pricing): charge required add-ons per enrolled section in pricing quote — IMPLEMENTED + harness‑verified 2026‑06‑01 (memory `project_meeting_plan_21_addons`). `computePricingQuote` now reads `class_meeting_options`; ALL add‑ons auto‑apply once per section (note: `is_required` is currently ignored, and there is **NO rounding** — confirm both are intended). **Still open:** costume line item + registration‑fee surfacing in the order summary (and the rounding behavior Monique liked at ~29:14).
+**Landed:** `ec32006` (charge add-ons per enrolled section) + `e6f888f` feat(pricing): auto-apply all configured add-ons, not just required — IMPLEMENTED + harness‑verified 2026‑06‑01 (memory `project_meeting_plan_21_addons`). `computePricingQuote` now reads `class_meeting_options`; **ALL** add‑ons auto‑apply once per section (`is_required` intentionally ignored), with **NO rounding** — confirm the no‑rounding choice is intended. **Still open:** costume line item + registration‑fee surfacing in the order summary (and the rounding behavior Monique liked at ~29:14).
 
 **What happened (transcript ~25:30–29:14):** In the preview order summary, the registration fee showed but **no costume** and **no early‑drop‑off add‑on** appeared, even though they were configured. Ethan: "it looks like we still need to finalize the payment engine here… I was doing a lot of work getting this pricing engine to work well; I think I just didn't address these." Also a **rounding** nicety: a $…7.43.52 value rounded up cleanly ("you rounded it up, I love that"). Add‑on persistence root cause overlaps #10.
 
@@ -391,10 +403,10 @@ Real use case (Monique): a parent pays "$1,000 in cash and then the rest" — pa
 2. **#19** (partial‑payment balance everywhere) — launch‑critical payments visibility. *(Committed.)*
 3. **#25** (Classes tab capacity + waitlist overview) — the headline next‑meeting deliverable.
 4. **#26** (concurrency stress + human test) — run alongside #25's capacity work.
-5. **#16 + #17 + #18** (prefill, credits/adjustment parity, ACH) — manual‑reg correctness.
+5. ~~**#16**~~ ✅ + **#17 + #18** (prefill done; credits/adjustment parity, ACH remaining) — manual‑reg correctness.
 6. ~~**#12**~~ ✅ + **#23** (modal responsiveness done; waitlist waiver remaining) — flow completeness.
-7. **#11 + ~~#13~~ ✅ + ~~#14~~ ✅ + #15 + #22 + #24** (display artifact, ~~custom discipline~~, ~~duplicate week~~, email field cleanup, reg‑fee toggle, offer‑window confirm) — refinements.
+7. ~~**#11**~~ ✅ + ~~**#13**~~ ✅ + ~~**#14**~~ ✅ + ~~**#15**~~ ✅ + **#22 + #24** (artifact/discipline/duplicate/email all done; reg‑fee toggle, offer‑window confirm remaining) — refinements.
 8. **#20** (preview sync polish).
 9. **#27** (palette) — next week with Miguel.
 
-**Remaining open (13):** #11, #15, #16, #17, #18, #19, #20, #21 (costume + reg‑fee only), #22, #23, #24, #25, #26. Deferred: #27.
+**Remaining open (10):** 🚧 #17, #18, #19 (in progress, uncommitted) · #20, #21 (costume + reg‑fee only), #22, #23, #24, #25, #26. Deferred: #27.
