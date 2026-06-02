@@ -27,11 +27,21 @@ export async function markInstallmentPaid(
     return { error: "Insufficient permissions." };
   }
 
+  // Record the full amount as collected so balance math (meeting-plan #19)
+  // reflects that nothing remains — a partially-paid row may already carry a
+  // smaller paid_amount that must be brought up to the full amount_due.
+  const { data: inst } = await supabase
+    .from("order_payment_installments")
+    .select("amount_due")
+    .eq("id", installmentId)
+    .single();
+
   const { error } = await supabase
     .from("order_payment_installments")
     .update({
       status: "paid",
       paid_at: new Date().toISOString(),
+      paid_amount: inst?.amount_due ?? null,
     })
     .eq("id", installmentId);
 

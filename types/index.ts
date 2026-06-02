@@ -2101,6 +2101,8 @@ export interface FamilyDetailInstallment {
   due_date: string;
   status: string;
   paid_at: string | null;
+  /** Amount actually collected against this installment (partial payments). */
+  paid_amount: number | null;
 }
 
 export interface FamilyDetailBatch {

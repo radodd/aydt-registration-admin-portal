@@ -23,6 +23,7 @@ function fmtDate(s: string | null): string {
 
 const BATCH_STATUS_BADGE: Record<string, string> = {
   confirmed: "bg-green-100 text-green-700",
+  partial: "bg-amber-100 text-amber-700",
   pending_payment: "bg-yellow-100 text-yellow-700",
   draft: "bg-neutral-100 text-neutral-500",
   cancelled: "bg-neutral-100 text-neutral-500",
@@ -162,6 +163,13 @@ function BatchCard({ batch }: { batch: FamilyDetailBatch }) {
               <span className="text-neutral-700">{fmtDate(inst.due_date)}</span>
               <span className="font-medium text-neutral-900 text-right">
                 {fmt$(Number(inst.amount_due))}
+                {inst.status !== "paid" &&
+                  inst.paid_amount != null &&
+                  Number(inst.paid_amount) > 0 && (
+                    <span className="block text-[10px] font-normal text-green-600">
+                      {fmt$(Number(inst.paid_amount))} collected
+                    </span>
+                  )}
               </span>
               <div className="flex justify-end">
                 <StatusPill status={inst.status} map={INSTALLMENT_STATUS_BADGE} />
