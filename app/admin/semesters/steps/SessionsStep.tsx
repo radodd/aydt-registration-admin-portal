@@ -751,12 +751,30 @@ export default function SessionsStep({
                         </td>
                       )}
                       <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-right w-px`}>
-                        <svg
-                          className={`w-4 h-4 ml-auto transition-transform ${isSelected ? "text-primary-600 rotate-180" : "text-neutral-300"}`}
-                          fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
+                        <div className="flex items-center justify-end gap-1">
+                          {!isLocked && (
+                            <button
+                              type="button"
+                              title="Duplicate class"
+                              aria-label="Duplicate class"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDuplicateClass(idx);
+                              }}
+                              className="shrink-0 p-1 rounded-md text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V5a2 2 0 012-2h9a2 2 0 012 2v9a2 2 0 01-2 2h-2M5 8h9a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2v-9a2 2 0 012-2z" />
+                              </svg>
+                            </button>
+                          )}
+                          <svg
+                            className={`w-4 h-4 transition-transform ${isSelected ? "text-primary-600 rotate-180" : "text-neutral-300"}`}
+                            fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
                       </td>
                     </tr>
                   );
