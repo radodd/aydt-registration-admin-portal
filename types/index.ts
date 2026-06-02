@@ -510,6 +510,7 @@ export interface LineItem {
     | "auto_pay_admin_fee"
     | "video_fee"       // senior division: flat fee per registrant
     | "costume_fee"     // senior division: per-class costume fee
+    | "add_on"          // required purchasable option attached to a section (class_meeting_options)
     | "session_discount" // custom/multi-session discount rules
     | "coupon_discount"; // promo code or auto-apply coupon
   label: string;

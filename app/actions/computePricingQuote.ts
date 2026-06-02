@@ -211,6 +211,66 @@ export async function computePricingQuote(
   }
 
   /* ---------------------------------------------------------------------- */
+  /* 3c. Required add-ons (class_meeting_options)                            */
+  /* Authored per section in the class builder, then fanned out identically  */
+  /* across every meeting of that section (see syncOptionsForSchedule). We    */
+  /* charge each REQUIRED option once per section. Optional (is_required =     */
+  /* false) options need a checkout picker that does not exist yet, so they    */
+  /* are intentionally skipped here.                                          */
+  /* ---------------------------------------------------------------------- */
+  type RequiredAddOn = {
+    name: string;
+    description: string | null;
+    price: number;
+    sortOrder: number;
+  };
+  async function fetchRequiredAddOns(
+    sectionIds: string[],
+  ): Promise<Map<string, RequiredAddOn[]>> {
+    const bySection = new Map<string, RequiredAddOn[]>();
+    const uniqueSectionIds = [...new Set(sectionIds.filter(Boolean))];
+    if (uniqueSectionIds.length === 0) return bySection;
+
+    const { data, error } = await supabase
+      .from("class_meeting_options")
+      .select(
+        "name, description, price, sort_order, class_meetings!inner(section_id)",
+      )
+      .eq("is_required", true)
+      .in("class_meetings.section_id", uniqueSectionIds);
+    if (error) throw new Error(error.message);
+
+    // Options are duplicated across every meeting of a section; dedupe back to
+    // one row per (section, option).
+    const seen = new Set<string>();
+    for (const row of data ?? []) {
+      const meeting = Array.isArray((row as any).class_meetings)
+        ? (row as any).class_meetings[0]
+        : (row as any).class_meetings;
+      const sectionId = meeting?.section_id as string | undefined;
+      if (!sectionId) continue;
+      const sortOrder = Number((row as any).sort_order ?? 0);
+      const name = (row as any).name as string;
+      const price = Number((row as any).price);
+      const key = `${sectionId}::${sortOrder}::${name}::${price}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const list = bySection.get(sectionId) ?? [];
+      list.push({
+        name,
+        description: ((row as any).description as string | null) ?? null,
+        price,
+        sortOrder,
+      });
+      bySection.set(sectionId, list);
+    }
+    for (const list of bySection.values()) {
+      list.sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+    return bySection;
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* 4. Per-dancer computation                                                */
   /* ---------------------------------------------------------------------- */
   const perDancer: DancerPricingBreakdown[] = [];
@@ -550,6 +610,21 @@ export async function computePricingQuote(
         lineItems.push({ type: "session_discount", label: `Discount: ${rule.discountName}`, amount: -reduction });
       }
 
+      // Required add-ons: charged once per enrolled section, after discounts so
+      // they are never reduced (add-ons are not discountable). No rounding.
+      const addOnsBySection = await fetchRequiredAddOns(scheduleIds!);
+      for (const sid of scheduleIds!) {
+        for (const opt of addOnsBySection.get(sid) ?? []) {
+          tuition += opt.price;
+          lineItems.push({
+            type: "add_on",
+            label: opt.name,
+            amount: opt.price,
+            description: opt.description ?? undefined,
+          });
+        }
+      }
+
       // Registration fee:
       //  - Dancer enrolled ONLY in special-program classes → use the program's
       //    registration_fee_override. Multi-special-program edge case picks
@@ -612,7 +687,7 @@ export async function computePricingQuote(
     const { data: sessionRows, error: sessionError } = await supabase
       .from("class_meetings")
       .select(
-        "id, schedule_date, day_of_week, drop_in_price, class_sections(is_drop_in), classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount)",
+        "id, section_id, schedule_date, day_of_week, drop_in_price, class_sections(is_drop_in), classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount)",
       )
       .in("id", resolvedSessionIds);
 
@@ -1128,6 +1203,31 @@ export async function computePricingQuote(
         label: `Discount: ${rule.discountName}`,
         amount: -reduction,
       });
+    }
+
+    /* -------------------------------------------------------------------- */
+    /* Required add-ons (charged once per enrolled section)                   */
+    /* Same model as the schedule path; applied after discounts so they are   */
+    /* never reduced. No rounding.                                            */
+    /* -------------------------------------------------------------------- */
+    const sectionIdsForDancer = [
+      ...new Set(
+        sessionRows
+          .map((s) => (s as any).section_id as string | null)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const addOnsBySection = await fetchRequiredAddOns(sectionIdsForDancer);
+    for (const sid of sectionIdsForDancer) {
+      for (const opt of addOnsBySection.get(sid) ?? []) {
+        tuition += opt.price;
+        lineItems.push({
+          type: "add_on",
+          label: opt.name,
+          amount: opt.price,
+          description: opt.description ?? undefined,
+        });
+      }
     }
 
     /* -------------------------------------------------------------------- */
