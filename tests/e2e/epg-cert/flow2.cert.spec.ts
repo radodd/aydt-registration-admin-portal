@@ -95,16 +95,18 @@ test.describe("EPG cert — Flow 2 + void/refund", () => {
   /* ---------------------------------------------------------------------- */
   test("stored card — setup + two installment charges", async ({ page }) => {
     test.setTimeout(180_000);
-    // BLOCKED: S2S installment charges are declined by the 3DS-enforcing account
-    // (3dsEnforcedOnEcommerceSales); no per-transaction MIT flag exists (probed).
-    // Setup (token→shopper→stored card) is validated; charges need Justin.
-    test.skip(true, "S2S recurring charge blocked by 3DS enforcement — no MIT flag; pending Justin");
+    // UNBLOCKED 2026-05-30: S2S installment charges now carry the MIT flags
+    // (credentialOnFileType:"recurring" + shopperInteraction:"merchantInitiated")
+    // that Justin confirmed exempt them from 3DS2 enforcement. This exercises the
+    // production two-step: tokenize-only session → stored card → S2S charges.
     const ranAt = new Date().toISOString();
     const siteUrl = requireEnv("SITE_URL").replace(/\/$/, "");
     const customReference = `cert-storedcard-${Date.now()}`;
     const shopperRef = `cert-shopper-${Date.now()}`;
 
-    // 1. Installment-setup session (doCapture:false → returns a hostedCard token).
+    // 1. Tokenize-only session (doCreateTransaction:false → hostedCard token is
+    //    returned and NOT consumed by an auth, so POST /stored-cards succeeds —
+    //    matches the production installment flow).
     const order = await createEpgOrder({
       amountDollars: 40,
       currencyCode: "USD",
@@ -117,7 +119,7 @@ test.describe("EPG cert — Flow 2 + void/refund", () => {
       cancelUrl: `${siteUrl}/register/payment?cert_cancelled=1`,
       customReference,
       doThreeDSecure: true,
-      doCapture: false,
+      doCreateTransaction: false,
     });
 
     await page.goto(session.url);
@@ -199,15 +201,16 @@ test.describe("EPG cert — Flow 2 + void/refund", () => {
   /* ---------------------------------------------------------------------- */
   test("void — authorize then void", async ({ page }) => {
     test.setTimeout(180_000);
-    // BLOCKED: the auth to be voided is an S2S stored-card charge, declined by
-    // 3DS enforcement (no MIT flag). Pending Justin / account-config.
-    test.skip(true, "S2S charge blocked by 3DS enforcement — no MIT flag; pending Justin");
+    // UNBLOCKED 2026-05-30: the stored-card setup uses a tokenize-only session and
+    // the voidable auth is an S2S charge that now carries the MIT flags Justin
+    // confirmed exempt it from 3DS2 enforcement.
     const ranAt = new Date().toISOString();
     const siteUrl = requireEnv("SITE_URL").replace(/\/$/, "");
     const customReference = `cert-void-${Date.now()}`;
     const shopperRef = `cert-void-shopper-${Date.now()}`;
 
-    // Set up a stored card, then auth-only (doCapture:false) so the txn is voidable.
+    // Set up a stored card (tokenize-only session), then auth-only (doCapture:false)
+    // S2S charge so the txn is voidable.
     const order = await createEpgOrder({ amountDollars: 30, currencyCode: "USD", description: "Cert void setup", customReference });
     const session = await createEpgPaymentSession({
       orderHref: order.href,
@@ -215,7 +218,7 @@ test.describe("EPG cert — Flow 2 + void/refund", () => {
       cancelUrl: `${siteUrl}/register/payment?cert_cancelled=1`,
       customReference,
       doThreeDSecure: true,
-      doCapture: false,
+      doCreateTransaction: false,
     });
     await page.goto(session.url);
     await fillHostedCardPage(page, APPROVAL_VISA);
@@ -263,9 +266,9 @@ test.describe("EPG cert — Flow 2 + void/refund", () => {
   /* ---------------------------------------------------------------------- */
   test("refund — capture then refund", async ({ page }) => {
     test.setTimeout(180_000);
-    // BLOCKED: the capture to be refunded is an S2S stored-card charge, declined
-    // by 3DS enforcement (no MIT flag). Pending Justin / account-config.
-    test.skip(true, "S2S charge blocked by 3DS enforcement — no MIT flag; pending Justin");
+    // UNBLOCKED 2026-05-30: the capture to be refunded is an S2S stored-card charge
+    // that now carries the MIT flags Justin confirmed exempt it from 3DS2
+    // enforcement. Setup uses a tokenize-only session.
     const ranAt = new Date().toISOString();
     const siteUrl = requireEnv("SITE_URL").replace(/\/$/, "");
     const customReference = `cert-refund-${Date.now()}`;
@@ -278,7 +281,7 @@ test.describe("EPG cert — Flow 2 + void/refund", () => {
       cancelUrl: `${siteUrl}/register/payment?cert_cancelled=1`,
       customReference,
       doThreeDSecure: true,
-      doCapture: false,
+      doCreateTransaction: false,
     });
     await page.goto(session.url);
     await fillHostedCardPage(page, APPROVAL_VISA);

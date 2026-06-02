@@ -61,13 +61,12 @@ test.describe("EPG cert — AVS matrix (stored-card)", () => {
   for (const code of JUSTIN_AVS_CODES) {
     test(`avs-visa-${code} — AVS=${code} via stored card`, async ({ page }) => {
       test.setTimeout(150_000);
-      // BLOCKED: the S2S stored-card charge is declined by the 3DS-enforcing
-      // account (3dsEnforcedOnEcommerceSales). The API has NO per-transaction
-      // MIT flag (probed: shopperInteraction enum rejects recurring/merchant/
-      // moto/installment/unscheduled; credentialOnFile unrecognized). Needs
-      // Justin / account-config. Setup (session→token→shopper→stored card via
-      // primaryAddress) is validated; only the final charge is blocked.
-      test.skip(true, "S2S recurring charge blocked by 3DS enforcement — no MIT flag; pending Justin");
+      // UNBLOCKED 2026-05-30: createEpgTransaction now sends the MIT flags
+      // (credentialOnFileType:"recurring" + shopperInteraction:"merchantInitiated"),
+      // which Justin confirmed exempt the S2S stored-card charge from 3DS2
+      // enforcement. The earlier probe failed because shopperInteraction expects
+      // "merchantInitiated" (not "merchant"/"recurring"). AVS comes back on the
+      // S2S charge from the Shopper's primaryAddress.
       const ranAt = new Date().toISOString();
       const siteUrl = requireEnv("SITE_URL").replace(/\/$/, "");
       const customReference = `cert-avs-${code}-${Date.now()}`;

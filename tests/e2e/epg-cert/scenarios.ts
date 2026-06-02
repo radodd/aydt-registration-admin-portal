@@ -144,22 +144,21 @@ export const CVV_VALUES: Record<CardBrand, CvvPair> = {
 /*    Elavon authorizes but our webhook/return never sees it. This is the      */
 /*    exact partial-write case item 5 validates.                               */
 /*                                                                             */
-/*    ⚠️ GATEWAY CAVEAT (STP doc page 3, footnote ①): these dollar-amount      */
-/*    timeout controls are documented ONLY for the certgate.viaconex.com       */
-/*    gateway. Our integration is EPG / Converge hosted checkout. Whether      */
-/*    $22.22 forces a blocked response through EPG is UNCONFIRMED — must be     */
-/*    settled with Justin before relying on this scenario. Until then it stays */
-/*    gated via `gatewayConfirmed: false`.                                     */
+/*    ✅ EPG APPLICABILITY CONFIRMED (Justin Huffines, 2026-05-30): the         */
+/*    dollar-amount timeout controls DO apply to EPG / Converge (not only the  */
+/*    certgate.viaconex.com gateway). Justin received no response for a $22.22  */
+/*    transaction sent through his EPG test instance. The scenario is now      */
+/*    live (`gatewayConfirmed: true`) and exercised by timeout.cert.spec.ts.   */
 /* -------------------------------------------------------------------------- */
 
 export const TIMEOUT = {
   /** Whole-dollar trigger; cents still define approve/decline if it reaches the host. */
   amountDollars: 22.22,
-  /** Flip to true ONLY once Justin confirms EPG honors the timeout control. */
-  gatewayConfirmed: false,
+  /** Confirmed by Justin (2026-05-30) that EPG honors the timeout control. */
+  gatewayConfirmed: true,
   note:
-    "STP doc page 3: $22.22 = response blocked after processing. Gated to " +
-    "certgate gateway; EPG applicability unconfirmed (ask Justin).",
+    "STP doc page 3: $22.22 = response blocked after processing. EPG/Converge " +
+    "applicability CONFIRMED by Justin 2026-05-30 (no response on his EPG instance).",
 } as const;
 
 /* -------------------------------------------------------------------------- */
