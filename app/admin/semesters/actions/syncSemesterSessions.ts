@@ -344,6 +344,10 @@ function buildScheduleRow(
     location: emptyToNull(s.location),
     instructor_name: emptyToNull(s.instructorName),
     capacity: s.capacity ?? null,
+    // Schedule-level default drop-in price (Mode B). Also propagated onto each
+    // class_meetings row at generation time; this is the value the editor reads
+    // back as the schedule default. Null for full_schedule mode.
+    drop_in_price: s.dropInPrice ?? null,
     registration_open_at: s.registrationOpenAt ?? null,
     registration_close_at: s.registrationCloseAt ?? null,
     gender_restriction: s.genderRestriction ?? null,
