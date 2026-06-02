@@ -24,9 +24,10 @@ describe("renderRegistrationSummaryHtml", () => {
     expect(html).toContain("Registered on June 3, 2026");
     expect(html).toContain("Ballet I");
     expect(html).toContain("Mon/Wed · 4:00–5:00 PM");
-    expect(html).toContain("Studio A");
     expect(html).toContain("Ms. Rivera");
     expect(html).toContain("Recital T-shirt — $25.00");
+    // Meeting-plan #15: classroom is dropped from the summary entirely.
+    expect(html).not.toContain("Classroom");
   });
 
   it("omits fields that have no data instead of showing empty labels", () => {

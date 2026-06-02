@@ -141,7 +141,6 @@ function renderSession(session: RegistrationSummarySession): string {
       ${renderDetailLine("When", session.schedule)}
       ${renderDetailLine("Location", session.location)}
       ${renderDetailLine("Address", session.locationAddress)}
-      ${renderDetailLine("Classroom", session.classroom)}
       ${renderDetailLine("Instructor", session.instructor)}
       ${renderDetailLine("Group", session.group)}
       ${excluded}
@@ -220,7 +219,6 @@ type MeetingRel = {
   end_time: string | null;
   location: string | null;
   location_address: string | null;
-  classroom_name: string | null;
   instructor_name: string | null;
   classes: ClassRel | ClassRel[] | null;
 };
@@ -230,7 +228,6 @@ type SectionRel = {
   end_time: string | null;
   location: string | null;
   location_address: string | null;
-  classroom_name: string | null;
   instructor_name: string | null;
   classes: ClassRel | ClassRel[] | null;
 };
@@ -280,14 +277,14 @@ export async function fetchRegistrationSummary(
     supabase
       .from("meeting_enrollments")
       .select(
-        "id, dancer_id, meeting_id, total_amount, created_at, dancers(first_name, last_name), class_meetings(schedule_date, day_of_week, start_time, end_time, location, location_address, classroom_name, instructor_name, classes(name, display_name))",
+        "id, dancer_id, meeting_id, total_amount, created_at, dancers(first_name, last_name), class_meetings(schedule_date, day_of_week, start_time, end_time, location, location_address, instructor_name, classes(name, display_name))",
       )
       .eq("registration_batch_id", batchId)
       .neq("status", "cancelled"),
     supabase
       .from("section_enrollments")
       .select(
-        "id, dancer_id, section_id, price_snapshot, created_at, dancers(first_name, last_name), class_sections(days_of_week, start_time, end_time, location, location_address, classroom_name, instructor_name, classes(name, display_name))",
+        "id, dancer_id, section_id, price_snapshot, created_at, dancers(first_name, last_name), class_sections(days_of_week, start_time, end_time, location, location_address, instructor_name, classes(name, display_name))",
       )
       .eq("batch_id", batchId)
       .neq("status", "cancelled"),
@@ -408,7 +405,6 @@ export async function fetchRegistrationSummary(
       schedule: schedule || undefined,
       location: m?.location?.trim() || undefined,
       locationAddress: m?.location_address?.trim() || undefined,
-      classroom: m?.classroom_name?.trim() || undefined,
       instructor: m?.instructor_name?.trim() || undefined,
       group: (r.meeting_id && groupByMeeting.get(r.meeting_id)) || undefined,
       excludedDates: (r.meeting_id && excludedByMeeting.get(r.meeting_id)) || undefined,
@@ -440,7 +436,6 @@ export async function fetchRegistrationSummary(
       schedule: schedule || undefined,
       location: s?.location?.trim() || undefined,
       locationAddress: s?.location_address?.trim() || undefined,
-      classroom: s?.classroom_name?.trim() || undefined,
       instructor: s?.instructor_name?.trim() || undefined,
       excludedDates: (r.section_id && excludedBySection.get(r.section_id)) || undefined,
       amount: money(r.price_snapshot),
@@ -530,7 +525,6 @@ export const SAMPLE_REGISTRATION_SUMMARY: RegistrationSummary = {
           schedule: "Mon/Wed · 4:00–5:00 PM",
           location: "Upper East Side Studio",
           locationAddress: "428 E 75th Street, New York, NY 10021",
-          classroom: "Studio A",
           instructor: "Ms. Rivera",
           excludedDates: ["Jul 4, 2026"],
           amount: "$420.00",

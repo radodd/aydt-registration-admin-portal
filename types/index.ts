@@ -1527,8 +1527,8 @@ export type EmailTemplate = {
  * standard enrollments are never silently dropped.
  *
  * The render layer omits any empty field, so optional members that have no
- * backing data yet (e.g. location address / classroom until an authoring UI
- * populates them) simply don't appear.
+ * backing data yet (e.g. location address until an authoring UI populates it)
+ * simply don't appear.
  */
 export type RegistrationSummarySession = {
   /** Class display name (falls back to `classes.name`). */
@@ -1537,7 +1537,6 @@ export type RegistrationSummarySession = {
   schedule?: string;
   location?: string;
   locationAddress?: string;
-  classroom?: string;
   instructor?: string;
   /** Group assignment name (drop-in/meeting enrollments only). */
   group?: string;
