@@ -727,7 +727,15 @@ export default function SessionsStep({
                           </div>
                         </div>
                       </td>
-                      <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-neutral-600 whitespace-nowrap`}>{divisionLabel}</td>
+                      <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-neutral-600 whitespace-nowrap`}>
+                        {/* Division is N/A for tiered/drop-in modes (the division input is hidden
+                            for them too) — blank the cell so a legacy value never lingers. */}
+                        {rowFlags.tiered || rowFlags.dropIn ? (
+                          <span className="text-neutral-300">—</span>
+                        ) : (
+                          divisionLabel
+                        )}
+                      </td>
                       <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-neutral-600`}>
                         {cls.offeringType === "competition_track" ? (
                           <span className="text-neutral-400 italic text-xs">Invite only</span>
