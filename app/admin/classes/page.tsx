@@ -16,6 +16,12 @@ import { initEmailForClass } from "./actions/initEmailForClass";
 import { listTemplates } from "@/app/admin/emails/actions/listTemplates";
 import { assignInstructorToSession } from "./actions/assignInstructor";
 import { removeInstructorFromSession } from "./actions/removeInstructor";
+// Meeting-plan #25: surface + act on the per-class waitlist without leaving the
+// Classes tab. Reuses the waitlist sub-zone's query + invite action; "Register"
+// hands off to the manual registration flow with the entry pre-loaded
+// (/admin/register?fromWaitlist=<id>).
+import { getWaitlistEntries, type AdminWaitlistEntry } from "@/app/admin/waitlist/queries";
+import { inviteWaitlistEntryByLink } from "@/app/admin/waitlist/actions/inviteWaitlistEntryByLink";
 import type { TemplateListRow } from "@/types";
 import type { SessionInstructorAssignment, InstructorRow } from "@/queries/admin";
 import Link from "next/link";
@@ -87,6 +93,16 @@ function formatTime(t: string | null): string {
   const [h, m] = t.split(":").map(Number);
   const ampm = h >= 12 ? "PM" : "AM";
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+/** Short "Jun 4, 3:05 PM" stamp for waitlist sign-up order. */
+function fmtWaitlistDate(d: string): string {
+  return new Date(d).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function getSemesterFromDetail(
@@ -531,11 +547,13 @@ function ClassListRow({
   cls,
   selected,
   enrolledCount,
+  waitlistCount,
   onClick,
 }: {
   cls: ClassListItem;
   selected: boolean;
   enrolledCount: number | null;
+  waitlistCount: number;
   onClick: () => void;
 }) {
   const cap = totalCapacity(cls);
@@ -630,7 +648,143 @@ function ClassListRow({
         >
           {cls.is_active ? "Active" : "Inactive"}
         </span>
+        {/* Meeting-plan #25: waitlist count visible in the list at a glance. */}
+        {waitlistCount > 0 && (
+          <span
+            className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+            style={{ background: "#FBEFD6", color: "#7A4E08" }}
+          >
+            {waitlistCount} waitlisted
+          </span>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ─── Waitlist Card (Classes detail panel) ─────────────────────────────────────
+// Meeting-plan #25: per-class waitlist queue with inline invite (Send link) and
+// Register actions, so admins act from the single Classes view.
+
+function WaitlistCard({
+  entries,
+  onChanged,
+}: {
+  entries: AdminWaitlistEntry[];
+  onChanged: () => void;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ id: string; text: string; ok: boolean } | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  async function handleInvite(entry: AdminWaitlistEntry) {
+    setBusyId(entry.id);
+    setFeedback(null);
+    const result = await inviteWaitlistEntryByLink(entry.id);
+    setBusyId(null);
+    setFeedback({
+      id: entry.id,
+      text: result.success ? "Payment link sent" : (result.error ?? "Failed to send"),
+      ok: result.success,
+    });
+    if (result.success) onChanged();
+  }
+
+  const THRESHOLD = 4;
+  const overflow = entries.length > THRESHOLD;
+  const visible = expanded ? entries : entries.slice(0, THRESHOLD);
+
+  return (
+    <div
+      className="rounded-xl"
+      style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
+    >
+      <div
+        className="px-4 py-3 rounded-t-xl"
+        style={{ borderBottom: "0.5px solid #DDD9D2" }}
+      >
+        <p className="text-[12px] font-medium" style={{ color: "#201D18" }}>
+          Waitlist
+          <span className="ml-1.5 font-normal" style={{ color: "#9E9890" }}>
+            ({entries.length})
+          </span>
+        </p>
+      </div>
+
+      {entries.length === 0 ? (
+        <div className="px-4 py-4 text-[12px]" style={{ color: "#9E9890" }}>
+          No one is waitlisted for this class.
+        </div>
+      ) : (
+        <div>
+          {visible.map((e, i) => (
+            <div
+              key={e.id}
+              className="px-4 py-3"
+              style={{
+                borderBottom:
+                  i < visible.length - 1 ? "0.5px solid #F7F5F2" : undefined,
+              }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-medium" style={{ color: "#201D18" }}>
+                    <span style={{ color: "#9E9890" }}>{i + 1}.</span>{" "}
+                    {e.dancerName ?? "—"}
+                    {e.status === "invited" && (
+                      <span
+                        className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full"
+                        style={{ background: "#FBEFD6", color: "#7A4E08" }}
+                      >
+                        Invited
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[11px] truncate" style={{ color: "#9E9890" }}>
+                    {e.contactName ?? e.contactEmail ?? "—"} · {fmtWaitlistDate(e.signedUpAt)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {feedback?.id === e.id && (
+                    <span
+                      className="text-[10px]"
+                      style={{ color: feedback.ok ? "#0A5A50" : "#C14B3B" }}
+                    >
+                      {feedback.text}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => handleInvite(e)}
+                    disabled={busyId === e.id}
+                    className="text-[11px] px-2.5 py-1 rounded-lg transition disabled:opacity-50 hover:bg-[#F7F5F2]"
+                    style={{ border: "0.5px solid #DDD9D2", color: "#201D18" }}
+                  >
+                    {busyId === e.id ? "Sending…" : "Send link"}
+                  </button>
+                  {/* Hands off to the manual registration flow with this entry
+                      pre-loaded (dancer + class + semester + form answers). */}
+                  <Link
+                    href={`/admin/register?fromWaitlist=${e.id}`}
+                    className="text-[11px] px-2.5 py-1 rounded-lg text-white transition hover:opacity-90"
+                    style={{ background: "#8E2A23" }}
+                  >
+                    Register
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))}
+          {overflow && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="px-4 py-2 text-[11px] font-medium transition hover:opacity-70"
+              style={{ color: "#8E2A23" }}
+            >
+              {expanded ? "Collapse ↑" : `Show all ${entries.length} →`}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -640,6 +794,8 @@ function ClassListRow({
 function ClassDetailPanel({
   detail,
   registrants,
+  waitlistEntries,
+  onWaitlistChanged,
   onEmail,
   onEdit,
   onArchive,
@@ -649,6 +805,8 @@ function ClassDetailPanel({
 }: {
   detail: ClassDetail;
   registrants: Registrant[];
+  waitlistEntries: AdminWaitlistEntry[];
+  onWaitlistChanged: () => void;
   onEmail: () => void;
   onEdit: () => void;
   onArchive: () => void;
@@ -1269,9 +1427,22 @@ function ClassDetailPanel({
                 {openSpots}
               </span>
             </div>
+            {/* Meeting-plan #25: waitlist visible alongside capacity. */}
+            <div className="flex justify-between text-[12px]">
+              <span style={{ color: "#736D65" }}>Waitlisted</span>
+              <span
+                className="font-medium"
+                style={{ color: waitlistEntries.length > 0 ? "#8E2A23" : "#201D18" }}
+              >
+                {waitlistEntries.length}
+              </span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Meeting-plan #25: per-class waitlist queue + inline actions. */}
+      <WaitlistCard entries={waitlistEntries} onChanged={onWaitlistChanged} />
 
       {/* ── Instructors ──────────────────────────────────────────── */}
       {addingToSessionId && (
@@ -1694,6 +1865,8 @@ function ClassesPageContent() {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
   const [enrolledCounts, setEnrolledCounts] = useState<Record<string, number>>({});
+  // Meeting-plan #25: active waitlist entries (waiting/invited) across all classes.
+  const [waitlist, setWaitlist] = useState<AdminWaitlistEntry[]>([]);
 
   const [detail, setDetail] = useState<ClassDetail | null>(null);
   const [registrants, setRegistrants] = useState<Registrant[]>([]);
@@ -1760,6 +1933,23 @@ function ClassesPageContent() {
         setEnrolledCounts(counts);
       });
   }, [classes]);
+
+  // Meeting-plan #25: load the active waitlist once. getWaitlistEntries returns
+  // all waiting/invited entries; we bucket them per class for the list + detail.
+  function refreshWaitlist() {
+    getWaitlistEntries().then(setWaitlist);
+  }
+  useEffect(() => {
+    refreshWaitlist();
+  }, []);
+
+  const waitlistCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of waitlist) {
+      if (e.classId) counts[e.classId] = (counts[e.classId] ?? 0) + 1;
+    }
+    return counts;
+  }, [waitlist]);
 
   // Load detail when selectedId changes
   useEffect(() => {
@@ -2006,6 +2196,7 @@ function ClassesPageContent() {
                   cls={cls}
                   selected={selectedId === cls.id}
                   enrolledCount={enrolledCounts[cls.id] ?? null}
+                  waitlistCount={waitlistCounts[cls.id] ?? 0}
                   onClick={() => selectClass(cls.id)}
                 />
               ))
@@ -2059,6 +2250,8 @@ function ClassesPageContent() {
             <ClassDetailPanel
               detail={detail}
               registrants={registrants}
+              waitlistEntries={detail ? waitlist.filter((e) => e.classId === detail.id) : []}
+              onWaitlistChanged={refreshWaitlist}
               onEmail={() => setShowEmailModal(true)}
               onEdit={() => setShowEditModal(true)}
               onArchive={handleArchive}

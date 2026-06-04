@@ -11,6 +11,7 @@ import {
   createAdminRegistration,
   type NewDancerInput,
 } from "../actions/createAdminRegistration";
+import { markWaitlistEntryRegistered } from "@/app/admin/waitlist/actions/markWaitlistEntryRegistered";
 import type { ClassInfo } from "./ClassesStep";
 
 type Props = {
@@ -35,6 +36,8 @@ type Props = {
   formData: Record<string, unknown>;
   /** Super-admins can set up auto-charged installment plans + under-collect (#7). */
   isSuperAdmin: boolean;
+  /** Meeting-plan #25: when set, mark this waitlist entry "registered" on success. */
+  waitlistEntryId?: string | null;
   // Callbacks
   onBack: () => void;
   onSuccess: (batchId: string, dancerId: string) => void;
@@ -77,6 +80,7 @@ export default function CheckoutStep({
   initialPriceOverride,
   formData,
   isSuperAdmin,
+  waitlistEntryId,
   onBack,
   onSuccess,
 }: Props) {
@@ -368,6 +372,14 @@ export default function CheckoutStep({
       setSubmitting(false);
       setSubmitError(result.error ?? "Registration failed. Please try again.");
       return;
+    }
+
+    // Meeting-plan #25: this registration converts a waitlist entry — resolve it
+    // so it drops off the waitlist (and the Classes-tab count). Done before any
+    // installment/ACH redirect so it applies to every completion path. Best-effort:
+    // a failure here must not block the (already-succeeded) registration.
+    if (waitlistEntryId) {
+      await markWaitlistEntryRegistered(waitlistEntryId).catch(() => {});
     }
 
     // Installment plans return a hosted-page URL — redirect so the family can
