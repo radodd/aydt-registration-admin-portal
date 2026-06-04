@@ -111,6 +111,7 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
           is_active: cls.is_active,
           is_competition_track: cls.is_competition_track ?? false,
           requires_teacher_rec: cls.requires_teacher_rec ?? false,
+          registration_fee_exempt: cls.registration_fee_exempt ?? false,
           cloned_from_class_id: cls.id,
         })
         .select("id")

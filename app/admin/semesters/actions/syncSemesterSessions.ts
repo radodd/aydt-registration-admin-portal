@@ -95,6 +95,7 @@ export async function syncSemesterSessions(
           is_tiered: draftClass.isTiered ?? false,
           requires_teacher_rec: draftClass.requiresTeacherRec ?? false,
           tuition_override_amount: draftClass.tuitionOverride ?? null,
+          registration_fee_exempt: draftClass.registrationFeeExempt ?? false,
           // Enforce derived invariants: competition tracks are always invite_only + audition.
           visibility: isCompTrack ? "invite_only" : (draftClass.visibility ?? "public"),
           enrollment_type: isCompTrack ? "audition" : (draftClass.enrollmentType ?? "standard"),
@@ -127,6 +128,7 @@ export async function syncSemesterSessions(
           is_tiered: draftClass.isTiered ?? false,
           requires_teacher_rec: draftClass.requiresTeacherRec ?? false,
           tuition_override_amount: draftClass.tuitionOverride ?? null,
+          registration_fee_exempt: draftClass.registrationFeeExempt ?? false,
           // Enforce derived invariants: competition tracks are always invite_only + audition.
           visibility: isCompTrackNew ? "invite_only" : (draftClass.visibility ?? "public"),
           enrollment_type: isCompTrackNew ? "audition" : (draftClass.enrollmentType ?? "standard"),

@@ -177,6 +177,19 @@ export default function PaymentStep({
     state.feeConfig ?? DEFAULT_FEE_CONFIG,
   );
 
+  /* ---- Registration-fee-exempt classes (meeting-plan #22) ----
+   * The flag lives per-class on state.sessions.classes, not in feeConfig.
+   * We track exempt selections by class index (stable within this step) and
+   * merge them back into the classes array via SET_SESSIONS on submit. */
+  const [regFeeExemptIdxs, setRegFeeExemptIdxs] = useState<Set<number>>(
+    () =>
+      new Set(
+        (state.sessions?.classes ?? [])
+          .map((c, i) => (c.registrationFeeExempt ? i : -1))
+          .filter((i) => i >= 0),
+      ),
+  );
+
   /* ------------------------------------------------------------------------ */
   /* Handlers — plans                                                          */
   /* ------------------------------------------------------------------------ */
@@ -426,6 +439,22 @@ export default function PaymentStep({
     dispatch({ type: "SET_TUITION_RATE_BANDS", payload: bands });
     dispatch({ type: "SET_FEE_CONFIG", payload: feeConfig });
     dispatch({ type: "SET_SPECIAL_PROGRAM_TUITION", payload: programs });
+
+    // Merge per-class registration-fee-exempt selections back into the classes
+    // array (meeting-plan #22). Only dispatch if the semester actually has
+    // classes, to avoid clobbering an empty/undefined sessions object.
+    if (state.sessions?.classes?.length) {
+      dispatch({
+        type: "SET_SESSIONS",
+        payload: {
+          ...state.sessions,
+          classes: state.sessions.classes.map((c, i) => ({
+            ...c,
+            registrationFeeExempt: regFeeExemptIdxs.has(i),
+          })),
+        },
+      });
+    }
 
     onNext();
   }
@@ -2034,6 +2063,72 @@ export default function PaymentStep({
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Registration-fee-exempt classes (meeting-plan #22) */}
+              <div
+                className="px-5 py-3"
+                style={{
+                  background: "var(--admin-surface-sub)",
+                  borderTop: "0.5px solid var(--admin-border)",
+                  borderBottom: "0.5px solid var(--admin-border)",
+                }}
+              >
+                <p
+                  className="text-xs font-semibold uppercase tracking-wider"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
+                  Registration-fee-exempt classes
+                </p>
+                <p
+                  className="text-xs mt-0.5"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
+                  Turn off the registration fee for a specific offering (a runoff,
+                  movie night, Art in Motion, etc.). Costume and video fees are
+                  unaffected.
+                </p>
+              </div>
+              <div className="p-5">
+                {semesterClasses.length === 0 ? (
+                  <p className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
+                    No classes added yet. Add classes in the Sessions step to choose
+                    exemptions here.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {semesterClasses.map((cls, i) => {
+                      const checked = regFeeExemptIdxs.has(i);
+                      return (
+                        <button
+                          key={cls.id ?? `idx-${i}`}
+                          type="button"
+                          disabled={isLocked}
+                          onClick={() => {
+                            setRegFeeExemptIdxs((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(i)) next.delete(i);
+                              else next.add(i);
+                              return next;
+                            });
+                          }}
+                          className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all disabled:opacity-50"
+                          style={{
+                            background: checked ? "#FDF2F1" : "var(--admin-surface-sub)",
+                            border: checked
+                              ? "1.5px solid var(--admin-sidebar-active)"
+                              : "1px solid var(--admin-border)",
+                            color: checked
+                              ? "var(--admin-sidebar-active)"
+                              : "var(--admin-text-muted)",
+                          }}
+                        >
+                          {cls.displayName || cls.name || "Untitled class"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

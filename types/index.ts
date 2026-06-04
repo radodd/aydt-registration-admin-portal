@@ -941,6 +941,13 @@ export type DraftClass = {
    * sessions of this class. Null/undefined → use normal rate-band pricing.
    */
   tuitionOverride?: number | null;
+  /**
+   * Meeting-plan #22: when true, this class is exempt from the per-child
+   * registration fee (a runoff, movie night, Art in Motion, etc.). Affects the
+   * registration_fee line item only — costume/video fees are governed separately
+   * by feeConfig.costume_fee_exempt_keys. Maps to classes.registration_fee_exempt.
+   */
+  registrationFeeExempt?: boolean;
   /** Schedule blocks — each generates per-day class_meetings automatically.
    *  INVARIANT: always [] for competition_track classes. */
   schedules: DraftClassSchedule[];

@@ -304,7 +304,7 @@ export async function computePricingQuote(
       const { data: scheduleRows, error: scheduleError } = await supabase
         .from("class_sections")
         .select(
-          "id, days_of_week, classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount)",
+          "id, days_of_week, classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount, registration_fee_exempt)",
         )
         .in("id", scheduleIds!);
 
@@ -321,6 +321,7 @@ export async function computePricingQuote(
         is_competition_track: boolean;
         is_tiered: boolean;
         tuition_override_amount: number | null;
+        registration_fee_exempt: boolean;
       };
 
       const classesForDancer = scheduleRows.map((s) => {
@@ -368,6 +369,14 @@ export async function computePricingQuote(
           (keys.includes("competition") && cls.division === "competition")
         );
       };
+
+      // Meeting-plan #22: registration-fee-only exemption. A class is reg-fee
+      // exempt if its per-class flag is set OR it's already fee-exempt for the
+      // discipline/tier/competition reasons above. Kept separate from
+      // isFeeExemptClass so the per-class flag never suppresses costume/video fees.
+      const isRegFeeExemptClass = (
+        cls: ScheduleClassInfo,
+      ): boolean => cls.registration_fee_exempt === true || isFeeExemptClass(cls);
 
       const standardClasses = classesForDancer.filter(
         (c) => c !== null && !isFeeExemptClass(c),
@@ -651,7 +660,7 @@ export async function computePricingQuote(
       } else {
         const allClassesAreExempt =
           classesForDancer.length > 0 &&
-          classesForDancer.every((c) => c !== null && isFeeExemptClass(c));
+          classesForDancer.every((c) => c !== null && isRegFeeExemptClass(c));
         registrationFee = allClassesAreExempt
           ? 0
           : feeConfig.registration_fee_per_child;
@@ -686,7 +695,7 @@ export async function computePricingQuote(
     const { data: sessionRows, error: sessionError } = await supabase
       .from("class_meetings")
       .select(
-        "id, section_id, schedule_date, day_of_week, drop_in_price, class_sections(is_drop_in), classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount)",
+        "id, section_id, schedule_date, day_of_week, drop_in_price, class_sections(is_drop_in), classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount, registration_fee_exempt)",
       )
       .in("id", resolvedSessionIds);
 
@@ -706,6 +715,7 @@ export async function computePricingQuote(
         is_competition_track: boolean;
         is_tiered: boolean;
         tuition_override_amount: number | null;
+        registration_fee_exempt: boolean;
       } | null;
     });
 
@@ -783,6 +793,18 @@ export async function computePricingQuote(
       );
     };
 
+    // Meeting-plan #22: registration-fee-only exemption (see schedule-path note).
+    // Per-class flag OR existing fee-exempt status. Separate from isFeeExemptClass
+    // so the per-class flag never suppresses costume/video fees.
+    const isRegFeeExemptClass = (cls: {
+      discipline: string;
+      division: string;
+      is_tiered?: boolean;
+      is_competition_track?: boolean;
+      registration_fee_exempt?: boolean;
+    }): boolean =>
+      cls.registration_fee_exempt === true || isFeeExemptClass(cls);
+
     // Costume / video fee math is keyed off the dancer's standard (non-exempt,
     // non-drop-in) classes. Drop-in meetings always count as fee-exempt per the
     // Phase 2 pricing model (see #2c).
@@ -799,6 +821,7 @@ export async function computePricingQuote(
         is_competition_track: boolean;
         is_tiered: boolean;
         tuition_override_amount: number | null;
+        registration_fee_exempt: boolean;
       } | null;
     });
 
@@ -1267,7 +1290,7 @@ export async function computePricingQuote(
       const allClassesAreExempt =
         nonDropInClassesForDancer.length === 0 ||
         nonDropInClassesForDancer.every(
-          (c) => c !== null && isFeeExemptClass(c),
+          (c) => c !== null && isRegFeeExemptClass(c),
         );
       registrationFee = allClassesAreExempt
         ? 0

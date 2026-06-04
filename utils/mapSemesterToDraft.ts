@@ -80,6 +80,7 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
           })),
         requiresTeacherRec: c.requires_teacher_rec ?? false,
         tuitionOverride: c.tuition_override_amount ? Number(c.tuition_override_amount) : null,
+        registrationFeeExempt: c.registration_fee_exempt ?? false,
         visibility: c.visibility ?? "public",
         enrollmentType: c.enrollment_type ?? "standard",
         schedules: (c.class_sections ?? []).map((cs: any): DraftClassSchedule => ({
