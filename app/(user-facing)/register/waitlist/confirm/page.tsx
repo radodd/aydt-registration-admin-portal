@@ -407,8 +407,8 @@ function WaitlistConfirmInner() {
         )}
       </div>
       <div style={{ fontSize: 13, color: "var(--pub-text-muted)", lineHeight: 1.6 }}>
-        <strong>No further action is needed.</strong> We&apos;ll only email you
-        again if a spot opens up.
+        <strong>No further action needed</strong> — we&apos;ll email you if a
+        spot opens up.
       </div>
 
       <button
