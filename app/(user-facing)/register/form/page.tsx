@@ -46,6 +46,7 @@ function renderField(
   control: any,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   errors: any,
+  mode: "live" | "preview" = "live",
 ) {
   if (el.type === "subheader") {
     return (
@@ -162,18 +163,29 @@ function renderField(
       )}
 
       {el.inputType === "address" && (
-        <Controller
-          name={el.id}
-          control={control}
-          defaultValue={EMPTY_ADDRESS}
-          render={({ field }) => (
-            <AddressBlockField
-              value={field.value}
-              onChange={field.onChange}
-              inputClassName="reg-input"
-            />
+        <>
+          {/* #20: preview has no real parent account (the logged-in user is the
+              admin), so the address can't be prefilled — show a labeled
+              placeholder instead of the admin's stale/blank address. */}
+          {mode === "preview" && (
+            <span className="reg-hint">
+              Preview — a parent&apos;s saved address appears here automatically
+              in the real registration flow.
+            </span>
           )}
-        />
+          <Controller
+            name={el.id}
+            control={control}
+            defaultValue={EMPTY_ADDRESS}
+            render={({ field }) => (
+              <AddressBlockField
+                value={field.value}
+                onChange={field.onChange}
+                inputClassName="reg-input"
+              />
+            )}
+          />
+        </>
       )}
 
       {el.inputType === "phone_number" && (
@@ -325,6 +337,11 @@ export function FormContent({
     if (!contactsLoaded) return;
     if (hasSeededProfile.current) return;
     hasSeededProfile.current = true;
+
+    // #20: in preview the logged-in account is the admin's, not a real parent —
+    // seeding here would surface the admin's stale/blank address. Skip seeding;
+    // the address field shows a labeled placeholder instead (see renderField).
+    if (mode === "preview") return;
 
     const emergencyContact = familyContacts.find(c => c.type === "emergency_contact") ?? null;
     const alternateParent  = familyContacts.find(c => c.type === "alternate_parent")  ?? null;
@@ -636,7 +653,7 @@ export function FormContent({
         {elements.map((el) =>
           el.type === "waiver"
             ? renderWaiver(el)
-            : renderField(el, register, control, errors),
+            : renderField(el, register, control, errors, mode),
         )}
       </div>
 
