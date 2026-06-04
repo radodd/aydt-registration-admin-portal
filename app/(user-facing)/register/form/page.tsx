@@ -219,10 +219,13 @@ export function FormContent({
   semesterId,
   continueUrl,
   mode = "live",
+  isWaitlist = false,
 }: {
   semesterId: string;
   continueUrl: string;
   mode?: "live" | "preview";
+  /** Waitlist joins terminate before payment — affects step copy only. */
+  isWaitlist?: boolean;
 }) {
   const router = useRouter();
   const { state, setFormData } = useRegistration();
@@ -596,7 +599,9 @@ export function FormContent({
           No additional information required
         </div>
         <div style={{ fontSize: 13, color: "var(--pub-text-muted)", marginBottom: 24 }}>
-          You&apos;re all set — continue to the payment step.
+          {isWaitlist
+            ? "You’re all set — continue to join the waitlist."
+            : "You’re all set — continue to the payment step."}
         </div>
         <button
           type="button"
@@ -604,7 +609,7 @@ export function FormContent({
           className="btn-continue"
           style={{ display: "inline-flex" }}
         >
-          Continue to Payment
+          {isWaitlist ? "Continue" : "Continue to Payment"}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="5" y1="12" x2="19" y2="12"/>
             <polyline points="12 5 19 12 12 19"/>
@@ -619,9 +624,15 @@ export function FormContent({
     <form onSubmit={handleSubmit(onSubmit)}>
       {/* Page header */}
       <div style={{ marginBottom: 28 }}>
-        <div className="reg-page-eyebrow">Step 4 of 6 — Registration Info</div>
+        <div className="reg-page-eyebrow">
+          {isWaitlist ? "Step 4 of 5 — Registration Info" : "Step 4 of 6 — Registration Info"}
+        </div>
         <h1 className="reg-page-title">Registration Information</h1>
-        <p className="reg-page-desc">Please complete all required fields before continuing to payment.</p>
+        <p className="reg-page-desc">
+          {isWaitlist
+            ? "Please complete all required fields before joining the waitlist."
+            : "Please complete all required fields before continuing to payment."}
+        </p>
       </div>
 
       {/* How did you hear about us — first-time families only */}
@@ -670,7 +681,7 @@ export function FormContent({
           Back
         </button>
         <button type="submit" className="btn-continue">
-          Continue to Payment
+          {isWaitlist ? "Continue" : "Continue to Payment"}
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="5" y1="12" x2="19" y2="12"/>
             <polyline points="12 5 19 12 12 19"/>
@@ -697,7 +708,11 @@ function FormPageInner() {
 
   return (
     <CartRestoreGuard semesterId={semesterId}>
-      <FormContent semesterId={semesterId} continueUrl={continueUrl} />
+      <FormContent
+        semesterId={semesterId}
+        continueUrl={continueUrl}
+        isWaitlist={isWaitlist}
+      />
     </CartRestoreGuard>
   );
 }
