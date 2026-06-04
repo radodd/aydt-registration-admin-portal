@@ -111,6 +111,7 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
           is_active: cls.is_active,
           is_competition_track: cls.is_competition_track ?? false,
           requires_teacher_rec: cls.requires_teacher_rec ?? false,
+          registration_fee_exempt: cls.registration_fee_exempt ?? false,
           cloned_from_class_id: cls.id,
         })
         .select("id")
@@ -280,6 +281,15 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
   console.log("[cloneSemester] cloning semester_fee_config, count:", source.semester_fee_config?.length ?? 0);
   if (source.semester_fee_config?.length > 0) {
     const fc = source.semester_fee_config[0];
+    // Option B sync: if the source semester has installments enabled with a
+    // count, use that as the cloned fee-config count too. Otherwise a clone
+    // of a previously out-of-sync source would reproduce the drift.
+    const sourcePlan = source.semester_payment_plans?.[0];
+    const syncedInstallmentCount =
+      sourcePlan?.type === "installments" &&
+      sourcePlan.installment_count != null
+        ? sourcePlan.installment_count
+        : fc.auto_pay_installment_count;
     const { error: feeError } = await supabase
       .from("semester_fee_config")
       .insert({
@@ -287,7 +297,7 @@ export async function cloneSemester(sourceId: string, yearShift: number = 0): Pr
         registration_fee_per_child: fc.registration_fee_per_child,
         family_discount_amount: fc.family_discount_amount,
         auto_pay_admin_fee_monthly: fc.auto_pay_admin_fee_monthly,
-        auto_pay_installment_count: fc.auto_pay_installment_count,
+        auto_pay_installment_count: syncedInstallmentCount,
       });
     if (feeError) {
       console.error("[cloneSemester] semester_fee_config insert failed:", feeError);

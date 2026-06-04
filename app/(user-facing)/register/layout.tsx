@@ -60,15 +60,26 @@ export default function RegisterLayout({
     return <>{children}</>;
   }
 
+  // A waitlist join reuses the full flow but terminates at the waitlist-confirm
+  // step instead of payment. The form step routes to /register/waitlist/confirm
+  // WITHOUT the waitlist=1 query param, so detect the intent by either signal.
+  const isWaitlist =
+    params.get("waitlist") === "1" || pathname.includes("/register/waitlist");
+
+  // Waitlist flow has no Payment step — drop it so the bar reads cleanly.
+  const steps = isWaitlist ? STEPS.filter((s) => s.key !== "payment") : STEPS;
+
   // Map current URL segment to the active step index (0-based).
   // Steps 0–1 (Sessions, Review Cart) are always "done" on entry to /register/*.
-  const activeStep = pathname.includes("/register/payment")
-    ? 4  // Payment (step 5)
-    : pathname.includes("/register/form")
-      ? 3  // Reg. Info (step 4)
-      : pathname.includes("/register/participants")
-        ? 2  // Dancer Info (step 3)
-        : 1; // fallback
+  const activeStep = pathname.includes("/register/waitlist")
+    ? steps.length - 1 // terminal "Confirm" step of the waitlist flow
+    : pathname.includes("/register/payment")
+      ? 4  // Payment (step 5)
+      : pathname.includes("/register/form")
+        ? 3  // Reg. Info (step 4)
+        : pathname.includes("/register/participants")
+          ? 2  // Dancer Info (step 3)
+          : 1; // fallback
 
   return (
     <CartProvider semesterId={semesterId}>
@@ -77,7 +88,7 @@ export default function RegisterLayout({
         <div className="cart-steps-bar">
           <div className="cart-steps-inner">
             <div className="reg-steps">
-              {STEPS.map((step, i) => {
+              {steps.map((step, i) => {
                 const isDone = i < activeStep;
                 const isActive = i === activeStep;
                 return (

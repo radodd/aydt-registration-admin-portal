@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { requireAdmin } from "@/utils/requireAdmin";
+import { grantAccountCredits } from "@/queries/credits";
 
 export async function issueBulkCredits(entries: {
   familyId: string;
@@ -21,17 +22,21 @@ export async function issueBulkCredits(entries: {
 
   const supabase = await createClient();
 
-  const rows = entries.map((e) => ({
-    family_id: e.familyId,
-    amount: e.amount,
-    reason: e.reason?.trim() || null,
-    issued_by_admin_id: adminUserId,
-    source_batch_id: e.sourceBatchId ?? null,
-  }));
+  // Single source of truth: bulk multi-family grants route through the same
+  // canonical insert path as single grants. Note `sourceBatchId` here is a
+  // single value applied to all rows (callers pass one cancellation batch);
+  // grantAccountCredits keeps the per-row family/amount/reason from `entries`.
+  const { credits, error } = await grantAccountCredits(supabase, {
+    entries: entries.map((e) => ({
+      familyId: e.familyId,
+      amount: e.amount,
+      reason: e.reason,
+    })),
+    issuedByAdminId: adminUserId,
+    sourceBatchId: entries[0]?.sourceBatchId ?? null,
+  });
 
-  const { error } = await supabase.from("family_account_credits").insert(rows);
+  if (error) return { error };
 
-  if (error) return { error: error.message };
-
-  return { count: rows.length };
+  return { count: credits.length };
 }

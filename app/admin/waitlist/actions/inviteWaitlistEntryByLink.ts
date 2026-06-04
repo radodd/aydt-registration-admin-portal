@@ -7,8 +7,17 @@ import { wrapEmailLayout } from "@/utils/prepareEmailHtml";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-/** Days a Path-A payment link stays valid. */
-const INVITE_EXPIRY_DAYS = 7;
+/** Fallback offer window (hours) when a semester has no waitlist_settings. */
+const DEFAULT_INVITE_EXPIRY_HOURS = 48;
+
+/** Human-readable offer window: whole days read as days, otherwise hours. */
+function formatExpiryWindow(hours: number): string {
+  if (hours > 0 && hours % 24 === 0) {
+    const days = hours / 24;
+    return `${days} day${days === 1 ? "" : "s"}`;
+  }
+  return `${hours} hour${hours === 1 ? "" : "s"}`;
+}
 
 export interface InviteByLinkResult {
   success: boolean;
@@ -30,7 +39,7 @@ export async function inviteWaitlistEntryByLink(
   const { data: entry, error } = await supabase
     .from("waitlist_entries")
     .select(
-      "id, status, invite_token, contact_name, contact_email, classes(name, semesters(name))",
+      "id, status, invite_token, contact_name, contact_email, classes(name, semesters(name, waitlist_settings))",
     )
     .eq("id", entryId)
     .maybeSingle();
@@ -42,8 +51,23 @@ export async function inviteWaitlistEntryByLink(
     return { success: false, error: "This entry has no contact email." };
   }
 
+  // Resolve the class/semester (and the semester's configured offer window) so
+  // the link expiry and the email copy both reflect the admin-set value.
+  type SemRel = { name?: string; waitlist_settings?: { inviteExpiryHours?: number } };
+  const classRel = entry.classes as
+    | { name?: string; semesters?: SemRel | SemRel[] }
+    | { name?: string; semesters?: SemRel | SemRel[] }[]
+    | null;
+  const cls = Array.isArray(classRel) ? classRel[0] : classRel;
+  const className = cls?.name ?? "your class";
+  const semRel = Array.isArray(cls?.semesters) ? cls?.semesters[0] : cls?.semesters;
+  const semesterName = semRel?.name ?? "";
+
+  const expiryHours =
+    semRel?.waitlist_settings?.inviteExpiryHours ?? DEFAULT_INVITE_EXPIRY_HOURS;
+  const expiryWindowLabel = formatExpiryWindow(expiryHours);
   const expiresAt = new Date(
-    Date.now() + INVITE_EXPIRY_DAYS * 24 * 60 * 60 * 1000,
+    Date.now() + expiryHours * 60 * 60 * 1000,
   ).toISOString();
 
   const { error: updateError } = await supabase
@@ -63,15 +87,6 @@ export async function inviteWaitlistEntryByLink(
     process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const link = `${siteUrl}/waitlist/accept/${entry.invite_token}`;
 
-  const classRel = entry.classes as
-    | { name?: string; semesters?: { name?: string } | { name?: string }[] }
-    | { name?: string; semesters?: { name?: string } | { name?: string }[] }[]
-    | null;
-  const cls = Array.isArray(classRel) ? classRel[0] : classRel;
-  const className = cls?.name ?? "your class";
-  const semRel = Array.isArray(cls?.semesters) ? cls?.semesters[0] : cls?.semesters;
-  const semesterName = semRel?.name ?? "";
-
   const greeting = entry.contact_name?.trim()
     ? `Hi ${entry.contact_name},`
     : "Hi,";
@@ -86,7 +101,7 @@ export async function inviteWaitlistEntryByLink(
     </p>
     <p style="margin:0 0 20px;">
       To claim your spot, complete your payment using the secure link below.
-      This link expires in ${INVITE_EXPIRY_DAYS} days.
+      This link expires in ${expiryWindowLabel}.
     </p>
     <p style="margin:0 0 24px;">
       <a href="${link}" style="display:inline-block;background:#7c3a5e;color:#fff;

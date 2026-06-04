@@ -510,6 +510,7 @@ export interface LineItem {
     | "auto_pay_admin_fee"
     | "video_fee"       // senior division: flat fee per registrant
     | "costume_fee"     // senior division: per-class costume fee
+    | "add_on"          // purchasable option attached to a section, auto-applied (class_meeting_options)
     | "session_discount" // custom/multi-session discount rules
     | "coupon_discount"; // promo code or auto-apply coupon
   label: string;
@@ -940,6 +941,13 @@ export type DraftClass = {
    * sessions of this class. Null/undefined → use normal rate-band pricing.
    */
   tuitionOverride?: number | null;
+  /**
+   * Meeting-plan #22: when true, this class is exempt from the per-child
+   * registration fee (a runoff, movie night, Art in Motion, etc.). Affects the
+   * registration_fee line item only — costume/video fees are governed separately
+   * by feeConfig.costume_fee_exempt_keys. Maps to classes.registration_fee_exempt.
+   */
+  registrationFeeExempt?: boolean;
   /** Schedule blocks — each generates per-day class_meetings automatically.
    *  INVARIANT: always [] for competition_track classes. */
   schedules: DraftClassSchedule[];
@@ -1526,8 +1534,8 @@ export type EmailTemplate = {
  * standard enrollments are never silently dropped.
  *
  * The render layer omits any empty field, so optional members that have no
- * backing data yet (e.g. location address / classroom until an authoring UI
- * populates them) simply don't appear.
+ * backing data yet (e.g. location address until an authoring UI populates it)
+ * simply don't appear.
  */
 export type RegistrationSummarySession = {
   /** Class display name (falls back to `classes.name`). */
@@ -1536,7 +1544,6 @@ export type RegistrationSummarySession = {
   schedule?: string;
   location?: string;
   locationAddress?: string;
-  classroom?: string;
   instructor?: string;
   /** Group assignment name (drop-in/meeting enrollments only). */
   group?: string;
@@ -2101,6 +2108,8 @@ export interface FamilyDetailInstallment {
   due_date: string;
   status: string;
   paid_at: string | null;
+  /** Amount actually collected against this installment (partial payments). */
+  paid_amount: number | null;
 }
 
 export interface FamilyDetailBatch {

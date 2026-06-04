@@ -97,7 +97,8 @@ export async function getFamilyDetail(
         amount_due,
         due_date,
         status,
-        paid_at
+        paid_at,
+        paid_amount
       )
     `
     )
@@ -171,9 +172,16 @@ export async function getFamilyDetail(
 
   const batches: FamilyDetailBatch[] = (batchData ?? []).map((b) => {
     const installments = (b.installments ?? []) as FamilyDetailBatch["installments"];
-    const amountPaid = installments
-      .filter((i) => i.status === "paid")
-      .reduce((sum, i) => sum + Number(i.amount_due), 0);
+    // Sum what was actually collected. A fully-paid installment counts its
+    // collected `paid_amount`, falling back to `amount_due` for legacy rows that
+    // predate paid_amount tracking. Scheduled/overdue installments still count
+    // any partial `paid_amount` (meeting-plan #19), and zero otherwise.
+    const amountPaid = installments.reduce((sum, i) => {
+      if (i.status === "paid") {
+        return sum + Number(i.paid_amount ?? i.amount_due);
+      }
+      return sum + Number(i.paid_amount ?? 0);
+    }, 0);
     return {
       id: b.id,
       status: b.status,

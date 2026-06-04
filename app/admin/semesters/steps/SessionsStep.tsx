@@ -147,6 +147,34 @@ function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
+/**
+ * Produce a NEW (unsaved) copy of a class for the "Duplicate" action (a camp
+ * week is modelled as a class/offering — meeting-plan #14). Recursively strips
+ * every persisted `id` (class, schedules, tiers, price tiers, add-ons,
+ * requirements, excluded dates, concurrent-enrollment groups/options) and
+ * regenerates each `_clientKey`, so syncSemesterSessions inserts the whole tree
+ * as brand-new rows instead of updating the source. The deep clone also
+ * guarantees editing the copy (e.g. changing dates) never mutates the original.
+ */
+function cloneClassForDuplicate(cls: DraftClass): DraftClass {
+  const freshen = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach(freshen);
+      return;
+    }
+    if (node && typeof node === "object") {
+      const rec = node as Record<string, unknown>;
+      if ("id" in rec) delete rec.id;
+      if ("_clientKey" in rec) rec._clientKey = crypto.randomUUID();
+      Object.values(rec).forEach(freshen);
+    }
+  };
+  const copy = deepClone(cls);
+  freshen(copy);
+  copy.name = cls.name ? `${cls.name} (copy)` : cls.name;
+  return copy;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Tuition auto-fill helper                                                   */
 /* -------------------------------------------------------------------------- */
@@ -398,6 +426,20 @@ export default function SessionsStep({
   function handleRemoveClass(idx: number) {
     setClasses((prev) => prev.filter((_, i) => i !== idx));
     setSelectedIdx(null);
+  }
+
+  // Clone the whole class (camp "week") right after the source and select it so
+  // the admin can immediately edit the dates. Clone is id-stripped/key-fresh so
+  // it persists as a new offering without disturbing the original.
+  function handleDuplicateClass(idx: number) {
+    setClasses((prev) => {
+      const source = prev[idx];
+      if (!source) return prev;
+      const copy = cloneClassForDuplicate(source);
+      setSelectedIdx(idx + 1);
+      setActiveTab("details");
+      return [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)];
+    });
   }
 
   /* ---------------------------------------------------------------------- */
@@ -685,7 +727,15 @@ export default function SessionsStep({
                           </div>
                         </div>
                       </td>
-                      <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-neutral-600 whitespace-nowrap`}>{divisionLabel}</td>
+                      <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-neutral-600 whitespace-nowrap`}>
+                        {/* Division is N/A for tiered/drop-in modes (the division input is hidden
+                            for them too) — blank the cell so a legacy value never lingers. */}
+                        {rowFlags.tiered || rowFlags.dropIn ? (
+                          <span className="text-neutral-300">—</span>
+                        ) : (
+                          divisionLabel
+                        )}
+                      </td>
                       <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-neutral-600`}>
                         {cls.offeringType === "competition_track" ? (
                           <span className="text-neutral-400 italic text-xs">Invite only</span>
@@ -709,12 +759,30 @@ export default function SessionsStep({
                         </td>
                       )}
                       <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-right w-px`}>
-                        <svg
-                          className={`w-4 h-4 ml-auto transition-transform ${isSelected ? "text-primary-600 rotate-180" : "text-neutral-300"}`}
-                          fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
+                        <div className="flex items-center justify-end gap-1">
+                          {!isLocked && (
+                            <button
+                              type="button"
+                              title="Duplicate class"
+                              aria-label="Duplicate class"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDuplicateClass(idx);
+                              }}
+                              className="shrink-0 p-1 rounded-md text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 transition"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V5a2 2 0 012-2h9a2 2 0 012 2v9a2 2 0 01-2 2h-2M5 8h9a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2v-9a2 2 0 012-2z" />
+                              </svg>
+                            </button>
+                          )}
+                          <svg
+                            className={`w-4 h-4 transition-transform ${isSelected ? "text-primary-600 rotate-180" : "text-neutral-300"}`}
+                            fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -784,6 +852,7 @@ export default function SessionsStep({
           rangeErrors={rangeErrors.get(selectedIdx) ?? []}
           onClose={() => setSelectedIdx(null)}
           onRemoveClass={() => handleRemoveClass(selectedIdx)}
+          onDuplicateClass={() => handleDuplicateClass(selectedIdx)}
           onUpdateClass={(patch) => handleUpdateClass(selectedIdx, patch)}
           onAddSchedule={() => handleAddSchedule(selectedIdx)}
           onRemoveSchedule={(si) => handleRemoveSchedule(selectedIdx, si)}
@@ -838,6 +907,7 @@ function ClassEditPanel({
   rangeErrors,
   onClose,
   onRemoveClass,
+  onDuplicateClass,
   onUpdateClass,
   onAddSchedule,
   onRemoveSchedule,
@@ -868,6 +938,7 @@ function ClassEditPanel({
   rangeErrors: string[];
   onClose: () => void;
   onRemoveClass: () => void;
+  onDuplicateClass: () => void;
   onUpdateClass: (patch: Partial<DraftClass>) => void;
   onAddSchedule: () => void;
   onRemoveSchedule: (idx: number) => void;
@@ -1010,13 +1081,22 @@ function ClassEditPanel({
       {/* Panel footer */}
       <div className="shrink-0 flex items-center justify-between px-4 py-3 border-t border-neutral-200">
         {!isLocked ? (
-          <button
-            type="button"
-            onClick={onRemoveClass}
-            className="text-sm font-medium text-red-500 hover:text-red-700 transition"
-          >
-            Remove class
-          </button>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={onDuplicateClass}
+              className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition"
+            >
+              Duplicate
+            </button>
+            <button
+              type="button"
+              onClick={onRemoveClass}
+              className="text-sm font-medium text-red-500 hover:text-red-700 transition"
+            >
+              Remove class
+            </button>
+          </div>
         ) : (
           <span />
         )}
@@ -1115,6 +1195,12 @@ function DetailsTab({
   const [creatingDivision, setCreatingDivision] = useState(false);
   const [divisionError, setDivisionError] = useState<string | null>(null);
 
+  // Inline "Custom discipline…" form state (for non-standard offerings like camps).
+  const isCustomDiscipline =
+    !!cls.discipline && !DISCIPLINES.some((d) => d.value === cls.discipline);
+  const [showCustomDiscipline, setShowCustomDiscipline] = useState(false);
+  const [customDisciplineInput, setCustomDisciplineInput] = useState("");
+
   return (
     <div className="p-4 space-y-4">
       {/* ── Registration model (Phase 1 UI shell — not persisted) ── */}
@@ -1206,7 +1292,16 @@ function DetailsTab({
           <select
             disabled={isLocked}
             value={cls.discipline}
-            onChange={(e) => onUpdateClass({ discipline: e.target.value })}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === "__custom__") {
+                setCustomDisciplineInput(isCustomDiscipline ? cls.discipline : "");
+                setShowCustomDiscipline(true);
+                return;
+              }
+              setShowCustomDiscipline(false);
+              onUpdateClass({ discipline: value });
+            }}
             className="w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary-600 disabled:bg-neutral-50 disabled:text-neutral-400"
           >
             {DISCIPLINES.map((d) => (
@@ -1214,7 +1309,48 @@ function DetailsTab({
                 {d.label}
               </option>
             ))}
+            {isCustomDiscipline && (
+              <option value={cls.discipline}>{cls.discipline}</option>
+            )}
+            {!isLocked && <option value="__custom__">+ Custom discipline…</option>}
           </select>
+          {showCustomDiscipline && (
+            <div className="mt-2 rounded-xl border border-primary-200 bg-primary-50/40 p-3 space-y-2">
+              <div>
+                <label className="block text-xs font-medium text-neutral-700 mb-1">Custom discipline</label>
+                <input
+                  type="text"
+                  value={customDisciplineInput}
+                  onChange={(e) => setCustomDisciplineInput(e.target.value)}
+                  placeholder="e.g. Camp, Musical Theatre"
+                  className="w-full rounded-lg border border-neutral-300 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-600"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!customDisciplineInput.trim()}
+                  onClick={() => {
+                    onUpdateClass({ discipline: customDisciplineInput.trim() });
+                    setShowCustomDiscipline(false);
+                  }}
+                  className="text-xs font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:bg-neutral-300 px-3 py-1.5 rounded-lg transition"
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCustomDiscipline(false);
+                    setCustomDisciplineInput("");
+                  }}
+                  className="text-xs text-neutral-600 hover:text-neutral-900 px-2 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         {!uiFlags.dropIn && !uiFlags.tiered && (
         <div>

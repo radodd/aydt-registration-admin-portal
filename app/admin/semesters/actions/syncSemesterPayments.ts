@@ -45,6 +45,24 @@ export async function syncSemesterPayment(
     throw new Error(planError.message);
   }
 
+  // 1️⃣b Sync semester_fee_config.auto_pay_installment_count ← the admin's
+  // "Number of installments" input on the Payment Plan section. That field
+  // (semester_payment_plans.installment_count) is the source of truth — it
+  // sits next to the installments toggle and is exposed to families — but
+  // the pricing engine reads auto_pay_installment_count, so without this
+  // sync the two could disagree silently. Only fires for installment plans
+  // with a non-null count; pay_in_full / deposit_* leave fee-config alone.
+  if (payment.type === "installments" && payment.installmentCount != null) {
+    const { error: feeConfigSyncError } = await supabase
+      .from("semester_fee_config")
+      .update({ auto_pay_installment_count: payment.installmentCount })
+      .eq("semester_id", semesterId);
+
+    if (feeConfigSyncError) {
+      throw new Error(feeConfigSyncError.message);
+    }
+  }
+
   // 2️⃣ Reset installments
   const { error: deleteError } = await supabase
     .from("semester_payment_installments")

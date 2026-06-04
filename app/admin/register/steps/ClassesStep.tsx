@@ -48,6 +48,8 @@ type Props = {
   initialSemesterName: string;
   initialScheduleIds: string[];
   initialSessionIds?: string[];
+  /** Meeting-plan #25: pre-selected `class_tiers.id` keyed by classId (waitlist carry-over). */
+  initialTierIdByClass?: Record<string, string>;
   onNext: (result: ClassesStepResult) => void;
   onBack: () => void;
 };
@@ -124,6 +126,7 @@ export default function ClassesStep({
   initialSemesterName,
   initialScheduleIds,
   initialSessionIds = [],
+  initialTierIdByClass = {},
   onNext,
   onBack,
 }: Props) {
@@ -148,8 +151,11 @@ export default function ClassesStep({
   const [selectedScheduleIds, setSelectedScheduleIds] = useState<Set<string>>(
     () => new Set<string>(initialScheduleIds),
   );
-  /** Phase 3a: chosen class_tiers.id per tiered class. Keyed by classId. */
-  const [selectedTierIdByClass, setSelectedTierIdByClass] = useState<Record<string, string>>({});
+  /** Phase 3a: chosen class_tiers.id per tiered class. Keyed by classId.
+   *  Seeded from a waitlist carry-over (#25) so the tiered tier is pre-picked. */
+  const [selectedTierIdByClass, setSelectedTierIdByClass] = useState<Record<string, string>>(
+    () => ({ ...initialTierIdByClass }),
+  );
 
   const [quote, setQuote] = useState<PricingQuote | null>(null);
   const [pricingLoading, setPricingLoading] = useState(false);

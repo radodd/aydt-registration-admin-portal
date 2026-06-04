@@ -1,6 +1,7 @@
 import type {
   DraftClass,
   DraftClassSchedule,
+  DraftSessionOption,
   SemesterDraft,
 } from "@/types";
 
@@ -79,6 +80,7 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
           })),
         requiresTeacherRec: c.requires_teacher_rec ?? false,
         tuitionOverride: c.tuition_override_amount ? Number(c.tuition_override_amount) : null,
+        registrationFeeExempt: c.registration_fee_exempt ?? false,
         visibility: c.visibility ?? "public",
         enrollmentType: c.enrollment_type ?? "standard",
         schedules: (c.class_sections ?? []).map((cs: any): DraftClassSchedule => ({
@@ -108,6 +110,25 @@ export function mapSemesterToDraft(semester: any): SemesterDraft {
             sortOrder: t.sort_order ?? 0,
             isDefault: t.is_default ?? false,
           })),
+          // Add-ons are written identically onto every class_meeting of the
+          // schedule (class_meeting_options). Read them back from the first
+          // meeting that carries any, so the editor rehydrates them on reopen.
+          options: ((cs.class_meetings ?? []).find(
+            (m: any) => (m.class_meeting_options ?? []).length > 0,
+          )?.class_meeting_options ?? [])
+            .slice()
+            .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+            .map(
+              (o: any): DraftSessionOption => ({
+                _clientKey: o.id,
+                id: o.id,
+                name: o.name,
+                description: o.description ?? undefined,
+                price: Number(o.price),
+                isRequired: o.is_required ?? false,
+                sortOrder: o.sort_order ?? 0,
+              }),
+            ),
           perDateOverrides: (cs.pricing_model === "per_session"
             ? (cs.class_meetings ?? [])
             : []

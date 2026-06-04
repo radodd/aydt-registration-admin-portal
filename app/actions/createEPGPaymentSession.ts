@@ -117,8 +117,10 @@ export async function createEPGPaymentSession(
   }
 
   // 6. Create EPG PaymentSession
-  // doCapture: false for installment plans so EPG returns a hostedCard token
-  // in the session result, enabling card storage for future installments.
+  // Installment plans use a tokenize-only session (doCreateTransaction:false) so
+  // the hostedCard token survives for POST /stored-cards. The returnUrl handoff
+  // (/register/confirmation) then stores the card + charges installment 1
+  // server-to-server. Pay-in-full runs the full sale on the hosted page.
   // Ref: docs/elavon/api_stored_cards.md § "How to Get a Hosted Card Token"
   const isInstallmentPlan = batch.payment_plan_type === "installments";
   let session;
@@ -129,7 +131,7 @@ export async function createEPGPaymentSession(
       cancelUrl,
       customReference: batchId,
       doThreeDSecure: true,
-      doCapture: !isInstallmentPlan,
+      doCreateTransaction: !isInstallmentPlan,
     });
   } catch (err) {
     console.error("[EPG] createEpgPaymentSession failed:", {

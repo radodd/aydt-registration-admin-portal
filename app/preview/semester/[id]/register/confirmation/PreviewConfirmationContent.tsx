@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { useCart } from "@/app/providers/CartProvider";
 import { useRegistration } from "@/app/providers/RegistrationProvider";
 import { createClient } from "@/utils/supabase/client";
 import { prepareEmailHtml } from "@/utils/prepareEmailHtml";
+import {
+  renderRegistrationSummaryHtml,
+  SAMPLE_REGISTRATION_SUMMARY,
+} from "@/utils/email/buildRegistrationSummary";
 
 type EmailTemplate = { subject?: string; htmlBody?: string };
 
@@ -29,6 +33,59 @@ function applyTokens(input: string, tokens: Record<string, string>): string {
     out = out.replaceAll(token, value);
   }
   return out;
+}
+
+/**
+ * Email preview iframe that auto-sizes to its content height, so the full email
+ * — including the Registration Summary block appended at the end — is visible in
+ * both desktop and mobile previews instead of being clipped by a fixed height.
+ * srcDoc documents are same-origin, so we can read contentDocument to measure.
+ */
+function EmailPreviewFrame({
+  html,
+  title,
+  className,
+}: {
+  html: string;
+  title: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(600);
+
+  const measure = useCallback(() => {
+    const doc = ref.current?.contentDocument;
+    if (!doc) return;
+    const h = Math.max(
+      doc.body?.scrollHeight ?? 0,
+      doc.documentElement?.scrollHeight ?? 0,
+    );
+    if (h > 0) setHeight(h);
+  }, []);
+
+  // Re-measure after late content (e.g. the header logo image) finishes loading
+  // and could grow the document beyond the initial onLoad height.
+  const handleLoad = useCallback(() => {
+    measure();
+    const t1 = setTimeout(measure, 250);
+    const t2 = setTimeout(measure, 700);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [measure]);
+
+  return (
+    <iframe
+      ref={ref}
+      srcDoc={html}
+      title={title}
+      onLoad={handleLoad}
+      scrolling="no"
+      style={{ height }}
+      className={className}
+    />
+  );
 }
 
 export function PreviewConfirmationContent({
@@ -134,7 +191,15 @@ export function PreviewConfirmationContent({
 
   const previewHtml = useMemo(() => {
     if (!emailTemplate.htmlBody) return "";
-    return prepareEmailHtml(applyTokens(emailTemplate.htmlBody, tokens));
+    // #20: mirror the real send path (installmentConfirmation.ts) and the admin
+    // email designer (ConfirmationEmailStep) — every confirmation email gets the
+    // system-generated, non-editable "Registration Summary" block appended after
+    // the body. Preview has no DB order, so it uses the same sample data the
+    // admin designer shows, so admins see exactly what families receive.
+    const bodyWithSummary =
+      applyTokens(emailTemplate.htmlBody, tokens) +
+      renderRegistrationSummaryHtml(SAMPLE_REGISTRATION_SUMMARY);
+    return prepareEmailHtml(bodyWithSummary);
   }, [emailTemplate.htmlBody, tokens]);
 
   function exitPreview() {
@@ -231,17 +296,17 @@ export function PreviewConfirmationContent({
             </p>
             <div className="overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50">
               {previewMode === "desktop" ? (
-                <iframe
-                  srcDoc={previewHtml}
+                <EmailPreviewFrame
+                  html={previewHtml}
                   title="Confirmation email preview"
-                  className="h-[600px] w-full border-0 bg-white"
+                  className="w-full border-0 bg-white"
                 />
               ) : (
                 <div className="flex justify-center py-6">
-                  <iframe
-                    srcDoc={previewHtml}
+                  <EmailPreviewFrame
+                    html={previewHtml}
                     title="Confirmation email preview (mobile)"
-                    className="h-[600px] w-[375px] border-0 bg-white shadow-sm"
+                    className="w-[375px] border-0 bg-white shadow-sm"
                   />
                 </div>
               )}

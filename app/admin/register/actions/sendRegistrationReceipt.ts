@@ -37,6 +37,8 @@ function buildReceiptHtml(params: {
   sessions: ScheduleRow[];
   quote: PricingQuote | null;
   adjustments: AdminAdjustment[];
+  /** Existing account credit applied to this order (shown as a deduction). */
+  appliedCreditTotal?: number;
   effectiveTotal: number;
   amountCollected: number;
   paymentMethod: string;
@@ -49,6 +51,7 @@ function buildReceiptHtml(params: {
     sessions,
     quote,
     adjustments,
+    appliedCreditTotal = 0,
     effectiveTotal,
     amountCollected,
     paymentMethod,
@@ -110,6 +113,15 @@ function buildReceiptHtml(params: {
     )
     .join("");
 
+  // Applied account credit — a deduction, shown after adjustments.
+  const creditRow =
+    appliedCreditTotal > 0
+      ? `<tr>
+          <td style="padding:5px 0;font-size:14px;color:#555;">Account Credit Applied</td>
+          <td style="padding:5px 0;font-size:14px;text-align:right;color:#16a34a;">-${fmt$$(appliedCreditTotal)}</td>
+        </tr>`
+      : "";
+
   const monthlyNote =
     paymentPlanType === "monthly"
       ? `<p style="margin:16px 0 0 0;font-size:13px;color:#64748b;font-style:italic;">
@@ -151,6 +163,7 @@ function buildReceiptHtml(params: {
       </tr>
       ${quoteRows}
       ${adjRows}
+      ${creditRow}
       <tr>
         <td style="padding:10px 0 5px 0;font-size:15px;font-weight:bold;border-top:1px solid #e5e7eb;color:#111;">
           Total Due
@@ -187,6 +200,7 @@ export async function sendRegistrationReceipt(params: {
   scheduleIds: string[];
   quote: PricingQuote | null;
   adjustments: AdminAdjustment[];
+  appliedCreditTotal?: number;
   effectiveTotal: number;
   amountCollected: number;
   paymentMethod: string;
@@ -202,6 +216,7 @@ export async function sendRegistrationReceipt(params: {
     scheduleIds,
     quote,
     adjustments,
+    appliedCreditTotal,
     effectiveTotal,
     amountCollected,
     paymentMethod,
@@ -281,6 +296,7 @@ export async function sendRegistrationReceipt(params: {
       sessions,
       quote,
       adjustments,
+      appliedCreditTotal,
       effectiveTotal,
       amountCollected,
       paymentMethod,

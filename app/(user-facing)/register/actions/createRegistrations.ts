@@ -1,8 +1,10 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
 import { validateEnrollment } from "@/app/actions/validateEnrollment";
+import { getApplicableCredits, markCreditsUsed } from "@/queries/credits";
 import type { NewDancerDraft } from "@/types/public";
 import type { PricingQuote } from "@/types";
 
@@ -365,22 +367,13 @@ export async function createRegistrations(
   const grandTotal = serverQuote?.grandTotal ?? 0;
   const baseAmountDueNow = serverQuote?.amountDueNow ?? grandTotal;
 
-  // Server-validate credits: fetch rows to verify they belong to this family and are unused
-  let verifiedCreditTotal = 0;
-  let verifiedCreditIds: string[] = [];
-  if (input.creditIdsToApply?.length && familyId) {
-    const { data: creditRows } = await supabase
-      .from("family_account_credits")
-      .select("id, amount")
-      .in("id", input.creditIdsToApply)
-      .eq("family_id", familyId)
-      .is("used_in_batch_id", null)
-      .eq("is_active", true);
-    if (creditRows?.length) {
-      verifiedCreditTotal = creditRows.reduce((sum, c) => sum + Number(c.amount), 0);
-      verifiedCreditIds = creditRows.map((c) => c.id as string);
-    }
-  }
+  // Server-validate credits (ownership + unused + active) via the canonical
+  // query layer — single source of truth shared with the admin checkout.
+  const { ids: verifiedCreditIds, total: verifiedCreditTotal } =
+    await getApplicableCredits(supabase, {
+      familyId,
+      creditIds: input.creditIdsToApply,
+    });
   const amountDueNow = Math.max(0, baseAmountDueNow - verifiedCreditTotal);
 
   const { error: batchInsertError } = await supabase
@@ -437,17 +430,15 @@ export async function createRegistrations(
     });
   }
 
-  // 7.6. Mark account credits as used (non-fatal)
+  // 7.6. Mark account credits as used (non-fatal) — canonical query layer.
+  // Runs via the service-role client: under RLS a parent has SELECT-only access
+  // to their own credits (they may not UPDATE, which would let them re-spend a
+  // consumed credit). The ids were already validated server-side above.
   if (verifiedCreditIds.length > 0) {
-    await supabase
-      .from("family_account_credits")
-      .update({ used_in_batch_id: input.batchId, used_at: new Date().toISOString() })
-      .in("id", verifiedCreditIds)
-      .then(({ error }) => {
-        if (error) {
-          console.warn("[createRegistrations] Failed to mark credits as used:", error.message);
-        }
-      });
+    await markCreditsUsed(createAdminClient(), {
+      creditIds: verifiedCreditIds,
+      batchId: input.batchId,
+    });
   }
 
   // 8. Insert rows — split by mode (Phase 3b-ii).

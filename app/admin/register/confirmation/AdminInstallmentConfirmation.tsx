@@ -7,17 +7,23 @@ import { CheckCircle, Clock, AlertTriangle, ExternalLink } from "lucide-react";
 type Phase = "checking" | "confirmed" | "pending" | "failed";
 
 /**
- * Polls /api/register/batch-status after the admin returns from the Elavon
- * hosted page. The webhook stores the card, charges installment 1, and confirms
- * the order — this surfaces that outcome to the admin:
+ * Drives installment finalization after the admin returns from the Elavon
+ * hosted page. The hosted session is tokenize-only (doCreateTransaction:false),
+ * so NO webhook fires — this component POSTs /api/register/finalize-installment
+ * to store the card, charge installment 1, and confirm the order, then surfaces
+ * the outcome to the admin:
  *   - confirmed → plan active, card stored, installment 1 charged
  *   - failed    → order was failed (e.g. abandoned / grace window elapsed)
- *   - timed out while pending → likely a declined card; point to the dashboard
+ *   - declined / still pending → point to the payments dashboard to retry
+ *
+ * The finalize call is idempotent (the reconciliation cron is a backstop), so a
+ * refresh or double-mount is safe. After the trigger we poll batch-status as a
+ * fallback in case finalization is completing via another path.
  *
  * Real-time decline detection is intentionally out of scope: a declined
- * installment-1 charge leaves the order 'pending' (webhook links the stored
- * method for manual retry), so within the poll window it reads as "processing"
- * and we route the admin to the payments dashboard to retry.
+ * installment-1 charge leaves the order 'pending' (the stored method is linked
+ * for manual retry), so within the poll window it reads as "processing" and we
+ * route the admin to the payments dashboard to retry.
  */
 export default function AdminInstallmentConfirmation({
   batchId,
@@ -35,6 +41,20 @@ export default function AdminInstallmentConfirmation({
     if (!batchId) return;
 
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const applyStatus = (status?: string): boolean => {
+      if (status === "confirmed") {
+        setPhase("confirmed");
+        return true;
+      }
+      if (status === "failed") {
+        setPhase("failed");
+        return true;
+      }
+      return false;
+    };
+
     const tick = async () => {
       pollCount.current++;
       try {
@@ -42,14 +62,7 @@ export default function AdminInstallmentConfirmation({
         if (res.ok) {
           const data = (await res.json()) as { status?: string };
           if (cancelled) return;
-          if (data.status === "confirmed") {
-            setPhase("confirmed");
-            return;
-          }
-          if (data.status === "failed") {
-            setPhase("failed");
-            return;
-          }
+          if (applyStatus(data.status)) return;
         }
       } catch {
         /* transient — keep polling */
@@ -64,7 +77,27 @@ export default function AdminInstallmentConfirmation({
       timer = setTimeout(tick, 2000);
     };
 
-    let timer = setTimeout(tick, 0);
+    // returnUrl handoff: trigger the store-and-charge first (no webhook fires
+    // for tokenize-only sessions). Idempotent. Then poll as a fallback.
+    const start = async () => {
+      try {
+        const res = await fetch("/api/register/finalize-installment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ batchId }),
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const data = (await res.json()) as { status?: string };
+          if (applyStatus(data.status)) return;
+        }
+      } catch {
+        /* fall through to polling */
+      }
+      if (!cancelled) timer = setTimeout(tick, 0);
+    };
+
+    start();
     return () => {
       cancelled = true;
       clearTimeout(timer);

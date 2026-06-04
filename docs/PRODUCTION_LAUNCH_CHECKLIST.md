@@ -20,7 +20,7 @@ The downstream is already built (pricing schedule, `batch_payment_installments`,
 - [x] E2E: `doCapture:false` path → hostedCard token stored → cron auto-charge — manual E2E OK (2026-05-22)
 - [x] Visual QA of picker — passed (2026-05-22)
 - [x] Gate installments by `semester_payment_plans.type === "installments"` — picker only shows when the semester allows it (2026-05-22)
-- [ ] OPEN: installment **count** comes from `semester_fee_config.auto_pay_installment_count`, not `semester_payment_plans.installment_count` — decide whether to reconcile (rewires pricing engine; affects admin + public)
+- [x] Installment count divergence resolved via Option B sync (2026-06-01) — `syncSemesterPayments` + `persistSemesterDraft` + `cloneSemester` keep `semester_fee_config.auto_pay_installment_count` aligned with `semester_payment_plans.installment_count` on save. Pricing engine untouched. Option A engine rewire deferred post-launch.
 - [x] Admin `payment_plan_type` normalized to `"installments"` (was `"monthly"`) + backfill migration `20260522000001` — reporting now has one canonical value
 
 ### Registration modes — Phase 3b-ii (family-facing)  ·  est ~2–4d

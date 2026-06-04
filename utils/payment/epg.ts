@@ -188,8 +188,21 @@ export async function createEpgOrder(params: {
  * Creates a Hosted Payment Page session linked to the given order.
  * Returns a session with a `url` the user should be redirected to.
  *
- * doCreateTransaction: true — EPG handles the full sale automatically.
  * doThreeDSecure: true — enables 3DS for liability shift (requires processor account config).
+ *
+ * Two modes:
+ *   - Pay-in-full (default): doCreateTransaction:true + doCapture:true — EPG runs
+ *     the full sale on the hosted page; the webhook confirms the batch.
+ *   - Installment / tokenize-only: doCreateTransaction:false — the hosted page
+ *     ONLY collects + tokenizes the card (returns a hostedCard token) and runs
+ *     NO transaction. This is REQUIRED for stored-card setup: a session that
+ *     also creates a transaction (doCreateTransaction:true) consumes the
+ *     hostedCard token, so the subsequent POST /stored-cards 404s. With no
+ *     transaction created, installment 1 is charged server-to-server afterward
+ *     (see ensureStoredCardAndChargeInstallment1). Because no transaction means
+ *     no `saleAuthorized` webhook, the returnUrl handoff + reconciliation cron
+ *     drive the post-tokenization steps. Two-step pattern confirmed with Elavon
+ *     (Justin Huffines, 2026-05-30).
  */
 export async function createEpgPaymentSession(params: {
   /** Full HREF of the Order resource (e.g. https://uat.../orders/{id}) */
@@ -200,12 +213,29 @@ export async function createEpgPaymentSession(params: {
   customReference: string;
   doThreeDSecure?: boolean;
   /**
-   * Set false for installment plans — EPG will return a hostedCard token
-   * in the session result that can be used to create a Stored Card.
+   * Set false for installment / tokenize-only sessions so the hosted page does
+   * NOT run a transaction and the returned hostedCard token survives for
+   * POST /stored-cards. Defaults to true (full sale on the hosted page).
+   */
+  doCreateTransaction?: boolean;
+  /**
+   * Only meaningful when doCreateTransaction is true. Set false for legacy
+   * installment plans — EPG returns a hostedCard token in the session result.
    * Ref: docs/elavon/api_stored_cards.md § "How to Get a Hosted Card Token"
    */
   doCapture?: boolean;
+  /**
+   * Meeting-plan #18: confine the hosted session to the ACH (bank-account) form
+   * for a one-time admin-initiated debit, via the documented
+   * `allowedPaymentMethods` / `allowedPaymentMethodOrigins` session fields
+   * (PaymentMethod enum includes "ACH"; EPG API reference, added 2024-03-20).
+   * Combined with doCreateTransaction:true the HPP runs the ACH sale end-to-end
+   * and creates a Transaction, so the existing webhook → confirmBatch path
+   * applies unchanged. Card sessions omit this and keep EPG's default methods.
+   */
+  enableAch?: boolean;
 }): Promise<EpgPaymentSession> {
+  const doCreateTransaction = params.doCreateTransaction ?? true;
   const res = await fetch(`${getBaseUrl()}/payment-sessions`, {
     method: "POST",
     headers: defaultHeaders(),
@@ -214,10 +244,18 @@ export async function createEpgPaymentSession(params: {
       hppType: "fullPageRedirect",
       returnUrl: params.returnUrl,
       cancelUrl: params.cancelUrl,
-      doCreateTransaction: true,
-      doCapture: params.doCapture ?? true,
+      doCreateTransaction,
+      // doCapture only applies when a transaction is created; omit it otherwise.
+      ...(doCreateTransaction ? { doCapture: params.doCapture ?? true } : {}),
       doThreeDSecure: params.doThreeDSecure ?? true,
       customReference: params.customReference,
+      // #18: restrict the HPP to the ACH form for a one-time bank debit.
+      ...(params.enableAch
+        ? {
+            allowedPaymentMethods: ["ACH"],
+            allowedPaymentMethodOrigins: ["ACH"],
+          }
+        : {}),
     }),
   });
   await assertOk(res, "POST /payment-sessions");
@@ -386,6 +424,16 @@ export async function createEpgStoredAchPayment(params: {
  *
  * IMPORTANT: EPG returns HTTP 201 even for declined transactions.
  * Callers MUST check result.isAuthorized — do not rely on HTTP status alone.
+ *
+ * MERCHANT-INITIATED (no cardholder present): every charge from this function
+ * is part of a recurring installment plan billed on our own schedule, so we
+ * flag it as a merchant-initiated credential-on-file transaction. Without these
+ * two fields the charge is treated as a customer-initiated ecommerce sale and
+ * is declined with `3dsEnforcedOnEcommerceSales` on accounts that enforce 3DS2
+ * (there is no shopper to answer the challenge). The accepted values are
+ * `credentialOnFileType: "recurring"` + `shopperInteraction: "merchantInitiated"`
+ * (NOT "merchant"/"recurring" on shopperInteraction — those are rejected).
+ * Confirmed by Elavon (Justin Huffines, 2026-05-30) against a 3DS-enforced account.
  */
 export async function createEpgTransaction(params: {
   storedCardHref?: string;
@@ -415,6 +463,10 @@ export async function createEpgTransaction(params: {
         amount: params.amountDollars.toFixed(2),
         currencyCode: params.currencyCode,
       },
+      // Merchant-initiated recurring charge — exempts from 3DS2 enforcement.
+      // See function doc above.
+      credentialOnFileType: "recurring",
+      shopperInteraction: "merchantInitiated",
       customReference: params.customReference,
       description: params.description,
       doCapture: params.doCapture ?? true,
@@ -444,7 +496,11 @@ export async function voidEpgTransaction(params: {
     headers: defaultHeaders(),
     body: JSON.stringify({
       type: "void",
-      transaction: params.transactionHref,
+      // The original transaction is referenced via `parentTransaction` — NOT
+      // `transaction`, which EPG rejects ("Unrecognized field name: 'transaction'").
+      // Confirmed empirically against the cert sandbox 2026-06-01 (voiding an
+      // authorized transaction with this field moved it to state=voided).
+      parentTransaction: params.transactionHref,
       customReference: params.customReference,
     }),
   });
@@ -475,7 +531,9 @@ export async function refundEpgTransaction(params: {
     headers: defaultHeaders(),
     body: JSON.stringify({
       type: "refund",
-      transaction: params.transactionHref,
+      // Original transaction referenced via `parentTransaction` (see
+      // voidEpgTransaction) — `transaction` is rejected as an unrecognized field.
+      parentTransaction: params.transactionHref,
       customReference: params.customReference,
       ...(params.amountDollars != null && {
         total: {

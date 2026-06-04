@@ -18,6 +18,20 @@ type Props = {
     familyId: string | null;
     parentUserId: string | null;
   } | null;
+  /**
+   * Meeting-plan #25: brand-new dancer carried from a waitlist entry (no dancer
+   * row yet). Mutually exclusive with initialDancer.
+   */
+  initialNewDancer?: { input: NewDancerInput; name: string } | null;
+  /** Meeting-plan #25: pre-selected class targets carried from a waitlist entry. */
+  initialScheduleIds?: string[];
+  initialSessionIds?: string[];
+  /** Tiered classes: pre-selected `class_tiers.id` keyed by classId. */
+  initialTierIdByClass?: Record<string, string>;
+  /** Pre-filled form answers carried from the waitlist entry. */
+  initialFormData?: Record<string, unknown>;
+  /** When set, mark this waitlist entry "registered" on successful submit (#25). */
+  waitlistEntryId?: string | null;
   /** Super-admins can set up auto-charged installment plans + override partial payments (#7). */
   isSuperAdmin: boolean;
 };
@@ -55,24 +69,33 @@ export default function AdminRegisterFlow({
   initialSemesterId,
   initialSemesterName,
   initialDancer,
+  initialNewDancer,
+  initialScheduleIds = [],
+  initialSessionIds = [],
+  initialTierIdByClass = {},
+  initialFormData = {},
+  waitlistEntryId = null,
   isSuperAdmin,
 }: Props) {
+  // A dancer carried in (existing or brand-new) means the Dancer step is already
+  // answered — open on Classes, the start of the actionable flow.
+  const hasPrefilledDancer = !!(initialDancer || initialNewDancer);
   const [state, setState] = useState<State>({
-    step: initialDancer ? 2 : 1,
+    step: hasPrefilledDancer ? 2 : 1,
     dancerId: initialDancer?.id ?? null,
-    dancerName: initialDancer?.name ?? "",
-    familyId: initialDancer?.familyId ?? null,
+    dancerName: initialDancer?.name ?? initialNewDancer?.name ?? "",
+    familyId: initialDancer?.familyId ?? initialNewDancer?.input.familyId ?? null,
     parentUserId: initialDancer?.parentUserId ?? null,
-    isNewDancer: false,
-    newDancer: null,
+    isNewDancer: !!initialNewDancer,
+    newDancer: initialNewDancer?.input ?? null,
     semesterId: initialSemesterId,
     semesterName: initialSemesterName,
-    scheduleIds: [],
-    sessionIds: [],
+    scheduleIds: initialScheduleIds,
+    sessionIds: initialSessionIds,
     classInfos: [],
     priceOverride: null,
     classTierIdsBySchedule: {},
-    formData: {},
+    formData: initialFormData,
   });
 
   const [success, setSuccess] = useState<{ batchId: string; dancerId: string } | null>(null);
@@ -196,6 +219,7 @@ export default function AdminRegisterFlow({
           initialSemesterName={state.semesterName}
           initialScheduleIds={state.scheduleIds}
           initialSessionIds={state.sessionIds}
+          initialTierIdByClass={initialTierIdByClass}
           onNext={handleClassesNext}
           onBack={() => setState((s) => ({ ...s, step: 1 }))}
         />
@@ -207,6 +231,8 @@ export default function AdminRegisterFlow({
           semesterName={state.semesterName}
           sessionIds={state.sessionIds}
           dancerName={state.dancerName}
+          familyId={state.familyId}
+          dancerId={state.dancerId}
           initialFormData={state.formData}
           onNext={handleQuestionsNext}
           onBack={() => setState((s) => ({ ...s, step: 2 }))}
@@ -230,6 +256,7 @@ export default function AdminRegisterFlow({
           classTierIdsBySchedule={state.classTierIdsBySchedule}
           formData={state.formData}
           isSuperAdmin={isSuperAdmin}
+          waitlistEntryId={waitlistEntryId}
           onBack={() => setState((s) => ({ ...s, step: 3 }))}
           onSuccess={handleSuccess}
         />

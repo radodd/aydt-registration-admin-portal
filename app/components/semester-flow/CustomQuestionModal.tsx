@@ -161,8 +161,8 @@ export default function CustomQuestionModal({
   /* -------------------------------------------------------------------------- */
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl border border-neutral-200 p-6 sm:p-8 space-y-6 mx-4 sm:mx-0">
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+      <div className="bg-white w-full max-w-2xl rounded-2xl shadow-xl border border-neutral-200 p-6 sm:p-8 space-y-6 mx-4 sm:mx-0 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div>
           <h2 className="text-xl font-semibold text-neutral-900">

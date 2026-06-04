@@ -10,6 +10,7 @@ import {
   makeAcknowledgment,
   DEFAULT_ACKNOWLEDGMENT_LABEL,
 } from "@/lib/waiver";
+import { fetchProfilePrefill } from "../actions/fetchProfilePrefill";
 import type { RegistrationFormElement } from "@/types";
 
 type Props = {
@@ -17,6 +18,9 @@ type Props = {
   semesterName: string;
   sessionIds: string[];
   dancerName: string;
+  /** Meeting-plan #16: identifiers used to prefill from the saved profile. */
+  familyId: string | null;
+  dancerId: string | null;
   initialFormData: Record<string, unknown>;
   onNext: (formData: Record<string, unknown>) => void;
   onBack: () => void;
@@ -27,6 +31,8 @@ export default function QuestionsStep({
   semesterName,
   sessionIds,
   dancerName,
+  familyId,
+  dancerId,
   initialFormData,
   onNext,
   onBack,
@@ -39,18 +45,39 @@ export default function QuestionsStep({
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase
-        .from("semesters")
-        .select("registration_form")
-        .eq("id", semesterId)
-        .single();
+      const [{ data }, prefill] = await Promise.all([
+        supabase
+          .from("semesters")
+          .select("registration_form")
+          .eq("id", semesterId)
+          .single(),
+        fetchProfilePrefill({ familyId, dancerId }),
+      ]);
       const form = (data as any)?.registration_form;
       const elems: RegistrationFormElement[] = form?.elements ?? [];
       setElements(elems);
+
+      // Meeting-plan #16: seed address blocks + profile-mapped questions from
+      // the selected family/dancer. Mirrors the parent-facing seeding logic.
+      // Existing answers (state.formData) win — never overwrite what's there.
+      const seed: Record<string, unknown> = {};
+      for (const el of elems) {
+        if (el.inputType === "address") {
+          if (prefill.address) seed[el.id] = prefill.address;
+        } else if (el.profileField) {
+          const val = prefill.profileMap[el.profileField];
+          if (val) seed[el.id] = val;
+        }
+      }
+      if (Object.keys(seed).length > 0) {
+        setFormData((prev) => ({ ...seed, ...prev }));
+      }
+
       setLoading(false);
     }
     load();
-  }, [semesterId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semesterId, familyId, dancerId]);
 
   const visibleElements = elements.filter((el) => {
     if (!el.sessionIds || el.sessionIds.length === 0) return true;

@@ -211,6 +211,65 @@ export async function computePricingQuote(
   }
 
   /* ---------------------------------------------------------------------- */
+  /* 3c. Add-ons (class_meeting_options)                                     */
+  /* Authored per section in the class builder, then fanned out identically  */
+  /* across every meeting of that section (see syncOptionsForSchedule). We    */
+  /* charge EVERY configured option once per section. There is no checkout    */
+  /* picker yet, so the is_required flag is not consulted — once a deselect   */
+  /* picker exists, optional options can be gated on the parent's choice.     */
+  /* ---------------------------------------------------------------------- */
+  type AddOn = {
+    name: string;
+    description: string | null;
+    price: number;
+    sortOrder: number;
+  };
+  async function fetchAddOns(
+    sectionIds: string[],
+  ): Promise<Map<string, AddOn[]>> {
+    const bySection = new Map<string, AddOn[]>();
+    const uniqueSectionIds = [...new Set(sectionIds.filter(Boolean))];
+    if (uniqueSectionIds.length === 0) return bySection;
+
+    const { data, error } = await supabase
+      .from("class_meeting_options")
+      .select(
+        "name, description, price, sort_order, class_meetings!inner(section_id)",
+      )
+      .in("class_meetings.section_id", uniqueSectionIds);
+    if (error) throw new Error(error.message);
+
+    // Options are duplicated across every meeting of a section; dedupe back to
+    // one row per (section, option).
+    const seen = new Set<string>();
+    for (const row of data ?? []) {
+      const meeting = Array.isArray((row as any).class_meetings)
+        ? (row as any).class_meetings[0]
+        : (row as any).class_meetings;
+      const sectionId = meeting?.section_id as string | undefined;
+      if (!sectionId) continue;
+      const sortOrder = Number((row as any).sort_order ?? 0);
+      const name = (row as any).name as string;
+      const price = Number((row as any).price);
+      const key = `${sectionId}::${sortOrder}::${name}::${price}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const list = bySection.get(sectionId) ?? [];
+      list.push({
+        name,
+        description: ((row as any).description as string | null) ?? null,
+        price,
+        sortOrder,
+      });
+      bySection.set(sectionId, list);
+    }
+    for (const list of bySection.values()) {
+      list.sort((a, b) => a.sortOrder - b.sortOrder);
+    }
+    return bySection;
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* 4. Per-dancer computation                                                */
   /* ---------------------------------------------------------------------- */
   const perDancer: DancerPricingBreakdown[] = [];
@@ -245,7 +304,7 @@ export async function computePricingQuote(
       const { data: scheduleRows, error: scheduleError } = await supabase
         .from("class_sections")
         .select(
-          "id, days_of_week, classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount)",
+          "id, days_of_week, classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount, registration_fee_exempt)",
         )
         .in("id", scheduleIds!);
 
@@ -262,6 +321,7 @@ export async function computePricingQuote(
         is_competition_track: boolean;
         is_tiered: boolean;
         tuition_override_amount: number | null;
+        registration_fee_exempt: boolean;
       };
 
       const classesForDancer = scheduleRows.map((s) => {
@@ -309,6 +369,14 @@ export async function computePricingQuote(
           (keys.includes("competition") && cls.division === "competition")
         );
       };
+
+      // Meeting-plan #22: registration-fee-only exemption. A class is reg-fee
+      // exempt if its per-class flag is set OR it's already fee-exempt for the
+      // discipline/tier/competition reasons above. Kept separate from
+      // isFeeExemptClass so the per-class flag never suppresses costume/video fees.
+      const isRegFeeExemptClass = (
+        cls: ScheduleClassInfo,
+      ): boolean => cls.registration_fee_exempt === true || isFeeExemptClass(cls);
 
       const standardClasses = classesForDancer.filter(
         (c) => c !== null && !isFeeExemptClass(c),
@@ -550,6 +618,21 @@ export async function computePricingQuote(
         lineItems.push({ type: "session_discount", label: `Discount: ${rule.discountName}`, amount: -reduction });
       }
 
+      // Add-ons: charged once per enrolled section, after discounts so they are
+      // never reduced (add-ons are not discountable). No rounding.
+      const addOnsBySection = await fetchAddOns(scheduleIds!);
+      for (const sid of scheduleIds!) {
+        for (const opt of addOnsBySection.get(sid) ?? []) {
+          tuition += opt.price;
+          lineItems.push({
+            type: "add_on",
+            label: opt.name,
+            amount: opt.price,
+            description: opt.description ?? undefined,
+          });
+        }
+      }
+
       // Registration fee:
       //  - Dancer enrolled ONLY in special-program classes → use the program's
       //    registration_fee_override. Multi-special-program edge case picks
@@ -577,7 +660,7 @@ export async function computePricingQuote(
       } else {
         const allClassesAreExempt =
           classesForDancer.length > 0 &&
-          classesForDancer.every((c) => c !== null && isFeeExemptClass(c));
+          classesForDancer.every((c) => c !== null && isRegFeeExemptClass(c));
         registrationFee = allClassesAreExempt
           ? 0
           : feeConfig.registration_fee_per_child;
@@ -612,7 +695,7 @@ export async function computePricingQuote(
     const { data: sessionRows, error: sessionError } = await supabase
       .from("class_meetings")
       .select(
-        "id, schedule_date, day_of_week, drop_in_price, class_sections(is_drop_in), classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount)",
+        "id, section_id, schedule_date, day_of_week, drop_in_price, class_sections(is_drop_in), classes(id, name, division, discipline, is_competition_track, is_tiered, tuition_override_amount, registration_fee_exempt)",
       )
       .in("id", resolvedSessionIds);
 
@@ -632,6 +715,7 @@ export async function computePricingQuote(
         is_competition_track: boolean;
         is_tiered: boolean;
         tuition_override_amount: number | null;
+        registration_fee_exempt: boolean;
       } | null;
     });
 
@@ -709,6 +793,18 @@ export async function computePricingQuote(
       );
     };
 
+    // Meeting-plan #22: registration-fee-only exemption (see schedule-path note).
+    // Per-class flag OR existing fee-exempt status. Separate from isFeeExemptClass
+    // so the per-class flag never suppresses costume/video fees.
+    const isRegFeeExemptClass = (cls: {
+      discipline: string;
+      division: string;
+      is_tiered?: boolean;
+      is_competition_track?: boolean;
+      registration_fee_exempt?: boolean;
+    }): boolean =>
+      cls.registration_fee_exempt === true || isFeeExemptClass(cls);
+
     // Costume / video fee math is keyed off the dancer's standard (non-exempt,
     // non-drop-in) classes. Drop-in meetings always count as fee-exempt per the
     // Phase 2 pricing model (see #2c).
@@ -725,6 +821,7 @@ export async function computePricingQuote(
         is_competition_track: boolean;
         is_tiered: boolean;
         tuition_override_amount: number | null;
+        registration_fee_exempt: boolean;
       } | null;
     });
 
@@ -1131,6 +1228,31 @@ export async function computePricingQuote(
     }
 
     /* -------------------------------------------------------------------- */
+    /* Add-ons (charged once per enrolled section)                            */
+    /* Same model as the schedule path; applied after discounts so they are   */
+    /* never reduced. No rounding.                                            */
+    /* -------------------------------------------------------------------- */
+    const sectionIdsForDancer = [
+      ...new Set(
+        sessionRows
+          .map((s) => (s as any).section_id as string | null)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const addOnsBySection = await fetchAddOns(sectionIdsForDancer);
+    for (const sid of sectionIdsForDancer) {
+      for (const opt of addOnsBySection.get(sid) ?? []) {
+        tuition += opt.price;
+        lineItems.push({
+          type: "add_on",
+          label: opt.name,
+          amount: opt.price,
+          description: opt.description ?? undefined,
+        });
+      }
+    }
+
+    /* -------------------------------------------------------------------- */
     /* Registration fee (not discountable)                                   */
     /* Exempt when ALL of the dancer's classes are fee-exempt programs       */
     /* (technique, pointe, competition). Early childhood is NOT exempt.      */
@@ -1168,7 +1290,7 @@ export async function computePricingQuote(
       const allClassesAreExempt =
         nonDropInClassesForDancer.length === 0 ||
         nonDropInClassesForDancer.every(
-          (c) => c !== null && isFeeExemptClass(c),
+          (c) => c !== null && isRegFeeExemptClass(c),
         );
       registrationFee = allClassesAreExempt
         ? 0

@@ -738,4 +738,45 @@ describe("computePricingQuote", () => {
     // with no family discount, coupon, or autopay fee.
     expect(previewResult.semesterTotal).toBe(quote.grandTotal);
   });
+
+  // ── Meeting-plan #22: per-class registration-fee exemption ──────────────────
+  it("registration_fee_exempt class → no registration fee line item", async () => {
+    // Same junior 1-class scenario as Test 1, but the class is flagged exempt.
+    // tuition 775.93 + costume 55, reg fee dropped → grandTotal 830.93.
+    const exemptRow = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      classes: {
+        ...MOCK_JUNIOR_SESSION_ROW.classes,
+        registration_fee_exempt: true,
+      },
+    };
+    setupMock(buildMinimalRoutes({ division: "junior", sessionRow: exemptRow }));
+
+    const quote = await computePricingQuote(makePricingInput());
+
+    expect(quote.perDancer[0].registrationFee).toBe(0);
+    expect(
+      quote.perDancer[0].lineItems.some((li) => li.type === "registration_fee"),
+    ).toBe(false);
+    expect(quote.grandTotal).toBeCloseTo(830.93, 2);
+  });
+
+  it("exempt class does NOT suppress costume/video fees", async () => {
+    // Exemption is registration-fee-only. Costume fee (junior, 1 class = $55)
+    // must still appear even though the reg fee is gone.
+    const exemptRow = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      classes: {
+        ...MOCK_JUNIOR_SESSION_ROW.classes,
+        registration_fee_exempt: true,
+      },
+    };
+    setupMock(buildMinimalRoutes({ division: "junior", sessionRow: exemptRow }));
+
+    const quote = await computePricingQuote(makePricingInput());
+
+    expect(
+      quote.perDancer[0].lineItems.some((li) => li.type === "costume_fee"),
+    ).toBe(true);
+  });
 });

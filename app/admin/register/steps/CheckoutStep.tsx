@@ -5,11 +5,13 @@ import { ChevronLeft, Check, Tag, AlertCircle, Pencil, X, Plus } from "lucide-re
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
 import type { PricingQuote, AdminAdjustment, FamilyAccountCredit } from "@/types";
 import { createClient } from "@/utils/supabase/client";
+import { getAvailableCredits } from "@/queries/credits";
 import { buildAdminInstallmentSchedule } from "@/utils/buildPaymentSchedule";
 import {
   createAdminRegistration,
   type NewDancerInput,
 } from "../actions/createAdminRegistration";
+import { markWaitlistEntryRegistered } from "@/app/admin/waitlist/actions/markWaitlistEntryRegistered";
 import type { ClassInfo } from "./ClassesStep";
 
 type Props = {
@@ -34,6 +36,8 @@ type Props = {
   formData: Record<string, unknown>;
   /** Super-admins can set up auto-charged installment plans + under-collect (#7). */
   isSuperAdmin: boolean;
+  /** Meeting-plan #25: when set, mark this waitlist entry "registered" on success. */
+  waitlistEntryId?: string | null;
   // Callbacks
   onBack: () => void;
   onSuccess: (batchId: string, dancerId: string) => void;
@@ -76,6 +80,7 @@ export default function CheckoutStep({
   initialPriceOverride,
   formData,
   isSuperAdmin,
+  waitlistEntryId,
   onBack,
   onSuccess,
 }: Props) {
@@ -103,8 +108,11 @@ export default function CheckoutStep({
   const toBackendPlan = (p: "pay_in_full" | "monthly") =>
     p === "monthly" ? ("auto_pay_monthly" as const) : ("pay_in_full" as const);
 
-  // Adjustments
+  // Adjustments (tuition_adjustment only — these discount THIS order).
   const [adjustments, setAdjustments] = useState<AdminAdjustment[]>([]);
+  // #17: new account credits to grant the family (injury make-up, etc.). These
+  // post to the family's balance for future use and do NOT reduce this order.
+  const [creditsToGrant, setCreditsToGrant] = useState<{ label: string; amount: number }[]>([]);
   const [showAdjForm, setShowAdjForm] = useState(false);
   const [adjType, setAdjType] = useState<"tuition_adjustment" | "credit">("tuition_adjustment");
   const [adjLabel, setAdjLabel] = useState("");
@@ -114,6 +122,7 @@ export default function CheckoutStep({
   // Payment
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [amountInput, setAmountInput] = useState("");
+  const [balanceDueDate, setBalanceDueDate] = useState("");
   const [checkNumber, setCheckNumber] = useState("");
   const [payerName, setPayerName] = useState("");
   const [notes, setNotes] = useState("");
@@ -131,6 +140,9 @@ export default function CheckoutStep({
     : (quote?.grandTotal ?? 0);
 
   const adjustmentsSum = adjustments.reduce((sum, a) => sum + a.amount, 0);
+  // #17: total of new credits being granted — banked to the family, so it does
+  // NOT factor into effectiveTotal. Shown separately for the admin's awareness.
+  const creditsToGrantSum = creditsToGrant.reduce((sum, c) => sum + c.amount, 0);
   const creditTotal = applyCredit
     ? availableCredits.reduce((sum, c) => sum + c.amount, 0)
     : 0;
@@ -139,6 +151,10 @@ export default function CheckoutStep({
   // #7: live preview of the auto-charged installment schedule. Mirrors the
   // server's buildAdminInstallmentSchedule so the admin sees exact amounts/dates.
   const isInstallments = paymentPlanType === "monthly";
+  // #18: a one-time ACH debit redirects to Elavon's hosted bank-entry page (the
+  // family pays the full total there), so it hides the cash-collection fields
+  // and submits like the installment redirect rather than recording money taken.
+  const isAch = !isInstallments && paymentMethod === "ach";
   const installmentSchedule =
     isInstallments && effectiveTotal > 0 && installmentCount >= 2
       ? buildAdminInstallmentSchedule(
@@ -187,16 +203,7 @@ export default function CheckoutStep({
     setApplyCredit(false);
     setAvailableCredits([]);
     if (!familyId) return;
-    const supabase = createClient();
-    supabase
-      .from("family_account_credits")
-      .select("*")
-      .eq("family_id", familyId)
-      .is("used_in_batch_id", null)
-      .eq("is_active", true)
-      .then(({ data }) => {
-        if (data) setAvailableCredits(data as FamilyAccountCredit[]);
-      });
+    getAvailableCredits(createClient(), familyId).then(setAvailableCredits);
   }, [familyId]);
 
   useEffect(() => {
@@ -274,7 +281,13 @@ export default function CheckoutStep({
       setAdjError("Amount must be greater than $0.");
       return;
     }
-    setAdjustments((prev) => [...prev, { type: adjType, label: adjLabel.trim(), amount }]);
+    if (adjType === "credit") {
+      // #17: grant a new account credit — banked to the family, NOT a discount
+      // on this order.
+      setCreditsToGrant((prev) => [...prev, { label: adjLabel.trim(), amount }]);
+    } else {
+      setAdjustments((prev) => [...prev, { type: "tuition_adjustment", label: adjLabel.trim(), amount }]);
+    }
     setAdjLabel("");
     setAdjAmountStr("");
     setAdjType("tuition_adjustment");
@@ -284,6 +297,10 @@ export default function CheckoutStep({
 
   function handleRemoveAdjustment(index: number) {
     setAdjustments((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handleRemoveCredit(index: number) {
+    setCreditsToGrant((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit() {
@@ -304,11 +321,9 @@ export default function CheckoutStep({
     setSubmitting(true);
     setSubmitError("");
 
-    const creditAdjustments: AdminAdjustment[] = applyCredit && creditTotal > 0
-      ? [{ type: "credit", label: "Account Credit", amount: creditTotal }]
-      : [];
-    const allAdjustments = [...adjustments, ...creditAdjustments];
-
+    // Applied account credits are NOT folded into `adjustments` — the server
+    // verifies the chosen `creditIdsToApply` and derives the deduction itself
+    // (single source of truth). `adjustments` carries only tuition adjustments.
     const result = await createAdminRegistration({
       semesterId,
       semesterName,
@@ -333,14 +348,21 @@ export default function CheckoutStep({
       formData,
       couponCode: appliedCoupon || undefined,
       priceOverride: overrideActive ? grandTotal : undefined,
-      adjustments: allAdjustments.length > 0 ? allAdjustments : undefined,
+      adjustments: adjustments.length > 0 ? adjustments : undefined,
       creditIdsToApply: applyCredit && availableCredits.length > 0
         ? availableCredits.map((c) => c.id)
         : undefined,
+      creditsToGrant: creditsToGrant.length > 0 ? creditsToGrant : undefined,
       paymentPlanType,
       installmentCount: isInstallments ? installmentCount : undefined,
       paymentMethod: isInstallments ? "card" : paymentMethod,
-      amountCollected: isInstallments ? 0 : amount,
+      // #18: ACH (like installments) collects nothing up front — the family pays
+      // the full total on Elavon's hosted page and the webhook records it.
+      amountCollected: isInstallments || isAch ? 0 : amount,
+      balanceDueDate:
+        !isInstallments && !isAch && amount < effectiveTotal
+          ? (balanceDueDate || undefined)
+          : undefined,
       checkNumber: paymentMethod === "check" ? checkNumber : undefined,
       payerName: payerName || undefined,
       notes: notes || undefined,
@@ -350,6 +372,14 @@ export default function CheckoutStep({
       setSubmitting(false);
       setSubmitError(result.error ?? "Registration failed. Please try again.");
       return;
+    }
+
+    // Meeting-plan #25: this registration converts a waitlist entry — resolve it
+    // so it drops off the waitlist (and the Classes-tab count). Done before any
+    // installment/ACH redirect so it applies to every completion path. Best-effort:
+    // a failure here must not block the (already-succeeded) registration.
+    if (waitlistEntryId) {
+      await markWaitlistEntryRegistered(waitlistEntryId).catch(() => {});
     }
 
     // Installment plans return a hosted-page URL — redirect so the family can
@@ -527,6 +557,11 @@ export default function CheckoutStep({
                   </button>
                 ))}
               </div>
+              <p className="text-xs text-[#9E9890]">
+                {adjType === "tuition_adjustment"
+                  ? "Reduces the total due on this order (proration, scholarship, courtesy)."
+                  : "Issues an account credit to the family for future use (e.g. injury make-up). Does not reduce this order — it's banked to their balance."}
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-medium text-[#736D65] mb-1">
@@ -534,7 +569,7 @@ export default function CheckoutStep({
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Week 1 proration"
+                    placeholder={adjType === "credit" ? "e.g. Injury make-up credit" : "e.g. Week 1 proration"}
                     value={adjLabel}
                     onChange={(e) => { setAdjLabel(e.target.value); setAdjError(""); }}
                     className="w-full px-3 py-2 border border-[#DDD9D2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23]"
@@ -583,12 +618,8 @@ export default function CheckoutStep({
               {adjustments.map((adj, i) => (
                 <li key={i} className="flex items-center justify-between gap-3 text-sm">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className={`shrink-0 text-xs font-medium px-1.5 py-0.5 rounded ${
-                      adj.type === "credit"
-                        ? "bg-[#EDE9E4] text-[#736D65]"
-                        : "bg-mauve/20 text-mauve-text"
-                    }`}>
-                      {adj.type === "credit" ? "Credit" : "Adj"}
+                    <span className="shrink-0 text-xs font-medium px-1.5 py-0.5 rounded bg-mauve/20 text-mauve-text">
+                      Adj
                     </span>
                     <span className="text-[#736D65] truncate">{adj.label}</span>
                   </div>
@@ -607,6 +638,32 @@ export default function CheckoutStep({
           ) : !showAdjForm ? (
             <p className="text-xs text-[#9E9890]">No adjustments. Use adjustments for proration credits, scholarships, or other deductions visible to the family.</p>
           ) : null}
+
+          {/* #17: account credits to issue. Distinct from adjustments — these are
+              banked to the family's balance, not subtracted from this order. */}
+          {creditsToGrant.length > 0 && (
+            <ul className="space-y-2 pt-3 border-t border-[#DDD9D2]">
+              {creditsToGrant.map((credit, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="shrink-0 text-xs font-medium px-1.5 py-0.5 rounded bg-[#EDE9E4] text-[#736D65]">
+                      Credit
+                    </span>
+                    <span className="text-[#736D65] truncate">{credit.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[#736D65] font-medium">+{fmt$$(credit.amount)} to account</span>
+                    <button
+                      onClick={() => handleRemoveCredit(i)}
+                      className="text-[#9E9890] hover:text-[#736D65] transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
           </div>
 
           {/* Coupon — hidden while a custom total is set (mirrors prior behavior). */}
@@ -689,12 +746,14 @@ export default function CheckoutStep({
         <div className="bg-white border border-[#DDD9D2] rounded-xl p-5 space-y-4">
           <h2 className="text-sm font-semibold text-[#201D18]">Payment</h2>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {(["cash", "check", "card", "other"] as const).map((m) => (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {(["cash", "check", "card", "ach", "other"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setPaymentMethod(m)}
-                className={`py-2 px-3 rounded-xl text-sm font-medium border transition capitalize ${
+                className={`py-2 px-3 rounded-xl text-sm font-medium border transition ${
+                  m === "ach" ? "uppercase" : "capitalize"
+                } ${
                   paymentMethod === m
                     ? "bg-[#8E2A23] border-[#8E2A23] text-white"
                     : "border-[#DDD9D2] text-[#736D65] hover:bg-[#F7F5F2]"
@@ -705,6 +764,19 @@ export default function CheckoutStep({
             ))}
           </div>
 
+          {/* #18: ACH pulls funds on Elavon's hosted bank-entry page, so the
+              cash-collection fields are replaced with a redirect note (mirrors
+              the installment "Continue to card entry" handoff). */}
+          {isAch ? (
+            <div className="rounded-xl bg-[#F7F5F2] border border-[#DDD9D2] p-3">
+              <p className="text-xs text-[#736D65]">
+                On <strong>Continue to bank entry</strong> you&apos;ll be taken to
+                the secure Elavon page to enter the family&apos;s bank account. The
+                full total of <strong>{fmt$$(effectiveTotal)}</strong> is debited
+                via ACH; the registration confirms once the debit clears.
+              </p>
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-[#736D65] mb-1">
@@ -724,6 +796,25 @@ export default function CheckoutStep({
                 />
               </div>
             </div>
+
+            {!isInstallments &&
+              !isNaN(parseFloat(amountInput)) &&
+              parseFloat(amountInput) < effectiveTotal && (
+                <div>
+                  <label className="block text-xs font-medium text-[#736D65] mb-1">
+                    Balance due date
+                  </label>
+                  <input
+                    type="date"
+                    value={balanceDueDate}
+                    onChange={(e) => setBalanceDueDate(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#DDD9D2] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8E2A23]"
+                  />
+                  <p className="mt-1 text-[10px] text-[#9E9890]">
+                    When the remaining {fmt$$(effectiveTotal - (parseFloat(amountInput) || 0))} is due. Defaults to today.
+                  </p>
+                </div>
+              )}
 
             {paymentMethod === "check" && (
               <div>
@@ -752,6 +843,7 @@ export default function CheckoutStep({
               />
             </div>
           </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-[#736D65] mb-1">
@@ -793,10 +885,14 @@ export default function CheckoutStep({
             {submitting
               ? isInstallments
                 ? "Starting card entry…"
-                : "Registering…"
+                : isAch
+                  ? "Starting bank entry…"
+                  : "Registering…"
               : isInstallments
                 ? "Continue to card entry"
-                : "Complete registration"}
+                : isAch
+                  ? "Continue to bank entry"
+                  : "Complete registration"}
             {!submitting && <Check className="w-4 h-4" />}
           </button>
         </div>
@@ -923,6 +1019,12 @@ export default function CheckoutStep({
               >
                 {fmt$$(parseFloat(amountInput) || 0)}
               </span>
+            </div>
+          )}
+          {creditsToGrantSum > 0 && (
+            <div className="flex justify-between text-xs mt-2 pt-2 border-t border-[#DDD9D2]">
+              <span className="text-[#736D65]">Account credit issued</span>
+              <span className="font-medium text-[#736D65]">+{fmt$$(creditsToGrantSum)} to family balance</span>
             </div>
           )}
         </div>

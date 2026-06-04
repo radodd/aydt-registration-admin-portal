@@ -19,6 +19,7 @@ type InstallmentRow = {
   due_date: string;
   status: "scheduled" | "paid" | "overdue" | "waived" | "processing";
   paid_at: string | null;
+  paid_amount: number | null;
 };
 
 type PaymentRow = {
@@ -142,10 +143,11 @@ const EPG_STATE_BADGE: Record<string, string> = {
   held_for_review: "bg-mauve/20 text-mauve-text",
 };
 
-const TABS = ["all", "pending", "confirmed", "failed", "refunded", "overdue"] as const;
+const TABS = ["all", "pending", "partial", "confirmed", "failed", "refunded", "overdue"] as const;
 const TAB_LABELS: Record<string, string> = {
   all: "All",
   pending: "Pending",
+  partial: "Partial",
   confirmed: "Confirmed",
   failed: "Failed",
   refunded: "Refunded",
@@ -242,7 +244,7 @@ export default function PaymentsAdmin() {
          amount_due_now, status, created_at, confirmed_at,
          users:parent_id(id, first_name, last_name, email, phone_number),
          semesters:semester_id(name),
-         order_payment_installments(id, installment_number, amount_due, due_date, status, paid_at),
+         order_payment_installments(id, installment_number, amount_due, due_date, status, paid_at, paid_amount),
          payments(id, transaction_id, state, event_type, amount, currency, updated_at, raw_transaction),
          registrations:meeting_enrollments!registration_batch_id(
            class_meetings:meeting_id(
@@ -1195,6 +1197,18 @@ export default function PaymentsAdmin() {
               );
               const payment = (batch.payments ?? [])[0] ?? null;
 
+              // Meeting-plan #19: how much has actually been collected on this
+              // order, and what remains outstanding. A fully-paid installment
+              // counts its paid_amount (falling back to amount_due for legacy
+              // rows); scheduled/overdue rows count any partial paid_amount.
+              const amountCollected = installments.reduce((s, i) => {
+                if (i.status === "paid") return s + Number(i.paid_amount ?? i.amount_due);
+                return s + Number(i.paid_amount ?? 0);
+              }, 0);
+              const outstanding =
+                batch.grand_total != null ? Number(batch.grand_total) - amountCollected : 0;
+              const isPartialOrder = batch.status === "partial";
+
               // Refund: confirmed batches with a settled payment
               const canRefund =
                 batch.status === "confirmed" &&
@@ -1501,6 +1515,43 @@ export default function PaymentsAdmin() {
                             </span>
                           </div>
                         )}
+                        {/* Meeting-plan #19: collected vs outstanding for partial orders */}
+                        {isPartialOrder && (
+                          <>
+                            <div className="flex flex-col gap-0.5">
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 500,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.04em",
+                                  color: "var(--admin-text-faint)",
+                                }}
+                              >
+                                Collected
+                              </span>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: "#0A5A50" }}>
+                                {formatCurrency(amountCollected)}
+                              </span>
+                            </div>
+                            <div className="flex flex-col gap-0.5">
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 500,
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.04em",
+                                  color: "var(--admin-text-faint)",
+                                }}
+                              >
+                                Balance
+                              </span>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: "#802818" }}>
+                                {formatCurrency(outstanding)}
+                              </span>
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* EPG Transaction details (non-failed) */}
@@ -1600,6 +1651,13 @@ export default function PaymentsAdmin() {
                                     <span className="font-medium" style={{ color: "var(--admin-text)" }}>
                                       {formatCurrency(inst.amount_due)}
                                     </span>
+                                    {inst.status !== "paid" &&
+                                      inst.paid_amount != null &&
+                                      Number(inst.paid_amount) > 0 && (
+                                        <span style={{ fontSize: 11, fontWeight: 600, color: "#0A5A50" }}>
+                                          {formatCurrency(Number(inst.paid_amount))} collected
+                                        </span>
+                                      )}
                                     <span style={{ fontSize: 11, color: "var(--admin-text-faint)" }}>
                                       {inst.status === "paid" && inst.paid_at
                                         ? `Paid ${new Date(inst.paid_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
