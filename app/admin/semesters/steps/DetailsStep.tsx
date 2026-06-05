@@ -17,6 +17,7 @@ export default function DetailsStep({
   const location = state.details?.location ?? "";
   const trackingMode = state.details?.trackingMode ?? false;
   const capacityWarningThreshold = state.details?.capacityWarningThreshold ?? "";
+  const capacityWarningMode = state.details?.capacityWarningMode ?? "count";
 
   /* ------------------------------------------------------------------------ */
   /* Register submit handler with parent footer                               */
@@ -42,6 +43,7 @@ export default function DetailsStep({
         location: location || undefined,
         trackingMode,
         capacityWarningThreshold: capacityWarningThreshold !== "" ? Number(capacityWarningThreshold) : undefined,
+        capacityWarningMode,
         ...partial,
       },
     });
@@ -158,24 +160,48 @@ export default function DetailsStep({
           >
             Availability warning threshold
           </label>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <input
               id="semester-threshold"
               type="number"
               min={1}
-              max={20}
-              placeholder="e.g. 3"
+              max={capacityWarningMode === "percent" ? 100 : 20}
+              placeholder={capacityWarningMode === "percent" ? "e.g. 90" : "e.g. 3"}
               value={capacityWarningThreshold}
               onChange={(e) => patch({ capacityWarningThreshold: e.target.value ? Number(e.target.value) : undefined })}
               className="admin-input w-24 text-sm"
             />
-            <span className="text-sm" style={{ color: "var(--admin-text-faint)" }}>spots remaining</span>
+            {/* Mode toggle: spots-remaining count vs. percent-full */}
+            <div className="inline-flex rounded-lg overflow-hidden" style={{ border: "1px solid var(--admin-border)" }}>
+              {(["count", "percent"] as const).map((m) => {
+                const active = capacityWarningMode === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => patch({ capacityWarningMode: m })}
+                    className="text-sm px-3 py-1.5 transition-colors"
+                    style={
+                      active
+                        ? { background: "var(--admin-sidebar-active)", color: "#fff" }
+                        : { background: "transparent", color: "var(--admin-text-faint)" }
+                    }
+                  >
+                    {m === "count" ? "spots remaining" : "% full"}
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <p
             className="text-xs mt-2"
             style={{ color: "var(--admin-text-faint)" }}
           >
-            When a class has this many spots left, families see &ldquo;X spots left&rdquo; on the enrollment card. Leave blank to hide availability counts entirely.
+            {capacityWarningMode === "percent" ? (
+              <>When a class reaches this percent of capacity, families see &ldquo;X spots left&rdquo; on the enrollment card. e.g. 90 triggers at 90% full. Leave blank to hide availability counts entirely.</>
+            ) : (
+              <>When a class has this many spots left, families see &ldquo;X spots left&rdquo; on the enrollment card. Leave blank to hide availability counts entirely.</>
+            )}
           </p>
         </div>
 

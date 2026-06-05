@@ -10,6 +10,7 @@ export async function updateSemesterDetails(
     location?: string;
     trackingMode: boolean;
     capacityWarningThreshold?: number;
+    capacityWarningMode?: "count" | "percent";
     publishAt?: Date;
   },
 ) {
@@ -25,6 +26,7 @@ export async function updateSemesterDetails(
       location: details.location ?? null,
       tracking_mode: details.trackingMode,
       capacity_warning_threshold: details.capacityWarningThreshold ?? null,
+      capacity_warning_mode: details.capacityWarningMode ?? "count",
       publish_at: details.publishAt ?? null,
     })
     .eq("id", semesterId);
