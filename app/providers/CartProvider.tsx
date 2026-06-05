@@ -11,6 +11,7 @@ import {
   useRef,
 } from "react";
 import type { CartItem, CartItemMode, CartState } from "@/types/public";
+import { holdSeat, releaseSeat } from "@/app/(user-facing)/register/actions/seatHolds";
 
 const CART_TTL_MS = 20 * 60 * 1000;
 const STORAGE_KEY_PREFIX = "aydt_cart_";
@@ -60,13 +61,6 @@ function freshCart(semesterId: string): CartState {
     version: CART_VERSION,
     semesterId,
     items: [],
-    expiresAt: new Date(Date.now() + CART_TTL_MS).toISOString(),
-  };
-}
-
-function bumpExpiry(cart: CartState): CartState {
-  return {
-    ...cart,
     expiresAt: new Date(Date.now() + CART_TTL_MS).toISOString(),
   };
 }
@@ -136,10 +130,17 @@ function reducer(state: CartState, action: CartAction): CartState {
       });
       if (exists) return state;
 
-      const next = bumpExpiry({
+      // Meeting-plan #28: the cart timer runs from the FIRST add and is NOT reset
+      // on subsequent adds (so the seat-hold deadlines stay fixed and can't be
+      // extended indefinitely by adding/removing).
+      const next: CartState = {
         ...state,
         items: [...state.items, action.item],
-      });
+        expiresAt:
+          state.items.length === 0
+            ? new Date(Date.now() + CART_TTL_MS).toISOString()
+            : state.expiresAt,
+      };
 
       console.log(
         `[Cart] action: ADD ${action.item.mode} ${action.item.sessionId} → ${next.items.length} items`,
@@ -160,7 +161,7 @@ function reducer(state: CartState, action: CartAction): CartState {
           nextItems.push(it);
         }
       }
-      const next = bumpExpiry({ ...state, items: nextItems });
+      const next = { ...state, items: nextItems };
       console.log(
         `[Cart] action: REMOVE_BY_SESSION ${action.sessionId} → ${next.items.length} items`,
       );
@@ -168,10 +169,10 @@ function reducer(state: CartState, action: CartAction): CartState {
     }
 
     case "REMOVE_BY_ID": {
-      const next = bumpExpiry({
+      const next = {
         ...state,
         items: state.items.filter((it) => it.id !== action.itemId),
-      });
+      };
       console.log(
         `[Cart] action: REMOVE_BY_ID ${action.itemId} → ${next.items.length} items`,
       );
@@ -179,12 +180,12 @@ function reducer(state: CartState, action: CartAction): CartState {
     }
 
     case "UPDATE": {
-      const next = bumpExpiry({
+      const next = {
         ...state,
         items: state.items.map((it) =>
           it.id === action.itemId ? { ...it, ...action.patch } : it,
         ),
-      });
+      };
       console.log(`[Cart] action: UPDATE ${action.itemId}`);
       return next;
     }
@@ -209,13 +210,25 @@ interface CartContextValue {
   sessionIds: string[];
   expiresAt: string;
 
-  add: (input: AddCartItemInput) => void;
+  /**
+   * Meeting-plan #28: add now RESERVES a seat server-side before adding, so it
+   * is async and can fail. Resolves to { ok:false, reason } on needs_auth /
+   * at_capacity / error. Callers may ignore the result — auth redirect + the
+   * `addError` surface are handled centrally.
+   */
+  add: (
+    input: AddCartItemInput,
+    opts?: { skipHold?: boolean },
+  ) => Promise<{ ok: boolean; reason?: "needs_auth" | "at_capacity" | "error" }>;
   remove: (sessionId: string) => void;
   removeItem: (itemId: string) => void;
   updateItem: (itemId: string, patch: Partial<CartItem>) => void;
   clear: () => void;
   has: (sessionId: string) => boolean;
   hasClass: (classId: string, mode?: CartItemMode) => boolean;
+  /** Transient "couldn't reserve" feedback (e.g. class just filled). */
+  addError: { message: string; reason: "at_capacity" | "error"; classId?: string } | null;
+  dismissAddError: () => void;
 
   secondsRemaining: number;
   isExpired: boolean;
@@ -258,6 +271,11 @@ export function CartProvider({
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
   // Both live and preview hydrate from their respective Web Storage on mount.
   const [hydrated, setHydrated] = useState(false);
+  // Meeting-plan #28: transient feedback when a seat hold can't be created
+  // (e.g. the class just filled). The catalog surfaces this near the class card.
+  const [addError, setAddError] = useState<
+    { message: string; reason: "at_capacity" | "error"; classId?: string } | null
+  >(null);
 
   /* ---------------------------------------------------------------------- */
   /* Hydrate                                                                */
@@ -393,32 +411,104 @@ export function CartProvider({
     [preview, storageKey],
   );
 
-  const add = useCallback(
-    (input: AddCartItemInput) => {
-      const item = normalizeAdd(input, semesterId);
-      const next = reducer(stateRef.current, { type: "ADD", item });
-      persistNext(next);
-      dispatch({ type: "ADD", item });
+  const itemExists = useCallback((item: CartItem) => {
+    return stateRef.current.items.some((it) =>
+      item.mode === "drop-in"
+        ? it.classId === item.classId && it.mode === "drop-in"
+        : it.sessionId === item.sessionId,
+    );
+  }, []);
+
+  // Release the server seat-holds of any items present in `prev` but gone in `next`.
+  const releaseRemoved = useCallback(
+    (prev: CartItem[], next: CartItem[]) => {
+      if (preview) return;
+      const nextIds = new Set(next.map((it) => it.id));
+      const gone = prev.filter((it) => !nextIds.has(it.id)).flatMap((it) => it.holdIds ?? []);
+      if (gone.length) void releaseSeat(gone);
     },
-    [persistNext, semesterId],
+    [preview],
+  );
+
+  // Meeting-plan #28: add now RESERVES a seat (server hold) before adding. It is
+  // async and can fail — `needs_auth` (routes to sign-in), `at_capacity` (just
+  // filled → surfaced via addError), or `error`. Preview carts skip holds.
+  const add = useCallback(
+    async (
+      input: AddCartItemInput,
+      opts?: { skipHold?: boolean },
+    ): Promise<{ ok: boolean; reason?: "needs_auth" | "at_capacity" | "error" }> => {
+      const item = normalizeAdd(input, semesterId);
+
+      // Preview carts are simulated; the #5 waitlist-join path is capacity-neutral
+      // (joining a waitlist reserves nothing). Both add WITHOUT a server hold.
+      if (preview || opts?.skipHold) {
+        const next = reducer(stateRef.current, { type: "ADD", item });
+        persistNext(next);
+        dispatch({ type: "ADD", item });
+        return { ok: true };
+      }
+
+      if (itemExists(item)) return { ok: true }; // already held — no duplicate
+
+      const res = await holdSeat({
+        semesterId,
+        classId: item.classId,
+        mode: item.mode,
+        sessionId: item.sessionId,
+        selectedDateIds: item.selectedDateIds,
+        // Reuse the cart-wide deadline once the cart has items (timer = from first add).
+        cartExpiresAt:
+          stateRef.current.items.length > 0 ? stateRef.current.expiresAt : undefined,
+      });
+
+      if (!res.ok) {
+        if (res.reason === "needs_auth") {
+          if (typeof window !== "undefined") {
+            const next = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/auth/login?next=${next}`;
+          }
+          return { ok: false, reason: "needs_auth" };
+        }
+        setAddError({
+          reason: res.reason,
+          classId: item.classId,
+          message:
+            res.reason === "at_capacity"
+              ? "This class just filled up — you can join the waitlist instead."
+              : res.message ?? "Could not add this class. Please try again.",
+        });
+        return { ok: false, reason: res.reason };
+      }
+
+      const held: CartItem = { ...item, holdIds: res.holdIds };
+      const next = reducer(stateRef.current, { type: "ADD", item: held });
+      persistNext(next);
+      dispatch({ type: "ADD", item: held });
+      setAddError(null);
+      return { ok: true };
+    },
+    [persistNext, semesterId, preview, itemExists],
   );
 
   const remove = useCallback(
     (sessionId: string) => {
       const next = reducer(stateRef.current, { type: "REMOVE_BY_SESSION", sessionId });
+      releaseRemoved(stateRef.current.items, next.items);
       persistNext(next);
       dispatch({ type: "REMOVE_BY_SESSION", sessionId });
     },
-    [persistNext],
+    [persistNext, releaseRemoved],
   );
 
   const removeItem = useCallback(
     (itemId: string) => {
       const next = reducer(stateRef.current, { type: "REMOVE_BY_ID", itemId });
+      releaseRemoved(stateRef.current.items, next.items);
       persistNext(next);
       dispatch({ type: "REMOVE_BY_ID", itemId });
     },
-    [persistNext],
+    [persistNext, releaseRemoved],
   );
 
   const updateItem = useCallback(
@@ -432,9 +522,18 @@ export function CartProvider({
 
   const clear = useCallback(() => {
     console.log("[Cart] clear called");
+    // Release any outstanding holds. After a successful checkout the holds were
+    // already converted to enrollments (deleted server-side), so this is a no-op
+    // there; on cart abandonment it frees the seats immediately.
+    if (!preview) {
+      const allHolds = stateRef.current.items.flatMap((it) => it.holdIds ?? []);
+      if (allHolds.length) void releaseSeat(allHolds);
+    }
     dispatch({ type: "CLEAR" });
     cartStore(preview)?.removeItem(storageKey);
   }, [storageKey, preview]);
+
+  const dismissAddError = useCallback(() => setAddError(null), []);
 
   const sessionIds = useMemo(() => deriveSessionIds(state.items), [state.items]);
 
@@ -468,6 +567,8 @@ export function CartProvider({
         clear,
         has,
         hasClass,
+        addError,
+        dismissAddError,
         hydrated,
         secondsRemaining: secondsRemaining ?? 0,
         isExpired: expired,

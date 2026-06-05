@@ -22,6 +22,8 @@ import { removeInstructorFromSession } from "./actions/removeInstructor";
 // (/admin/register?fromWaitlist=<id>).
 import { getWaitlistEntries, type AdminWaitlistEntry } from "@/app/admin/waitlist/queries";
 import { inviteWaitlistEntryByLink } from "@/app/admin/waitlist/actions/inviteWaitlistEntryByLink";
+// Meeting-plan #28: surface admin-managed seat holds (held / freed) + reopen.
+import { reopenFreedSeats } from "@/app/admin/classes/actions/reopenFreedSeats";
 import type { TemplateListRow } from "@/types";
 import type { SessionInstructorAssignment, InstructorRow } from "@/queries/admin";
 import Link from "next/link";
@@ -822,7 +824,52 @@ function ClassDetailPanel({
     (r) => r.status === "pending_payment" || r.status === "pending"
   ).length;
   const cap = totalCapacity(detail);
-  const openSpots = Math.max(0, cap - confirmed - pending);
+
+  // Meeting-plan #28: seat holds. `held` = live (mid-checkout) reservations;
+  // `freed` = abandoned holds still keeping the seat full to the public until an
+  // admin reopens them. Both occupy a seat, so neither counts as an open spot.
+  const [holds, setHolds] = useState<{ held: number; freed: number }>({ held: 0, freed: 0 });
+  const [reopening, setReopening] = useState(false);
+
+  function loadHolds() {
+    const sb = createClient();
+    sb.from("class_meetings")
+      .select("section_id")
+      .eq("class_id", detail.id)
+      .then(({ data }) => {
+        const ids = [
+          ...new Set(
+            (data ?? [])
+              .map((m) => (m as { section_id: string | null }).section_id)
+              .filter((x): x is string => !!x),
+          ),
+        ];
+        if (ids.length === 0) {
+          setHolds({ held: 0, freed: 0 });
+          return;
+        }
+        sb.rpc("admin_section_hold_breakdown", { p_section_ids: ids }).then(({ data: rows }) => {
+          let held = 0;
+          let freed = 0;
+          for (const r of (rows ?? []) as { live_holds: number; freed_holds: number }[]) {
+            held += r.live_holds ?? 0;
+            freed += r.freed_holds ?? 0;
+          }
+          setHolds({ held, freed });
+        });
+      });
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => loadHolds(), [detail.id]);
+
+  async function handleReopen() {
+    setReopening(true);
+    await reopenFreedSeats(detail.id);
+    setReopening(false);
+    loadHolds();
+  }
+
+  const openSpots = Math.max(0, cap - confirmed - pending - holds.held - holds.freed);
 
   // Per-session enrolled counts (confirmed only)
   const sessionEnrolledCounts = registrants.reduce<Record<string, number>>(
@@ -1414,6 +1461,36 @@ function ClassDetailPanel({
                 {pending}
               </span>
             </div>
+            {/* Meeting-plan #28: live reservations (someone mid-checkout). */}
+            {holds.held > 0 && (
+              <div className="flex justify-between text-[12px]">
+                <span style={{ color: "#736D65" }}>Held (in checkout)</span>
+                <span className="font-medium" style={{ color: "#201D18" }}>
+                  {holds.held}
+                </span>
+              </div>
+            )}
+            {/* Abandoned holds — still "full" to the public until reopened. */}
+            {holds.freed > 0 && (
+              <div className="flex items-center justify-between text-[12px]">
+                <span style={{ color: "#736D65" }}>Freed (abandoned)</span>
+                <span className="flex items-center gap-2">
+                  <span className="font-medium" style={{ color: "#8E2A23" }}>
+                    {holds.freed}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleReopen}
+                    disabled={reopening}
+                    className="text-[10px] px-1.5 py-0.5 rounded-full"
+                    style={{ background: "#C8EEE2", color: "#0A5A50", opacity: reopening ? 0.6 : 1 }}
+                    title="Release abandoned seats back to the public catalog"
+                  >
+                    {reopening ? "Reopening…" : "Reopen"}
+                  </button>
+                </span>
+              </div>
+            )}
             <div
               className="flex justify-between text-[12px]"
               style={{

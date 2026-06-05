@@ -91,6 +91,28 @@ function groupBySchedule(sessions: PublicSession[]): ScheduleGroup[] {
   return groups;
 }
 
+/**
+ * Whether a class should show the low-availability ("X spots left") warning.
+ * - "count":   warn when spots remaining ≤ threshold.
+ * - "percent": warn when the class is ≥ threshold% full
+ *              (enrolled / capacity ≥ threshold/100), i.e. spots remaining is
+ *              within the top (100 − threshold)% of capacity.
+ * Never warns when full (spotsRemaining ≤ 0) or threshold unset.
+ */
+function isLowAvailability(
+  spotsRemaining: number,
+  capacity: number,
+  threshold: number,
+  mode: "count" | "percent",
+): boolean {
+  if (threshold <= 0 || spotsRemaining <= 0) return false;
+  if (mode === "percent") {
+    if (!capacity || capacity <= 0) return false;
+    return (capacity - spotsRemaining) / capacity >= threshold / 100;
+  }
+  return spotsRemaining <= threshold;
+}
+
 /* -------------------------------------------------------------------------- */
 /* ScCard — individual schedule option card inside the accordion               */
 /* -------------------------------------------------------------------------- */
@@ -98,10 +120,12 @@ function ScCard({
   group,
   discStripeColor,
   spotsThreshold,
+  spotsThresholdMode,
 }: {
   group: ScheduleGroup;
   discStripeColor: string;
   spotsThreshold: number;
+  spotsThresholdMode: "count" | "percent";
 }) {
   const { add, remove, sessionIds, semesterId } = useCart();
   const router = useRouter();
@@ -115,13 +139,17 @@ function ScCard({
     // Object-form add so the cart item carries classId (the waitlist flow needs
     // it; the bare string form leaves classId empty).
     if (!sessionIds.includes(rep.id)) {
-      add({
-        semesterId,
-        classId: rep.classId ?? "",
-        sessionId: rep.id,
-        className: rep.name,
-        mode: "standard",
-      });
+      // Capacity-neutral: joining a waitlist reserves no seat, so skip the hold.
+      add(
+        {
+          semesterId,
+          classId: rep.classId ?? "",
+          sessionId: rep.id,
+          className: rep.name,
+          mode: "standard",
+        },
+        { skipHold: true },
+      );
     }
     router.push(`/register?semester=${semesterId}&waitlist=1`);
   }
@@ -139,7 +167,7 @@ function ScCard({
   } else if (isFull && rep.waitlistEnabled) {
     badgeClass = "sem-badge-rose";
     badgeLabel = "Waitlist";
-  } else if (rep.spotsRemaining <= spotsThreshold) {
+  } else if (isLowAvailability(rep.spotsRemaining, rep.capacity ?? 0, spotsThreshold, spotsThresholdMode)) {
     badgeClass = "sem-badge-amber";
     badgeLabel = `${rep.spotsRemaining} spot${rep.spotsRemaining !== 1 ? "s" : ""} left`;
   }
@@ -288,7 +316,7 @@ function ScCard({
 /* -------------------------------------------------------------------------- */
 /* ClassCard — accordion                                                        */
 /* -------------------------------------------------------------------------- */
-export function ClassCard({ group, spotsThreshold = 0 }: { group: GroupedClass; spotsThreshold?: number }) {
+export function ClassCard({ group, spotsThreshold = 0, spotsThresholdMode = "count" }: { group: GroupedClass; spotsThreshold?: number; spotsThresholdMode?: "count" | "percent" }) {
   const { sessionIds } = useCart();
   const cartCount = group.sessions.filter((s) => sessionIds.includes(s.id)).length;
   const [isOpen, setIsOpen] = useState(cartCount > 0);
@@ -306,8 +334,8 @@ export function ClassCard({ group, spotsThreshold = 0 }: { group: GroupedClass; 
     (sg) => sg.representative.spotsRemaining <= 0 && sg.representative.waitlistEnabled
   );
   const allFull = allAtCapacity && !anyWaitlist;
-  const anyLow = spotsThreshold > 0 && !allAtCapacity && scheduleGroups.some(
-    (sg) => sg.representative.spotsRemaining > 0 && sg.representative.spotsRemaining <= spotsThreshold
+  const anyLow = !allAtCapacity && scheduleGroups.some((sg) =>
+    isLowAvailability(sg.representative.spotsRemaining, sg.representative.capacity ?? 0, spotsThreshold, spotsThresholdMode)
   );
 
   let headerBadgeClass = "sem-badge-sage";
@@ -503,7 +531,7 @@ export function ClassCard({ group, spotsThreshold = 0 }: { group: GroupedClass; 
           ) : (
             <div className="sem-sessions-grid">
               {scheduleGroups.map((sg) => (
-                <ScCard key={sg.key} group={sg} discStripeColor={stripeColor} spotsThreshold={spotsThreshold} />
+                <ScCard key={sg.key} group={sg} discStripeColor={stripeColor} spotsThreshold={spotsThreshold} spotsThresholdMode={spotsThresholdMode} />
               ))}
             </div>
           )}

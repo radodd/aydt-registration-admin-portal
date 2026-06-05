@@ -73,6 +73,7 @@ interface SessionGridProps {
   sessions: PublicSession[];
   groups: PublicSessionGroup[];
   capacityWarningThreshold?: number;
+  capacityWarningMode?: "count" | "percent";
 }
 
 function buildGroupMap(
@@ -99,7 +100,7 @@ function activeFilterCount(filters: FilterState): number {
   return n;
 }
 
-export function SessionGrid({ sessions, groups, capacityWarningThreshold }: SessionGridProps) {
+export function SessionGrid({ sessions, groups, capacityWarningThreshold, capacityWarningMode = "count" }: SessionGridProps) {
   const [filters, setFilters] = useState<FilterState>({
     groupId: "",
     dayOfWeek: "",
@@ -205,7 +206,7 @@ export function SessionGrid({ sessions, groups, capacityWarningThreshold }: Sess
       ) : (
         <div style={{ paddingTop: 12 }}>
           {grouped.map((group) => (
-            <ClassCard key={group.classId} group={group} spotsThreshold={capacityWarningThreshold} />
+            <ClassCard key={group.classId} group={group} spotsThreshold={capacityWarningThreshold} spotsThresholdMode={capacityWarningMode} />
           ))}
         </div>
       )}

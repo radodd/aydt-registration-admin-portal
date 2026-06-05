@@ -5,8 +5,22 @@ import { createAdminClient } from "@/utils/supabase/admin";
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
 import { validateEnrollment } from "@/app/actions/validateEnrollment";
 import { getApplicableCredits, markCreditsUsed } from "@/queries/credits";
+import { joinWaitlist } from "./joinWaitlist";
 import type { NewDancerDraft } from "@/types/public";
 import type { PricingQuote } from "@/types";
+
+/**
+ * The capacity triggers (check_session_capacity / check_schedule_enrollment_capacity)
+ * RAISE with a message containing "at capacity" when a seat is gone. This
+ * distinguishes a genuine last-seat race (→ route to waitlist) from any other
+ * insert failure (→ hard error). See supabase/migrations — the message is
+ * "Session/Section is at capacity — N enrolled, capacity is M.".
+ */
+function isCapacityError(error: { message?: string; details?: string; hint?: string } | null): boolean {
+  if (!error) return false;
+  const haystack = `${error.message ?? ""} ${error.details ?? ""} ${error.hint ?? ""}`;
+  return /at capacity/i.test(haystack);
+}
 
 export interface CreateRegistrationsInput {
   semesterId: string;
@@ -63,6 +77,15 @@ export interface CreateRegistrationsResult {
    * batchId and retry. See app/(user-facing)/register/payment/page.tsx.
    */
   code?: "BATCH_STALE";
+  /**
+   * Meeting-plan #26: set when a last-seat race sent one or more dancers to the
+   * waitlist instead of enrolling them. `error` carries a friendly message the
+   * UI already surfaces; `allWaitlisted` is true when the WHOLE cart was routed
+   * (nothing to pay). The UI may use these to render a waitlist confirmation
+   * rather than the generic error styling.
+   */
+  waitlisted?: Array<{ dancerId: string; classId: string }>;
+  allWaitlisted?: boolean;
 }
 
 const PRICE_TOLERANCE = 0.01; // cents rounding tolerance
@@ -142,7 +165,7 @@ export async function createRegistrations(
   const sessionIds = [...new Set(input.participants.map((p) => p.sessionId))];
   const { data: sessions, error: sessionError } = await supabase
     .from("class_meetings")
-    .select("id")
+    .select("id, class_id")
     .in("id", sessionIds)
     .eq("semester_id", input.semesterId);
 
@@ -154,6 +177,16 @@ export async function createRegistrations(
         "One or more sessions are invalid or do not belong to this semester.",
     };
   }
+
+  // meeting_id → class_id, for routing a contended drop-in participant to the
+  // correct per-class waitlist if its seat is gone (see step 8).
+  const meetingToClass = new Map<string, string>(
+    (sessions as { id: string; class_id: string | null }[]).flatMap((s) =>
+      s.class_id ? [[s.id, s.class_id] as [string, string]] : [],
+    ),
+  );
+  // section_id → class_id, populated alongside the section ownership check below.
+  const sectionToClass = new Map<string, string>();
 
   // 3.1 Phase 3b-ii: validate section_id ownership for standard/tiered participants
   const scheduleEnrollmentParticipants = input.participants.filter(
@@ -169,7 +202,7 @@ export async function createRegistrations(
   if (scheduleEnrollmentParticipants.length > 0 && scheduleIds.length > 0) {
     const { data: scheduleRows, error: scheduleError } = await supabase
       .from("class_sections")
-      .select("id, classes!inner(semester_id)")
+      .select("id, class_id, classes!inner(semester_id)")
       .in("id", scheduleIds);
     if (scheduleError || !scheduleRows || scheduleRows.length !== scheduleIds.length) {
       return {
@@ -187,6 +220,7 @@ export async function createRegistrations(
           error: "One or more schedules do not belong to this semester.",
         };
       }
+      if (row.class_id) sectionToClass.set(row.id as string, row.class_id as string);
     }
   }
   for (const p of scheduleEnrollmentParticipants) {
@@ -450,62 +484,135 @@ export async function createRegistrations(
     (p) => p.mode !== "standard" && p.mode !== "tiered",
   );
 
-  // 8a. section_enrollments — for standard/tiered participants.
+  // 8. Convert the caller's seat holds (Meeting-plan #28) into pending enrollments.
+  // ONE atomic RPC: for each participant it deletes the caller's matching
+  // `seat_holds` row and inserts the SAME pending enrollment the old direct insert
+  // produced — identical batch_id / status / columns — so the EPG webhook +
+  // confirmBatch are unaffected (see PAYMENTS-CHANGELOG-seat-holds.md). The RPC is
+  // a single transaction: if any seat was lost (a hold lapsed and was taken), the
+  // whole call RAISEs + rolls back, and we route the cart to the waitlist (#26).
+  // It also works when NO hold exists (capacity permitting), so non-hold callers
+  // still function. `contendedParticipants` drives the all-or-nothing fallback.
+  const contendedParticipants: CreateRegistrationsInput["participants"] = [];
   let allRegistrationIds: string[] = [];
-  if (scheduleEnrollmentParticipants.length > 0) {
-    const enrollRows = scheduleEnrollmentParticipants.map((p) => ({
-      section_id: p.scheduleId!,
-      batch_id: input.batchId,
-      dancer_id: p.dancerId,
-      price_snapshot: 0, // financial record lives on registration_orders
-      // section_enrollments.status CHECK allows ('pending', 'confirmed', 'cancelled') —
-      // distinct from registrations.status which uses 'pending_payment'. The EPG
-      // webhook flips this to 'confirmed' alongside the registrations update.
-      status: "pending",
-      class_tier_id: p.mode === "tiered" ? p.classTierId : null,
-    }));
-    const { data: enrollCreated, error: enrollErr } = await supabase
-      .from("section_enrollments")
-      .insert(enrollRows)
-      .select("id");
-    if (enrollErr) {
-      return {
-        success: false,
-        registrationIds: [],
-        error: enrollErr.message,
-      };
-    }
-    allRegistrationIds = allRegistrationIds.concat(
-      (enrollCreated ?? []).map((r: any) => r.id as string),
-    );
-  }
+  let created: { id: string; meeting_id: string; dancer_id: string }[] = [];
 
-  // 8b. registrations — for drop-in / legacy participants.
-  const rows = dropInParticipants.map((p) => ({
+  const sectionPayload = scheduleEnrollmentParticipants.map((p) => ({
+    section_id: p.scheduleId,
     dancer_id: p.dancerId,
+    class_tier_id: p.mode === "tiered" ? (p.classTierId ?? null) : null,
+  }));
+  const meetingPayload = dropInParticipants.map((p) => ({
     meeting_id: p.sessionId,
-    status: "pending_payment",
-    total_amount: 0,
-    hold_expires_at: holdExpiresAt,
-    registration_batch_id: input.batchId,
+    dancer_id: p.dancerId,
   }));
 
-  let created: { id: string; meeting_id: string; dancer_id: string }[] = [];
-  if (rows.length > 0) {
-    const { data, error: insertError } = await supabase
-      .from("meeting_enrollments")
-      .insert(rows)
-      .select("id, meeting_id, dancer_id");
+  if (sectionPayload.length > 0 || meetingPayload.length > 0) {
+    const { data: converted, error: convertErr } = await supabase.rpc(
+      "convert_holds_to_enrollments",
+      {
+        p_batch_id: input.batchId,
+        p_sections: sectionPayload,
+        p_meetings: meetingPayload,
+        // Drop-in enrollments keep the legacy 30-min hold_expires_at field.
+        p_meeting_hold_expires: holdExpiresAt,
+      },
+    );
 
-    if (insertError) {
-      return {
-        success: false,
-        registrationIds: [],
-        error: insertError.message,
-      };
+    if (convertErr) {
+      if (isCapacityError(convertErr)) {
+        // A held seat lapsed and was taken before checkout. The RPC rolled back
+        // entirely, so nothing was created — route the whole cart to the waitlist.
+        contendedParticipants.push(...input.participants);
+      } else {
+        return {
+          success: false,
+          registrationIds: [],
+          error: convertErr.message,
+        };
+      }
+    } else {
+      const convRows = (converted ?? []) as { kind: string; enrollment_id: string }[];
+      const sectionIds = convRows.filter((r) => r.kind === "section").map((r) => r.enrollment_id);
+      const meetingIds = convRows.filter((r) => r.kind === "meeting").map((r) => r.enrollment_id);
+      allRegistrationIds = [...sectionIds, ...meetingIds];
+      // Step 9 (registration_days) needs meeting_id + dancer_id. The RPC returns
+      // meeting rows in `meetingPayload` (= dropInParticipants) input order, so zip.
+      created = meetingIds.map((id, i) => ({
+        id,
+        meeting_id: dropInParticipants[i].sessionId,
+        dancer_id: dropInParticipants[i].dancerId,
+      }));
     }
-    created = (data ?? []) as any;
-    allRegistrationIds = allRegistrationIds.concat(created.map((r) => r.id));
+  }
+
+  // 8c. Meeting-plan #26 — last-seat race resolution.
+  // If any seat in the cart was gone, treat the whole batch as unpurchasable:
+  //   1. Roll back any sibling rows that DID insert (so no seat is held and the
+  //      order can't be paid for a partial cart — avoids overcharging).
+  //   2. Route the contended dancers to the per-class manual waitlist (#5),
+  //      reusing joinWaitlist (capacity-neutral, sends the "you're on the
+  //      waitlist" email). Survivors are not waitlisted — their classes had room,
+  //      so the family can simply re-register them.
+  //   3. Fail the batch and return a friendly message (no hard Postgres error).
+  // NOTE (coarseness, intentional MVP): because the inserts are bulk/atomic per
+  // table, one full section waitlists every standard/tiered dancer in the cart,
+  // and one full drop-in date waitlists every drop-in dancer. The realistic #26
+  // scenario (one dancer racing for one seat) routes exactly that dancer.
+  if (contendedParticipants.length > 0) {
+    // 1. Roll back any rows that survived in the non-contended table.
+    if (allRegistrationIds.length > 0) {
+      await Promise.all([
+        supabase.from("section_enrollments").delete().eq("batch_id", input.batchId),
+        supabase
+          .from("meeting_enrollments")
+          .delete()
+          .eq("registration_batch_id", input.batchId),
+      ]);
+    }
+
+    // 2. Route contended dancers to their per-class waitlist.
+    const waitlisted: NonNullable<CreateRegistrationsResult["waitlisted"]> = [];
+    for (const p of contendedParticipants) {
+      const isSection = p.mode === "standard" || p.mode === "tiered";
+      const classId =
+        p.classId ??
+        (isSection ? sectionToClass.get(p.scheduleId ?? "") : meetingToClass.get(p.sessionId)) ??
+        null;
+      if (!classId) {
+        // Without an authoritative class we can't queue them — log and skip.
+        console.warn(
+          `[createRegistrations] could not resolve classId to waitlist dancer ${p.dancerId}`,
+        );
+        continue;
+      }
+      await joinWaitlist({
+        semesterId: input.semesterId,
+        classId,
+        sectionId: isSection ? p.scheduleId ?? null : null,
+        meetingId: isSection ? null : p.sessionId,
+        classTierId: p.mode === "tiered" ? p.classTierId ?? null : null,
+        dancerId: p.dancerId,
+      });
+      waitlisted.push({ dancerId: p.dancerId, classId });
+    }
+
+    // 3. Fail the batch; nothing is charged.
+    await supabase
+      .from("registration_orders")
+      .update({ status: "failed" })
+      .eq("id", input.batchId);
+
+    return {
+      success: false,
+      registrationIds: [],
+      allWaitlisted: true,
+      waitlisted,
+      error:
+        waitlisted.length > 1
+          ? "These classes just filled up. The dancers have been added to the waitlist — we'll email you if spots open."
+          : "This class just filled up. You've been added to the waitlist — we'll email you if a spot opens.",
+    };
   }
 
   // 9. Insert registration_days — one row per (registration, selected occurrence date)
