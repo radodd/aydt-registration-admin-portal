@@ -42,3 +42,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# scrape / migration working data (local only — contains client roster, do NOT push)
+scrape-spring-2026*.json
+scrape-spring-2026*.tsv
+scrape-spring-2026*.csv
