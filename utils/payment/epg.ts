@@ -234,6 +234,29 @@ export async function createEpgPaymentSession(params: {
    * applies unchanged. Card sessions omit this and keep EPG's default methods.
    */
   enableAch?: boolean;
+  /**
+   * AVS pre-population (Justin Huffines, 2026-06-02). The address that feeds AVS
+   * on later server-to-server stored-card charges is the `card.billTo` captured
+   * when the hostedCard is created at the HPP — NOT the Shopper's primaryAddress.
+   * Passing `billTo` here pre-fills the hosted page's billing-address fields so
+   * the captured address sticks to the hostedCard → storedCard and AVS
+   * (addressStreet / addressPostalCode) evaluates downstream. Send on the
+   * tokenize-only (doCreateTransaction:false) sessions that mint a storedCard.
+   * NOTE: `billTo` on the payment-session request is vendor-confirmed by Elavon
+   * but not yet reflected in docs/elavon/; verify against the cert sandbox.
+   */
+  billTo?: {
+    fullName?: string | null;
+    company?: string | null;
+    street1: string;
+    street2?: string | null;
+    city: string;
+    region: string;
+    postalCode: string;
+    countryCode?: string;
+    primaryPhone?: string | null;
+    email?: string | null;
+  };
 }): Promise<EpgPaymentSession> {
   const doCreateTransaction = params.doCreateTransaction ?? true;
   const res = await fetch(`${getBaseUrl()}/payment-sessions`, {
@@ -256,6 +279,22 @@ export async function createEpgPaymentSession(params: {
             allowedPaymentMethodOrigins: ["ACH"],
           }
         : {}),
+      // AVS: pre-populate the HPP billing-address fields so the captured address
+      // attaches to the hostedCard → storedCard for downstream AVS on CoF charges.
+      ...(params.billTo && {
+        billTo: {
+          fullName: params.billTo.fullName ?? null,
+          company: params.billTo.company ?? null,
+          street1: params.billTo.street1,
+          street2: params.billTo.street2 ?? null,
+          city: params.billTo.city,
+          region: params.billTo.region,
+          postalCode: params.billTo.postalCode,
+          countryCode: params.billTo.countryCode ?? "USA",
+          primaryPhone: params.billTo.primaryPhone ?? null,
+          email: params.billTo.email ?? null,
+        },
+      }),
     }),
   });
   await assertOk(res, "POST /payment-sessions");
