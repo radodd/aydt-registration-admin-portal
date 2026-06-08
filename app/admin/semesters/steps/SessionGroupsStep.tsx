@@ -430,10 +430,22 @@ export default function SessionsGroupsStep({
                               <button
                                 onClick={(e) => {
                                   const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                                  // Estimate menu height from group count (one row per
+                                  // group, ~34px each) so we can decide whether to open
+                                  // up or down. Capped to match the menu's max-height.
+                                  const itemCount = Math.max(groups.length, 1);
+                                  const estHeight = Math.min(itemCount * 34 + 8, 280);
+                                  const spaceBelow = window.innerHeight - rect.bottom;
+                                  // Flip upward when the downward menu would clip past
+                                  // the viewport bottom (e.g. the last rows in the list).
+                                  const openUp = spaceBelow < estHeight + 12;
+                                  const top = openUp
+                                    ? Math.max(8, rect.top - estHeight - 4)
+                                    : rect.bottom + 4;
                                   setAssignState((prev) =>
                                     prev?.sessionId === session.sessionId
                                       ? null
-                                      : { sessionId: session.sessionId, top: rect.bottom + 4, left: rect.left },
+                                      : { sessionId: session.sessionId, top, left: rect.left },
                                   );
                                 }}
                                 className="text-xs font-medium text-primary-600 hover:text-primary-700"
@@ -443,8 +455,8 @@ export default function SessionsGroupsStep({
 
                               {assignState?.sessionId === session.sessionId && (
                                 <div
-                                  className="fixed z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-40"
-                                  style={{ top: assignState.top, left: assignState.left }}
+                                  className="fixed z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-40 overflow-y-auto"
+                                  style={{ top: assignState.top, left: assignState.left, maxHeight: 280 }}
                                 >
                                   {groups.length === 0 ? (
                                     <p className="px-3 py-2 text-xs text-neutral-400">
