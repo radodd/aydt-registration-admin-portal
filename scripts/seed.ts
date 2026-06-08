@@ -1135,7 +1135,10 @@ async function seedSpecialProgramTuition() {
     {
       program_key: "early_childhood",
       program_label: "Early Childhood (9 classes)",
-      semester_total: 434.11,
+      // TUITION-ONLY. Engine adds the standard $40 reg fee as a separate line
+      // (registration_fee_override null) → $434.11 all-in. Storing the all-in
+      // $434.11 here double-charged reg ($434.11 tuition + $40 = $474.11).
+      semester_total: 394.11,
       autopay_installment_amount: null,
       autopay_installment_count: null,
       notes: "Fixed fee for early childhood program; no auto-pay plan.",
@@ -1219,7 +1222,11 @@ async function seedDiscounts() {
         eligible_sessions_mode: "all",
         give_session_scope: "all_sessions",
         recipient_scope: "threshold_and_additional",
-        is_active: true,
+        // Inactive: the built-in family discount (semester_fee_config
+        // .family_discount_amount, $50 once per family per semester) is the
+        // family-discount mechanism. As an active multi_person discount this
+        // applied PER DANCER and stacked on the built-in (2 dancers → $150 off).
+        is_active: false,
       },
       {
         id: multiClassId,
