@@ -46,6 +46,7 @@ export async function getSemesterForDisplay(
       description,
       location,
       capacity_warning_threshold,
+      capacity_warning_mode,
       publish_at,
       registration_form,
       waitlist_settings,
@@ -203,6 +204,23 @@ export async function getSemesterForDisplay(
   }
 
   /* ---------------------------------------------------------------------- */
+  /* 2c. Meeting-plan #28: active seat-holds also occupy capacity.           */
+  /*     (SECURITY DEFINER count fn — returns counts only, no holder identity.)*/
+  /* ---------------------------------------------------------------------- */
+  const holdsBySchedule: Record<string, number> = {};
+  const holdsBySession: Record<string, number> = {};
+  if (scheduleIds.length || classSessionIds.length) {
+    const { data: holdCounts } = await supabase.rpc("active_hold_counts", {
+      p_section_ids: scheduleIds,
+      p_meeting_ids: classSessionIds,
+    });
+    for (const row of (holdCounts ?? []) as { grain: string; ref_id: string; n: number }[]) {
+      if (row.grain === "section") holdsBySchedule[row.ref_id] = row.n;
+      else holdsBySession[row.ref_id] = row.n;
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* 4. Normalize class_meetings → PublicSession[]                           */
   /*    Each active class_session = one enrollable public session.            */
   /* ---------------------------------------------------------------------- */
@@ -222,10 +240,12 @@ export async function getSemesterForDisplay(
             pricingModel === "full_schedule"
               ? (cs.class_sections?.capacity ?? 0)
               : (cs.capacity ?? 0);
+          // Occupied = enrollments + active holds (#28): a held seat is unavailable.
           const enrolled =
             pricingModel === "full_schedule"
-              ? (enrolledBySchedule[cs.section_id ?? ""] ?? 0)
-              : (enrolledBySession[cs.id] ?? 0);
+              ? (enrolledBySchedule[cs.section_id ?? ""] ?? 0) +
+                (holdsBySchedule[cs.section_id ?? ""] ?? 0)
+              : (enrolledBySession[cs.id] ?? 0) + (holdsBySession[cs.id] ?? 0);
 
           // Meeting-plan #5: the waitlist toggle now lives per-CLASS on
           // classes.waitlist_enabled (manual model). The legacy semester-level
@@ -391,6 +411,7 @@ export async function getSemesterForDisplay(
     description: semester.description ?? null,
     location: (semester.location as string | null) ?? null,
     capacityWarningThreshold: (semester.capacity_warning_threshold as number | null) ?? null,
+    capacityWarningMode: ((semester.capacity_warning_mode as string | null) ?? "count") as "count" | "percent",
     startDate,
     endDate,
     // For scheduled semesters, publish_at is the registration open time.

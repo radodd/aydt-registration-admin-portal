@@ -124,6 +124,7 @@ function SemesterShell({ semester, paymentType }: ShellProps) {
                 sessions={semester.sessions}
                 groups={semester.sessionGroups}
                 capacityWarningThreshold={semester.capacityWarningThreshold ?? undefined}
+                capacityWarningMode={semester.capacityWarningMode ?? "count"}
               />
             )}
           </div>

@@ -779,4 +779,105 @@ describe("computePricingQuote", () => {
       quote.perDancer[0].lineItems.some((li) => li.type === "costume_fee"),
     ).toBe(true);
   });
+
+  // ── Add-ons (meeting-plan #21) ──────────────────────────────────────────────
+  // class_meeting_options authored per section, fanned out across every meeting.
+  // The engine must: dedupe back to one row per (section, option), charge it
+  // once per section, AFTER discounts (never reduced), with NO rounding.
+  const SECTION_ID = "sec-0000-0000-0000-000000000001";
+  const JUNIOR_SESSION_WITH_SECTION = {
+    ...MOCK_JUNIOR_SESSION_ROW,
+    section_id: SECTION_ID,
+  };
+
+  it("add-on: dedupes the per-meeting fan-out to one line item per section, with no rounding", async () => {
+    const routes = buildMinimalRoutes({
+      division: "junior",
+      sessionRow: JUNIOR_SESSION_WITH_SECTION,
+    });
+    // Same option duplicated across two meetings of the same section. Price has
+    // 3 decimals: round2(20.125) === 20.13, so an exact 20.125 proves no rounding.
+    routes.class_meeting_options = makeChain({
+      data: [
+        { name: "Early Drop Off", description: "Drop off 30 min early", price: 20.125, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+        { name: "Early Drop Off", description: "Drop off 30 min early", price: 20.125, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote(makePricingInput());
+
+    const addOns = quote.perDancer[0].lineItems.filter((li) => li.type === "add_on");
+    expect(addOns).toHaveLength(1);
+    expect(addOns[0].label).toBe("Early Drop Off");
+    expect(addOns[0].amount).toBe(20.125); // exact — the add-on LINE ITEM is never round2'd
+    expect(addOns[0].description).toBe("Drop off 30 min early");
+    // The add-on flows into the total, but the engine still cent-snaps the grand
+    // total via its existing round2: round2(870.93 + 20.125) === 891.06 (NOT 891.055).
+    expect(quote.grandTotal).toBeCloseTo(891.06, 2);
+  });
+
+  it("add-on: applies every configured option once per section, ordered by sort_order", async () => {
+    const routes = buildMinimalRoutes({
+      division: "junior",
+      sessionRow: JUNIOR_SESSION_WITH_SECTION,
+    });
+    // Two distinct options; supplied out of order to prove sort_order ordering.
+    routes.class_meeting_options = makeChain({
+      data: [
+        { name: "Late Pickup", description: null, price: 15, sort_order: 1, class_meetings: { section_id: SECTION_ID } },
+        { name: "Early Drop Off", description: null, price: 20, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote(makePricingInput());
+
+    const addOns = quote.perDancer[0].lineItems.filter((li) => li.type === "add_on");
+    expect(addOns.map((li) => li.label)).toEqual(["Early Drop Off", "Late Pickup"]);
+    expect(addOns.map((li) => li.amount)).toEqual([20, 15]);
+    expect(quote.grandTotal).toBeCloseTo(870.93 + 35, 2);
+  });
+
+  it("add-on: charged AFTER discounts so it is never reduced", async () => {
+    const tenPctDiscount = {
+      id: "dsc-0000-0000-0000-000000000001",
+      name: "Early Bird 10%",
+      category: "promo", // not "family" → not filtered out
+      eligible_sessions_mode: "all",
+      give_session_scope: null,
+      is_active: true,
+      discount_rules: [
+        { id: "rul-0000-0000-0000-000000000001", threshold: 0, threshold_unit: "person", value: 10, value_type: "percent" },
+      ],
+      discount_rule_meetings: [],
+    };
+    const routes = buildMinimalRoutes({
+      division: "junior",
+      sessionRow: JUNIOR_SESSION_WITH_SECTION,
+    });
+    routes.semester_discounts = makeChain({
+      data: [{ discount_id: tenPctDiscount.id, discounts: tenPctDiscount }],
+    });
+    routes.class_meeting_options = makeChain({
+      data: [
+        { name: "Early Drop Off", description: null, price: 20, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote(makePricingInput());
+
+    const items = quote.perDancer[0].lineItems;
+    const addOn = items.find((li) => li.type === "add_on");
+    const discount = items.find((li) => li.type === "session_discount");
+
+    // Add-on keeps its full price — the 10% never touched it.
+    expect(addOn).toBeDefined();
+    expect(addOn!.amount).toBe(20);
+    // Discount base is tuition + costume (830.93) BEFORE the add-on — proving the
+    // add-on was appended after discounting. 10% of 830.93 = 83.09 (round2).
+    expect(discount).toBeDefined();
+    expect(discount!.amount).toBeCloseTo(-83.09, 2);
+  });
 });

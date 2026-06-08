@@ -65,7 +65,7 @@ export async function createAdminInstallmentSession(
   // 2. Verify the batch is a pending installment order
   const { data: batch, error: batchErr } = await supabase
     .from("registration_orders")
-    .select("id, status, payment_plan_type, amount_due_now, grand_total")
+    .select("id, status, payment_plan_type, amount_due_now, grand_total, parent_id")
     .eq("id", batchId)
     .single();
 
@@ -135,6 +135,36 @@ export async function createAdminInstallmentSession(
     return { error: "Failed to create payment order. Please try again." };
   }
 
+  // 5b. Load the parent's billing address to pre-populate the HPP billing
+  //     fields. The captured address attaches to the hostedCard → storedCard and
+  //     lets AVS evaluate on the server-to-server installment charges. (Justin
+  //     Huffines, 2026-06-02 — the Shopper's primaryAddress does NOT feed AVS.)
+  const { data: parentUser } = await supabase
+    .from("users")
+    .select(
+      "first_name, last_name, email, address_line1, address_line2, city, state, zipcode",
+    )
+    .eq("id", batch.parent_id)
+    .single();
+
+  const billTo =
+    parentUser?.address_line1 &&
+    parentUser?.city &&
+    parentUser?.state &&
+    parentUser?.zipcode
+      ? {
+          fullName:
+            `${parentUser.first_name ?? ""} ${parentUser.last_name ?? ""}`.trim() ||
+            null,
+          street1: parentUser.address_line1,
+          street2: parentUser.address_line2,
+          city: parentUser.city,
+          region: parentUser.state,
+          postalCode: parentUser.zipcode,
+          email: parentUser.email,
+        }
+      : undefined;
+
   // 6. Create a tokenize-only hosted session (doCreateTransaction:false) so EPG
   //    returns a hostedCard token for storage without consuming it on a
   //    transaction. The admin returnUrl handoff (/admin/register/confirmation)
@@ -150,6 +180,7 @@ export async function createAdminInstallmentSession(
       customReference: batchId,
       doThreeDSecure: true,
       doCreateTransaction: false,
+      billTo,
     });
   } catch (err) {
     console.error("[createAdminInstallmentSession] createEpgPaymentSession failed:", err);

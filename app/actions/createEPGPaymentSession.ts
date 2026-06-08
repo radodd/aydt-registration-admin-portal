@@ -41,7 +41,7 @@ export async function createEPGPaymentSession(
   // 2. Verify batch exists and is still awaiting payment
   const { data: batch, error: batchErr } = await supabase
     .from("registration_orders")
-    .select("id, status, payment_plan_type, amount_due_now, grand_total")
+    .select("id, status, payment_plan_type, amount_due_now, grand_total, parent_id")
     .eq("id", batchId)
     .single();
 
@@ -123,6 +123,42 @@ export async function createEPGPaymentSession(
   // server-to-server. Pay-in-full runs the full sale on the hosted page.
   // Ref: docs/elavon/api_stored_cards.md § "How to Get a Hosted Card Token"
   const isInstallmentPlan = batch.payment_plan_type === "installments";
+
+  // AVS: on the tokenize-only installment session, pre-populate the HPP billing
+  // fields so the captured address attaches to the hostedCard → storedCard and
+  // AVS evaluates on the later server-to-server installment charges. (Justin
+  // Huffines, 2026-06-02 — the Shopper's primaryAddress does NOT feed AVS.)
+  // Pay-in-full runs a full sale on the hosted page and is left unchanged.
+  let billTo;
+  if (isInstallmentPlan) {
+    const { data: parentUser } = await supabase
+      .from("users")
+      .select(
+        "first_name, last_name, email, address_line1, address_line2, city, state, zipcode",
+      )
+      .eq("id", batch.parent_id)
+      .single();
+
+    if (
+      parentUser?.address_line1 &&
+      parentUser?.city &&
+      parentUser?.state &&
+      parentUser?.zipcode
+    ) {
+      billTo = {
+        fullName:
+          `${parentUser.first_name ?? ""} ${parentUser.last_name ?? ""}`.trim() ||
+          null,
+        street1: parentUser.address_line1,
+        street2: parentUser.address_line2,
+        city: parentUser.city,
+        region: parentUser.state,
+        postalCode: parentUser.zipcode,
+        email: parentUser.email,
+      };
+    }
+  }
+
   let session;
   try {
     session = await epgCreateSession({
@@ -132,6 +168,7 @@ export async function createEPGPaymentSession(
       customReference: batchId,
       doThreeDSecure: true,
       doCreateTransaction: !isInstallmentPlan,
+      billTo,
     });
   } catch (err) {
     console.error("[EPG] createEpgPaymentSession failed:", {

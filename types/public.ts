@@ -168,6 +168,8 @@ export interface PublicSemester {
   description?: string | null;
   location?: string | null;
   capacityWarningThreshold?: number | null;
+  /** "count" → threshold is spots-remaining; "percent" → threshold is % full. */
+  capacityWarningMode?: "count" | "percent" | null;
   startDate?: string | null;
   endDate?: string | null;
   /** When set, the class catalog is hidden until this timestamp is reached. */
@@ -223,6 +225,12 @@ export interface CartItem {
   selectedDateIds?: string[];
   /** Dollar amount snapshot (per-tier price for tiered, drop-in unit price × N for drop-in). */
   priceSnapshot?: number;
+  /**
+   * Meeting-plan #28: server-side seat_holds reserving this item's seat(s). One
+   * id for standard/tiered (a section seat), one per selected date for drop-in.
+   * Released via releaseSeat() when the item is removed / cart cleared.
+   */
+  holdIds?: string[];
   addedAt: string;
 }
 

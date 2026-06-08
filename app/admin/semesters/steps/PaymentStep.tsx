@@ -107,7 +107,12 @@ const DEFAULT_SPECIAL_PROGRAM_BY_KEY: Record<
     "programLabel" | "semesterTotal" | "autoPayInstallmentAmount" | "autoPayInstallmentCount" | "registrationFeeOverride"
   >
 > = {
-  early_childhood:     { programLabel: "Early Childhood (9-class session)", semesterTotal: 434.11, autoPayInstallmentAmount: null,   autoPayInstallmentCount: 5, registrationFeeOverride: undefined },
+  // semesterTotal is TUITION-ONLY ($394.11); the engine adds the standard $40
+  // registration fee as a separate line (registrationFeeOverride left undefined
+  // so EC tracks fee-config like junior/senior) → $434.11 all-in. Storing the
+  // all-in $434.11 here double-charged reg (tuition line already baked it in,
+  // then +$40 again = $474.11). Matches pricingConvergence "Mode 4".
+  early_childhood:     { programLabel: "Early Childhood (9-class session)", semesterTotal: 394.11, autoPayInstallmentAmount: null,   autoPayInstallmentCount: 5, registrationFeeOverride: undefined },
   technique:           { programLabel: "Technique 1 / 2 / 3",               semesterTotal: 716.78, autoPayInstallmentAmount: 143.36, autoPayInstallmentCount: 5, registrationFeeOverride: 0 },
   pre_pointe:          { programLabel: "Pre-Pointe (2×/week)",              semesterTotal: 457.63, autoPayInstallmentAmount: 91.53,  autoPayInstallmentCount: 5, registrationFeeOverride: 0 },
   pointe:              { programLabel: "Pointe (2×/week)",                  semesterTotal: 517.49, autoPayInstallmentAmount: 103.50, autoPayInstallmentCount: 5, registrationFeeOverride: 0 },

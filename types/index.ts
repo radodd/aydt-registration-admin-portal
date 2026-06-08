@@ -1212,6 +1212,9 @@ export type SemesterDraft = {
     location?: string;
     trackingMode: boolean;
     capacityWarningThreshold?: number;
+    /** How capacityWarningThreshold is interpreted: an absolute spots-remaining
+     *  count (default) or a percent-full trigger. Defaults to "count". */
+    capacityWarningMode?: "count" | "percent";
     publishAt?: Date;
   };
 
