@@ -366,6 +366,20 @@ export default function ClassesStep({
         }
       } else {
         next.add(classId);
+        // Drop-in classes: checking the class auto-selects every available
+        // (non-full) date so it registers for all sessions by default. The
+        // admin can then uncheck individual dates to narrow the selection.
+        if (cls && isDropInClass(cls)) {
+          setSelectedSessionIds((p) => {
+            const n = new Set(p);
+            cls.sessions.forEach((s) => {
+              if (!s.scheduleDate) return;
+              const sessionFull = s.capacity != null && s.enrolled >= s.capacity;
+              if (!sessionFull) n.add(s.sessionId);
+            });
+            return n;
+          });
+        }
         // Auto-select default/first tier when picking a tiered class (Phase 3a).
         if (cls && cls.isTiered && cls.tiers.length > 0) {
           const defaultTier = cls.tiers.find((t) => t.isDefault) ?? cls.tiers[0];
