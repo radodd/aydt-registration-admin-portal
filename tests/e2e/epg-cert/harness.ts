@@ -422,6 +422,14 @@ export async function createCertSession(params: {
   doCapture?: boolean;
   doCreateTransaction?: boolean;
   doThreeDSecure?: boolean;
+  /**
+   * AVS pre-population (Justin Huffines, 2026-06-02). When set, the HPP renders
+   * the billing-address fields pre-filled and the captured address sticks to the
+   * hostedCard → storedCard, so AVS evaluates on the later S2S charge. Mirrors
+   * production createEpgPaymentSession's billTo. Requires the account's HPP form
+   * to display the address fields (Settings → Hosted Payments Page).
+   */
+  billTo?: { fullName?: string; street1: string; street2?: string; city: string; region: string; postalCode: string; countryCode?: string };
 }): Promise<{ href: string; url: string; id: string }> {
   const res = await fetch(`${epgBaseUrl()}/payment-sessions`, {
     method: "POST",
@@ -435,6 +443,20 @@ export async function createCertSession(params: {
       doCapture: params.doCapture ?? true,
       doThreeDSecure: params.doThreeDSecure ?? true,
       customReference: params.customReference,
+      ...(params.billTo && {
+        billTo: {
+          fullName: params.billTo.fullName ?? null,
+          company: null,
+          street1: params.billTo.street1,
+          street2: params.billTo.street2 ?? null,
+          city: params.billTo.city,
+          region: params.billTo.region,
+          postalCode: params.billTo.postalCode,
+          countryCode: params.billTo.countryCode ?? "USA",
+          primaryPhone: null,
+          email: null,
+        },
+      }),
     }),
   });
   if (!res.ok) throw new Error(`[epg-cert] POST /payment-sessions → ${res.status}: ${await res.text()}`);
