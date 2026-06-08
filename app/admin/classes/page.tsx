@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useMemo, useTransition } from "react";
+import { Suspense, useEffect, useState, useMemo, useTransition, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   getClasses,
@@ -559,18 +559,6 @@ function ClassListRow({
   onClick: () => void;
 }) {
   const cap = totalCapacity(cls);
-  const pct =
-    cap > 0 && enrolledCount !== null
-      ? Math.min(100, (enrolledCount / cap) * 100)
-      : 0;
-  const barColor =
-    pct >= 90
-      ? "#C14B3B"
-      : pct >= 70
-      ? "#E8A838"
-      : pct > 0
-      ? "#8E2A23"
-      : "#C8A09D";
 
   const days =
     cls.class_meetings.length > 0
@@ -585,81 +573,58 @@ function ClassListRow({
   return (
     <div
       onClick={onClick}
-      className="flex justify-between items-start cursor-pointer transition"
+      className="cursor-pointer transition"
       style={{
-        padding: selected ? "11px 16px 11px 13px" : "11px 16px",
-        borderBottom: "0.5px solid #F7F5F2",
-        background: selected ? "#FDF0EF" : undefined,
-        borderLeft: selected ? "3px solid #8E2A23" : "3px solid transparent",
+        margin: "2px 8px",
+        padding: "11px 12px",
+        borderRadius: 10,
+        background: selected ? "#FDF2F1" : undefined,
+        boxShadow: selected ? "inset 2px 0 0 #8E2A23" : undefined,
       }}
       onMouseEnter={(e) => {
         if (!selected)
-          (e.currentTarget as HTMLElement).style.background = "#FBF9F7";
+          (e.currentTarget as HTMLElement).style.background = "#F7F5F2";
       }}
       onMouseLeave={(e) => {
         if (!selected) (e.currentTarget as HTMLElement).style.background = "";
       }}
     >
-      <div className="flex-1 min-w-0">
-        <p
-          className="text-[12px] font-medium mb-0.5 truncate"
+      <div className="flex items-baseline justify-between gap-2">
+        <span
+          className="text-[14px] font-semibold truncate"
           style={{ color: "#201D18" }}
         >
           {cls.name}
-        </p>
-        <div
-          className="flex items-center gap-1.5 text-[11px]"
-          style={{ color: "#9E9890" }}
-        >
-          <span className="capitalize">{cls.discipline.replace(/_/g, " ")}</span>
-          <span>·</span>
-          <span>{DIVISION_LABELS[cls.division] ?? cls.division}</span>
-        </div>
-        {days && (
-          <p className="text-[11px] mt-0.5" style={{ color: "#9E9890" }}>
-            {days}
-            {firstSession?.start_time &&
-              ` · ${formatTime(firstSession.start_time)}–${formatTime(firstSession.end_time)}`}
-          </p>
-        )}
-      </div>
-
-      <div className="ml-3 flex flex-col items-end gap-1 shrink-0">
-        <span className="text-[11px] font-medium" style={{ color: "#201D18" }}>
+        </span>
+        <span className="text-[12px] shrink-0" style={{ color: "#9E9890" }}>
           {enrolledCount !== null ? enrolledCount : "—"} / {cap || "—"}
         </span>
-        <div
-          className="rounded-full overflow-hidden"
-          style={{ width: "56px", height: "4px", background: "#F7F5F2" }}
-        >
-          <div
-            style={{
-              width: `${pct}%`,
-              height: "100%",
-              borderRadius: "9999px",
-              background: barColor,
-            }}
-          />
-        </div>
-        <span
-          className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-          style={{
-            background: cls.is_active ? "#C8EEE2" : "#EDE9E4",
-            color: cls.is_active ? "#0A5A50" : "#736D65",
-          }}
-        >
-          {cls.is_active ? "Active" : "Inactive"}
-        </span>
-        {/* Meeting-plan #25: waitlist count visible in the list at a glance. */}
-        {waitlistCount > 0 && (
-          <span
-            className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-            style={{ background: "#FBEFD6", color: "#7A4E08" }}
-          >
-            {waitlistCount} waitlisted
-          </span>
-        )}
       </div>
+
+      <p className="text-[11px] mt-0.5" style={{ color: "#736D65" }}>
+        <span className="capitalize">{cls.discipline.replace(/_/g, " ")}</span>
+        {" · "}
+        {DIVISION_LABELS[cls.division] ?? cls.division}
+        {!cls.is_active && " · Inactive"}
+      </p>
+
+      {days && (
+        <p className="text-[11px] mt-0.5" style={{ color: "#9E9890" }}>
+          {days}
+          {firstSession?.start_time &&
+            ` · ${formatTime(firstSession.start_time)}–${formatTime(firstSession.end_time)}`}
+        </p>
+      )}
+
+      {/* Meeting-plan #25: waitlist count visible in the list at a glance. */}
+      {waitlistCount > 0 && (
+        <span
+          className="inline-block mt-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+          style={{ background: "#FBEFD6", color: "#8A6510" }}
+        >
+          {waitlistCount} waitlisted
+        </span>
+      )}
     </div>
   );
 }
@@ -698,95 +663,199 @@ function WaitlistCard({
 
   return (
     <div
-      className="rounded-xl"
+      className="rounded-xl overflow-hidden"
       style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
     >
       <div
-        className="px-4 py-3 rounded-t-xl"
-        style={{ borderBottom: "0.5px solid #DDD9D2" }}
+        className="flex items-center px-5 py-3.5"
+        style={{ borderBottom: "0.5px solid #EDE9E4" }}
       >
-        <p className="text-[12px] font-medium" style={{ color: "#201D18" }}>
+        <span
+          className="text-[13px] font-semibold flex items-center gap-2"
+          style={{ color: "#201D18" }}
+        >
           Waitlist
-          <span className="ml-1.5 font-normal" style={{ color: "#9E9890" }}>
-            ({entries.length})
+          <span
+            className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+            style={{ background: "#EDE9E4", color: "#736D65" }}
+          >
+            {entries.length}
           </span>
-        </p>
+        </span>
       </div>
 
       {entries.length === 0 ? (
-        <div className="px-4 py-4 text-[12px]" style={{ color: "#9E9890" }}>
+        <p className="px-5 py-5 text-[13px]" style={{ color: "#9E9890" }}>
           No one is waitlisted for this class.
-        </div>
+        </p>
       ) : (
         <div>
           {visible.map((e, i) => (
             <div
               key={e.id}
-              className="px-4 py-3"
+              className="flex items-center gap-3.5 px-5 py-3"
               style={{
                 borderBottom:
-                  i < visible.length - 1 ? "0.5px solid #F7F5F2" : undefined,
+                  i < visible.length - 1 ? "0.5px solid #EDE9E4" : undefined,
               }}
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[12px] font-medium" style={{ color: "#201D18" }}>
-                    <span style={{ color: "#9E9890" }}>{i + 1}.</span>{" "}
-                    {e.dancerName ?? "—"}
-                    {e.status === "invited" && (
-                      <span
-                        className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full"
-                        style={{ background: "#FBEFD6", color: "#7A4E08" }}
-                      >
-                        Invited
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-[11px] truncate" style={{ color: "#9E9890" }}>
-                    {e.contactName ?? e.contactEmail ?? "—"} · {fmtWaitlistDate(e.signedUpAt)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {feedback?.id === e.id && (
+              <span
+                className="shrink-0 flex items-center justify-center rounded-full text-[11px] font-bold"
+                style={{ width: 22, height: 22, background: "#FBEFD6", color: "#8A6510" }}
+              >
+                {i + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p
+                  className="text-[13px] font-semibold flex items-center gap-1.5"
+                  style={{ color: "#201D18" }}
+                >
+                  {e.dancerName ?? "—"}
+                  {e.status === "invited" && (
                     <span
-                      className="text-[10px]"
-                      style={{ color: feedback.ok ? "#0A5A50" : "#C14B3B" }}
+                      className="text-[10px] px-1.5 py-0.5 rounded-full"
+                      style={{ background: "#FBEFD6", color: "#7A4E08" }}
                     >
-                      {feedback.text}
+                      Invited
                     </span>
                   )}
-                  <button
-                    onClick={() => handleInvite(e)}
-                    disabled={busyId === e.id}
-                    className="text-[11px] px-2.5 py-1 rounded-lg transition disabled:opacity-50 hover:bg-[#F7F5F2]"
-                    style={{ border: "0.5px solid #DDD9D2", color: "#201D18" }}
+                </p>
+                <p className="text-[11px] truncate" style={{ color: "#9E9890" }}>
+                  {e.contactName ?? e.contactEmail ?? "—"} · joined {fmtWaitlistDate(e.signedUpAt)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {feedback?.id === e.id && (
+                  <span
+                    className="text-[10px]"
+                    style={{ color: feedback.ok ? "#0A5A50" : "#C14B3B" }}
                   >
-                    {busyId === e.id ? "Sending…" : "Send link"}
-                  </button>
-                  {/* Hands off to the manual registration flow with this entry
-                      pre-loaded (dancer + class + semester + form answers). */}
-                  <Link
-                    href={`/admin/register?fromWaitlist=${e.id}`}
-                    className="text-[11px] px-2.5 py-1 rounded-lg text-white transition hover:opacity-90"
-                    style={{ background: "#8E2A23" }}
-                  >
-                    Register
-                  </Link>
-                </div>
+                    {feedback.text}
+                  </span>
+                )}
+                <button
+                  onClick={() => handleInvite(e)}
+                  disabled={busyId === e.id}
+                  className="text-[12px] font-semibold px-3 py-1.5 rounded-lg transition disabled:opacity-50"
+                  style={{ background: "#F2E7E4", color: "#5C1713" }}
+                >
+                  {busyId === e.id ? "Sending…" : "Send link"}
+                </button>
+                {/* Hands off to the manual registration flow with this entry
+                    pre-loaded (dancer + class + semester + form answers). */}
+                <Link
+                  href={`/admin/register?fromWaitlist=${e.id}`}
+                  className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-white transition hover:opacity-90"
+                  style={{ background: "#8E2A23" }}
+                >
+                  Register
+                </Link>
               </div>
             </div>
           ))}
           {overflow && (
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="px-4 py-2 text-[11px] font-medium transition hover:opacity-70"
-              style={{ color: "#8E2A23" }}
-            >
-              {expanded ? "Collapse ↑" : `Show all ${entries.length} →`}
-            </button>
+            <div className="px-5 py-3" style={{ borderTop: "0.5px solid #EDE9E4" }}>
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="text-[12px] font-semibold transition hover:opacity-70"
+                style={{ color: "#8E2A23" }}
+              >
+                {expanded ? "Collapse ↑" : `Show all ${entries.length} →`}
+              </button>
+            </div>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Capacity legend item ─────────────────────────────────────────────────────
+
+function LegendItem({
+  color,
+  border,
+  num,
+  label,
+}: {
+  color?: string;
+  border?: boolean;
+  num: number;
+  label: string;
+}) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className="inline-block"
+        style={{
+          width: 9,
+          height: 9,
+          borderRadius: 3,
+          background: color ?? "#EDE9E4",
+          border: border ? "1px solid #DDD9D2" : undefined,
+        }}
+      />
+      <span className="text-[13px] font-semibold" style={{ color: "#201D18" }}>
+        {num}
+      </span>
+      <span className="text-[12px]" style={{ color: "#736D65" }}>
+        {label}
+      </span>
+    </span>
+  );
+}
+
+// ─── Collapsible reference card ────────────────────────────────────────────────
+
+function CollapsibleCard({
+  title,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string;
+  count?: number;
+  open: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
+    >
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-5 py-3.5 text-left"
+        style={open ? { borderBottom: "0.5px solid #EDE9E4" } : undefined}
+      >
+        <span
+          className="text-[13px] font-semibold flex items-center gap-2"
+          style={{ color: "#201D18" }}
+        >
+          {title}
+          {count !== undefined && (
+            <span
+              className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: "#EDE9E4", color: "#736D65" }}
+            >
+              {count}
+            </span>
+          )}
+        </span>
+        <svg
+          className="w-4 h-4 transition-transform"
+          style={{ color: "#9E9890", transform: open ? undefined : "rotate(-90deg)" }}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          viewBox="0 0 24 24"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && <div>{children}</div>}
     </div>
   );
 }
@@ -892,11 +961,15 @@ function ClassDetailPanel({
       )
   );
 
-  const [sessionsExpanded,    setSessionsExpanded]    = useState(false);
   const [rosterExpanded,      setRosterExpanded]      = useState(false);
   const [attendanceExpanded,  setAttendanceExpanded]  = useState(false);
   const [attendanceData,      setAttendanceData]      = useState<import("@/queries/admin").AdminSessionAttendance[] | null>(null);
   const [attendanceLoading,   setAttendanceLoading]   = useState(false);
+  // Redesign: kebab action menu + collapsible reference cards
+  const [menuOpen,        setMenuOpen]        = useState(false);
+  const [scheduleOpen,    setScheduleOpen]    = useState(false);
+  const [instructorsOpen, setInstructorsOpen] = useState(false);
+  const [aboutOpen,       setAboutOpen]       = useState(false);
 
   // Instructor assignments
   const [assignments,          setAssignments]          = useState<SessionInstructorAssignment[] | null>(null);
@@ -1024,10 +1097,27 @@ function ClassDetailPanel({
     });
   }
 
-  const SESSIONS_THRESHOLD = 3;
   const ROSTER_THRESHOLD = 5;
-  const sessionsOverflow = visibleSessions.length > SESSIONS_THRESHOLD;
   const rosterOverflow = registrants.length > ROSTER_THRESHOLD;
+
+  // Redesign: summary-strip + capacity-card derived values
+  const firstSession = sortedSessions[0];
+  const daysLabel = [
+    ...new Set(
+      sortedSessions.map(
+        (s) => s.day_of_week.charAt(0).toUpperCase() + s.day_of_week.slice(1, 3)
+      )
+    ),
+  ].join(" · ");
+  const filled = confirmed + pending + holds.held + holds.freed;
+  const capPct = (n: number) => (cap > 0 ? Math.min(100, (n / cap) * 100) : 0);
+  const confirmedPct = capPct(confirmed);
+  const pendingPct = capPct(pending);
+  const heldPct = capPct(holds.held);
+  const freedPct = capPct(holds.freed);
+  const instructorCount = new Set(
+    (assignments ?? []).flatMap((s) => s.instructors.map((i) => i.userId))
+  ).size;
 
   return (
     <>
@@ -1094,453 +1184,517 @@ function ClassDetailPanel({
         </div>
       )}
 
-    <div className="p-6 space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="text-[20px] font-medium mb-1.5" style={{ color: "#201D18" }}>
-          {detail.name}
-        </h1>
-        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-          <span
-            className="text-[11px] px-2.5 py-0.5 rounded-full font-medium"
-            style={{
-              background: detail.is_active ? "#C8EEE2" : "#EDE9E4",
-              color: detail.is_active ? "#0A5A50" : "#736D65",
-            }}
-          >
-            {detail.is_active ? "Active" : "Inactive"}
-          </span>
-          <span
-            className="text-[11px] px-2.5 py-0.5 rounded-full capitalize"
-            style={{
-              border: "0.5px solid #DDD9D2",
-              background: "#F7F5F2",
-              color: "#736D65",
-            }}
-          >
-            {detail.discipline.replace(/_/g, " ")}
-          </span>
-          <span
-            className="text-[11px] px-2.5 py-0.5 rounded-full"
-            style={{
-              border: "0.5px solid #DDD9D2",
-              background: "#F7F5F2",
-              color: "#736D65",
-            }}
-          >
-            {DIVISION_LABELS[detail.division] ?? detail.division}
-          </span>
-          {semester && (
-            <span
-              className="text-[11px] px-2.5 py-0.5 rounded-full"
-              style={{
-                border: "0.5px solid #DDD9D2",
-                background: "#F7F5F2",
-                color: "#736D65",
-              }}
+    <div className="pb-16">
+      {/* ── Sticky header zone ── */}
+      <div
+        className="sticky top-0 z-[5] px-7 pt-6"
+        style={{ background: "#fff", borderBottom: "0.5px solid #DDD9D2" }}
+      >
+        <div className="flex items-start gap-4">
+          {/* Title + badges */}
+          <div className="flex-1 min-w-0">
+            <h1
+              className="text-[24px] font-semibold leading-tight"
+              style={{ color: "#201D18" }}
             >
-              {semester.name}
-            </span>
-          )}
-        </div>
-        {(detail.min_age || detail.max_age) && (
-          <p className="text-[12px]" style={{ color: "#9E9890" }}>
-            Ages {detail.min_age ?? "?"}–{detail.max_age ?? "?"}
-            {detail.description ? ` · ${detail.description}` : ""}
-          </p>
-        )}
-        {!detail.min_age && !detail.max_age && detail.description && (
-          <p className="text-[12px]" style={{ color: "#9E9890" }}>
-            {detail.description}
-          </p>
-        )}
-      </div>
-
-      {/* Lock banner */}
-      {isLocked && (
-        <div
-          className="rounded-xl px-4 py-3 text-[12px]"
-          style={{
-            background: "rgba(196,160,212,0.08)",
-            border: "0.5px solid rgba(196,160,212,0.5)",
-            color: "#6B2E80",
-          }}
-        >
-          <strong>Read-only:</strong> This class belongs to a published semester
-          with active registrations. Editing and archiving are disabled.
-        </div>
-      )}
-
-      {archiveError && (
-        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[12px] text-red-700">
-          {archiveError}
-        </div>
-      )}
-
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          onClick={onEmail}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium text-white transition hover:opacity-90"
-          style={{ background: "#8E2A23" }}
-        >
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.8}
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-            />
-          </svg>
-          Email Class
-        </button>
-
-        {!isLocked && (
-          <>
-            <button
-              onClick={onEdit}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition hover:bg-[#F7F5F2]"
-              style={{ border: "0.5px solid #DDD9D2", color: "#201D18" }}
-            >
-              Edit Details
-            </button>
-
-            <button
-              onClick={onArchive}
-              disabled={archiving}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition disabled:opacity-50"
-              style={{
-                border: `0.5px solid ${detail.is_active ? "rgba(196,160,212,0.6)" : "rgba(28,158,117,0.4)"}`,
-                color: detail.is_active ? "#6B2E80" : "#0A5A50",
-              }}
-            >
-              {archiving ? "…" : detail.is_active ? "Archive Class" : "Restore Class"}
-            </button>
-          </>
-        )}
-
-        {semester && (
-          <Link
-            href={`/admin/semesters/${detail.semester_id}/edit?step=sessions`}
-            className="inline-flex items-center gap-1 px-3.5 py-2 rounded-lg text-[12px] font-medium transition hover:bg-[#F7F5F2]"
-            style={{ border: "0.5px solid #DDD9D2", color: "#736D65" }}
-          >
-            Edit in Semester →
-          </Link>
-        )}
-
-        {detail.is_active && (
-          <button
-            onClick={onCancelClass}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-medium transition hover:bg-red-50"
-            style={{ border: "0.5px solid rgba(193, 75, 59, 0.4)", color: "#C14B3B" }}
-          >
-            Cancel Class
-          </button>
-        )}
-      </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
-        <div
-          className="rounded-xl p-3.5"
-          style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
-        >
-          <p
-            className="text-[10px] uppercase tracking-wider mb-1.5"
-            style={{ color: "#9E9890" }}
-          >
-            Enrolled
-          </p>
-          <p
-            className="text-[22px] font-medium leading-none"
-            style={{ color: "#201D18" }}
-          >
-            {confirmed}
-          </p>
-          {cap > 0 && (
-            <>
-              <div
-                className="w-full rounded-full overflow-hidden mt-2"
-                style={{ height: "5px", background: "#F7F5F2" }}
+              {detail.name}
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 mt-2.5">
+              <span
+                className="inline-flex items-center gap-1.5 text-[12px] px-2.5 py-0.5 rounded-full font-medium"
+                style={{
+                  background: detail.is_active ? "#C8EEE2" : "#EDE9E4",
+                  color: detail.is_active ? "#0A5A50" : "#736D65",
+                }}
               >
-                <div
+                <span
+                  className="inline-block rounded-full"
                   style={{
-                    width: `${Math.min(100, (confirmed / cap) * 100)}%`,
-                    height: "100%",
-                    borderRadius: "9999px",
-                    background: "#8E2A23",
+                    width: 6,
+                    height: 6,
+                    background: detail.is_active ? "#0A5A50" : "#9E9890",
                   }}
                 />
-              </div>
-              <p className="text-[10px] mt-1" style={{ color: "#9E9890" }}>
-                of {cap} capacity
-              </p>
-            </>
-          )}
+                {detail.is_active ? "Active" : "Inactive"}
+              </span>
+              <span
+                className="text-[12px] px-2.5 py-0.5 rounded-full capitalize"
+                style={{ background: "#EDE9E4", color: "#736D65" }}
+              >
+                {detail.discipline.replace(/_/g, " ")}
+              </span>
+              <span
+                className="text-[12px] px-2.5 py-0.5 rounded-full"
+                style={{ background: "#EDE9E4", color: "#736D65" }}
+              >
+                {DIVISION_LABELS[detail.division] ?? detail.division}
+              </span>
+              {semester && (
+                <span
+                  className="text-[12px] px-2.5 py-0.5 rounded-full"
+                  style={{ background: "#EDE9E4", color: "#736D65" }}
+                >
+                  {semester.name}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Header actions */}
+          <div className="relative flex items-center gap-2 shrink-0">
+            <Link
+              href={`/admin/register?semester=${detail.semester_id}`}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-semibold text-white transition hover:opacity-90"
+              style={{ background: "#8E2A23" }}
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                viewBox="0 0 24 24"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Register into class
+            </Link>
+            <button
+              onClick={onEmail}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12px] font-semibold transition hover:opacity-90"
+              style={{ background: "#F2E7E4", color: "#5C1713" }}
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
+              </svg>
+              Email class
+            </button>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="inline-flex items-center justify-center rounded-lg transition hover:bg-[#F7F5F2]"
+              style={{ width: 34, height: 34, border: "0.5px solid #DDD9D2", color: "#736D65" }}
+              aria-label="More actions"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="1.6" />
+                <circle cx="12" cy="12" r="1.6" />
+                <circle cx="12" cy="19" r="1.6" />
+              </svg>
+            </button>
+
+            {menuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-[10]"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div
+                  className="absolute right-0 z-[20] rounded-xl p-1.5"
+                  style={{
+                    top: 42,
+                    width: 210,
+                    background: "#fff",
+                    border: "0.5px solid #DDD9D2",
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.10)",
+                  }}
+                >
+                  {!isLocked && (
+                    <button
+                      onClick={() => { setMenuOpen(false); onEdit(); }}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-left transition hover:bg-[#F7F5F2]"
+                      style={{ color: "#201D18" }}
+                    >
+                      <svg className="w-[15px] h-[15px]" style={{ color: "#736D65" }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
+                      </svg>
+                      Edit details
+                    </button>
+                  )}
+                  {semester && (
+                    <Link
+                      href={`/admin/semesters/${detail.semester_id}/edit?step=sessions`}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-left transition hover:bg-[#F7F5F2]"
+                      style={{ color: "#201D18" }}
+                    >
+                      <svg className="w-[15px] h-[15px]" style={{ color: "#736D65" }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path d="M5 12h14" />
+                        <path d="m12 5 7 7-7 7" />
+                      </svg>
+                      Edit in semester
+                    </Link>
+                  )}
+                  {(!isLocked || detail.is_active) && (
+                    <div style={{ height: "0.5px", background: "#EDE9E4", margin: "6px 4px" }} />
+                  )}
+                  {!isLocked && (
+                    <button
+                      onClick={() => { setMenuOpen(false); onArchive(); }}
+                      disabled={archiving}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-left transition hover:bg-[#F7F5F2] disabled:opacity-50"
+                      style={{ color: "#8E2A23" }}
+                    >
+                      <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <rect x="3" y="4" width="18" height="4" rx="1" />
+                        <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" />
+                        <path d="M10 12h4" />
+                      </svg>
+                      {detail.is_active ? "Archive class" : "Restore class"}
+                    </button>
+                  )}
+                  {detail.is_active && (
+                    <button
+                      onClick={() => { setMenuOpen(false); onCancelClass(); }}
+                      className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] text-left transition hover:bg-[#F7F5F2]"
+                      style={{ color: "#C14B3B" }}
+                    >
+                      <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="m15 9-6 6M9 9l6 6" />
+                      </svg>
+                      Cancel class
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        <div
-          className="rounded-xl p-3.5"
-          style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
-        >
-          <p
-            className="text-[10px] uppercase tracking-wider mb-1.5"
-            style={{ color: "#9E9890" }}
-          >
-            Sessions
-          </p>
-          <p
-            className="text-[22px] font-medium leading-none"
-            style={{ color: "#201D18" }}
-          >
-            {detail.class_meetings.length}
-          </p>
-          <p className="text-[10px] mt-1" style={{ color: "#9E9890" }}>
-            {[...new Set(sortedSessions.map((s) => s.day_of_week.slice(0, 3)))].join(" + ")}{" "}
-            weekly
-          </p>
-        </div>
-
-        <div
-          className="rounded-xl p-3.5"
-          style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
-        >
-          <p
-            className="text-[10px] uppercase tracking-wider mb-1.5"
-            style={{ color: "#9E9890" }}
-          >
-            Pending
-          </p>
-          <p
-            className="text-[22px] font-medium leading-none"
-            style={{ color: "#201D18" }}
-          >
-            {pending}
-          </p>
-          <p
-            className="text-[10px] mt-1"
-            style={{ color: pending > 0 ? "#7A4E08" : "#9E9890" }}
-          >
-            {pending > 0 ? `${pending} awaiting payment` : "all confirmed"}
-          </p>
+        {/* Summary strip */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 py-4">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: "#9E9890" }}>
+              Schedule
+            </span>
+            <span className="text-[13px] font-semibold" style={{ color: "#201D18" }}>
+              {daysLabel || "—"}
+            </span>
+          </div>
+          <div style={{ width: "0.5px", alignSelf: "stretch", background: "#DDD9D2" }} />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: "#9E9890" }}>
+              Time
+            </span>
+            <span className="text-[13px] font-medium" style={{ color: "#736D65" }}>
+              {firstSession?.start_time
+                ? `${formatTime(firstSession.start_time)} – ${formatTime(firstSession.end_time)}`
+                : "—"}
+            </span>
+          </div>
+          <div style={{ width: "0.5px", alignSelf: "stretch", background: "#DDD9D2" }} />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: "#9E9890" }}>
+              Sessions
+            </span>
+            <span className="text-[13px] font-medium" style={{ color: "#736D65" }}>
+              {detail.class_meetings.length} weekly
+            </span>
+          </div>
+          <div style={{ width: "0.5px", alignSelf: "stretch", background: "#DDD9D2" }} />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: "#9E9890" }}>
+              Capacity
+            </span>
+            <span className="text-[13px] font-semibold" style={{ color: "#201D18" }}>
+              {confirmed} / {cap || "—"} enrolled
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Two columns: sessions + enrollment breakdown */}
-      <div className="grid grid-cols-2 gap-3.5">
-        {/* Sessions card */}
-        <div
-          className="rounded-xl p-4"
-          style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
-        >
-          <p
-            className="text-[12px] font-medium mb-3"
-            style={{ color: "#201D18" }}
+      {/* ── Content ── */}
+      <div className="px-7 pt-5 flex flex-col gap-4">
+
+        {/* Lock banner */}
+        {isLocked && (
+          <div
+            className="rounded-xl px-4 py-3 text-[12px]"
+            style={{
+              background: "rgba(196,160,212,0.08)",
+              border: "0.5px solid rgba(196,160,212,0.5)",
+              color: "#6B2E80",
+            }}
           >
-            Sessions
-          </p>
-          {visibleSessions.length === 0 ? (
-            <p className="text-[12px]" style={{ color: "#9E9890" }}>
-              No sessions defined.
-            </p>
-          ) : (
-            <>
-              <div className="relative">
-                <div
-                  className="[&::-webkit-scrollbar]:w-0"
-                  style={{
-                    maxHeight: sessionsExpanded ? "none" : `${SESSIONS_THRESHOLD * 52}px`,
-                    overflowY: "auto",
-                    scrollbarWidth: "none",
-                  }}
-                >
-                  {visibleSessions.map((s, i) => (
-                    <div
-                      key={s.id}
-                      className="group flex items-center gap-2.5 py-2"
-                      style={{
-                        borderBottom:
-                          i < visibleSessions.length - 1
-                            ? "0.5px solid #F7F5F2"
-                            : undefined,
-                      }}
-                    >
-                      <span
-                        className="shrink-0 text-[10px] font-medium text-white rounded-md text-center"
-                        style={{
-                          background: "#8E2A23",
-                          padding: "3px 7px",
-                          minWidth: "36px",
-                        }}
-                      >
-                        {s.day_of_week.slice(0, 3).toUpperCase()}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p
-                          className="text-[12px] font-medium"
-                          style={{ color: "#201D18" }}
-                        >
-                          {formatTime(s.start_time)} – {formatTime(s.end_time)}
-                        </p>
-                      </div>
-                      {s.capacity && (
-                        <span
-                          className="text-[11px] shrink-0"
-                          style={{ color: "#736D65" }}
-                        >
-                          {sessionEnrolledCounts[s.id] ?? 0} / {s.capacity}
-                        </span>
-                      )}
-                      <button
-                        onClick={() => {
-                          setCancellingSessionId(s.id);
-                          setCancelReason("");
-                          setCancelError(null);
-                        }}
-                        className="shrink-0 opacity-0 group-hover:opacity-100 text-[10px] px-1.5 py-0.5 rounded transition hover:bg-red-50"
-                        style={{ color: "#C14B3B" }}
-                        title="Cancel this session"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                {sessionsOverflow && !sessionsExpanded && (
-                  <div
-                    className="absolute bottom-0 left-0 right-0 pointer-events-none"
-                    style={{
-                      height: "40px",
-                      background: "linear-gradient(to bottom, transparent, #fff)",
-                    }}
-                  />
-                )}
-              </div>
-              {sessionsOverflow && (
-                <button
-                  onClick={() => setSessionsExpanded((v) => !v)}
-                  className="mt-2 text-[11px] font-medium transition hover:opacity-70"
-                  style={{ color: "#8E2A23" }}
-                >
-                  {sessionsExpanded
-                    ? "Collapse ↑"
-                    : `Show all ${visibleSessions.length} sessions →`}
-                </button>
-              )}
-            </>
+            <strong>Read-only:</strong> This class belongs to a published semester
+            with active registrations. Editing and archiving are disabled.
+          </div>
+        )}
+
+        {archiveError && (
+          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-[12px] text-red-700">
+            {archiveError}
+          </div>
+        )}
+
+      {/* Enrollment capacity card — single source of truth (incl. seat holds) */}
+      <div
+        className="rounded-xl p-5"
+        style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
+      >
+        <div className="flex items-baseline justify-between mb-3">
+          <span className="text-[13px] font-semibold" style={{ color: "#201D18" }}>
+            Enrollment
+          </span>
+          <span className="text-[12px]" style={{ color: "#736D65" }}>
+            <b style={{ color: "#201D18" }}>{filled}</b> of {cap || "—"} spots filled ·{" "}
+            <b style={{ color: "#201D18" }}>{openSpots}</b> open
+          </span>
+        </div>
+        <div
+          className="flex overflow-hidden rounded-full"
+          style={{ height: 12, background: "#EDE9E4" }}
+        >
+          <div style={{ width: `${confirmedPct}%`, height: "100%", background: "#8E2A23" }} />
+          <div style={{ width: `${pendingPct}%`, height: "100%", background: "#D9A66B" }} />
+          {holds.held > 0 && (
+            <div style={{ width: `${heldPct}%`, height: "100%", background: "#7DCEC2" }} />
+          )}
+          {holds.freed > 0 && (
+            <div style={{ width: `${freedPct}%`, height: "100%", background: "#C8A09D" }} />
           )}
         </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5 mt-3.5">
+          <LegendItem color="#8E2A23" num={confirmed} label="Confirmed" />
+          <LegendItem color="#D9A66B" num={pending} label="Pending" />
+          {/* Meeting-plan #28: live reservations (someone mid-checkout). */}
+          {holds.held > 0 && (
+            <LegendItem color="#7DCEC2" num={holds.held} label="Held (in checkout)" />
+          )}
+          {/* Abandoned holds — still "full" to the public until reopened. */}
+          {holds.freed > 0 && (
+            <span className="flex items-center gap-2">
+              <LegendItem color="#C8A09D" num={holds.freed} label="Freed (abandoned)" />
+              <button
+                type="button"
+                onClick={handleReopen}
+                disabled={reopening}
+                className="text-[10px] px-2 py-0.5 rounded-full"
+                style={{ background: "#C8EEE2", color: "#0A5A50", opacity: reopening ? 0.6 : 1 }}
+                title="Release abandoned seats back to the public catalog"
+              >
+                {reopening ? "Reopening…" : "Reopen"}
+              </button>
+            </span>
+          )}
+          <LegendItem border num={openSpots} label="Open" />
+          <LegendItem color="#FBEFD6" num={waitlistEntries.length} label="Waitlisted" />
+        </div>
+      </div>
 
-        {/* Enrollment breakdown */}
+      {/* Registered dancers roster — the main work */}
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
+      >
         <div
-          className="rounded-xl p-4"
-          style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
+          className="flex items-center justify-between px-5 py-3.5"
+          style={{ borderBottom: "0.5px solid #EDE9E4" }}
         >
-          <p
-            className="text-[12px] font-medium mb-3"
+          <span
+            className="text-[13px] font-semibold flex items-center gap-2"
             style={{ color: "#201D18" }}
           >
-            Enrollment breakdown
+            Registered dancers
+            <span
+              className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: "#EDE9E4", color: "#736D65" }}
+            >
+              {registrants.length}
+            </span>
+          </span>
+          <Link
+            href={`/admin/register?semester=${detail.semester_id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition hover:bg-[#DDD9D2]"
+            style={{ background: "#EDE9E4", color: "#38342E" }}
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add dancer
+          </Link>
+        </div>
+
+        {registrants.length === 0 ? (
+          <p className="px-5 py-7 text-center text-[13px]" style={{ color: "#9E9890" }}>
+            No registrations yet.
           </p>
-          <div className="space-y-2">
-            <div className="flex justify-between text-[12px]">
-              <span style={{ color: "#736D65" }}>Confirmed</span>
-              <span className="font-medium" style={{ color: "#201D18" }}>
-                {confirmed}
-              </span>
-            </div>
-            <div className="flex justify-between text-[12px]">
-              <span style={{ color: "#736D65" }}>Pending</span>
-              <span className="font-medium" style={{ color: "#201D18" }}>
-                {pending}
-              </span>
-            </div>
-            {/* Meeting-plan #28: live reservations (someone mid-checkout). */}
-            {holds.held > 0 && (
-              <div className="flex justify-between text-[12px]">
-                <span style={{ color: "#736D65" }}>Held (in checkout)</span>
-                <span className="font-medium" style={{ color: "#201D18" }}>
-                  {holds.held}
-                </span>
-              </div>
-            )}
-            {/* Abandoned holds — still "full" to the public until reopened. */}
-            {holds.freed > 0 && (
-              <div className="flex items-center justify-between text-[12px]">
-                <span style={{ color: "#736D65" }}>Freed (abandoned)</span>
-                <span className="flex items-center gap-2">
-                  <span className="font-medium" style={{ color: "#8E2A23" }}>
-                    {holds.freed}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleReopen}
-                    disabled={reopening}
-                    className="text-[10px] px-1.5 py-0.5 rounded-full"
-                    style={{ background: "#C8EEE2", color: "#0A5A50", opacity: reopening ? 0.6 : 1 }}
-                    title="Release abandoned seats back to the public catalog"
-                  >
-                    {reopening ? "Reopening…" : "Reopen"}
-                  </button>
-                </span>
-              </div>
-            )}
+        ) : (
+          <>
             <div
-              className="flex justify-between text-[12px]"
+              className="[&::-webkit-scrollbar]:w-0"
               style={{
-                borderTop: "0.5px solid #F7F5F2",
-                paddingTop: "8px",
-                marginTop: "4px",
+                maxHeight: rosterExpanded ? "none" : `${ROSTER_THRESHOLD * 42}px`,
+                overflowY: "auto",
+                scrollbarWidth: "none",
               }}
             >
-              <span style={{ color: "#736D65" }}>Open spots</span>
-              <span className="font-medium" style={{ color: "#0A5A50" }}>
-                {openSpots}
-              </span>
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr>
+                    {["Dancer", "Parent", "Status", "Enrolled"].map((h) => (
+                      <th
+                        key={h}
+                        className="text-left px-5 py-2.5 text-[10px] uppercase tracking-wider font-medium"
+                        style={{
+                          color: "#9E9890",
+                          background: "#fff",
+                          borderBottom: "0.5px solid #DDD9D2",
+                          position: "sticky",
+                          top: 0,
+                        }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {registrants.map((r) => (
+                    <tr key={r.id} style={{ borderBottom: "0.5px solid #F7F5F2" }}>
+                      <td className="px-5 py-2.5 font-medium">
+                        {r.dancerId ? (
+                          <Link
+                            href={`/admin/dancers/${r.dancerId}`}
+                            className="hover:underline"
+                            style={{ color: "#8E2A23" }}
+                          >
+                            {r.dancerName}
+                          </Link>
+                        ) : (
+                          <span style={{ color: "#8E2A23" }}>{r.dancerName}</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-2.5" style={{ color: "#736D65" }}>
+                        {r.parentName ?? "—"}
+                      </td>
+                      <td className="px-5 py-2.5">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="inline-block rounded-full"
+                            style={{
+                              width: "6px",
+                              height: "6px",
+                              background:
+                                r.status === "confirmed"
+                                  ? "#1D9E75"
+                                  : r.status === "pending_payment" || r.status === "pending"
+                                  ? "#E8A838"
+                                  : "#9E9890",
+                            }}
+                          />
+                          <span className="capitalize" style={{ color: "#201D18" }}>
+                            {r.status.replace(/_/g, " ")}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="px-5 py-2.5 text-[11px]" style={{ color: "#9E9890" }}>
+                        {new Date(r.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            {/* Meeting-plan #25: waitlist visible alongside capacity. */}
-            <div className="flex justify-between text-[12px]">
-              <span style={{ color: "#736D65" }}>Waitlisted</span>
-              <span
-                className="font-medium"
-                style={{ color: waitlistEntries.length > 0 ? "#8E2A23" : "#201D18" }}
-              >
-                {waitlistEntries.length}
-              </span>
-            </div>
-          </div>
-        </div>
+            {rosterOverflow && (
+              <div className="px-5 py-3" style={{ borderTop: "0.5px solid #EDE9E4" }}>
+                <button
+                  onClick={() => setRosterExpanded((v) => !v)}
+                  className="text-[12px] font-semibold transition hover:opacity-70"
+                  style={{ color: "#8E2A23" }}
+                >
+                  {rosterExpanded
+                    ? "Collapse ↑"
+                    : `Show all ${registrants.length} dancers →`}
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Meeting-plan #25: per-class waitlist queue + inline actions. */}
       <WaitlistCard entries={waitlistEntries} onChanged={onWaitlistChanged} />
 
-      {/* ── Instructors ──────────────────────────────────────────── */}
+      {/* Schedule & sessions (collapsible) — incl. per-session cancel */}
+      <CollapsibleCard
+        title="Schedule & sessions"
+        open={scheduleOpen}
+        onToggle={() => setScheduleOpen((v) => !v)}
+      >
+        {visibleSessions.length === 0 ? (
+          <p className="px-5 py-5 text-[13px]" style={{ color: "#9E9890" }}>
+            No sessions defined.
+          </p>
+        ) : (
+          visibleSessions.map((s, i) => (
+            <div
+              key={s.id}
+              className="group flex items-center gap-3 px-5 py-3"
+              style={{
+                borderBottom:
+                  i < visibleSessions.length - 1 ? "0.5px solid #EDE9E4" : undefined,
+              }}
+            >
+              <span
+                className="shrink-0 flex items-center justify-center text-[10px] font-bold rounded-md"
+                style={{ background: "#F2E7E4", color: "#5C1713", width: 38, height: 24 }}
+              >
+                {s.day_of_week.slice(0, 3).toUpperCase()}
+              </span>
+              <span className="flex-1 text-[13px]" style={{ color: "#201D18" }}>
+                {formatTime(s.start_time)} – {formatTime(s.end_time)}
+              </span>
+              {s.capacity && (
+                <span className="text-[12px]" style={{ color: "#736D65" }}>
+                  {sessionEnrolledCounts[s.id] ?? 0} / {s.capacity}
+                </span>
+              )}
+              <button
+                onClick={() => {
+                  setCancellingSessionId(s.id);
+                  setCancelReason("");
+                  setCancelError(null);
+                }}
+                className="shrink-0 opacity-0 group-hover:opacity-100 text-[11px] px-2 py-0.5 rounded transition hover:bg-red-50"
+                style={{ color: "#C14B3B" }}
+                title="Cancel this session"
+              >
+                Cancel
+              </button>
+            </div>
+          ))
+        )}
+      </CollapsibleCard>
+
+      {/* ── Instructors (collapsible) ─────────────────────────────── */}
       {addingToSessionId && (
         <div
           className="fixed inset-0 z-[5]"
           onClick={() => setAddingToSessionId(null)}
         />
       )}
-      <div
-        className="rounded-xl"
-        style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
+      <CollapsibleCard
+        title="Instructors"
+        count={instructorCount}
+        open={instructorsOpen}
+        onToggle={() => setInstructorsOpen((v) => !v)}
       >
-        <div
-          className="px-4 py-3 rounded-t-xl"
-          style={{ borderBottom: "0.5px solid #DDD9D2" }}
-        >
-          <p className="text-[12px] font-medium" style={{ color: "#201D18" }}>
-            Instructors
-          </p>
-        </div>
-
         {assignmentsLoading ? (
           <div className="px-4 py-4 text-[12px]" style={{ color: "#9E9890" }}>
             Loading…
@@ -1693,156 +1847,34 @@ function ClassDetailPanel({
             )}
           </div>
         )}
-      </div>
+      </CollapsibleCard>
 
-      {/* Registered dancers roster */}
-      <div
-        className="rounded-xl p-4"
-        style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
+      {/* About this class (collapsible) */}
+      <CollapsibleCard
+        title="About this class"
+        open={aboutOpen}
+        onToggle={() => setAboutOpen((v) => !v)}
       >
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-[12px] font-medium" style={{ color: "#201D18" }}>
-            Registered dancers
-            <span className="ml-1.5 font-normal" style={{ color: "#9E9890" }}>
-              ({registrants.length})
-            </span>
-          </p>
-          <Link
-            href={`/admin/register?semester=${detail.semester_id}`}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition hover:opacity-80"
-            style={{ background: "#8E2A23", color: "#fff" }}
-          >
-            + Add Dancer
-          </Link>
+        <div className="px-5 py-4 text-[13px] leading-relaxed" style={{ color: "#736D65" }}>
+          {(detail.min_age || detail.max_age) && (
+            <p className="mb-2 font-medium" style={{ color: "#201D18" }}>
+              Ages {detail.min_age ?? "?"}–{detail.max_age ?? "?"}
+              {detail.min_grade || detail.max_grade
+                ? ` · Grades ${detail.min_grade ?? "?"}–${detail.max_grade ?? "?"}`
+                : ""}
+            </p>
+          )}
+          {detail.description || "No description provided."}
         </div>
+      </CollapsibleCard>
 
-        {registrants.length === 0 ? (
-          <p className="text-[12px] py-2" style={{ color: "#9E9890" }}>
-            No registrations yet.
-          </p>
-        ) : (
-          <>
-            <div className="relative">
-              <div
-                className="[&::-webkit-scrollbar]:w-0"
-                style={{
-                  maxHeight: rosterExpanded ? "none" : `${ROSTER_THRESHOLD * 44}px`,
-                  overflowY: "auto",
-                  scrollbarWidth: "none",
-                }}
-              >
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr>
-                    {["Dancer", "Parent", "Status", "Enrolled"].map((h) => (
-                      <th
-                        key={h}
-                        className="text-left pb-2 text-[10px] uppercase tracking-wider font-medium"
-                        style={{
-                          color: "#9E9890",
-                          borderBottom: "0.5px solid #DDD9D2",
-                        }}
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {registrants.map((r) => (
-                    <tr key={r.id} style={{ borderBottom: "0.5px solid #F7F5F2" }}>
-                      <td className="py-2 font-medium">
-                        {r.dancerId ? (
-                          <Link
-                            href={`/admin/dancers/${r.dancerId}`}
-                            className="hover:underline"
-                            style={{ color: "#8E2A23" }}
-                          >
-                            {r.dancerName}
-                          </Link>
-                        ) : (
-                          <span style={{ color: "#8E2A23" }}>{r.dancerName}</span>
-                        )}
-                      </td>
-                      <td className="py-2" style={{ color: "#736D65" }}>
-                        {r.parentName ?? "—"}
-                      </td>
-                      <td className="py-2">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span
-                            className="inline-block rounded-full"
-                            style={{
-                              width: "6px",
-                              height: "6px",
-                              background:
-                                r.status === "confirmed"
-                                  ? "#1D9E75"
-                                  : r.status === "pending_payment" ||
-                                    r.status === "pending"
-                                  ? "#E8A838"
-                                  : "#9E9890",
-                            }}
-                          />
-                          <span className="capitalize" style={{ color: "#201D18" }}>
-                            {r.status.replace(/_/g, " ")}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="py-2 text-[11px]" style={{ color: "#9E9890" }}>
-                        {new Date(r.createdAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-              {rosterOverflow && !rosterExpanded && (
-                <div
-                  className="absolute bottom-0 left-0 right-0 pointer-events-none"
-                  style={{
-                    height: "40px",
-                    background: "linear-gradient(to bottom, transparent, #fff)",
-                  }}
-                />
-              )}
-            </div>
-            {rosterOverflow && (
-              <button
-                onClick={() => setRosterExpanded((v) => !v)}
-                className="mt-2 text-[11px] font-medium transition hover:opacity-70"
-                style={{ color: "#8E2A23" }}
-              >
-                {rosterExpanded
-                  ? "Collapse ↑"
-                  : `View all ${registrants.length} dancers →`}
-              </button>
-            )}
-          </>
-        )}
-      </div>
-      {/* ── Attendance ──────────────────────────────────────────── */}
-      <div
-        className="rounded-xl"
-        style={{ background: "#fff", border: "0.5px solid #DDD9D2" }}
+      {/* ── Attendance (collapsible) ──────────────────────────────── */}
+      <CollapsibleCard
+        title="Attendance records"
+        open={attendanceExpanded}
+        onToggle={handleAttendanceToggle}
       >
-        <button
-          onClick={handleAttendanceToggle}
-          className="w-full flex items-center justify-between px-4 py-3 text-left"
-        >
-          <p className="text-[12px] font-medium" style={{ color: "#201D18" }}>
-            Attendance records
-          </p>
-          <span className="text-[11px]" style={{ color: "#8E2A23" }}>
-            {attendanceExpanded ? "Collapse ↑" : "View ↓"}
-          </span>
-        </button>
-
-        {attendanceExpanded && (
-          <div style={{ borderTop: "0.5px solid #DDD9D2" }}>
+        <div>
             {attendanceLoading ? (
               <div className="px-4 py-6 text-center text-[12px]" style={{ color: "#9E9890" }}>
                 Loading…
@@ -1920,7 +1952,7 @@ function ClassDetailPanel({
               </div>
             )}
           </div>
-        )}
+        </CollapsibleCard>
       </div>
 
     </div>
