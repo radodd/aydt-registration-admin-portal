@@ -15,6 +15,7 @@ import { createClient } from "@/utils/supabase/client";
 import { formatPhone } from "@/utils/formatPhone";
 import AddressBlockField from "@/app/components/semester-flow/AddressBlockField";
 import { EMPTY_ADDRESS } from "@/lib/address";
+import { inferProfileSeedValue, reconcileSelectValue } from "@/lib/profilePrefill";
 import {
   isAcknowledged,
   makeAcknowledgment,
@@ -404,8 +405,17 @@ export function FormContent({
         if (addr.street || addr.city || addr.state || addr.zip) {
           profileSeeded[el.id] = addr;
         }
-      } else if (el.profileField) {
-        const val = profileMap[el.profileField];
+      } else {
+        // #35: prefer the explicit profileField; fall back to inferring from the
+        // question label so forms whose questions were never tagged still
+        // hydrate. Then map onto this select's option vocabulary (stored grade
+        // "6" → option "6th" / "6th Grade").
+        let val = el.profileField
+          ? profileMap[el.profileField]
+          : inferProfileSeedValue(el.label, profileMap);
+        if (val && el.inputType === "select") {
+          val = reconcileSelectValue(val, el.options);
+        }
         if (val) profileSeeded[el.id] = val;
       }
     }
