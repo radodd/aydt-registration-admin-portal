@@ -1474,7 +1474,7 @@ function ClassDetailPanel({
                 disabled={reopening}
                 className="text-[10px] px-2 py-0.5 rounded-full"
                 style={{ background: "#C8EEE2", color: "#0A5A50", opacity: reopening ? 0.6 : 1 }}
-                title="Release abandoned seats back to the public catalog"
+                title="Release abandoned spots back to the public catalog"
               >
                 {reopening ? "Reopening…" : "Reopen"}
               </button>

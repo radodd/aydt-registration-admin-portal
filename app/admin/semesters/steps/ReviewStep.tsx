@@ -404,7 +404,7 @@ export default function ReviewStep({
                 {
                   label: "Capacity warning",
                   value: state.details?.capacityWarningThreshold != null
-                    ? `${state.details.capacityWarningThreshold}% remaining seats`
+                    ? `${state.details.capacityWarningThreshold}% remaining spots`
                     : <span className="italic text-neutral-400 font-normal">Not set</span>,
                 },
               ]} />
@@ -1010,7 +1010,7 @@ export default function ReviewStep({
                   <div className="grid grid-cols-2 gap-2.5 mb-3">
                     {[
                       { label: "Invite expiry",       val: `${wl.inviteExpiryHours} hrs`, sub: "After invitation sent" },
-                      { label: "Seat hold",            val: "30 min",                     sub: "After acceptance" },
+                      { label: "Spot hold",            val: "30 min",                     sub: "After acceptance" },
                       { label: "Stop accepting",       val: `${wl.stopDaysBeforeClose} days`, sub: "Before registration closes" },
                       { label: "Processing interval",  val: "1 min",                     sub: "Cron check interval" },
                     ].map((stat) => (
@@ -1062,14 +1062,14 @@ export default function ReviewStep({
                         },
                         {
                           icon: <CreditCard size={10} />,
-                          title: "Family accepts & holds seat",
-                          desc: "Clicking the link starts a 30-minute seat hold. Payment must be completed within this window to confirm enrollment.",
+                          title: "Family accepts & holds spot",
+                          desc: "Clicking the link starts a 30-minute spot hold. Payment must be completed within this window to confirm enrollment.",
                           tag: "hold_expires_at = now + 30min",
                         },
                         {
                           icon: <Check size={10} />,
-                          title: "Seat confirmed or released",
-                          desc: "Payment completed → confirmed. Hold expired → seat released and the next family in queue is invited.",
+                          title: "Spot confirmed or released",
+                          desc: "Payment completed → confirmed. Hold expired → spot released and the next family in queue is invited.",
                           ok: true,
                         },
                       ].map((step, i) => (
