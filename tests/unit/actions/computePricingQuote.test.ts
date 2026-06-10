@@ -421,8 +421,10 @@ describe("computePricingQuote", () => {
 
   // ── Test 12 ───────────────────────────────────────────────────────────────
   // #2b: tiered classes pull tuition from class_tiers.price_cents and skip
-  // costume/video/registration fees.
-  it("tiered class → tier price_cents/100 tuition, no fees", async () => {
+  // costume/video fees. Meeting-plan #32: the registration fee is now governed
+  // by the authoritative per-class registration_fee_exempt flag, so a tiered
+  // class with the flag unset (e.g. a summer camp) DOES carry the reg fee.
+  it("tiered class → tier price_cents/100 tuition, no costume/video, reg fee applies (#32)", async () => {
     const TIER_ID = "tier-0000-0000-0000-000000000001";
     const tieredSession = {
       ...MOCK_JUNIOR_SESSION_ROW,
@@ -463,10 +465,63 @@ describe("computePricingQuote", () => {
     );
     expect(tuitionLine?.amount).toBe(450);
     expect(tuitionLine?.label).toMatch(/Beginner/);
-    expect(quote.perDancer[0].registrationFee).toBe(0);
+    // #32: tiered class is NOT reg-fee-exempt by default — the $40 reg fee now
+    // applies (decoupled from the tiered/drop-in fee-exemption).
+    expect(quote.perDancer[0].registrationFee).toBe(40);
+    expect(
+      quote.perDancer[0].lineItems.some((li) => li.type === "registration_fee"),
+    ).toBe(true);
+    // Costume/video remain exempt for tiered classes (governed separately).
     expect(quote.perDancer[0].costumeFee).toBe(0);
     expect(quote.perDancer[0].videoFee).toBe(0);
     expect(quote.perDancer[0].tuition).toBe(450);
+  });
+
+  // ── Test 12b (#32) ─────────────────────────────────────────────────────────
+  // The flip side of Test 12: a tiered class explicitly flagged
+  // registration_fee_exempt=true drops the reg fee, proving the per-class flag
+  // is authoritative in BOTH directions for tiered offerings.
+  it("tiered class flagged registration_fee_exempt → no reg fee (#32)", async () => {
+    const TIER_ID = "tier-0000-0000-0000-000000000001";
+    const tieredExemptSession = {
+      ...MOCK_JUNIOR_SESSION_ROW,
+      classes: {
+        ...MOCK_JUNIOR_SESSION_ROW.classes,
+        is_tiered: true,
+        registration_fee_exempt: true,
+      },
+    };
+
+    const routes = buildMinimalRoutes({
+      sessionRow: tieredExemptSession,
+      rateBandRow: null,
+      classTierRows: [
+        {
+          id: TIER_ID,
+          class_id: "cls-ballet-000000001",
+          label: "Beginner",
+          price_cents: 45000,
+        },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote({
+      ...makePricingInput(),
+      enrollments: [
+        {
+          dancerId: DANCER_ID,
+          dancerName: "Test Dancer",
+          sessionIds: [SESSION_BALLET_ID],
+          classTierIdsBySession: { [SESSION_BALLET_ID]: TIER_ID },
+        },
+      ],
+    });
+
+    expect(quote.perDancer[0].registrationFee).toBe(0);
+    expect(
+      quote.perDancer[0].lineItems.some((li) => li.type === "registration_fee"),
+    ).toBe(false);
   });
 
   // ── Test 13 ───────────────────────────────────────────────────────────────
@@ -799,8 +854,8 @@ describe("computePricingQuote", () => {
     // 3 decimals: round2(20.125) === 20.13, so an exact 20.125 proves no rounding.
     routes.class_meeting_options = makeChain({
       data: [
-        { name: "Early Drop Off", description: "Drop off 30 min early", price: 20.125, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
-        { name: "Early Drop Off", description: "Drop off 30 min early", price: 20.125, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+        { id: "opt-eds-a", is_required: true, name: "Early Drop Off", description: "Drop off 30 min early", price: 20.125, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+        { id: "opt-eds-b", is_required: true, name: "Early Drop Off", description: "Drop off 30 min early", price: 20.125, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
       ],
     });
     setupMock(routes);
@@ -825,8 +880,8 @@ describe("computePricingQuote", () => {
     // Two distinct options; supplied out of order to prove sort_order ordering.
     routes.class_meeting_options = makeChain({
       data: [
-        { name: "Late Pickup", description: null, price: 15, sort_order: 1, class_meetings: { section_id: SECTION_ID } },
-        { name: "Early Drop Off", description: null, price: 20, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+        { id: "opt-late", is_required: true, name: "Late Pickup", description: null, price: 15, sort_order: 1, class_meetings: { section_id: SECTION_ID } },
+        { id: "opt-early", is_required: true, name: "Early Drop Off", description: null, price: 20, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
       ],
     });
     setupMock(routes);
@@ -861,7 +916,7 @@ describe("computePricingQuote", () => {
     });
     routes.class_meeting_options = makeChain({
       data: [
-        { name: "Early Drop Off", description: null, price: 20, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+        { id: "opt-early", is_required: true, name: "Early Drop Off", description: null, price: 20, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
       ],
     });
     setupMock(routes);
@@ -879,5 +934,81 @@ describe("computePricingQuote", () => {
     // add-on was appended after discounting. 10% of 830.93 = 83.09 (round2).
     expect(discount).toBeDefined();
     expect(discount!.amount).toBeCloseTo(-83.09, 2);
+  });
+
+  // ── Add-on default states (meeting-plan #33) ────────────────────────────────
+  // Optional add-ons (is_required=false) default OFF — not charged unless their
+  // representative id is opted into via selectedAddOnIds. Required ones always
+  // apply. Every add-on is surfaced on quote.availableAddOns regardless.
+  it("#33: optional add-on default OFF (not charged), surfaced as available", async () => {
+    const routes = buildMinimalRoutes({
+      division: "junior",
+      sessionRow: JUNIOR_SESSION_WITH_SECTION,
+    });
+    routes.class_meeting_options = makeChain({
+      data: [
+        { id: "opt-eds", is_required: false, name: "Early Drop Off", description: "Opt-in", price: 20, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote(makePricingInput());
+
+    // Not charged.
+    expect(quote.perDancer[0].lineItems.some((li) => li.type === "add_on")).toBe(false);
+    expect(quote.grandTotal).toBeCloseTo(870.93, 2); // no $20 add-on
+    // But surfaced for the picker, unselected.
+    expect(quote.availableAddOns).toHaveLength(1);
+    expect(quote.availableAddOns[0]).toMatchObject({
+      id: "opt-eds",
+      name: "Early Drop Off",
+      price: 20,
+      isRequired: false,
+      selected: false,
+    });
+  });
+
+  it("#33: optional add-on applied when opted in via selectedAddOnIds", async () => {
+    const routes = buildMinimalRoutes({
+      division: "junior",
+      sessionRow: JUNIOR_SESSION_WITH_SECTION,
+    });
+    routes.class_meeting_options = makeChain({
+      data: [
+        { id: "opt-eds", is_required: false, name: "Early Drop Off", description: "Opt-in", price: 20, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote({
+      ...makePricingInput(),
+      selectedAddOnIds: ["opt-eds"],
+    });
+
+    const addOn = quote.perDancer[0].lineItems.find((li) => li.type === "add_on");
+    expect(addOn).toBeDefined();
+    expect(addOn!.amount).toBe(20);
+    expect(quote.grandTotal).toBeCloseTo(890.93, 2); // 870.93 + 20
+    expect(quote.availableAddOns[0].selected).toBe(true);
+  });
+
+  it("#33: representative id is the smallest across the per-meeting fan-out", async () => {
+    const routes = buildMinimalRoutes({
+      division: "junior",
+      sessionRow: JUNIOR_SESSION_WITH_SECTION,
+    });
+    // Same optional option fanned across two meetings — ids out of order.
+    routes.class_meeting_options = makeChain({
+      data: [
+        { id: "opt-zzz", is_required: false, name: "Early Drop Off", description: null, price: 20, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+        { id: "opt-aaa", is_required: false, name: "Early Drop Off", description: null, price: 20, sort_order: 0, class_meetings: { section_id: SECTION_ID } },
+      ],
+    });
+    setupMock(routes);
+
+    const quote = await computePricingQuote(makePricingInput());
+
+    expect(quote.availableAddOns).toHaveLength(1);
+    expect(quote.availableAddOns[0].id).toBe("opt-aaa"); // smallest wins, stable key
   });
 });

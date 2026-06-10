@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import {
   DancerPricingBreakdown,
+  AvailableAddOn,
   LineItem,
   PricingInput,
   PricingQuote,
@@ -213,15 +214,20 @@ export async function computePricingQuote(
   /* ---------------------------------------------------------------------- */
   /* 3c. Add-ons (class_meeting_options)                                     */
   /* Authored per section in the class builder, then fanned out identically  */
-  /* across every meeting of that section (see syncOptionsForSchedule). We    */
-  /* charge EVERY configured option once per section. There is no checkout    */
-  /* picker yet, so the is_required flag is not consulted — once a deselect   */
-  /* picker exists, optional options can be gated on the parent's choice.     */
+  /* across every meeting of that section (see syncOptionsForSchedule). Each  */
+  /* meeting holds its own copy with a distinct id, so we dedupe back to one   */
+  /* row per (section, option) and pick a DETERMINISTIC representative id      */
+  /* (smallest id in the group) as the stable selection key.                  */
+  /* Meeting-plan #33: REQUIRED options always apply; OPTIONAL ones apply only */
+  /* when their representative id is in input.selectedAddOnIds.               */
   /* ---------------------------------------------------------------------- */
   type AddOn = {
+    id: string; // representative (smallest) id across the section's copies
+    sectionId: string;
     name: string;
     description: string | null;
     price: number;
+    isRequired: boolean;
     sortOrder: number;
   };
   async function fetchAddOns(
@@ -234,39 +240,70 @@ export async function computePricingQuote(
     const { data, error } = await supabase
       .from("class_meeting_options")
       .select(
-        "name, description, price, sort_order, class_meetings!inner(section_id)",
+        "id, name, description, price, sort_order, is_required, class_meetings!inner(section_id)",
       )
       .in("class_meetings.section_id", uniqueSectionIds);
     if (error) throw new Error(error.message);
 
-    // Options are duplicated across every meeting of a section; dedupe back to
-    // one row per (section, option).
-    const seen = new Set<string>();
+    // Dedupe the per-meeting fan-out to one AddOn per (section, option), keying
+    // on (sortOrder, name, price). Keep the lexicographically smallest id as the
+    // representative so the selection key is stable across quote calls.
+    const keyed = new Map<string, Map<string, AddOn>>();
     for (const row of data ?? []) {
       const meeting = Array.isArray((row as any).class_meetings)
         ? (row as any).class_meetings[0]
         : (row as any).class_meetings;
       const sectionId = meeting?.section_id as string | undefined;
       if (!sectionId) continue;
+      const id = (row as any).id as string;
       const sortOrder = Number((row as any).sort_order ?? 0);
       const name = (row as any).name as string;
       const price = Number((row as any).price);
-      const key = `${sectionId}::${sortOrder}::${name}::${price}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const list = bySection.get(sectionId) ?? [];
-      list.push({
-        name,
-        description: ((row as any).description as string | null) ?? null,
-        price,
-        sortOrder,
-      });
+      const isRequired = (row as any).is_required === true;
+      const dedupKey = `${sortOrder}::${name}::${price}`;
+      let group = keyed.get(sectionId);
+      if (!group) {
+        group = new Map();
+        keyed.set(sectionId, group);
+      }
+      const existing = group.get(dedupKey);
+      if (!existing) {
+        group.set(dedupKey, {
+          id,
+          sectionId,
+          name,
+          description: ((row as any).description as string | null) ?? null,
+          price,
+          isRequired,
+          sortOrder,
+        });
+      } else if (id < existing.id) {
+        existing.id = id;
+      }
+    }
+    for (const [sectionId, group] of keyed) {
+      const list = [...group.values()].sort((a, b) => a.sortOrder - b.sortOrder);
       bySection.set(sectionId, list);
     }
-    for (const list of bySection.values()) {
-      list.sort((a, b) => a.sortOrder - b.sortOrder);
-    }
     return bySection;
+  }
+
+  /* Meeting-plan #33 selection state, shared across the per-dancer loop. */
+  const selectedAddOnSet = new Set(input.selectedAddOnIds ?? []);
+  const availableAddOnsMap = new Map<string, AvailableAddOn>();
+  /** Decide inclusion + record availability for one deduped add-on. */
+  function resolveAddOn(opt: AddOn): boolean {
+    const selected = opt.isRequired || selectedAddOnSet.has(opt.id);
+    availableAddOnsMap.set(opt.id, {
+      id: opt.id,
+      sectionId: opt.sectionId,
+      name: opt.name,
+      description: opt.description ?? undefined,
+      price: opt.price,
+      isRequired: opt.isRequired,
+      selected,
+    });
+    return selected;
   }
 
   /* ---------------------------------------------------------------------- */
@@ -370,13 +407,17 @@ export async function computePricingQuote(
         );
       };
 
-      // Meeting-plan #22: registration-fee-only exemption. A class is reg-fee
-      // exempt if its per-class flag is set OR it's already fee-exempt for the
-      // discipline/tier/competition reasons above. Kept separate from
-      // isFeeExemptClass so the per-class flag never suppresses costume/video fees.
+      // Meeting-plan #32: the per-class registration_fee_exempt flag is the
+      // AUTHORITATIVE control for the registration fee. A class is reg-fee exempt
+      // if and only if its per-class flag is set — decoupled from isFeeExemptClass
+      // so that tiered / drop-in / competition classes (e.g. summer camps) still
+      // carry the registration fee unless explicitly exempted in Fee Config.
+      // (Special-program-only dancers are handled separately via the program's
+      // registration_fee_override below.) Kept separate from isFeeExemptClass so
+      // the per-class flag never affects costume/video fees.
       const isRegFeeExemptClass = (
         cls: ScheduleClassInfo,
-      ): boolean => cls.registration_fee_exempt === true || isFeeExemptClass(cls);
+      ): boolean => cls.registration_fee_exempt === true;
 
       const standardClasses = classesForDancer.filter(
         (c) => c !== null && !isFeeExemptClass(c),
@@ -623,6 +664,8 @@ export async function computePricingQuote(
       const addOnsBySection = await fetchAddOns(scheduleIds!);
       for (const sid of scheduleIds!) {
         for (const opt of addOnsBySection.get(sid) ?? []) {
+          // #33: required add-ons always apply; optional ones only when opted in.
+          if (!resolveAddOn(opt)) continue;
           tuition += opt.price;
           lineItems.push({
             type: "add_on",
@@ -793,9 +836,12 @@ export async function computePricingQuote(
       );
     };
 
-    // Meeting-plan #22: registration-fee-only exemption (see schedule-path note).
-    // Per-class flag OR existing fee-exempt status. Separate from isFeeExemptClass
-    // so the per-class flag never suppresses costume/video fees.
+    // Meeting-plan #32: the per-class registration_fee_exempt flag is the
+    // AUTHORITATIVE control for the registration fee (see schedule-path note).
+    // Reg-fee exempt iff the per-class flag is set — decoupled from
+    // isFeeExemptClass so tiered / drop-in / competition classes (e.g. summer
+    // camps) still carry the registration fee unless explicitly exempted.
+    // Special-program-only dancers are handled via registration_fee_override.
     const isRegFeeExemptClass = (cls: {
       discipline: string;
       division: string;
@@ -803,7 +849,7 @@ export async function computePricingQuote(
       is_competition_track?: boolean;
       registration_fee_exempt?: boolean;
     }): boolean =>
-      cls.registration_fee_exempt === true || isFeeExemptClass(cls);
+      cls.registration_fee_exempt === true;
 
     // Costume / video fee math is keyed off the dancer's standard (non-exempt,
     // non-drop-in) classes. Drop-in meetings always count as fee-exempt per the
@@ -1242,6 +1288,8 @@ export async function computePricingQuote(
     const addOnsBySection = await fetchAddOns(sectionIdsForDancer);
     for (const sid of sectionIdsForDancer) {
       for (const opt of addOnsBySection.get(sid) ?? []) {
+        // #33: required add-ons always apply; optional ones only when opted in.
+        if (!resolveAddOn(opt)) continue;
         tuition += opt.price;
         lineItems.push({
           type: "add_on",
@@ -1546,6 +1594,7 @@ export async function computePricingQuote(
     grandTotal,
     amountDueNow,
     lineItems: familyLineItems,
+    availableAddOns: [...availableAddOnsMap.values()],
     paymentSchedule: schedule,
     warnings: warnings.length > 0 ? warnings : undefined,
   };

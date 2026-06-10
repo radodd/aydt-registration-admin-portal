@@ -49,6 +49,8 @@ export interface CreateRegistrationsInput {
   pricingQuote?: PricingQuote;
   /** Optional coupon code entered by the parent at checkout. */
   couponCode?: string;
+  /** Meeting-plan #33: optional add-on option ids the family opted into. */
+  selectedAddOnIds?: string[];
   /** IDs of family_account_credits rows to apply toward this batch. */
   creditIdsToApply?: string[];
   /** Total credit amount (dollars) client computed — server validates against DB rows. */
@@ -330,6 +332,9 @@ export async function createRegistrations(
           ? "auto_pay_monthly"
           : "pay_in_full",
       couponCode: input.couponCode,
+      // #33: must match the client quote (which included these) or the
+      // price-change guard below would reject the registration.
+      selectedAddOnIds: input.selectedAddOnIds,
     });
   } catch (err) {
     // Pricing failed — still allow registration but with zero totals

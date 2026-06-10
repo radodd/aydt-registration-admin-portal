@@ -499,6 +499,13 @@ export interface PricingInput {
    * loudly so a real parent is never charged for an unpriced class.
    */
   tolerateMissingPrices?: boolean;
+  /**
+   * Meeting-plan #33: option IDs (class_meeting_options.id) the admin/parent has
+   * opted into. REQUIRED add-ons (is_required=true) always apply; OPTIONAL
+   * add-ons apply only when their id is listed here. Omit/empty → only required
+   * add-ons are charged (optional ones default OFF).
+   */
+  selectedAddOnIds?: string[];
 }
 
 export interface LineItem {
@@ -510,7 +517,7 @@ export interface LineItem {
     | "auto_pay_admin_fee"
     | "video_fee"       // senior division: flat fee per registrant
     | "costume_fee"     // senior division: per-class costume fee
-    | "add_on"          // purchasable option attached to a section, auto-applied (class_meeting_options)
+    | "add_on"          // purchasable option attached to a section (class_meeting_options); required ones auto-apply, optional ones apply on opt-in (#33)
     | "session_discount" // custom/multi-session discount rules
     | "coupon_discount"; // promo code or auto-apply coupon
   label: string;
@@ -538,6 +545,24 @@ export interface DancerPricingBreakdown {
   lineItems: LineItem[];
 }
 
+/**
+ * Meeting-plan #33: an add-on (class_meeting_options) available for the quoted
+ * enrollment. Required add-ons are always selected; optional ones are selected
+ * only when opted into. Drives the admin/checkout opt-in picker.
+ */
+export interface AvailableAddOn {
+  /** class_meeting_options.id */
+  id: string;
+  /** class_sections.id this option is attached to */
+  sectionId: string;
+  name: string;
+  description?: string;
+  price: number;
+  isRequired: boolean;
+  /** true when required OR currently in PricingInput.selectedAddOnIds. */
+  selected: boolean;
+}
+
 export interface PricingQuote {
   perDancer: DancerPricingBreakdown[];
   tuitionSubtotal: number;
@@ -551,6 +576,12 @@ export interface PricingQuote {
   grandTotal: number;
   amountDueNow: number;
   lineItems: LineItem[];
+  /**
+   * Meeting-plan #33: every add-on attached to the quoted enrollment's sections
+   * (required + optional), with selection state. The opt-in picker renders the
+   * optional ones; required ones are shown as always-applied.
+   */
+  availableAddOns: AvailableAddOn[];
   paymentSchedule: InstallmentPreview[];
   /**
    * Non-fatal config-completeness problems collected when the caller passes
@@ -1441,6 +1472,8 @@ export type PaymentStepProps = {
   onNext: () => void;
   onBack: () => void;
   isLocked?: boolean;
+  /** True while the wizard is persisting the draft — drives the Next button's saving state. */
+  isSaving?: boolean;
 };
 
 export type DiscountsStepProps = {

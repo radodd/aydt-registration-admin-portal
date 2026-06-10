@@ -92,6 +92,11 @@ export default function CheckoutStep({
   const [couponError, setCouponError] = useState("");
   const [couponLoading, setCouponLoading] = useState(false);
 
+  // Meeting-plan #33: optional add-on opt-in. Holds the representative option ids
+  // (class_meeting_options.id) the admin has selected. Required add-ons always
+  // apply and are not in this set.
+  const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
+
   // Price override — pre-populate from ClassesStep if set
   const [overrideActive, setOverrideActive] = useState(
     initialPriceOverride != null
@@ -180,6 +185,7 @@ export default function CheckoutStep({
         ],
         paymentPlanType: toBackendPlan(paymentPlanType),
         couponCode: coupon || undefined,
+        selectedAddOnIds,
       });
       setQuote(q);
       if (!amountInput) {
@@ -197,7 +203,8 @@ export default function CheckoutStep({
 
   useEffect(() => {
     fetchPricing();
-  }, [semesterId, familyId, dancerId, scheduleIds.join(","), paymentPlanType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [semesterId, familyId, dancerId, scheduleIds.join(","), paymentPlanType, selectedAddOnIds.join(",")]);
 
   useEffect(() => {
     setApplyCredit(false);
@@ -239,6 +246,7 @@ export default function CheckoutStep({
         ],
         paymentPlanType: toBackendPlan(paymentPlanType),
         couponCode: couponCode.trim(),
+        selectedAddOnIds,
       });
       if (q.couponDiscount > 0) {
         setQuote(q);
@@ -347,6 +355,7 @@ export default function CheckoutStep({
         : null,
       formData,
       couponCode: appliedCoupon || undefined,
+      selectedAddOnIds,
       priceOverride: overrideActive ? grandTotal : undefined,
       adjustments: adjustments.length > 0 ? adjustments : undefined,
       creditIdsToApply: applyCredit && availableCredits.length > 0
@@ -520,6 +529,62 @@ export default function CheckoutStep({
               </p>
             )}
           </div>
+
+          {/* Add-ons (meeting-plan #33) — optional options default OFF; admin
+              opts in per registration. Required add-ons show locked/checked. */}
+          {(quote?.availableAddOns?.length ?? 0) > 0 && (
+            <div className="pt-4 border-t border-[#DDD9D2] space-y-2">
+              <h3 className="text-xs font-semibold text-[#201D18] uppercase tracking-wide">
+                Add-ons
+              </h3>
+              <div className="space-y-1.5">
+                {quote!.availableAddOns.map((opt) => {
+                  const checked = opt.isRequired || selectedAddOnIds.includes(opt.id);
+                  return (
+                    <label
+                      key={opt.id}
+                      className={`flex items-center justify-between gap-3 px-3 py-2 rounded-xl border ${
+                        checked ? "border-[#C8A09D] bg-[#FBF5F4]" : "border-[#DDD9D2] bg-white"
+                      } ${opt.isRequired ? "" : "cursor-pointer"}`}
+                    >
+                      <span className="flex items-center gap-2 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={opt.isRequired}
+                          onChange={(e) =>
+                            setSelectedAddOnIds((prev) =>
+                              e.target.checked
+                                ? [...prev, opt.id]
+                                : prev.filter((id) => id !== opt.id),
+                            )
+                          }
+                          className="h-4 w-4 rounded border-[#C8A09D] text-[#8E2A23] focus:ring-[#8E2A23] disabled:opacity-60"
+                        />
+                        <span className="min-w-0">
+                          <span className="text-sm text-[#201D18]">{opt.name}</span>
+                          {opt.isRequired && (
+                            <span className="ml-2 text-[10px] uppercase tracking-wide text-[#8E2A23]">
+                              Required
+                            </span>
+                          )}
+                          {opt.description && (
+                            <span className="block text-xs text-[#736D65] truncate">
+                              {opt.description}
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                      <span className="text-sm text-[#201D18] shrink-0">{fmt$$(opt.price)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-[#9E9890]">
+                Optional add-ons are off by default — select to include them.
+              </p>
+            </div>
+          )}
 
           {/* Adjustments */}
           <div className="pt-4 border-t border-[#DDD9D2] space-y-3">

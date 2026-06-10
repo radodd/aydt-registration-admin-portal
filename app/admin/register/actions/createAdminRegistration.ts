@@ -51,6 +51,8 @@ export type AdminRegInput = {
   formData: Record<string, unknown>;
   // Payment
   couponCode?: string;
+  /** Meeting-plan #33: optional add-on option ids the admin opted into. */
+  selectedAddOnIds?: string[];
   priceOverride?: number | null;
   adjustments?: AdminAdjustment[];
   creditIdsToApply?: string[];
@@ -213,6 +215,8 @@ export async function createAdminRegistration(
         ],
         paymentPlanType: isInstallments ? "auto_pay_monthly" : "pay_in_full",
         couponCode: input.couponCode || undefined,
+        // #33: charge the optional add-ons the admin opted into at checkout.
+        selectedAddOnIds: input.selectedAddOnIds,
       });
       grandTotal = quote.grandTotal;
     } catch (err) {

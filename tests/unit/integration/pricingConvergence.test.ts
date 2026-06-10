@@ -239,7 +239,7 @@ describe("cross-engine convergence — every charging mode", () => {
     expect(quote.perDancer[0].registrationFee).toBe(0);
   });
 
-  it("Mode 6: tiered class → tier price_cents/100, no fees", async () => {
+  it("Mode 6: tiered class → tier price_cents/100, reg fee applies (#32), no costume/video", async () => {
     const TIER_ID = "tier-0001";
     const tieredSession = {
       ...MOCK_JUNIOR_SESSION_ROW,
@@ -269,10 +269,11 @@ describe("cross-engine convergence — every charging mode", () => {
         },
       ],
     });
-    expect(quote.grandTotal).toBe(450);
+    // #32: tiered classes now carry the $40 reg fee unless flagged exempt.
+    expect(quote.grandTotal).toBe(490);
     expect(quote.perDancer[0].tuition).toBe(450);
     expect(quote.perDancer[0].costumeFee).toBe(0);
-    expect(quote.perDancer[0].registrationFee).toBe(0);
+    expect(quote.perDancer[0].registrationFee).toBe(40);
   });
 
   it("Mode 7: drop-in → class_meetings.drop_in_price, no fees", async () => {

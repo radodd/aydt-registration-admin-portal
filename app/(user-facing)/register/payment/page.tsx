@@ -138,6 +138,12 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
   const [availableCredits, setAvailableCredits] = useState<FamilyAccountCredit[]>([]);
   const [applyCredit, setApplyCredit] = useState(false);
 
+  // Meeting-plan #33 (public): optional add-on opt-in. Holds the representative
+  // option ids (class_meeting_options.id) the family has selected. Required
+  // add-ons always apply and are never in this set. Only add-ons AUTHORED on the
+  // semester surface via quote.availableAddOns are ever offered here.
+  const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
+
   // Billing address
   const [billingAddress, setBillingAddress] = useState<{
     address_line1: string;
@@ -364,6 +370,8 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       paymentPlanType:
         planType === "installments" ? "auto_pay_monthly" : "pay_in_full",
       couponCode: appliedCouponCode ?? undefined,
+      // #33: charge the optional add-ons the family opted into.
+      selectedAddOnIds,
       // Preview walks draft semesters whose prices may not be set yet.
       tolerateMissingPrices: state.isPreview,
     })
@@ -391,7 +399,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       })
       .finally(() => setQuoteLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.participants, semesterId, appliedCouponCode, planType]);
+  }, [state.participants, semesterId, appliedCouponCode, planType, selectedAddOnIds.join(",")]);
 
   async function handleSaveAddress() {
     setAddressError(null);
@@ -488,6 +496,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
         batchId: activeBatchId,
         pricingQuote: quote ?? undefined,
         couponCode: appliedCouponCode ?? undefined,
+        selectedAddOnIds,
         creditIdsToApply,
         creditTotal,
         paymentPlanType: planType,
@@ -1000,6 +1009,88 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
               </section>
             );
           })}
+
+          {/* Optional add-ons (meeting-plan #33) — only the OPTIONAL options
+              authored on this semester are offered; required ones are already
+              charged as line items above. Off by default; opting in re-quotes. */}
+          {quote.availableAddOns.filter((o) => !o.isRequired).length > 0 && (
+            <div
+              className="rounded-xl bg-white overflow-hidden"
+              style={{ border: "1px solid var(--pub-border-subtle)" }}
+            >
+              <div
+                className="px-[18px] py-3"
+                style={{ borderBottom: "1px solid var(--pub-border-subtle)" }}
+              >
+                <div
+                  className="text-[13px] font-bold"
+                  style={{ color: "var(--pub-text-primary)" }}
+                >
+                  Add-ons
+                </div>
+                <div
+                  className="text-[11.5px] mt-0.5"
+                  style={{ color: "var(--pub-text-secondary)" }}
+                >
+                  Optional — select any you'd like to add to your registration.
+                </div>
+              </div>
+              {quote.availableAddOns
+                .filter((o) => !o.isRequired)
+                .map((opt) => {
+                  const checked = selectedAddOnIds.includes(opt.id);
+                  return (
+                    <label
+                      key={opt.id}
+                      className="flex flex-wrap items-center justify-between gap-3 px-[18px] py-3.5 cursor-pointer"
+                      style={{ borderTop: "1px solid var(--pub-border-subtle)" }}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) =>
+                            setSelectedAddOnIds((prev) =>
+                              e.target.checked
+                                ? [...prev, opt.id]
+                                : prev.filter((id) => id !== opt.id),
+                            )
+                          }
+                          className="w-4 h-4 rounded shrink-0"
+                          style={{ accentColor: "var(--plum)" }}
+                        />
+                        <div className="min-w-0">
+                          <div
+                            className="text-[13px] font-semibold"
+                            style={{ color: "var(--pub-text-primary)" }}
+                          >
+                            {opt.name}
+                          </div>
+                          {opt.description && (
+                            <div
+                              className="text-[11.5px] mt-0.5 truncate"
+                              style={{ color: "var(--pub-text-secondary)" }}
+                            >
+                              {opt.description}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        className="text-sm font-bold tabular-nums shrink-0"
+                        style={{
+                          color: checked
+                            ? "var(--pub-text-primary)"
+                            : "var(--pub-text-secondary)",
+                        }}
+                      >
+                        {formatCurrency(opt.price)}
+                      </span>
+                    </label>
+                  );
+                })}
+            </div>
+          )}
 
           {/* Family Discount */}
           {quote.familyDiscountAmount > 0 && (
