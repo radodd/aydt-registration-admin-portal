@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { TopBar } from "./_components/TopBar";
 import { MobileNav } from "./_components/MobileNav";
+import { ToastProvider } from "@/app/components/Toast";
 
 /* ── Desktop sidebar nav structure ─────────────────────────────── */
 const NAV_GROUPS = [
@@ -115,6 +116,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   return (
+    <ToastProvider>
     <div className="admin-shell flex">
 
       {/* ── Desktop sidebar (hidden on mobile via transform) ─────── */}
@@ -251,5 +253,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <MobileNav />
 
     </div>
+    </ToastProvider>
   );
 }

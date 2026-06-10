@@ -24,6 +24,7 @@ import {
   DEFAULT_SELECTED_COLS,
 } from "./_components/ColumnChooserModal";
 import { GroupRecordsModal } from "./_components/GroupRecordsModal";
+import { useToast } from "@/app/components/Toast";
 
 /* ── Column key map ────────────────────────────────────────────────────────── */
 const COL_KEY: Record<string, keyof ReportRow | string> = {
@@ -142,15 +143,6 @@ function exportCSV(columns: string[], rows: ReportRow[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/* ── Toast ─────────────────────────────────────────────────────────────────── */
-function useToast() {
-  const [msg, setMsg] = useState<string | null>(null);
-  const show = (m: string) => {
-    setMsg(m);
-    setTimeout(() => setMsg(null), 2800);
-  };
-  return { msg, show };
-}
 
 /* ── Component ─────────────────────────────────────────────────────────────── */
 interface Props {
@@ -283,9 +275,9 @@ export function ReportsClient({
         STORAGE_KEY,
         JSON.stringify({ columns, filters, groupBy }),
       );
-      toast.show("Report configuration saved.");
+      toast.success("Report configuration saved.");
     } catch {
-      toast.show("Could not save configuration.");
+      toast.error("Could not save configuration.");
     }
   };
 
@@ -296,7 +288,7 @@ export function ReportsClient({
       `aydt-report-${new Date().toISOString().slice(0, 10)}.csv`,
     );
     setExportOpen(false);
-    toast.show("Exporting as CSV…");
+    toast.info("Exporting as CSV…");
   };
 
   const handleExportPDF = () => {
@@ -307,7 +299,7 @@ export function ReportsClient({
   const handleSeasonSave = (ids: string[]) => {
     setSelectedSemesterIds(ids.length ? ids : [defaultSemesterId]);
     setShowSeason(false);
-    toast.show("Season filter updated.");
+    toast.info("Season filter updated.");
   };
 
   const toggleSelectAll = (checked: boolean) => {
@@ -721,7 +713,7 @@ export function ReportsClient({
               background: "transparent",
               color: "var(--admin-text-muted)",
             }}
-            onClick={() => toast.show("Email composer will open for selected participants.")}
+            onClick={() => toast.info("Email composer will open for selected participants.")}
           >
             <Mail size={13} />
             Email selected people
@@ -893,7 +885,7 @@ export function ReportsClient({
           onApply={(f) => {
             setFilters(f);
             setShowFilter(false);
-            toast.show("Filters applied.");
+            toast.info("Filters applied.");
           }}
           onClose={() => setShowFilter(false)}
         />
@@ -918,17 +910,6 @@ export function ReportsClient({
           }}
           onClose={() => setShowGroup(false)}
         />
-      )}
-
-      {/* Toast */}
-      {toast.msg && (
-        <div className="toast-container">
-          <div className="toast toast-info">
-            <div className="toast-body">
-              <p className="toast-title">{toast.msg}</p>
-            </div>
-          </div>
-        </div>
       )}
     </>
   );

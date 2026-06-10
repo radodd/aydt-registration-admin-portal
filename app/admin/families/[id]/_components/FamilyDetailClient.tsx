@@ -12,6 +12,7 @@ import { ParentDetailPanel } from "./ParentDetailPanel";
 import { DancerDetailPanel } from "./DancerDetailPanel";
 import { DancerCard } from "./DancerCard";
 import { BillingHistorySection } from "./BillingHistorySection";
+import { useToast } from "@/app/components/Toast";
 import { addParent, type AddParentInput } from "../../actions/addParent";
 import { updateParent, type UpdateParentInput } from "../../actions/updateParent";
 import { removeParent } from "../../actions/removeParent";
@@ -67,7 +68,7 @@ export function FamilyDetailClient({
   const [creditReason, setCreditReason] = useState("");
   const [creditError, setCreditError] = useState("");
   const [creditSubmitting, setCreditSubmitting] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
 
   /* ── Helpers ─────────────────────────────────────────────────────────── */
 
@@ -175,8 +176,7 @@ export function FamilyDetailClient({
       return;
     }
     const fmt$ = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
-    setToast(`Credit of ${fmt$(amount)} issued to ${family.family_name}.`);
-    setTimeout(() => setToast(null), 5000);
+    toast.success(`Credit of ${fmt$(amount)} issued to ${family.family_name}.`);
     setCreditAmount("");
     setCreditReason("");
     setCreditError("");
@@ -201,8 +201,7 @@ export function FamilyDetailClient({
       setEmailError(result.error);
       return;
     }
-    setToast(`Email sent to ${primaryParentEmail}.`);
-    setTimeout(() => setToast(null), 5000);
+    toast.success(`Email sent to ${primaryParentEmail}.`);
     setEmailSubject("");
     setEmailBody("");
     setEmailError("");
@@ -225,13 +224,6 @@ export function FamilyDetailClient({
 
   return (
     <div className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 md:px-8 md:py-8 space-y-6">
-
-      {/* Toast — above mobile tab bar */}
-      {toast && (
-        <div className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 bg-green-700 text-white text-sm px-4 py-3 rounded-lg shadow-lg">
-          {toast}
-        </div>
-      )}
 
       {/* Breadcrumb */}
       <nav className="text-sm text-neutral-500 flex items-center gap-1.5">

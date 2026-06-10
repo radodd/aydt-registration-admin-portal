@@ -7,6 +7,7 @@ import { waiveInstallment } from "./actions/waiveInstallment";
 import { sendPaymentReminder } from "./actions/sendPaymentReminder";
 import { issueAccountCredit } from "@/app/admin/credits/actions/issueAccountCredit";
 import { PaymentsRightPanel } from "@/app/admin/_components/PaymentsRightPanel";
+import { useToast } from "@/app/components/Toast";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                       */
@@ -181,7 +182,7 @@ export default function PaymentsAdmin() {
   const [creditReason, setCreditReason] = useState("");
   const [creditError, setCreditError] = useState("");
   const [creditSubmitting, setCreditSubmitting] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const toast = useToast();
 
   // Void/refund modal state
   type VoidRefundModal = {
@@ -301,8 +302,7 @@ export default function PaymentsAdmin() {
   }
 
   function showToast(msg: string, type: "success" | "error" = "success") {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 5000);
+    toast.show(msg, type);
   }
 
   function openVoidRefundModal(batch: BatchRow, type: "void" | "refund") {
@@ -628,24 +628,6 @@ export default function PaymentsAdmin() {
   return (
     <div className="flex gap-0 -mx-4 -my-4 md:-mx-8 md:-my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
       <main className="flex-1 overflow-y-auto py-4 md:px-7 md:py-6 min-w-0">
-
-        {/* Toast */}
-        {toast && (
-          <div
-            className="fixed bottom-6 right-6 z-50 text-sm px-4 py-3 rounded-lg shadow-lg"
-            style={{
-              background: toast.type === "error"
-                ? "var(--shared-toast-error-bg)"
-                : "var(--shared-toast-success-bg)",
-              color: toast.type === "error"
-                ? "var(--shared-toast-error-text)"
-                : "var(--shared-toast-success-text)",
-              border: `1px solid ${toast.type === "error" ? "var(--shared-toast-error-border)" : "var(--shared-toast-success-border)"}`,
-            }}
-          >
-            {toast.msg}
-          </div>
-        )}
 
         {/* Issue Credit Modal */}
         {creditBatch && (

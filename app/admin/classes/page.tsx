@@ -28,6 +28,7 @@ import type { TemplateListRow } from "@/types";
 import type { SessionInstructorAssignment, InstructorRow } from "@/queries/admin";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { useToast } from "@/app/components/Toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -331,6 +332,7 @@ function EditClassModal({
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   async function handleSave() {
     setSaving(true);
@@ -338,9 +340,11 @@ function EditClassModal({
     const { success, error } = await updateClassMeta(cls.id, form);
     if (!success) {
       setError(error ?? "Failed to save");
+      toast.error(error ?? "Couldn’t save class details.");
       setSaving(false);
       return;
     }
+    toast.success("Class details saved.");
     onSaved(form);
   }
 
@@ -1069,7 +1073,7 @@ function ClassDetailPanel({
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelPending, startCancelTransition] = useTransition();
   const [cancelledIds, setCancelledIds] = useState<Set<string>>(new Set());
-  const [cancelToast, setCancelToast] = useState<string | null>(null);
+  const toast = useToast();
 
   const visibleSessions = sortedSessions.filter((s) => !cancelledIds.has(s.id));
 
@@ -1088,12 +1092,11 @@ function ClassDetailPanel({
       }
       setCancelledIds((prev) => new Set([...prev, cancellingSessionId]));
       const n = result.notified ?? 0;
-      setCancelToast(
+      toast.success(
         `Session cancelled. ${n} famil${n === 1 ? "y" : "ies"} notified via email & SMS.`
       );
       setCancellingSessionId(null);
       setCancelReason("");
-      setTimeout(() => setCancelToast(null), 5000);
     });
   }
 
@@ -1171,16 +1174,6 @@ function ClassDetailPanel({
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Toast */}
-      {cancelToast && (
-        <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white"
-          style={{ background: "#201D18" }}
-        >
-          {cancelToast}
         </div>
       )}
 
@@ -1984,7 +1977,7 @@ function ClassesPageContent() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCancelClassModal, setShowCancelClassModal] = useState(false);
-  const [cancelClassToast, setCancelClassToast] = useState<string | null>(null);
+  const toast = useToast();
   const [archiving, setArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
 
@@ -2126,9 +2119,9 @@ function ClassesPageContent() {
     setClasses((prev) =>
       prev.map((c) => (c.id === detail?.id ? { ...c, is_active: false } : c))
     );
-    const msg = `Class cancelled. ${notified} famil${notified === 1 ? "y" : "ies"} notified via email & SMS.`;
-    setCancelClassToast(msg);
-    setTimeout(() => setCancelClassToast(null), 5000);
+    toast.success(
+      `Class cancelled. ${notified} famil${notified === 1 ? "y" : "ies"} notified via email & SMS.`
+    );
   }
 
   const filtered = useMemo(() => {
@@ -2176,14 +2169,6 @@ function ClassesPageContent() {
           onClose={() => setShowCancelClassModal(false)}
           onCancelled={handleClassCancelled}
         />
-      )}
-      {cancelClassToast && (
-        <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl shadow-lg text-sm font-medium text-white"
-          style={{ background: "#201D18" }}
-        >
-          {cancelClassToast}
-        </div>
       )}
 
       {/* Master-detail layout — breaks out of layout padding */}

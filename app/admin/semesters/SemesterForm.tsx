@@ -20,6 +20,7 @@ import { persistSemesterDraft } from "./actions/persistSemesterDraft";
 import RegistrationFormStep from "./steps/RegistrationFormStep";
 import Link from "next/link";
 import { ChevronLeft, Eye } from "lucide-react";
+import { useToast } from "@/app/components/Toast";
 import { Badge } from "@/app/components/ui";
 import type { BadgeStatus } from "@/app/components/ui";
 
@@ -199,6 +200,7 @@ export default function SemesterForm({
   }
 
   const router = useRouter();
+  const toast = useToast();
   const searchParams = useSearchParams();
   const stepParam = searchParams.get("step");
   const activeStepKey: StepKey = isStepKey(stepParam) ? stepParam : "details";
@@ -288,6 +290,11 @@ export default function SemesterForm({
         ...current,
         id: current.id ?? semesterId,
       });
+      toast.success("Changes saved.");
+    } catch (err) {
+      console.error("Save draft failed:", err);
+      toast.error("Couldn’t save changes. Please try again.");
+      throw err;
     } finally {
       setIsSaving(false);
     }
