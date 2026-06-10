@@ -106,7 +106,15 @@ function DisciplineMark({ k }: { k: DisciplineKey }) {
 export function PaymentContent({ semesterId }: { semesterId: string }) {
   const router = useRouter();
   const { state, setPaymentIntent } = useRegistration();
-  const { sessionIds, items: cartItems, clear, secondsRemaining, isExpired } = useCart();
+  const {
+    sessionIds,
+    items: cartItems,
+    clear,
+    secondsRemaining,
+    isExpired,
+    selectedAddOnIds,
+    toggleAddOn,
+  } = useCart();
 
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -138,11 +146,10 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
   const [availableCredits, setAvailableCredits] = useState<FamilyAccountCredit[]>([]);
   const [applyCredit, setApplyCredit] = useState(false);
 
-  // Meeting-plan #33 (public): optional add-on opt-in. Holds the representative
-  // option ids (class_meeting_options.id) the family has selected. Required
-  // add-ons always apply and are never in this set. Only add-ons AUTHORED on the
-  // semester surface via quote.availableAddOns are ever offered here.
-  const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
+  // Meeting-plan #33 (public): optional add-on opt-in now lives in the cart
+  // (selectedAddOnIds + toggleAddOn from useCart above) so the selection persists
+  // across the cart → checkout navigation and reload. Only add-ons AUTHORED on
+  // the semester (surfaced via quote.availableAddOns) are ever offered here.
 
   // Billing address
   const [billingAddress, setBillingAddress] = useState<{
@@ -1049,13 +1056,7 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={(e) =>
-                            setSelectedAddOnIds((prev) =>
-                              e.target.checked
-                                ? [...prev, opt.id]
-                                : prev.filter((id) => id !== opt.id),
-                            )
-                          }
+                          onChange={() => toggleAddOn(opt.id)}
                           className="w-4 h-4 rounded shrink-0"
                           style={{ accentColor: "var(--plum)" }}
                         />

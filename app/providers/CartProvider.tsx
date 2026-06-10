@@ -50,6 +50,7 @@ type CartAction =
   | { type: "REMOVE_BY_SESSION"; sessionId: string }
   | { type: "REMOVE_BY_ID"; itemId: string }
   | { type: "UPDATE"; itemId: string; patch: Partial<CartItem> }
+  | { type: "SET_ADDONS"; ids: string[] }
   | { type: "CLEAR" };
 
 /* -------------------------------------------------------------------------- */
@@ -190,6 +191,13 @@ function reducer(state: CartState, action: CartAction): CartState {
       return next;
     }
 
+    case "SET_ADDONS": {
+      // Meeting-plan #33: optional add-on opt-in set. Items are untouched.
+      const next = { ...state, selectedAddOnIds: action.ids };
+      console.log(`[Cart] action: SET_ADDONS → ${action.ids.length} selected`);
+      return next;
+    }
+
     case "CLEAR":
       console.log("[Cart] action: CLEAR");
       return freshCart(state.semesterId);
@@ -226,6 +234,14 @@ interface CartContextValue {
   clear: () => void;
   has: (sessionId: string) => boolean;
   hasClass: (classId: string, mode?: CartItemMode) => boolean;
+  /**
+   * Meeting-plan #33: optional add-on opt-in, persisted with the cart. Holds
+   * representative class_meeting_options.id values; availability is still
+   * derived per-page from PricingQuote.availableAddOns.
+   */
+  selectedAddOnIds: string[];
+  toggleAddOn: (optionId: string) => void;
+  setSelectedAddOnIds: (ids: string[]) => void;
   /** Transient "couldn't reserve" feedback (e.g. class just filled). */
   addError: { message: string; reason: "at_capacity" | "error"; classId?: string } | null;
   dismissAddError: () => void;
@@ -535,6 +551,29 @@ export function CartProvider({
 
   const dismissAddError = useCallback(() => setAddError(null), []);
 
+  // Meeting-plan #33: optional add-on opt-in, lifted into the cart so the
+  // selection persists across the cart → checkout navigation (and reload) and
+  // can be toggled from either surface.
+  const setSelectedAddOnIds = useCallback(
+    (ids: string[]) => {
+      const next = reducer(stateRef.current, { type: "SET_ADDONS", ids });
+      persistNext(next);
+      dispatch({ type: "SET_ADDONS", ids });
+    },
+    [persistNext],
+  );
+
+  const toggleAddOn = useCallback(
+    (id: string) => {
+      const cur = stateRef.current.selectedAddOnIds ?? [];
+      const ids = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+      const next = reducer(stateRef.current, { type: "SET_ADDONS", ids });
+      persistNext(next);
+      dispatch({ type: "SET_ADDONS", ids });
+    },
+    [persistNext],
+  );
+
   const sessionIds = useMemo(() => deriveSessionIds(state.items), [state.items]);
 
   const has = useCallback(
@@ -567,6 +606,9 @@ export function CartProvider({
         clear,
         has,
         hasClass,
+        selectedAddOnIds: state.selectedAddOnIds ?? [],
+        toggleAddOn,
+        setSelectedAddOnIds,
         addError,
         dismissAddError,
         hydrated,

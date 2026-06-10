@@ -164,6 +164,8 @@ export function CartPageContent() {
     hydrated,
     secondsRemaining,
     preview,
+    selectedAddOnIds,
+    toggleAddOn,
   } = useCart();
 
   const [semesterSessions, setSemesterSessions] = useState<PublicSession[]>([]);
@@ -240,6 +242,8 @@ export function CartPageContent() {
         },
       ],
       paymentPlanType: "pay_in_full",
+      // #33: optional add-ons the family opted into (persisted in the cart).
+      selectedAddOnIds,
       // Preview walks draft semesters whose prices may not be set yet.
       tolerateMissingPrices: preview,
     })
@@ -255,7 +259,7 @@ export function CartPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [items, semesterId]);
+  }, [items, semesterId, selectedAddOnIds.join(",")]);
 
   const estimatedTotal = liveQuote?.grandTotal ?? subtotal;
 
@@ -555,6 +559,53 @@ export function CartPageContent() {
                   </>
                 );
               })()}
+
+              {/* Optional add-ons (meeting-plan #33) — only OPTIONAL options
+                  authored on this semester; toggling persists in the cart and
+                  carries through to checkout. Required ones are already in the
+                  fee rows above. */}
+              {(liveQuote?.availableAddOns?.filter((o) => !o.isRequired).length ?? 0) > 0 && (
+                <>
+                  <OsSectionLabel>Add-ons</OsSectionLabel>
+                  {liveQuote!.availableAddOns
+                    .filter((o) => !o.isRequired)
+                    .map((opt) => {
+                      const checked = selectedAddOnIds.includes(opt.id);
+                      return (
+                        <label
+                          key={opt.id}
+                          className="flex items-center justify-between gap-3 py-1.5 cursor-pointer"
+                        >
+                          <span className="flex items-center gap-2.5 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleAddOn(opt.id)}
+                              className="w-4 h-4 rounded shrink-0"
+                              style={{ accentColor: "#7A4A72" }}
+                            />
+                            <span className="min-w-0">
+                              <span className="block text-[13px] font-medium text-[#1F1513]">
+                                {opt.name}
+                              </span>
+                              {opt.description && (
+                                <span className="block text-[11px] text-[#A39189] truncate">
+                                  {opt.description}
+                                </span>
+                              )}
+                            </span>
+                          </span>
+                          <span
+                            className="text-[13px] font-semibold tabular-nums"
+                            style={{ color: checked ? "#1F1513" : "#A39189" }}
+                          >
+                            {formatDollars(opt.price)}
+                          </span>
+                        </label>
+                      );
+                    })}
+                </>
+              )}
 
               <OsSectionLabel>Discounts</OsSectionLabel>
               <OsRow
