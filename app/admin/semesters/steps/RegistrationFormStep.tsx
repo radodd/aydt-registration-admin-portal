@@ -8,7 +8,7 @@ import TextBlockModal from "@/app/components/semester-flow/TextBlockModal";
 import WaiverModal from "@/app/components/semester-flow/WaiverModal";
 import { DEFAULT_WAIVER_TITLE, DEFAULT_WAIVER_BODY, DEFAULT_ACKNOWLEDGMENT_LABEL } from "@/lib/waiver";
 import { autosaveSemesterField } from "../actions/autosaveSemesterField";
-import { ChevronDown, ChevronRight, GripVertical, MoreHorizontal, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, GripVertical, MoreHorizontal, Plus, Loader2 } from "lucide-react";
 import {
   DndContext,
   DragEndEvent,
@@ -415,7 +415,7 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
 
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
   const [editingElement, setEditingElement] = useState<RegistrationFormElement | null>(null);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [autosaving, setAutosaving] = useState(false);
   const [addingToSectionAfterIndex, setAddingToSectionAfterIndex] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -449,11 +449,11 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
     if (!semesterId || isLocked) return;
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     autosaveTimer.current = setTimeout(async () => {
+      setAutosaving(true);
       try {
         await autosaveSemesterField(semesterId, "registration_form", state.registrationForm ?? { elements: [] });
-        setSavedAt(new Date().toLocaleTimeString());
-        setTimeout(() => setSavedAt(null), 3000);
       } catch { /* silent */ }
+      finally { setAutosaving(false); }
     }, 8000);
     return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -586,7 +586,12 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
             Customize the questions users must complete before registering.
           </p>
         </div>
-        {savedAt && <span className="text-xs text-green-600 font-medium mt-1">Saved {savedAt}</span>}
+        {autosaving && (
+          <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 mt-1">
+            <Loader2 size={13} className="animate-spin" />
+            Saving…
+          </span>
+        )}
       </div>
 
       {/* Locked banner */}

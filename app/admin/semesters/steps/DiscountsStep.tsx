@@ -1,6 +1,7 @@
 "use client";
 
 import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
+import { Loader2 } from "lucide-react";
 import { createDiscount } from "@/app/admin/semesters/new/discounts/CreateDiscount";
 import { deleteDiscount } from "@/app/admin/semesters/new/discounts/DeleteDiscount";
 import { updateDiscount } from "@/app/admin/semesters/new/discounts/UpdateDiscount";
@@ -909,7 +910,14 @@ export default function DiscountsStep({
                 className="text-sm font-semibold text-white rounded-lg px-4 py-2 transition-colors hover:opacity-90 disabled:opacity-60"
                 style={{ background: "var(--admin-sidebar-active)" }}
               >
-                {saving ? "Saving…" : "Save changes"}
+                {saving ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 size={14} className="animate-spin" />
+                    Saving…
+                  </span>
+                ) : (
+                  "Save changes"
+                )}
               </button>
             </div>
           </div>
@@ -1331,7 +1339,14 @@ export default function DiscountsStep({
                 className="text-sm font-semibold text-white rounded-lg px-4 py-2 transition-colors hover:opacity-90 disabled:opacity-60"
                 style={{ background: "var(--admin-sidebar-active)" }}
               >
-                {saving ? "Saving…" : "Save changes"}
+                {saving ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 size={14} className="animate-spin" />
+                    Saving…
+                  </span>
+                ) : (
+                  "Save changes"
+                )}
               </button>
             </div>
           </div>

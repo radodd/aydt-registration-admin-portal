@@ -19,7 +19,7 @@ import {
 import { persistSemesterDraft } from "./actions/persistSemesterDraft";
 import RegistrationFormStep from "./steps/RegistrationFormStep";
 import Link from "next/link";
-import { ChevronLeft, Eye } from "lucide-react";
+import { ChevronLeft, Eye, Loader2 } from "lucide-react";
 import { useToast } from "@/app/components/Toast";
 import { Badge } from "@/app/components/ui";
 import type { BadgeStatus } from "@/app/components/ui";
@@ -159,6 +159,14 @@ function isStepKey(value: string | null): value is StepKey {
   return STEPS.some((step) => step.key === value);
 }
 
+// Canonical string form of a draft for dirty-checking. Used to decide whether
+// a lifecycle action (publish/save/schedule) can skip the full draft re-persist
+// because nothing changed since the last save. The `id` is normalized so the
+// initial snapshot and post-persist snapshots compare identically.
+function snapshotKey(draft: Partial<SemesterDraft>): string {
+  return JSON.stringify({ ...draft, id: (draft as SemesterDraft).id });
+}
+
 type SemesterFormProps = {
   mode: "create" | "edit";
   basePath: string;
@@ -209,9 +217,24 @@ export default function SemesterForm({
   /* ----------------------------- Dirty State ----------------------------- */
 
   const persistedSnapshotRef = useRef<string>(
-    JSON.stringify(initialState ?? {}),
+    snapshotKey(initialState ?? ({} as SemesterDraft)),
   );
   const [isSaving, setIsSaving] = useState(false);
+
+  // Persist the draft only if it's dirty, then return the semester id. Publishing
+  // a large semester (e.g. UES Spring 2026 ≈ 2,680 sessions) should not re-write
+  // every session when the wizard already persisted on each navigation/save — so
+  // when the current state matches the last-persisted snapshot we skip the full
+  // re-persist and let the cheap status-only lifecycle action run on its own.
+  async function ensurePersisted(current: SemesterDraft): Promise<string> {
+    if (current.id && snapshotKey(current) === persistedSnapshotRef.current) {
+      return current.id;
+    }
+    const { semesterId } = await persistSemesterDraft(current);
+    dispatch({ type: "SET_ID", payload: semesterId });
+    persistedSnapshotRef.current = JSON.stringify({ ...current, id: semesterId });
+    return semesterId;
+  }
 
   /* ----------------------------- Navigation ------------------------------ */
 
@@ -367,6 +390,7 @@ export default function SemesterForm({
         dispatch={dispatchAndSync}
         onNext={nextStep}
         onBack={previousStep}
+        isSaving={isSaving}
       />
     ),
     payment: (
@@ -376,6 +400,7 @@ export default function SemesterForm({
         onNext={nextStep}
         onBack={previousStep}
         isLocked={isLocked}
+        isSaving={isSaving}
       />
     ),
     discounts: (
@@ -425,35 +450,17 @@ export default function SemesterForm({
           if (idx !== -1) navigateToStep(idx);
         }}
         onPublishNow={async () => {
-          const current = stateRef.current;
-          const { semesterId } = await persistSemesterDraft(current);
-          dispatch({ type: "SET_ID", payload: semesterId });
-          persistedSnapshotRef.current = JSON.stringify({
-            ...current,
-            id: semesterId,
-          });
+          const semesterId = await ensurePersisted(stateRef.current);
           await publishSemesterNow(semesterId);
           router.push("/admin/semesters");
         }}
         onSaveDraft={async () => {
-          const current = stateRef.current;
-          const { semesterId } = await persistSemesterDraft(current);
-          dispatch({ type: "SET_ID", payload: semesterId });
-          persistedSnapshotRef.current = JSON.stringify({
-            ...current,
-            id: semesterId,
-          });
+          const semesterId = await ensurePersisted(stateRef.current);
           await saveSemesterDraft(semesterId);
           router.push("/admin/semesters");
         }}
         onSchedule={async (date) => {
-          const current = stateRef.current;
-          const { semesterId } = await persistSemesterDraft(current);
-          dispatch({ type: "SET_ID", payload: semesterId });
-          persistedSnapshotRef.current = JSON.stringify({
-            ...current,
-            id: semesterId,
-          });
+          const semesterId = await ensurePersisted(stateRef.current);
           await scheduleSemester(semesterId, date);
           router.push("/admin/semesters");
         }}
@@ -590,7 +597,10 @@ export default function SemesterForm({
             >
               <span className={isSaving ? "invisible" : ""}>{isSaving ? "Saving…" : "Save"}</span>
               {isSaving && (
-                <span className="absolute inset-0 flex items-center justify-center">Saving…</span>
+                <span className="absolute inset-0 flex items-center justify-center gap-1.5">
+                  <Loader2 size={14} className="animate-spin" />
+                  Saving…
+                </span>
               )}
             </button>
           </div>
@@ -708,8 +718,17 @@ export default function SemesterForm({
                   className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 text-sm font-semibold text-white rounded-xl px-4 sm:px-5 py-2 sm:py-2.5 transition-colors hover:opacity-90 disabled:opacity-60 truncate"
                   style={{ background: "var(--admin-sidebar-active)" }}
                 >
-                  <span className="truncate">{STEPS[activeStepIndex + 1].label}</span>
-                  <span className="shrink-0">→</span>
+                  {isSaving ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin shrink-0" />
+                      <span className="truncate">Saving…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="truncate">{STEPS[activeStepIndex + 1].label}</span>
+                      <span className="shrink-0">→</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>

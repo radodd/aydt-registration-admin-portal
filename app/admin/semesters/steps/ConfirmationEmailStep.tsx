@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, GripVertical, Info } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Info, Loader2 } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import { SemesterDraft, SemesterAction } from "@/types";
 import TipTapEditor from "@/app/components/semester-flow/TipTapEditor";
@@ -84,7 +84,7 @@ export default function ConfirmationEmailStep({
   const [htmlBody, setHtmlBody] = useState(email?.htmlBody ?? "");
   const [includeSignature, setIncludeSignature] = useState(email?.includeSignature ?? false);
 
-  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [autosaving, setAutosaving] = useState(false);
   const [previewMode, setPreviewMode] = useState<"mobile" | "desktop">("mobile");
   const [draggingToken, setDraggingToken] = useState<string | null>(null);
   const [testEmail, setTestEmail] = useState("");
@@ -116,13 +116,13 @@ export default function ConfirmationEmailStep({
     if (activeTab !== "design" || !semesterId || isLocked) return;
     if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     autosaveTimer.current = setTimeout(async () => {
+      setAutosaving(true);
       try {
         await autosaveSemesterField(semesterId, "confirmation_email", {
           subject, fromName, fromEmail, htmlBody,
         });
-        setSavedAt(new Date().toLocaleTimeString());
-        setTimeout(() => setSavedAt(null), 3000);
       } catch { /* silent */ }
+      finally { setAutosaving(false); }
     }, 8000);
     return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -374,12 +374,15 @@ export default function ConfirmationEmailStep({
 
             {/* Editor column */}
             <div className="flex-1 min-w-0 flex flex-col overflow-hidden border-b md:border-b-0 md:border-r border-neutral-200">
-              {savedAt && (
+              {autosaving && (
                 <div
                   className="shrink-0 flex items-center justify-end px-4 py-1.5 border-b border-neutral-100"
                   style={{ background: "var(--admin-surface)" }}
                 >
-                  <span className="text-xs text-green-600 font-medium">Saved {savedAt}</span>
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-500">
+                    <Loader2 size={13} className="animate-spin" />
+                    Saving…
+                  </span>
                 </div>
               )}
               <div className="flex-1 overflow-y-auto p-4 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">

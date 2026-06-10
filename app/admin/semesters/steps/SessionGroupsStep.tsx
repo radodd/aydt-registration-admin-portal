@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Loader2 } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -28,6 +28,8 @@ type SessionGroupsStepProps = {
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
   onBack: () => void;
+  /** True while the wizard is persisting the draft — drives the Next button's saving state. */
+  isSaving?: boolean;
 };
 
 type LocalGroup = {
@@ -204,6 +206,7 @@ export default function SessionsGroupsStep({
   dispatch,
   onNext,
   onBack,
+  isSaving = false,
 }: SessionGroupsStepProps) {
   const [groups, setGroups] = useState<LocalGroup[]>(
     state.sessionGroups?.groups ?? [],
@@ -472,6 +475,12 @@ export default function SessionsGroupsStep({
                                     top: assignState.top,
                                     bottom: assignState.bottom,
                                     maxHeight: assignState.maxHeight,
+                                    // Keep wheel/touch scrolling inside the menu —
+                                    // without this the popover (a DOM child of the
+                                    // table's scroll container) chains its scroll to
+                                    // the table, whose onScroll closes the popover, so
+                                    // the user "can't scroll" to bottom rows. See #29.
+                                    overscrollBehavior: "contain",
                                   }}
                                 >
                                   {groups.length === 0 ? (
@@ -639,9 +648,17 @@ export default function SessionsGroupsStep({
             </button>
             <button
               onClick={handleSubmit}
-              className="px-6 py-2.5 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 transition"
+              disabled={isSaving}
+              className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-primary-600 text-sm font-medium text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 disabled:opacity-60 transition"
             >
-              Next
+              {isSaving ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                "Next"
+              )}
             </button>
           </div>
         </div>
