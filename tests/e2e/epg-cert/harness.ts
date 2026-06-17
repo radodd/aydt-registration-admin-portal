@@ -129,7 +129,11 @@ export const HPP_CARDHOLDER = "Cert Tester";
  * driven here — scenario.billing is intentionally ignored. AVS must be tested
  * via stored-card charges (billTo on the Shopper). CVV is entered here.
  */
-export async function fillHostedCardPage(page: Page, scenario: CertScenario): Promise<void> {
+export async function fillHostedCardPage(
+  page: Page,
+  scenario: CertScenario,
+  opts: { cardholderName?: string } = {},
+): Promise<void> {
   // 0-1. Reveal the card form. Two layouts:
   //   - doCapture:true sales open on a payment-type chooser (card/ACH radios);
   //     selecting the card radio reveals the form.
@@ -147,9 +151,9 @@ export async function fillHostedCardPage(page: Page, scenario: CertScenario): Pr
     await page.waitForTimeout(1000);
   }
 
-  // 2. Fill the name on card.
+  // 2. Fill the name on card (per-case name for the cert script; default otherwise).
   await holder.waitFor({ state: "visible", timeout: 10_000 });
-  await holder.fill(HPP_CARDHOLDER);
+  await holder.fill(opts.cardholderName ?? HPP_CARDHOLDER);
 
   // 3. Masked tel fields — type so the input masks format correctly.
   await typeMasked(page, "input[name='cardNumber']", scenario.pan);
@@ -461,6 +465,111 @@ export async function createCertSession(params: {
   });
   if (!res.ok) throw new Error(`[epg-cert] POST /payment-sessions → ${res.status}: ${await res.text()}`);
   return res.json() as Promise<{ href: string; url: string; id: string }>;
+}
+
+/**
+ * Server-to-server charge against a stored card with FULLY PARAMETERIZED
+ * credential-on-file flags — cert-only.
+ *
+ * The production `createEpgTransaction` (utils/payment/epg.ts) hardcodes
+ * `credentialOnFileType:"recurring"` + `shopperInteraction:"merchantInitiated"`
+ * because production only uses it for merchant-initiated installment auto-charges.
+ * Justin's cert script needs two DIFFERENT credential profiles on the same call:
+ *   • 1001–1003 "stored card sale": cardholder-present first sale establishing the
+ *     credential → `credentialOnFileType:"unscheduled"` + `shopperInteraction:"ecommerce"`.
+ *   • 1007–1009 "recurring sale": merchant-initiated scheduled charge →
+ *     `credentialOnFileType:"recurring"` + `shopperInteraction:"merchantInitiated"`.
+ * So this test-only helper takes the flags explicitly and returns the RAW response
+ * (the typed EpgTransaction omits `failures[]`, which we need to fill column J on
+ * the one planted decline — API 1008). EPG returns 201 even on decline, so the
+ * caller must read `state`/`isAuthorized`, never HTTP status.
+ */
+export async function chargeCertStoredCard(params: {
+  storedCardHref: string;
+  shopperHref: string;
+  amountDollars: number;
+  currencyCode?: string;
+  customReference: string;
+  description?: string;
+  credentialOnFileType: "recurring" | "subscription" | "unscheduled";
+  shopperInteraction: "ecommerce" | "moto" | "merchantInitiated";
+  doCapture?: boolean;
+}): Promise<{
+  id?: string;
+  href?: string;
+  state?: string;
+  isAuthorized?: boolean;
+  authorizationCode?: string | null;
+  failures?: Array<{ code?: string; description?: string }>;
+  total?: { amount?: string; currencyCode?: string };
+  [k: string]: unknown;
+}> {
+  const res = await fetch(`${epgBaseUrl()}/transactions`, {
+    method: "POST",
+    headers: epgHeaders(),
+    body: JSON.stringify({
+      storedCard: params.storedCardHref,
+      shopper: params.shopperHref,
+      total: { amount: params.amountDollars.toFixed(2), currencyCode: params.currencyCode ?? "USD" },
+      credentialOnFileType: params.credentialOnFileType,
+      shopperInteraction: params.shopperInteraction,
+      customReference: params.customReference,
+      description: params.description,
+      doCapture: params.doCapture ?? true,
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  // 201 even on decline; only a non-2xx (e.g. 4xx validation) is a hard error.
+  if (!res.ok && res.status >= 400 && res.status !== 201) {
+    throw new Error(`[epg-cert] POST /transactions (cert charge) → ${res.status}: ${JSON.stringify(body)}`);
+  }
+  return body;
+}
+
+/**
+ * Write the filled-in certification sheet (column J populated) as CSV for hand-off
+ * to the Elavon analyst, plus the start/stop window. Mirrors the input script's
+ * column order. Returns the file path.
+ */
+export interface CertSheetRow {
+  api: string;
+  requestType: string;
+  cardType: string;
+  amount: string;
+  name: string;
+  /** Column J: ssl_approval_code (approval) OR ssl_result_message (decline/void/refund). */
+  columnJ: string;
+  notes: string;
+}
+
+export function writeCertSheet(params: {
+  rows: CertSheetRow[];
+  startedAt: string;
+  finishedAt: string;
+}): string {
+  mkdirSync(CAPTURE_DIR, { recursive: true });
+  const esc = (v: string) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const header = [
+    "Test Case Number",
+    "Request Type",
+    "Card Type",
+    "CARDHOLDER_AMOUNT",
+    "Name",
+    "ssl_approval_code / ssl_result_message (col J)",
+    "NOTES",
+  ];
+  const lines = [
+    `Testing window:,${params.startedAt} -> ${params.finishedAt}`,
+    "",
+    header.map(esc).join(","),
+    ...params.rows.map((r) =>
+      [r.api, r.requestType, r.cardType, r.amount, r.name, r.columnJ, r.notes].map(esc).join(","),
+    ),
+  ];
+  const stamp = params.startedAt.replace(/[:.]/g, "-");
+  const file = resolve(CAPTURE_DIR, `${stamp}_justin-cert-sheet.csv`);
+  writeFileSync(file, lines.join("\n"), "utf8");
+  return file;
 }
 
 export async function fetchEpgResource<T = unknown>(href: string): Promise<T> {
