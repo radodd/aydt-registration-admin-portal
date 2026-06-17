@@ -84,7 +84,13 @@ async function chargeInstallmentEpg(params: {
   amountDollars: number;
   installmentId: string;
   installmentNumber: number;
-}): Promise<{ success: boolean; transactionId?: string; errorDetail?: string }> {
+}): Promise<{
+  success: boolean;
+  transactionId?: string;
+  errorDetail?: string;
+  httpStatus?: number;
+  raw?: unknown;
+}> {
   const alias = Deno.env.get("EPG_MERCHANT_ALIAS");
   const key = Deno.env.get("EPG_SECRET_KEY");
   const baseUrl = Deno.env.get("EPG_BASE_URL");
@@ -130,6 +136,8 @@ async function chargeInstallmentEpg(params: {
       return {
         success: false,
         errorDetail: errBody.failures?.[0]?.code ?? `HTTP ${res.status}`,
+        httpStatus: res.status,
+        raw: errBody,
       };
     }
 
@@ -144,9 +152,116 @@ async function chargeInstallmentEpg(params: {
     return {
       success: false,
       errorDetail: txn.failures?.[0]?.code ?? txn.state,
+      httpStatus: res.status,
+      raw: txn,
     };
   } catch (err) {
-    return { success: false, errorDetail: String(err) };
+    return {
+      success: false,
+      errorDetail: String(err),
+      raw: { exception: String(err) },
+    };
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Payment error logging (inline — Deno can't import @/utils paths).          */
+/* COMPACT MIRROR of utils/payment/{classifyPaymentError,logPaymentError}.ts. */
+/* Keep the rules here in sync with the canonical TS versions; the real       */
+/* Elavon decline-code map + the unit tests live there.                       */
+/* See docs/PAYMENT_ERROR_LOGGING_PLAN.md §4 & §5.                            */
+/* -------------------------------------------------------------------------- */
+
+// Hard/soft declines the admin can act on (update card / contact family).
+const ADMIN_LANE_CODES: Record<string, { category: string; retryable: boolean }> = {
+  insufficient_funds: { category: "insufficient_funds", retryable: true }, // soft
+  expired_card: { category: "card_expired", retryable: false },
+  pickup_card: { category: "decline", retryable: false },
+  stolen_card: { category: "decline", retryable: false },
+  invalid_account: { category: "decline", retryable: false },
+  do_not_honor: { category: "decline", retryable: false },
+  avs_mismatch: { category: "avs_cvv", retryable: false },
+  cvv_mismatch: { category: "avs_cvv", retryable: false },
+  token_expired: { category: "token_expired", retryable: false },
+  token_not_found: { category: "token_expired", retryable: false },
+};
+
+function classifyChargeError(
+  errorCode: string | undefined,
+  httpStatus: number | undefined,
+): {
+  category: string;
+  ownerLane: "admin" | "dev";
+  severity: "info" | "warning" | "critical";
+  isRetryable: boolean;
+} {
+  const key = errorCode?.trim().toLowerCase();
+  if (key && ADMIN_LANE_CODES[key]) {
+    const m = ADMIN_LANE_CODES[key];
+    return { category: m.category, ownerLane: "admin", severity: "warning", isRetryable: m.retryable };
+  }
+  // Transport-level failures from the gateway → dev lane, retryable.
+  if (httpStatus != null && (httpStatus >= 500 || httpStatus === 408 || httpStatus === 429)) {
+    return { category: "network", ownerLane: "dev", severity: "critical", isRetryable: true };
+  }
+  // Keyword heuristics on the raw code/state string.
+  const msg = (errorCode ?? "").toLowerCase();
+  if (msg.includes("insufficient")) return { category: "insufficient_funds", ownerLane: "admin", severity: "warning", isRetryable: true };
+  if (msg.includes("expired")) return { category: "card_expired", ownerLane: "admin", severity: "warning", isRetryable: false };
+  if (msg.includes("3ds") || msg.includes("three-d")) return { category: "3ds_mit", ownerLane: "dev", severity: "critical", isRetryable: false };
+  if (msg.includes("timeout") || msg.includes("timed out") || msg.includes("network")) return { category: "network", ownerLane: "dev", severity: "critical", isRetryable: true };
+  if (msg.includes("token")) return { category: "token_expired", ownerLane: "admin", severity: "warning", isRetryable: false };
+  // Conservative default: unknown gateway code → dev lane, NEVER auto-retry.
+  return { category: "unknown", ownerLane: "dev", severity: "critical", isRetryable: false };
+}
+
+/**
+ * Record ONE failed charge attempt. Best-effort: a logging failure must never
+ * break the cron. Each attempt is its own row, chained to the prior attempt for
+ * the same installment via retry_of (plan §5).
+ */
+async function logChargeError(params: {
+  installmentId: string;
+  installmentNumber: number;
+  orderId: string | null;
+  attemptNumber: number;
+  errorDetail: string;
+  httpStatus?: number;
+  raw?: unknown;
+}): Promise<void> {
+  try {
+    const c = classifyChargeError(params.errorDetail, params.httpStatus);
+
+    // Link to the most recent prior failure for this installment, building the
+    // retry chain across daily cron runs.
+    const { data: prior } = await supabase
+      .from("payment_error_logs")
+      .select("id")
+      .eq("installment_id", params.installmentId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    await supabase.from("payment_error_logs").insert({
+      origin: "gateway",
+      source: "cron",
+      category: c.category,
+      owner_lane: c.ownerLane,
+      severity: c.severity,
+      order_id: params.orderId,
+      installment_id: params.installmentId,
+      installment_number: params.installmentNumber,
+      error_code: params.errorDetail,
+      error_message: params.errorDetail,
+      http_status: params.httpStatus ?? null,
+      raw_payload: params.raw ?? null,
+      retry_of: prior?.id ?? null,
+      retry_count: params.attemptNumber,
+      is_retryable: c.isRetryable,
+      status: "new",
+    });
+  } catch (logErr) {
+    console.error(`[logChargeError] failed for installment ${params.installmentId}:`, logErr);
   }
 }
 
@@ -308,6 +423,17 @@ Deno.serve(async (_req) => {
         console.log(
           `[charge] installment ${row.id} declined (${result.errorDetail}) — attempt ${newCount}/3`,
         );
+
+        // Record this attempt in the durable error log (one row per attempt).
+        await logChargeError({
+          installmentId: row.id,
+          installmentNumber: row.installment_number,
+          orderId: (batch as any).id ?? null,
+          attemptNumber: newCount,
+          errorDetail: result.errorDetail ?? "unknown",
+          httpStatus: result.httpStatus,
+          raw: result.raw,
+        });
 
         if (isFailed) {
           // Fetch parent details for admin failure summary
@@ -486,6 +612,26 @@ Deno.serve(async (_req) => {
     );
   } catch (err) {
     console.error("process-overdue-payments error:", err);
+
+    // Application-origin failure: the cron itself broke (DB/query/runtime), not a
+    // gateway decline. Dev-actionable. Best-effort — never mask the original error.
+    try {
+      await supabase.from("payment_error_logs").insert({
+        origin: "application",
+        source: "cron",
+        category: "unknown",
+        owner_lane: "dev",
+        severity: "critical",
+        error_message: String(err),
+        raw_payload: { stack: (err as Error)?.stack ?? null },
+        retry_count: 0,
+        is_retryable: false,
+        status: "new",
+      });
+    } catch (_) {
+      // logging failure must never break the primary flow
+    }
+
     return new Response(JSON.stringify({ ok: false, error: String(err) }), {
       status: 500,
     });

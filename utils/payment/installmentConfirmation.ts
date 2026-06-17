@@ -35,6 +35,8 @@ import {
 } from "@/utils/payment/epg";
 import { prepareEmailHtml } from "@/utils/prepareEmailHtml";
 import { buildRegistrationSummaryHtml } from "@/utils/email/buildRegistrationSummary";
+import { logPaymentError } from "@/utils/payment/logPaymentError";
+import type { PaymentErrorSource } from "@/types";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -66,6 +68,19 @@ async function alertAdminEmailFailure(params: {
   console.error(
     `[installment-confirm] ❌ confirmation email NOT sent for batch ${batchId} — ${reason}${detail ? ` (${detail})` : ""}`,
   );
+
+  // Application-internal: the payment succeeded but the confirmation/receipt
+  // email didn't go out. Warning severity (no money impact) — unifies this with
+  // the existing admin email alert below.
+  await logPaymentError({
+    origin: "application",
+    source: "app_internal",
+    category: "unknown",
+    severity: "warning",
+    orderId: batchId,
+    errorMessage: `Confirmation email not sent: ${reason}${detail ? ` (${detail})` : ""}`,
+    rawPayload: { reason, recipientEmail: recipientEmail ?? null, detail: detail ?? null },
+  });
 
   const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
   if (!adminEmail) {
@@ -523,8 +538,14 @@ export async function ensureStoredCardAndChargeInstallment1(params: {
   batchId: string;
   /** Optional override; otherwise read from the payments row for this batch. */
   paymentSessionId?: string | null;
+  /**
+   * Capture-point label for any error logged here. Defaults to "hpp_checkout"
+   * (the primary returnUrl path); the webhook backup passes "webhook".
+   */
+  source?: PaymentErrorSource;
 }): Promise<{ status: EnsureStoredCardResult; detail?: string }> {
   const { batchId } = params;
+  const errorSource: PaymentErrorSource = params.source ?? "hpp_checkout";
 
   try {
     const { data: existingBatch } = await supabase
@@ -629,6 +650,23 @@ export async function ensureStoredCardAndChargeInstallment1(params: {
           updated_at: new Date().toISOString(),
         })
         .eq("id", inst1.id);
+
+      // History layer: one row per ACTUAL declined attempt. Sits in the real-
+      // charge branch (not the early attempt-cap return above), so repeated
+      // polling of the finalize route never duplicates a row.
+      await logPaymentError({
+        origin: "gateway",
+        source: errorSource,
+        category: "decline",
+        orderId: batchId,
+        installmentId: inst1.id,
+        installmentNumber: 1,
+        errorCode: installment1Txn.state,
+        errorMessage: `Installment 1 charge declined (state=${installment1Txn.state}).`,
+        retryCount: newCount,
+        rawPayload: { state: installment1Txn.state, transactionId: installment1Txn.id },
+      });
+
       return { status: "declined", detail: installment1Txn.state };
     }
 
