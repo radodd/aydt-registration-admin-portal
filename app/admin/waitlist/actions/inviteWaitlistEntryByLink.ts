@@ -1,23 +1,11 @@
 "use server";
 
-import { Resend } from "resend";
 import { createClient } from "@/utils/supabase/server";
 import { requireAdmin } from "@/utils/requireAdmin";
-import { wrapEmailLayout } from "@/utils/prepareEmailHtml";
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { sendWaitlistOfferEmail, formatExpiryWindow } from "@/utils/email/waitlistOfferEmail";
 
 /** Fallback offer window (hours) when a semester has no waitlist_settings. */
 const DEFAULT_INVITE_EXPIRY_HOURS = 48;
-
-/** Human-readable offer window: whole days read as days, otherwise hours. */
-function formatExpiryWindow(hours: number): string {
-  if (hours > 0 && hours % 24 === 0) {
-    const days = hours / 24;
-    return `${days} day${days === 1 ? "" : "s"}`;
-  }
-  return `${hours} hour${hours === 1 ? "" : "s"}`;
-}
 
 export interface InviteByLinkResult {
   success: boolean;
@@ -87,48 +75,18 @@ export async function inviteWaitlistEntryByLink(
     process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const link = `${siteUrl}/waitlist/accept/${entry.invite_token}`;
 
-  const greeting = entry.contact_name?.trim()
-    ? `Hi ${entry.contact_name},`
-    : "Hi,";
-
-  const content = `
-    <h1 style="font-size:20px;margin:0 0 16px;">A spot is available</h1>
-    <p style="margin:0 0 12px;">${greeting}</p>
-    <p style="margin:0 0 12px;">
-      Good news — a spot has opened in <strong>${className}</strong>${
-        semesterName ? ` (${semesterName})` : ""
-      } and we'd like to offer it to you from the waitlist.
-    </p>
-    <p style="margin:0 0 20px;">
-      To claim your spot, complete your payment using the secure link below.
-      This link expires in ${expiryWindowLabel}.
-    </p>
-    <p style="margin:0 0 24px;">
-      <a href="${link}" style="display:inline-block;background:#7c3a5e;color:#fff;
-        text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;">
-        Complete your registration
-      </a>
-    </p>
-    <p style="margin:0;color:#6b7280;font-size:13px;">
-      If the button doesn't work, paste this link into your browser:<br/>${link}
-    </p>
-  `;
-
-  const fromName = "AYDT Registration";
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@aydt.com";
-
-  try {
-    await resend.emails.send({
-      from: `${fromName} <${fromEmail}>`,
-      to: entry.contact_email,
-      subject: `A spot opened in ${className} — complete your registration`,
-      html: wrapEmailLayout(content),
-    });
-  } catch (err: unknown) {
+  const result = await sendWaitlistOfferEmail({
+    toEmail: entry.contact_email,
+    contactName: entry.contact_name,
+    className,
+    semesterName,
+    claimLink: link,
+    expiryWindowLabel,
+  });
+  if (!result.ok) {
     // The entry is already marked invited; surface the email failure so the
     // admin can retry or reach out manually.
-    const message = err instanceof Error ? err.message : "Email send failed";
-    return { success: false, error: `Invite saved but email failed: ${message}` };
+    return { success: false, error: `Invite saved but email failed: ${result.error}` };
   }
 
   return { success: true };

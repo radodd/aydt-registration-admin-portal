@@ -58,7 +58,9 @@ export async function acceptWaitlistInvite(token: string): Promise<AcceptResult>
   if (error || !entry) {
     return { ok: false, reason: "invalid", message: "This link is not valid." };
   }
-  if (entry.status !== "invited") {
+  // Accept both the admin manual invite ("invited") and an auto-promotion offer
+  // ("offered" — the engine reserved the seat with a waitlist_offer placeholder).
+  if (entry.status !== "invited" && entry.status !== "offered") {
     return {
       ok: false,
       reason: "not_invited",
@@ -164,6 +166,36 @@ export async function acceptWaitlistInvite(token: string): Promise<AcceptResult>
     return { ok: false, reason: "payment", message: orderErr.message };
   }
 
+  // Release the seat that was reserved for this claimer — a waitlist_offer
+  // placeholder (auto-engine) or an admin_reserved hold (refund assignment) — so
+  // capacity has room for the enrollment insert below. Restored if it fails so
+  // the held seat isn't lost.
+  const grainCol = entry.section_id ? "section_id" : entry.meeting_id ? "meeting_id" : null;
+  const grainVal = (entry.section_id as string | null) ?? (entry.meeting_id as string | null);
+  let releasedPlaceholderId: string | null = null;
+  if (grainCol && grainVal) {
+    const { data: ph } = await supabase
+      .from("seat_holds")
+      .select("id")
+      .in("hold_type", ["waitlist_offer", "admin_reserved"])
+      .is("released_at", null)
+      .eq(grainCol, grainVal)
+      .limit(1)
+      .maybeSingle();
+    if (ph) {
+      await supabase
+        .from("seat_holds")
+        .update({ released_at: new Date().toISOString() })
+        .eq("id", (ph as { id: string }).id);
+      releasedPlaceholderId = (ph as { id: string }).id;
+    }
+  }
+  const restorePlaceholder = async () => {
+    if (releasedPlaceholderId) {
+      await supabase.from("seat_holds").update({ released_at: null }).eq("id", releasedPlaceholderId);
+    }
+  };
+
   const holdExpiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
   if (entry.section_id) {
     const { error: enrErr } = await supabase.from("section_enrollments").insert({
@@ -174,7 +206,7 @@ export async function acceptWaitlistInvite(token: string): Promise<AcceptResult>
       status: "pending",
       class_tier_id: (entry.class_tier_id as string | null) ?? null,
     });
-    if (enrErr) return { ok: false, reason: "payment", message: enrErr.message };
+    if (enrErr) { await restorePlaceholder(); return { ok: false, reason: "payment", message: enrErr.message }; }
   } else if (entry.meeting_id) {
     const { error: enrErr } = await supabase.from("meeting_enrollments").insert({
       dancer_id: dancerId,
@@ -184,7 +216,7 @@ export async function acceptWaitlistInvite(token: string): Promise<AcceptResult>
       hold_expires_at: holdExpiresAt,
       registration_batch_id: batchId,
     });
-    if (enrErr) return { ok: false, reason: "payment", message: enrErr.message };
+    if (enrErr) { await restorePlaceholder(); return { ok: false, reason: "payment", message: enrErr.message }; }
   } else {
     return {
       ok: false,
@@ -242,5 +274,14 @@ export async function acceptWaitlistInvite(token: string): Promise<AcceptResult>
   if (!session.url) {
     return { ok: false, reason: "payment", message: "No checkout URL returned." };
   }
+
+  // Mark the entry claimed so the auto-promotion engine stops offering/expiring
+  // it while payment is in flight (the webhook finalizes pending→confirmed). The
+  // seat is now held by the pending enrollment, not the released placeholder.
+  await supabase
+    .from("waitlist_entries")
+    .update({ status: "accepted" })
+    .eq("id", entry.id);
+
   return { ok: true, paymentSessionUrl: session.url };
 }
