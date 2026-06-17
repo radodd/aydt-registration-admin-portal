@@ -13,6 +13,127 @@ const serviceClient = createServiceClient(
 // Refunds blocked after this many days from confirmed_at (standard industry limit)
 const REFUND_WINDOW_DAYS = 180;
 
+// admin_reserved placeholder holds never lapse on their own — they persist until
+// an admin assigns or reopens the seat. Far-future so they always count as active.
+const ADMIN_HOLD_EXPIRY = () => new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString();
+
+/**
+ * Meeting-plan (2026-06-10): a FULL refund withdraws the family, which frees
+ * their seat(s). Per the decision, a refund-freed seat is NOT auto-promoted and
+ * does NOT silently reopen to the public — it is HELD for the admin:
+ *   1. cancel the enrollment row(s) → frees capacity (also fixes the prior bug
+ *      where a refund left the enrollment "confirmed" and the seat occupied);
+ *   2. place an `admin_reserved` placeholder hold on each freed seat so the
+ *      public cannot grab it before the admin acts;
+ *   3. log a `seat_freed` event — the admin then assigns from the waitlist
+ *      (queue present) or reopens to the public (no queue) from /admin/waitlist.
+ *
+ * Best-effort: the financial refund already succeeded, so any failure here is
+ * logged (as an `error` event the admin sees in /admin/logs) but never fails the
+ * response — the seat just needs manual cleanup.
+ */
+async function holdRefundFreedSeats(batchId: string): Promise<void> {
+  const farFuture = ADMIN_HOLD_EXPIRY();
+
+  const [{ data: sections }, { data: meetings }] = await Promise.all([
+    serviceClient
+      .from("section_enrollments")
+      .select("id, section_id, class_sections(class_id, semester_id)")
+      .eq("batch_id", batchId)
+      .neq("status", "cancelled"),
+    serviceClient
+      .from("meeting_enrollments")
+      .select("id, meeting_id, class_meetings(class_id, semester_id)")
+      .eq("registration_batch_id", batchId)
+      .neq("status", "cancelled"),
+  ]);
+
+  type Seat = {
+    grain: "section" | "meeting";
+    table: "section_enrollments" | "meeting_enrollments";
+    enrollmentId: string;
+    sectionId: string | null;
+    meetingId: string | null;
+    classId: string | null;
+    semesterId: string | null;
+  };
+  const seats: Seat[] = [];
+  for (const r of sections ?? []) {
+    const rel: any = Array.isArray((r as any).class_sections) ? (r as any).class_sections[0] : (r as any).class_sections;
+    seats.push({ grain: "section", table: "section_enrollments", enrollmentId: (r as any).id, sectionId: (r as any).section_id, meetingId: null, classId: rel?.class_id ?? null, semesterId: rel?.semester_id ?? null });
+  }
+  for (const r of meetings ?? []) {
+    const rel: any = Array.isArray((r as any).class_meetings) ? (r as any).class_meetings[0] : (r as any).class_meetings;
+    seats.push({ grain: "meeting", table: "meeting_enrollments", enrollmentId: (r as any).id, sectionId: null, meetingId: (r as any).meeting_id, classId: rel?.class_id ?? null, semesterId: rel?.semester_id ?? null });
+  }
+
+  for (const seat of seats) {
+    try {
+      // 1. cancel enrollment → frees capacity
+      const { error: cancelErr } = await serviceClient
+        .from(seat.table)
+        .update({ status: "cancelled" })
+        .eq("id", seat.enrollmentId);
+      if (cancelErr) throw new Error(`cancel ${seat.table}: ${cancelErr.message}`);
+
+      // 2. place the admin_reserved placeholder (held from the public)
+      const { error: holdErr } = await serviceClient.from("seat_holds").insert({
+        section_id: seat.sectionId,
+        meeting_id: seat.meetingId,
+        user_id: null,
+        hold_type: "admin_reserved",
+        semester_id: seat.semesterId,
+        class_id: seat.classId,
+        expires_at: farFuture,
+      });
+      if (holdErr) throw new Error(`placeholder hold: ${holdErr.message}`);
+
+      // 3. queue check drives which admin action will be offered
+      let queueSize = 0;
+      if (seat.classId) {
+        const { count } = await serviceClient
+          .from("waitlist_entries")
+          .select("id", { count: "exact", head: true })
+          .eq("class_id", seat.classId)
+          .eq("status", "waiting");
+        queueSize = count ?? 0;
+      }
+
+      // 4. log the freed seat for the admin surface
+      await serviceClient.from("waitlist_promotion_events").insert({
+        event_type: "seat_freed",
+        severity: "info",
+        class_id: seat.classId,
+        section_id: seat.sectionId,
+        meeting_id: seat.meetingId,
+        semester_id: seat.semesterId,
+        batch_id: batchId,
+        message:
+          queueSize > 0
+            ? `Seat freed by full refund — ${queueSize} on the waitlist; assign from the queue.`
+            : "Seat freed by full refund — no queue; you can reopen it to the public.",
+        detail: { reason: "refund_freed", grain: seat.grain, queue_size: queueSize },
+      });
+    } catch (e) {
+      console.error("[refund-route] free/hold refund seat failed:", e);
+      await serviceClient
+        .from("waitlist_promotion_events")
+        .insert({
+          event_type: "error",
+          severity: "error",
+          class_id: seat.classId,
+          section_id: seat.sectionId,
+          meeting_id: seat.meetingId,
+          semester_id: seat.semesterId,
+          batch_id: batchId,
+          message: "Could not free/hold a refund-freed seat — needs manual cleanup.",
+          detail: { reason: "refund_freed", grain: seat.grain, error: e instanceof Error ? e.message : String(e) },
+        })
+        .then(() => {}, () => {});
+    }
+  }
+}
+
 /**
  * POST /api/admin/payments/refund
  *
@@ -198,6 +319,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .from("registration_orders")
       .update({ status: "refunded" })
       .eq("id", payment.registration_batch_id);
+
+    // Free the seat(s) and hold them for admin assignment / reopen (best-effort).
+    if (payment.registration_batch_id) {
+      await holdRefundFreedSeats(payment.registration_batch_id as string);
+    }
   }
 
   return NextResponse.json({ ok: true, refundId: refundRecord.id }, { status: 201 });

@@ -17,6 +17,7 @@ import {
   UserCheck,
   AlertTriangle,
   ClipboardList,
+  ScrollText,
 } from "lucide-react";
 import { TopBar } from "./_components/TopBar";
 import { MobileNav } from "./_components/MobileNav";
@@ -44,6 +45,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/admin/payments",  label: "Payments",   icon: CreditCard },
       { href: "/admin/warnings",  label: "Warnings",   icon: AlertTriangle },
+      { href: "/admin/logs",      label: "Logs",       icon: ScrollText },
     ],
   },
   {
