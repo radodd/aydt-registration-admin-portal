@@ -2267,3 +2267,81 @@ export interface InstructorStudentNote {
     last_name: string;
   };
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+// Payment error logging — see docs/PAYMENT_ERROR_LOGGING_PLAN.md
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Where the error originated: from the EPG gateway, or inside our app. */
+export type PaymentErrorOrigin = "gateway" | "application";
+
+/** Which capture point recorded the error. */
+export type PaymentErrorSource =
+  | "cron"
+  | "webhook"
+  | "manual_admin"
+  | "hpp_checkout"
+  | "app_internal";
+
+/** Normalized failure category, set by the classifier. */
+export type PaymentErrorCategory =
+  | "decline"
+  | "insufficient_funds"
+  | "card_expired"
+  | "token_expired"
+  | "avs_cvv"
+  | "network"
+  | "api_error"
+  | "3ds_mit"
+  | "idempotency"
+  | "validation"
+  | "bad_state"
+  | "db_error"
+  | "unknown";
+
+/** Who can act on the error. */
+export type PaymentErrorOwnerLane = "admin" | "dev";
+
+export type PaymentErrorSeverity = "info" | "warning" | "critical";
+
+export type PaymentErrorStatus =
+  | "new"
+  | "acknowledged"
+  | "actioned"
+  | "resolved"
+  | "wont_fix";
+
+/** A row in the `payment_error_logs` table — one per failed payment attempt. */
+export interface PaymentErrorLog {
+  id: string;
+  created_at: string;
+
+  origin: PaymentErrorOrigin;
+  source: PaymentErrorSource;
+  category: PaymentErrorCategory;
+  owner_lane: PaymentErrorOwnerLane;
+  severity: PaymentErrorSeverity;
+
+  order_id: string | null;
+  installment_id: string | null;
+  installment_number: number | null;
+  family_id: string | null;
+  dancer_id: string | null;
+
+  transaction_id: string | null;
+  payment_session_id: string | null;
+
+  error_code: string | null;
+  error_message: string | null;
+  http_status: number | null;
+  raw_payload: unknown | null;
+
+  retry_of: string | null;
+  retry_count: number;
+  is_retryable: boolean;
+
+  status: PaymentErrorStatus;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  resolution_notes: string | null;
+}
