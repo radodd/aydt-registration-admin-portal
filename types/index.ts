@@ -499,6 +499,13 @@ export interface PricingInput {
    * loudly so a real parent is never charged for an unpriced class.
    */
   tolerateMissingPrices?: boolean;
+  /**
+   * Meeting-plan #33: option IDs (class_meeting_options.id) the admin/parent has
+   * opted into. REQUIRED add-ons (is_required=true) always apply; OPTIONAL
+   * add-ons apply only when their id is listed here. Omit/empty → only required
+   * add-ons are charged (optional ones default OFF).
+   */
+  selectedAddOnIds?: string[];
 }
 
 export interface LineItem {
@@ -510,7 +517,7 @@ export interface LineItem {
     | "auto_pay_admin_fee"
     | "video_fee"       // senior division: flat fee per registrant
     | "costume_fee"     // senior division: per-class costume fee
-    | "add_on"          // purchasable option attached to a section, auto-applied (class_meeting_options)
+    | "add_on"          // purchasable option attached to a section (class_meeting_options); required ones auto-apply, optional ones apply on opt-in (#33)
     | "session_discount" // custom/multi-session discount rules
     | "coupon_discount"; // promo code or auto-apply coupon
   label: string;
@@ -538,6 +545,24 @@ export interface DancerPricingBreakdown {
   lineItems: LineItem[];
 }
 
+/**
+ * Meeting-plan #33: an add-on (class_meeting_options) available for the quoted
+ * enrollment. Required add-ons are always selected; optional ones are selected
+ * only when opted into. Drives the admin/checkout opt-in picker.
+ */
+export interface AvailableAddOn {
+  /** class_meeting_options.id */
+  id: string;
+  /** class_sections.id this option is attached to */
+  sectionId: string;
+  name: string;
+  description?: string;
+  price: number;
+  isRequired: boolean;
+  /** true when required OR currently in PricingInput.selectedAddOnIds. */
+  selected: boolean;
+}
+
 export interface PricingQuote {
   perDancer: DancerPricingBreakdown[];
   tuitionSubtotal: number;
@@ -551,6 +576,12 @@ export interface PricingQuote {
   grandTotal: number;
   amountDueNow: number;
   lineItems: LineItem[];
+  /**
+   * Meeting-plan #33: every add-on attached to the quoted enrollment's sections
+   * (required + optional), with selection state. The opt-in picker renders the
+   * optional ones; required ones are shown as always-applied.
+   */
+  availableAddOns: AvailableAddOn[];
   paymentSchedule: InstallmentPreview[];
   /**
    * Non-fatal config-completeness problems collected when the caller passes
@@ -1169,12 +1200,25 @@ export type WaitlistConfig = {
  */
 export type WaitlistEntryStatus =
   | "waiting" // on the list, no action taken
+  | "offered" // zero-touch engine extended an auto-offer; seat reserved (approach A)
   | "invited" // admin emailed a tokenized payment link (Path A)
   | "accepted" // legacy auto-model value, retained for back-compat
   | "registered" // converted into a real registration (Path A paid or Path B)
   | "declined"
   | "expired"
   | "cancelled";
+
+/**
+ * Why a waitlist entry / freed seat was routed to MANUAL admin assignment rather
+ * than auto-promotion (2026-06-10 decision: auto only fires for cart-hold
+ * abandonment during registration; everything else is admin-assigned).
+ */
+export type WaitlistManualAssignmentReason =
+  | "refund_freed" // a paid enrollment was refunded/cancelled
+  | "capacity_freed" // an admin raised capacity
+  | "new_prospect" // no dancer row yet; the engine can't auto-enroll
+  | "ambiguous_contention" // couldn't determine first / unsafe to auto-resolve
+  | "engine_error"; // the auto path errored and could not self-remediate
 
 export type WaitlistEntry = {
   id: string;
@@ -1198,10 +1242,63 @@ export type WaitlistEntry = {
   /** Display + invite contact, captured even for brand-new (no-account) users. */
   contactName: string | null;
   contactEmail: string | null;
-  /** Tokenized Path-A invite link bookkeeping. */
+  /**
+   * Tokenized Path-A invite link bookkeeping. Reused as the OFFER window for the
+   * zero-touch engine: invitationSentAt = offer sent, invitationExpiresAt = claim
+   * deadline (status "offered").
+   */
   inviteToken: string;
   invitationSentAt: string | null;
   invitationExpiresAt: string | null;
+  /**
+   * Approach A: the pending registration_orders row reserving the seat during an
+   * active offer. Confirmed on claim; its enrollment is cancelled if the offer lapses.
+   */
+  reservedBatchId: string | null;
+  /** Routed to admin manual assignment instead of auto-promotion. */
+  needsManualAssignment: boolean;
+  manualAssignmentReason: WaitlistManualAssignmentReason | null;
+  /** Times this entry has been offered then lapsed — roll-to-next loop-safety. */
+  offerAttempts: number;
+};
+
+/**
+ * Zero-touch auto-promotion event/error log (table `waitlist_promotion_events`).
+ * Powers the admin Logs view; written by the auto-promote engine + manual-assign
+ * action. Modeled on enrollment_warnings.
+ */
+export type WaitlistPromotionEventType =
+  | "seat_freed" // a hold lapsed / enrollment cancelled / capacity raised
+  | "offer_created" // front-of-queue reserved (pending order) + offer opened
+  | "offer_sent" // claim email dispatched
+  | "offer_reminder_sent" // reminder before expiry
+  | "offer_claimed" // claimer paid → enrolled
+  | "offer_expired" // window lapsed, seat released back
+  | "rolled_to_next" // offer moved to the next person in queue
+  | "queue_emptied" // no one left to offer
+  | "reopened_to_public" // seat returned to the public catalog
+  | "manual_fallback_flagged" // ambiguous/unrecoverable → admin must assign
+  | "manual_assigned" // an admin assigned the seat by hand
+  | "error"; // engine could not self-remediate (see detail)
+
+export type WaitlistPromotionEventSeverity = "info" | "warn" | "error";
+
+export type WaitlistPromotionEvent = {
+  id: string;
+  eventType: WaitlistPromotionEventType;
+  severity: WaitlistPromotionEventSeverity;
+  waitlistEntryId: string | null;
+  classId: string | null;
+  sectionId: string | null;
+  meetingId: string | null;
+  semesterId: string | null;
+  batchId: string | null;
+  message: string;
+  detail: Record<string, unknown>;
+  isReviewed: boolean;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
 };
 
 export type SemesterDraft = {
@@ -1441,6 +1538,8 @@ export type PaymentStepProps = {
   onNext: () => void;
   onBack: () => void;
   isLocked?: boolean;
+  /** True while the wizard is persisting the draft — drives the Next button's saving state. */
+  isSaving?: boolean;
 };
 
 export type DiscountsStepProps = {
@@ -2233,4 +2332,82 @@ export interface InstructorStudentNote {
     first_name: string;
     last_name: string;
   };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Payment error logging — see docs/PAYMENT_ERROR_LOGGING_PLAN.md
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Where the error originated: from the EPG gateway, or inside our app. */
+export type PaymentErrorOrigin = "gateway" | "application";
+
+/** Which capture point recorded the error. */
+export type PaymentErrorSource =
+  | "cron"
+  | "webhook"
+  | "manual_admin"
+  | "hpp_checkout"
+  | "app_internal";
+
+/** Normalized failure category, set by the classifier. */
+export type PaymentErrorCategory =
+  | "decline"
+  | "insufficient_funds"
+  | "card_expired"
+  | "token_expired"
+  | "avs_cvv"
+  | "network"
+  | "api_error"
+  | "3ds_mit"
+  | "idempotency"
+  | "validation"
+  | "bad_state"
+  | "db_error"
+  | "unknown";
+
+/** Who can act on the error. */
+export type PaymentErrorOwnerLane = "admin" | "dev";
+
+export type PaymentErrorSeverity = "info" | "warning" | "critical";
+
+export type PaymentErrorStatus =
+  | "new"
+  | "acknowledged"
+  | "actioned"
+  | "resolved"
+  | "wont_fix";
+
+/** A row in the `payment_error_logs` table — one per failed payment attempt. */
+export interface PaymentErrorLog {
+  id: string;
+  created_at: string;
+
+  origin: PaymentErrorOrigin;
+  source: PaymentErrorSource;
+  category: PaymentErrorCategory;
+  owner_lane: PaymentErrorOwnerLane;
+  severity: PaymentErrorSeverity;
+
+  order_id: string | null;
+  installment_id: string | null;
+  installment_number: number | null;
+  family_id: string | null;
+  dancer_id: string | null;
+
+  transaction_id: string | null;
+  payment_session_id: string | null;
+
+  error_code: string | null;
+  error_message: string | null;
+  http_status: number | null;
+  raw_payload: unknown | null;
+
+  retry_of: string | null;
+  retry_count: number;
+  is_retryable: boolean;
+
+  status: PaymentErrorStatus;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  resolution_notes: string | null;
 }

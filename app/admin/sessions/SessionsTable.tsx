@@ -3,6 +3,7 @@
 import { useState, useTransition, useMemo } from "react";
 import { cancelClass, type EnrolledFamily } from "@/app/admin/semesters/actions/cancelClass";
 import { issueBulkCredits } from "@/app/admin/credits/actions/issueBulkCredits";
+import { useToast } from "@/app/components/Toast";
 
 interface SessionRow {
   id: string;
@@ -57,7 +58,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
   const [rows, setRows] = useState<SessionRow[]>(sessions);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -164,11 +165,10 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
         return;
       }
       setRows((prev) => prev.filter((s) => s.id !== cancellingId));
-      setToast(
+      toast.success(
         `Session cancelled. ${result.notified ?? 0} famil${(result.notified ?? 0) === 1 ? "y" : "ies"} notified.`
       );
       closeModal();
-      setTimeout(() => setToast(null), 5000);
 
       // Offer bulk credit issuance if there were enrolled families
       if (result.enrolledFamilies && result.enrolledFamilies.length > 0) {
@@ -206,8 +206,7 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
     }
     const n = result.count ?? bulkCreditData.enrolledFamilies.length;
     setBulkCreditData(null);
-    setToast(`Credits issued to ${n} famil${n === 1 ? "y" : "ies"}.`);
-    setTimeout(() => setToast(null), 5000);
+    toast.success(`Credits issued to ${n} famil${n === 1 ? "y" : "ies"}.`);
   }
 
   const cancellingSession = rows.find((s) => s.id === cancellingId) ?? null;
@@ -281,13 +280,6 @@ export function SessionsTable({ sessions, registrationCounts, filterOptions }: P
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Toast — above mobile tab bar */}
-      {toast && (
-        <div className="fixed bottom-24 md:bottom-6 right-4 md:right-6 z-50 bg-green-700 text-white text-sm px-4 py-3 rounded-lg shadow-lg">
-          {toast}
         </div>
       )}
 

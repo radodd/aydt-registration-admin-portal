@@ -4,12 +4,12 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { DashboardRightPanel } from "./_components/DashboardRightPanel";
 import { EmailsTabSection } from "./_components/EmailsTabSection";
 import { Badge } from "@/app/components/ui";
 import type { BadgeStatus } from "@/app/components/ui";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Plus } from "lucide-react";
 import { archiveSemester } from "./semesters/actions/archiveSemester";
+import { deleteSemester } from "./semesters/actions/deleteSemester";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 
@@ -268,15 +268,19 @@ const STATUS_PRIORITY: Record<string, number> = { published: 0, scheduled: 1 };
 function OverviewTab({
   data,
   onSemesterArchived,
+  onSemesterDeleted,
 }: {
   data: DashboardData;
   onSemesterArchived: (id: string) => void;
+  onSemesterDeleted: (id: string) => void;
 }) {
   const { activeSemesters, recentRegs, totalEnrolled, openSemesterCount, activeClassCount } = data;
   const [search, setSearch] = useState("");
   const [statusSort, setStatusSort] = useState<"asc" | "desc" | null>(null);
   const [confirmArchiveId, setConfirmArchiveId] = useState<string | null>(null);
   const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [openRegMenuId, setOpenRegMenuId] = useState<string | null>(null);
   const [semView, setSemView] = useState<"active" | "past">("active");
@@ -332,6 +336,20 @@ function OverviewTab({
     }
   }
 
+  async function handleDelete(id: string) {
+    setDeletingId(id);
+    try {
+      await deleteSemester(id);
+      // Remove from whichever list it lives in (active or past).
+      setArchivedSemesters((prev) => prev.filter((s) => s.id !== id));
+      onSemesterDeleted(id);
+    } finally {
+      setDeletingId(null);
+      setConfirmDeleteId(null);
+      setOpenMenuId(null);
+    }
+  }
+
   const SortIcon =
     statusSort === "asc"
       ? ArrowUp
@@ -342,7 +360,7 @@ function OverviewTab({
   return (
     <>
     {(openMenuId || openRegMenuId) && (
-      <div className="fixed inset-0 z-10" onClick={() => { setOpenMenuId(null); setConfirmArchiveId(null); setOpenRegMenuId(null); }} />
+      <div className="fixed inset-0 z-10" onClick={() => { setOpenMenuId(null); setConfirmArchiveId(null); setConfirmDeleteId(null); setOpenRegMenuId(null); }} />
     )}
     <div className="space-y-3 md:space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 md:gap-3">
@@ -521,6 +539,7 @@ function OverviewTab({
                       e.stopPropagation();
                       setOpenMenuId(openMenuId === s.id ? null : s.id);
                       setConfirmArchiveId(null);
+                      setConfirmDeleteId(null);
                     }}
                     className="w-6 h-6 flex items-center justify-center rounded transition-colors hover:opacity-70"
                     style={{
@@ -603,6 +622,46 @@ function OverviewTab({
                           onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                         >
                           Archive
+                        </button>
+                      )}
+                      <div style={{ height: "1px", background: "var(--admin-border-sub)", margin: "2px 0" }} />
+                      {confirmDeleteId === s.id ? (
+                        <div className="px-3.5 py-2">
+                          <p className="text-[11px] mb-1.5" style={{ color: "var(--admin-text-muted)" }}>
+                            Delete permanently?
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleDelete(s.id)}
+                              disabled={deletingId === s.id}
+                              className="text-[11px] font-medium px-2 py-1 rounded"
+                              style={{
+                                color: "#fff",
+                                background: "#B91C1C",
+                                opacity: deletingId === s.id ? 0.6 : 1,
+                                cursor: deletingId === s.id ? "not-allowed" : "pointer",
+                              }}
+                            >
+                              {deletingId === s.id ? "Deleting…" : "Delete"}
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="text-[11px]"
+                              style={{ color: "var(--admin-text-faint)" }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(s.id)}
+                          className="w-full text-left flex items-center px-3.5 py-2 text-[12px] transition-colors"
+                          style={{ color: "#B91C1C", background: "transparent" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(185,28,28,.06)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          Delete
                         </button>
                       )}
                     </div>
@@ -1501,15 +1560,18 @@ export default function AdminDashboardPage() {
       const supabase = createClient();
       try {
 
-      // Active semesters
+      // Active semesters — drafts included so they surface on the dashboard
+      // (this is the single source of truth; the old /admin/semesters list redirects here).
       const { data: semesters } = await supabase
         .from("semesters")
         .select("id, name, status, publish_at, created_at")
-        .in("status", ["published", "scheduled"])
+        .in("status", ["published", "scheduled", "draft"])
         .order("created_at", { ascending: false });
 
-      // Distinct classes across open semesters
-      const activeSemesterIds = (semesters ?? []).map((s) => s.id);
+      // Distinct classes across open semesters — drafts excluded so the metric stays "open" only.
+      const activeSemesterIds = (semesters ?? [])
+        .filter((s) => s.status !== "draft")
+        .map((s) => s.id);
       let activeClassCount = 0;
       if (activeSemesterIds.length > 0) {
         const { data: activeClassSessions } = await supabase
@@ -1743,36 +1805,47 @@ export default function AdminDashboardPage() {
     <div className="flex gap-0 min-w-0 md:-mx-8 md:-my-8" style={{ minHeight: "calc(100vh - 56px)" }}>
       {/* Tab content */}
       <div className="flex-1 min-w-0 w-0 overflow-y-auto overflow-x-hidden">
-        {/* Secondary nav tabs — sticky so they stay visible while scrolling */}
+        {/* Secondary nav tabs — sticky so they stay visible while scrolling.
+            Register dancer relocated here from the global header. */}
         <div
-          className="flex border-b px-0 md:px-8 overflow-x-auto sticky top-0 z-10"
+          className="flex items-center justify-between border-b px-0 md:px-8 sticky top-0 z-10"
           style={{
             background: "var(--admin-surface)",
             borderColor: "var(--admin-border)",
           }}
         >
-          {TABS.map((t) => {
-            const active = activeTab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setActiveTab(t.key)}
-                className="px-3.5 py-2.5 text-[12px] transition-colors border-b-2"
-                style={{
-                  borderBottomColor: active ? "var(--admin-sidebar-active)" : "transparent",
-                  color: active ? "var(--admin-sidebar-active)" : "var(--admin-text-muted)",
-                  fontWeight: active ? 500 : 400,
-                  fontFamily: "var(--font-outfit)",
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: `2px solid ${active ? "var(--admin-sidebar-active)" : "transparent"}`,
-                  cursor: "pointer",
-                }}
-              >
-                {t.label}
-              </button>
-            );
-          })}
+          <div className="flex overflow-x-auto">
+            {TABS.map((t) => {
+              const active = activeTab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setActiveTab(t.key)}
+                  className="px-3.5 py-2.5 text-[12px] transition-colors border-b-2"
+                  style={{
+                    borderBottomColor: active ? "var(--admin-sidebar-active)" : "transparent",
+                    color: active ? "var(--admin-sidebar-active)" : "var(--admin-text-muted)",
+                    fontWeight: active ? 500 : 400,
+                    fontFamily: "var(--font-outfit)",
+                    background: "transparent",
+                    border: "none",
+                    borderBottom: `2px solid ${active ? "var(--admin-sidebar-active)" : "transparent"}`,
+                    cursor: "pointer",
+                  }}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+          <Link
+            href="/admin/register"
+            className="admin-btn-primary hidden md:inline-flex items-center gap-1.5 shrink-0 ml-3"
+            style={{ fontSize: "13px", padding: "7px 14px" }}
+          >
+            <Plus size={14} />
+            Register dancer
+          </Link>
         </div>
 
         {/* Tab body */}
@@ -1791,17 +1864,23 @@ export default function AdminDashboardPage() {
                     : prev
                 )
               }
+              onSemesterDeleted={(id) =>
+                setData((prev) => {
+                  if (!prev) return prev;
+                  const activeSemesters = prev.activeSemesters.filter((s) => s.id !== id);
+                  return {
+                    ...prev,
+                    activeSemesters,
+                    openSemesterCount: activeSemesters.filter((s) => s.status === "published").length,
+                  };
+                })
+              }
             />
           )}
           {activeTab === "people"   && <PeopleTab   peopleData={peopleData} loading={peopleLoading} />}
           {activeTab === "finance"  && <FinanceTab  data={data} />}
           {activeTab === "emails"   && <EmailsTabSection />}
         </div>
-      </div>
-
-      {/* Right panel — hidden on smaller screens */}
-      <div className="hidden lg:block">
-        <DashboardRightPanel emailsMode={activeTab === "emails"} />
       </div>
     </div>
   );

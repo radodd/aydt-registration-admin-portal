@@ -17,9 +17,11 @@ import {
   UserCheck,
   AlertTriangle,
   ClipboardList,
+  ScrollText,
 } from "lucide-react";
 import { TopBar } from "./_components/TopBar";
 import { MobileNav } from "./_components/MobileNav";
+import { ToastProvider } from "@/app/components/Toast";
 
 /* ── Desktop sidebar nav structure ─────────────────────────────── */
 const NAV_GROUPS = [
@@ -43,6 +45,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/admin/payments",  label: "Payments",   icon: CreditCard },
       { href: "/admin/warnings",  label: "Warnings",   icon: AlertTriangle },
+      { href: "/admin/logs",      label: "Logs",       icon: ScrollText },
     ],
   },
   {
@@ -115,6 +118,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   return (
+    <ToastProvider>
     <div className="admin-shell flex">
 
       {/* ── Desktop sidebar (hidden on mobile via transform) ─────── */}
@@ -251,5 +255,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <MobileNav />
 
     </div>
+    </ToastProvider>
   );
 }

@@ -14,6 +14,7 @@ import {
   SessionsStepProps,
 } from "@/types";
 import { useState, useEffect, useRef, useTransition } from "react";
+import { Loader2 } from "lucide-react";
 import { calculateClassTuition } from "@/utils/tuitionEngine";
 import { getRequirementWaivers, type RequirementWaiverRow } from "@/app/admin/semesters/actions/getRequirementWaivers";
 import { grantRequirementWaiver } from "@/app/admin/semesters/actions/grantRequirementWaiver";
@@ -1113,9 +1114,16 @@ function ClassEditPanel({
             type="button"
             onClick={onSaveDraft ? handleSaveClass : onClose}
             disabled={isSavingClass}
-            className="shrink-0 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 px-4 py-2 rounded-xl transition"
+            className="shrink-0 inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 disabled:bg-primary-400 px-4 py-2 rounded-xl transition"
           >
-            {isSavingClass ? "Saving…" : "Save class"}
+            {isSavingClass ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Saving…
+              </>
+            ) : (
+              "Save class"
+            )}
           </button>
         </div>
       </div>

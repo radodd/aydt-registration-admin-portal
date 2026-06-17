@@ -240,6 +240,14 @@ export interface CartState {
   items: CartItem[];
   /** ISO timestamp — 20m from last mutation */
   expiresAt: string;
+  /**
+   * Meeting-plan #33: representative class_meeting_options.id values for the
+   * OPTIONAL add-ons the family has opted into. Persists with the cart so the
+   * selection survives the cart → checkout navigation (and reload). Required
+   * add-ons are never listed here — they always apply. Optional; legacy carts
+   * without it default to no selections.
+   */
+  selectedAddOnIds?: string[];
 }
 
 /* -------------------------------------------------------------------------- */

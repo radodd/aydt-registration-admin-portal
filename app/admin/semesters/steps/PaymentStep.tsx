@@ -8,6 +8,7 @@ import {
   PaymentStepProps,
 } from "@/types";
 import React, { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 
 /* -------------------------------------------------------------------------- */
@@ -140,6 +141,7 @@ export default function PaymentStep({
   onNext,
   onBack,
   isLocked = false,
+  isSaving = false,
 }: PaymentStepProps) {
   const [activeSubStep, setActiveSubStep] = useState<SubStep>("plans");
 
@@ -194,6 +196,33 @@ export default function PaymentStep({
           .filter((i) => i >= 0),
       ),
   );
+
+  // Meeting-plan #32: persist the reg-fee-exempt toggle the moment it changes.
+  // Previously the selection was only merged into the draft inside handleSubmit
+  // (this step's primary button), so toggling a pill and then saving via the
+  // top-bar Save or the footer Next button silently dropped the change. Merging
+  // on every toggle keeps state.sessions (and the synced stateRef) current, so
+  // any save path persists it.
+  function toggleRegFeeExempt(idx: number) {
+    const next = new Set(regFeeExemptIdxs);
+    if (next.has(idx)) next.delete(idx);
+    else next.add(idx);
+    setRegFeeExemptIdxs(next);
+
+    const classes = state.sessions?.classes;
+    if (classes?.length) {
+      dispatch({
+        type: "SET_SESSIONS",
+        payload: {
+          ...state.sessions,
+          classes: classes.map((c, ci) => ({
+            ...c,
+            registrationFeeExempt: next.has(ci),
+          })),
+        },
+      });
+    }
+  }
 
   /* ------------------------------------------------------------------------ */
   /* Handlers — plans                                                          */
@@ -2109,14 +2138,7 @@ export default function PaymentStep({
                           key={cls.id ?? `idx-${i}`}
                           type="button"
                           disabled={isLocked}
-                          onClick={() => {
-                            setRegFeeExemptIdxs((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(i)) next.delete(i);
-                              else next.add(i);
-                              return next;
-                            });
-                          }}
+                          onClick={() => toggleRegFeeExempt(i)}
                           className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all disabled:opacity-50"
                           style={{
                             background: checked ? "#FDF2F1" : "var(--admin-surface-sub)",
@@ -2310,8 +2332,19 @@ export default function PaymentStep({
           <button onClick={onBack} className="admin-btn-outline">
             ← Back
           </button>
-          <button onClick={handleSubmit} className="admin-btn-primary">
-            Next →
+          <button
+            onClick={handleSubmit}
+            disabled={isSaving}
+            className="admin-btn-primary inline-flex items-center gap-1.5 disabled:opacity-60"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Saving…
+              </>
+            ) : (
+              "Next →"
+            )}
           </button>
         </div>
     </div>

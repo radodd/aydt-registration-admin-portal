@@ -8,6 +8,7 @@ import { getApplicableCredits, markCreditsUsed } from "@/queries/credits";
 import { joinWaitlist } from "./joinWaitlist";
 import type { NewDancerDraft } from "@/types/public";
 import type { PricingQuote } from "@/types";
+import { logPaymentError } from "@/utils/payment/logPaymentError";
 
 /**
  * The capacity triggers (check_session_capacity / check_schedule_enrollment_capacity)
@@ -49,6 +50,8 @@ export interface CreateRegistrationsInput {
   pricingQuote?: PricingQuote;
   /** Optional coupon code entered by the parent at checkout. */
   couponCode?: string;
+  /** Meeting-plan #33: optional add-on option ids the family opted into. */
+  selectedAddOnIds?: string[];
   /** IDs of family_account_credits rows to apply toward this batch. */
   creditIdsToApply?: string[];
   /** Total credit amount (dollars) client computed — server validates against DB rows. */
@@ -330,12 +333,26 @@ export async function createRegistrations(
           ? "auto_pay_monthly"
           : "pay_in_full",
       couponCode: input.couponCode,
+      // #33: must match the client quote (which included these) or the
+      // price-change guard below would reject the registration.
+      selectedAddOnIds: input.selectedAddOnIds,
     });
   } catch (err) {
     // Pricing failed — still allow registration but with zero totals
     pricingError =
       err instanceof Error ? err.message : "Pricing computation failed";
     console.warn("[createRegistrations] Pricing failed:", pricingError);
+    // Application-internal: pricing computation threw, so the order proceeds with
+    // ZERO totals — a real money bug that was previously silent. Dev-actionable.
+    // (orderId is null here — the registration_orders row isn't inserted yet.)
+    await logPaymentError({
+      origin: "application",
+      source: "app_internal",
+      category: "bad_state",
+      familyId: earlyFamilyId,
+      errorMessage: `Pricing computation failed on public registration: ${pricingError}`,
+      rawPayload: { batchId: input.batchId, semesterId: input.semesterId },
+    });
   }
 
   // 5. Validate client quote matches server quote (if both available)

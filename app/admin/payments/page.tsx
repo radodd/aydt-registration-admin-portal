@@ -6,7 +6,8 @@ import { markInstallmentPaid } from "./actions/markInstallmentPaid";
 import { waiveInstallment } from "./actions/waiveInstallment";
 import { sendPaymentReminder } from "./actions/sendPaymentReminder";
 import { issueAccountCredit } from "@/app/admin/credits/actions/issueAccountCredit";
-import { PaymentsRightPanel } from "@/app/admin/_components/PaymentsRightPanel";
+import { PaymentErrorLog } from "./PaymentErrorLog";
+import { useToast } from "@/app/components/Toast";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                       */
@@ -143,17 +144,6 @@ const EPG_STATE_BADGE: Record<string, string> = {
   held_for_review: "bg-mauve/20 text-mauve-text",
 };
 
-const TABS = ["all", "pending", "partial", "confirmed", "failed", "refunded", "overdue"] as const;
-const TAB_LABELS: Record<string, string> = {
-  all: "All",
-  pending: "Pending",
-  partial: "Partial",
-  confirmed: "Confirmed",
-  failed: "Failed",
-  refunded: "Refunded",
-  overdue: "Overdue",
-};
-
 /* -------------------------------------------------------------------------- */
 /* Page                                                                        */
 /* -------------------------------------------------------------------------- */
@@ -165,7 +155,13 @@ export default function PaymentsAdmin() {
   const [waivingId, setWaivingId] = useState<string | null>(null);
 
   // UI state
-  const [currentTab, setCurrentTab] = useState("all");
+  const [section, setSection] = useState<"transactions" | "errors">("transactions"); // elevated section tabs
+  const [currentTab, setCurrentTab] = useState("all"); // status filter value
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+  const [sortMode, setSortMode] = useState<"priority" | "amount" | "name" | "recent">("priority");
+  const [selectedTerm, setSelectedTerm] = useState("all"); // semester name filter
+  const [termMenuOpen, setTermMenuOpen] = useState(false);
+  const [newErrorCount, setNewErrorCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterDateFrom, setFilterDateFrom] = useState("");
@@ -181,7 +177,7 @@ export default function PaymentsAdmin() {
   const [creditReason, setCreditReason] = useState("");
   const [creditError, setCreditError] = useState("");
   const [creditSubmitting, setCreditSubmitting] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const toast = useToast();
 
   // Void/refund modal state
   type VoidRefundModal = {
@@ -264,6 +260,36 @@ export default function PaymentsAdmin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // New (unresolved) error count for the Error Log section badge.
+  useEffect(() => {
+    (async () => {
+      const supabase = createClient();
+      const { count } = await supabase
+        .from("payment_error_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "new");
+      setNewErrorCount(count ?? 0);
+    })();
+  }, []);
+
+  // Close the term / status dropdowns on outside click.
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      const t = e.target as HTMLElement;
+      if (!t.closest("[data-pdd]")) {
+        setTermMenuOpen(false);
+        setStatusMenuOpen(false);
+      }
+    }
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
+
+  function cycleSort() {
+    const order: Array<typeof sortMode> = ["priority", "amount", "name", "recent"];
+    setSortMode((m) => order[(order.indexOf(m) + 1) % order.length]);
+  }
+
   async function loadRefundHistory(batchId: string) {
     const supabase = createClient();
     const { data } = await supabase
@@ -301,8 +327,7 @@ export default function PaymentsAdmin() {
   }
 
   function showToast(msg: string, type: "success" | "error" = "success") {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 5000);
+    toast.show(msg, type);
   }
 
   function openVoidRefundModal(batch: BatchRow, type: "void" | "refund") {
@@ -532,8 +557,46 @@ export default function PaymentsAdmin() {
     if (key === "date") { setFilterDateFrom(""); setFilterDateTo(""); }
   }
 
-  // Filtered batches
+  // ── Term (semester) options derived from loaded batches ──
+  const allTermNames = Array.from(
+    new Set(batches.map((b) => b.semesters?.name).filter(Boolean) as string[]),
+  ).sort();
+
+  function matchTerm(b: BatchRow): boolean {
+    if (selectedTerm === "all") return true;
+    return (b.semesters?.name ?? null) === selectedTerm;
+  }
+
+  function hasOverdueInstallment(b: BatchRow): boolean {
+    return (b.order_payment_installments ?? []).some((i) => i.status === "overdue");
+  }
+
+  // Status predicate shared by the filter and the status-dropdown counts.
+  function matchStatus(b: BatchRow, status: string): boolean {
+    if (status === "all") return true;
+    if (status === "attention") return b.status === "failed" || hasOverdueInstallment(b);
+    if (status === "overdue") return hasOverdueInstallment(b);
+    if (status === "pending") return b.status === "pending_payment";
+    return b.status === status;
+  }
+
+  // How much has actually been collected on an order (mirrors the
+  // expanded-detail logic; pay-in-full confirmed orders have no
+  // installment rows, so fall back to the grand total).
+  function batchCollected(b: BatchRow): number {
+    const insts = b.order_payment_installments ?? [];
+    if (insts.length === 0) {
+      return b.status === "confirmed" && b.grand_total != null ? Number(b.grand_total) : 0;
+    }
+    return insts.reduce((s, i) => {
+      if (i.status === "paid") return s + Number(i.paid_amount ?? i.amount_due);
+      return s + Number(i.paid_amount ?? 0);
+    }, 0);
+  }
+
+  // Filtered batches (term + search + date/class filter + status)
   const filteredBatches = batches.filter((b) => {
+    if (!matchTerm(b)) return false;
     const parent = b.users as any;
     const name = parent ? `${parent.first_name} ${parent.last_name}` : "";
     if (searchQuery && !name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -546,18 +609,80 @@ export default function PaymentsAdmin() {
       );
       if (!hasClass) return false;
     }
-    if (currentTab === "all") return true;
-    if (currentTab === "overdue") return (b.order_payment_installments ?? []).some((i) => i.status === "overdue");
-    if (currentTab === "pending") return b.status === "pending_payment";
-    return b.status === currentTab;
+    return matchStatus(b, currentTab);
   });
 
-  function tabCount(tab: string): number {
-    if (tab === "all") return batches.length;
-    if (tab === "overdue") return batches.filter((b) => (b.order_payment_installments ?? []).some((i) => i.status === "overdue")).length;
-    if (tab === "pending") return batches.filter((b) => b.status === "pending_payment").length;
-    return batches.filter((b) => b.status === tab).length;
+  // Sort the filtered batches by the active sort mode.
+  function priorityRank(b: BatchRow): number {
+    if (hasOverdueInstallment(b)) return 0;
+    if (b.status === "failed") return 1;
+    if (b.status === "partial" || b.status === "pending_payment") return 2;
+    if (b.status === "confirmed") return 3;
+    return 4;
   }
+  const sortedBatches = [...filteredBatches].sort((a, b) => {
+    if (sortMode === "priority") {
+      return priorityRank(a) - priorityRank(b) || (Number(b.grand_total ?? 0) - Number(a.grand_total ?? 0));
+    }
+    if (sortMode === "amount") return Number(b.grand_total ?? 0) - Number(a.grand_total ?? 0);
+    if (sortMode === "name") {
+      const an = `${a.users?.first_name ?? ""} ${a.users?.last_name ?? ""}`.trim();
+      const bn = `${b.users?.first_name ?? ""} ${b.users?.last_name ?? ""}`.trim();
+      return an.localeCompare(bn);
+    }
+    // recent — most recently created first
+    return b.created_at.localeCompare(a.created_at);
+  });
+
+  // Count for a given status within the currently-selected term.
+  function tabCount(tab: string): number {
+    return batches.filter((b) => matchTerm(b) && matchStatus(b, tab)).length;
+  }
+
+  // ── Term-scoped financial summary (stat cards + collection bar) ──
+  const termBatches = batches.filter(matchTerm);
+  const collectedTotal = termBatches.reduce((s, b) => s + batchCollected(b), 0);
+  const confirmedCount = termBatches.filter((b) => b.status === "confirmed").length;
+  const outstandingTotal = termBatches.reduce((s, b) => {
+    return s + (b.order_payment_installments ?? [])
+      .filter((i) => i.status === "scheduled" || i.status === "overdue")
+      .reduce((t, i) => t + Number(i.amount_due ?? 0), 0);
+  }, 0);
+  const upcomingCount = termBatches.reduce(
+    (s, b) => s + (b.order_payment_installments ?? []).filter((i) => i.status === "scheduled").length,
+    0,
+  );
+  const overdueTotal = termBatches.reduce((s, b) => {
+    return s + (b.order_payment_installments ?? [])
+      .filter((i) => i.status === "overdue")
+      .reduce((t, i) => t + Number(i.amount_due ?? 0), 0);
+  }, 0);
+  const overdueFamilies = new Set(
+    termBatches.filter(hasOverdueInstallment).map((b) => b.family_id ?? b.id),
+  ).size;
+  const attentionCount = termBatches.filter((b) => b.status === "failed" || hasOverdueInstallment(b)).length;
+  const expectedTotal = collectedTotal + outstandingTotal;
+  const collectedPct = expectedTotal > 0 ? Math.round((collectedTotal / expectedTotal) * 100) : 0;
+
+  const STATUS_OPTIONS: Array<{ k: string; l: string; risk?: boolean }> = [
+    { k: "all", l: "All" },
+    { k: "attention", l: "Needs attention", risk: true },
+    { k: "pending", l: "Pending" },
+    { k: "partial", l: "Partial" },
+    { k: "confirmed", l: "Confirmed" },
+    { k: "failed", l: "Failed", risk: true },
+    { k: "refunded", l: "Refunded" },
+    { k: "overdue", l: "Overdue", risk: true },
+  ];
+  const SORT_OPTIONS: Array<{ k: typeof sortMode; l: string }> = [
+    { k: "priority", l: "Priority" },
+    { k: "amount", l: "Amount" },
+    { k: "name", l: "Name" },
+    { k: "recent", l: "Recent" },
+  ];
+  const currentStatusLabel = STATUS_OPTIONS.find((s) => s.k === currentTab)?.l ?? "All";
+  const currentSortLabel = SORT_OPTIONS.find((s) => s.k === sortMode)?.l ?? "Priority";
+  const currentTermLabel = selectedTerm === "all" ? "All terms" : selectedTerm;
 
   function getBatchLineItems(batch: BatchRow) {
     const items: Array<{ desc: string; type: string; qty: number; price: number }> = [];
@@ -605,47 +730,21 @@ export default function PaymentsAdmin() {
 
   if (loading) {
     return (
-      <div className="flex gap-0 md:-mx-8 md:-my-8" style={{ minHeight: "calc(100vh - 56px)" }}>
-        <main className="flex-1 px-4 py-4 md:px-7 md:py-6">
-          <div
-            className="rounded-xl p-8 text-sm"
-            style={{
-              background: "var(--admin-surface)",
-              border: "0.5px solid var(--admin-border)",
-              color: "var(--admin-text-faint)",
-            }}
-          >
-            Loading payments…
-          </div>
-        </main>
-        <div className="hidden lg:block">
-          <PaymentsRightPanel />
-        </div>
+      <div
+        className="rounded-xl p-8 text-sm"
+        style={{
+          background: "var(--admin-surface)",
+          border: "0.5px solid var(--admin-border)",
+          color: "var(--admin-text-faint)",
+        }}
+      >
+        Loading payments…
       </div>
     );
   }
 
   return (
-    <div className="flex gap-0 -mx-4 -my-4 md:-mx-8 md:-my-8" style={{ minHeight: "calc(100vh - 52px)" }}>
-      <main className="flex-1 overflow-y-auto py-4 md:px-7 md:py-6 min-w-0">
-
-        {/* Toast */}
-        {toast && (
-          <div
-            className="fixed bottom-6 right-6 z-50 text-sm px-4 py-3 rounded-lg shadow-lg"
-            style={{
-              background: toast.type === "error"
-                ? "var(--shared-toast-error-bg)"
-                : "var(--shared-toast-success-bg)",
-              color: toast.type === "error"
-                ? "var(--shared-toast-error-text)"
-                : "var(--shared-toast-success-text)",
-              border: `1px solid ${toast.type === "error" ? "var(--shared-toast-error-border)" : "var(--shared-toast-success-border)"}`,
-            }}
-          >
-            {toast.msg}
-          </div>
-        )}
+    <div className="min-w-0">
 
         {/* Issue Credit Modal */}
         {creditBatch && (
@@ -961,13 +1060,163 @@ export default function PaymentsAdmin() {
           </div>
         )}
 
-        {/* Page header */}
-        <h1 className="text-[20px] font-medium mb-4" style={{ color: "var(--admin-text)" }}>
-          Payments
-        </h1>
+        {/* ── Elevated section tabs ── */}
+        <div className="flex items-center gap-7 mb-5" style={{ borderBottom: "0.5px solid var(--admin-border)" }}>
+          {([
+            { k: "transactions", l: "Transactions" },
+            { k: "errors", l: "Error Log" },
+          ] as const).map((s) => {
+            const active = section === s.k;
+            return (
+              <button
+                key={s.k}
+                type="button"
+                onClick={() => setSection(s.k)}
+                className="relative inline-flex items-center gap-2 pb-3 text-[14.5px]"
+                style={{
+                  color: active ? "var(--admin-text)" : "var(--admin-text-muted)",
+                  fontWeight: active ? 600 : 500,
+                  borderBottom: `2px solid ${active ? "var(--admin-sidebar-active)" : "transparent"}`,
+                  marginBottom: "-0.5px",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {s.l}
+                {s.k === "errors" && newErrorCount > 0 && (
+                  <span
+                    className="inline-flex items-center justify-center rounded-full text-[11px] font-bold"
+                    style={{ minWidth: 19, height: 19, padding: "0 6px", background: "var(--color-pale-rose, #E8B8B0)", color: "#802818" }}
+                  >
+                    {newErrorCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {section === "transactions" && (
+          <>
+            {/* Page header: title + term filter */}
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h1 className="text-[20px] font-medium" style={{ color: "var(--admin-text)" }}>Payments</h1>
+              <div className="relative" data-pdd>
+                <button
+                  type="button"
+                  onClick={() => { setTermMenuOpen((o) => !o); setStatusMenuOpen(false); }}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-semibold"
+                  style={{ border: "0.5px solid var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-text)" }}
+                >
+                  <span style={{ color: "var(--admin-text-faint)", fontWeight: 500 }}>Term</span>
+                  {currentTermLabel}
+                  <span style={{ color: "var(--admin-text-faint)", fontSize: 9 }}>▼</span>
+                </button>
+                {termMenuOpen && (
+                  <div
+                    className="absolute right-0 mt-1.5 min-w-[200px] rounded-xl p-1.5 z-30"
+                    style={{ background: "var(--admin-surface)", border: "0.5px solid var(--admin-border)", boxShadow: "var(--shadow-dropdown, 0 8px 24px rgba(0,0,0,.10))" }}
+                  >
+                    {["all", ...allTermNames].map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => { setSelectedTerm(t); setTermMenuOpen(false); }}
+                        className="w-full text-left px-2.5 py-2 rounded-lg text-[13px]"
+                        style={{ background: t === selectedTerm ? "var(--admin-surface-sub)" : "transparent", fontWeight: t === selectedTerm ? 600 : 400, color: "var(--admin-text)" }}
+                      >
+                        {t === "all" ? "All terms" : t}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Stat cards — term-scoped financial summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3.5">
+              <div className="rounded-xl p-4" style={{ background: "var(--admin-surface)", border: "0.5px solid var(--admin-border)", borderTop: "3px solid var(--admin-card-accent)", boxShadow: "var(--shadow-card)" }}>
+                <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--admin-text-faint)" }}>Collected · {currentTermLabel}</div>
+                <div className="text-[24px] font-medium leading-none mt-2" style={{ color: "var(--admin-text)" }}>{formatCurrency(collectedTotal)}</div>
+                <div className="text-[12px] mt-1.5" style={{ color: "var(--admin-text-muted)" }}>across {confirmedCount} confirmed</div>
+              </div>
+              <div className="rounded-xl p-4" style={{ background: "var(--admin-surface)", border: "0.5px solid var(--admin-border)", borderTop: "3px solid var(--admin-card-accent)", boxShadow: "var(--shadow-card)" }}>
+                <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--admin-text-faint)" }}>Outstanding</div>
+                <div className="text-[24px] font-medium leading-none mt-2" style={{ color: "var(--admin-text)" }}>{formatCurrency(outstandingTotal)}</div>
+                <div className="text-[12px] mt-1.5" style={{ color: "var(--admin-text-muted)" }}>{upcomingCount} installment{upcomingCount === 1 ? "" : "s"} upcoming</div>
+              </div>
+              <div className="rounded-xl p-4" style={{ background: "var(--admin-surface)", border: "0.5px solid var(--admin-border)", borderTop: "3px solid #C06A5E", boxShadow: "var(--shadow-card)" }}>
+                <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--admin-text-faint)" }}>Overdue</div>
+                <div className="text-[24px] font-medium leading-none mt-2" style={{ color: "#802818" }}>{formatCurrency(overdueTotal)}</div>
+                <div className="text-[12px] mt-1.5" style={{ color: "var(--admin-text-muted)" }}>{overdueFamilies} {overdueFamilies === 1 ? "family" : "families"}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setCurrentTab("attention"); }}
+                className="rounded-xl p-4 text-left transition-shadow hover:shadow-md"
+                style={{ background: "var(--admin-surface)", border: "0.5px solid var(--admin-border)", borderTop: "3px solid #C06A5E", boxShadow: "var(--shadow-card)", cursor: "pointer" }}
+              >
+                <div className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--admin-text-faint)" }}>Needs attention</div>
+                <div className="text-[24px] font-medium leading-none mt-2" style={{ color: "#802818" }}>{attentionCount}</div>
+                <div className="text-[12px] mt-1.5 font-semibold" style={{ color: "var(--admin-sidebar-active)" }}>Review →</div>
+              </button>
+            </div>
+
+            {/* Collection progress */}
+            <div className="rounded-xl px-4 py-3 mb-5" style={{ background: "var(--admin-surface)", border: "0.5px solid var(--admin-border)", boxShadow: "var(--shadow-card)" }}>
+              <div className="flex items-baseline justify-between mb-2 gap-3 flex-wrap">
+                <span className="text-[12px]" style={{ color: "var(--admin-text-muted)" }}>
+                  <b style={{ color: "var(--admin-text)" }}>{formatCurrency(collectedTotal)}</b> collected of <b style={{ color: "var(--admin-text)" }}>{formatCurrency(expectedTotal)}</b> expected
+                </span>
+                <span className="text-[13px] font-semibold" style={{ color: "#0A5A50" }}>{collectedPct}%</span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--admin-surface-sub)" }}>
+                <div className="h-full" style={{ width: `${collectedPct}%`, background: "#7DCEC2" }} />
+              </div>
+            </div>
 
         {/* Toolbar */}
-        <div ref={toolbarRef} className="relative flex flex-wrap gap-2 items-center mb-3.5">
+        <div ref={toolbarRef} className="relative flex flex-wrap gap-2 items-center mb-4">
+          {/* Status dropdown */}
+          <div className="relative" data-pdd>
+            <button
+              type="button"
+              onClick={() => { setStatusMenuOpen((o) => !o); setTermMenuOpen(false); }}
+              className="inline-flex items-center gap-2 px-3 py-[7px] rounded-lg text-[13px] font-semibold"
+              style={{ border: "0.5px solid var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-text)" }}
+            >
+              <span style={{ color: "var(--admin-text-faint)", fontWeight: 500 }}>Status</span>
+              {currentStatusLabel}
+              <span
+                className="inline-flex items-center justify-center rounded-full text-[10.5px] font-bold"
+                style={{ minWidth: 17, height: 17, padding: "0 5px", background: "var(--admin-surface-sub)", color: "var(--admin-text-muted)" }}
+              >
+                {tabCount(currentTab)}
+              </span>
+              <span style={{ color: "var(--admin-text-faint)", fontSize: 9 }}>▼</span>
+            </button>
+            {statusMenuOpen && (
+              <div
+                className="absolute left-0 mt-1.5 min-w-[230px] rounded-xl p-1.5 z-30"
+                style={{ background: "var(--admin-surface)", border: "0.5px solid var(--admin-border)", boxShadow: "var(--shadow-dropdown, 0 8px 24px rgba(0,0,0,.10))" }}
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <button
+                    key={s.k}
+                    type="button"
+                    onClick={() => { setCurrentTab(s.k); setStatusMenuOpen(false); }}
+                    className="w-full flex items-center justify-between gap-4 px-2.5 py-2 rounded-lg text-[13px]"
+                    style={{ background: s.k === currentTab ? "var(--admin-surface-sub)" : "transparent", fontWeight: s.k === currentTab ? 600 : 400, color: s.risk ? "#802818" : "var(--admin-text)" }}
+                  >
+                    {s.l}
+                    <span style={{ color: s.risk ? "#802818" : "var(--admin-text-faint)", fontSize: 12 }}>{tabCount(s.k)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Search */}
           <div className="relative flex-1 min-w-[180px]">
             <svg
@@ -1145,39 +1394,34 @@ export default function PaymentsAdmin() {
               </button>
             </span>
           ))}
-        </div>
 
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setCurrentTab(tab)}
-              className="px-3.5 py-1.5 rounded-full text-[12px] font-medium border transition-all"
-              style={
-                currentTab === tab
-                  ? { background: "var(--admin-text)", color: "#fff", borderColor: "var(--admin-text)" }
-                  : {
-                      background: "var(--admin-surface)",
-                      color: "var(--admin-text-muted)",
-                      borderColor: "var(--admin-border)",
-                    }
-              }
-            >
-              {TAB_LABELS[tab]} ({tabCount(tab)})
-            </button>
-          ))}
+          {/* Sort — cycles through Priority / Amount / Name / Recent */}
+          <button
+            type="button"
+            onClick={cycleSort}
+            className="inline-flex items-center gap-2 px-3 py-[7px] rounded-lg text-[12.5px] font-medium"
+            style={{ border: "0.5px solid var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-text)" }}
+          >
+            <span style={{ color: "var(--admin-text-faint)" }}>Sort</span>
+            {currentSortLabel}
+            <span style={{ color: "var(--admin-text-faint)", fontSize: 9 }}>▼</span>
+          </button>
         </div>
+          </>
+        )}
 
-        {/* Batch list */}
+        {/* Error Log section — self-contained view */}
+        {section === "errors" && <PaymentErrorLog />}
+
+        {/* Batch list (Transactions section only) */}
+        {section === "transactions" && (
         <div className="flex flex-col gap-1.5">
-          {filteredBatches.length === 0 ? (
+          {sortedBatches.length === 0 ? (
             <div className="text-center py-10 text-[13px]" style={{ color: "var(--admin-text-faint)" }}>
               No transactions match your filters.
             </div>
           ) : (
-            filteredBatches.map((batch) => {
+            sortedBatches.map((batch) => {
               const parent = batch.users as any;
               const parentName = parent ? `${parent.first_name} ${parent.last_name}` : "Unknown";
               const semester = batch.semesters as any;
@@ -1869,10 +2113,7 @@ export default function PaymentsAdmin() {
             })
           )}
         </div>
-      </main>
-      <div className="hidden lg:block">
-        <PaymentsRightPanel />
-      </div>
+        )}
     </div>
   );
 }

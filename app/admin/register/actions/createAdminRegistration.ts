@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendRegistrationReceipt } from "./sendRegistrationReceipt";
 import { createAdminInstallmentSession } from "./createAdminInstallmentSession";
 import { createAdminAchSession } from "./createAdminAchSession";
+import { logPaymentError } from "@/utils/payment/logPaymentError";
 import {
   getApplicableCredits,
   grantAccountCredits,
@@ -51,6 +52,8 @@ export type AdminRegInput = {
   formData: Record<string, unknown>;
   // Payment
   couponCode?: string;
+  /** Meeting-plan #33: optional add-on option ids the admin opted into. */
+  selectedAddOnIds?: string[];
   priceOverride?: number | null;
   adjustments?: AdminAdjustment[];
   creditIdsToApply?: string[];
@@ -213,11 +216,24 @@ export async function createAdminRegistration(
         ],
         paymentPlanType: isInstallments ? "auto_pay_monthly" : "pay_in_full",
         couponCode: input.couponCode || undefined,
+        // #33: charge the optional add-ons the admin opted into at checkout.
+        selectedAddOnIds: input.selectedAddOnIds,
       });
       grandTotal = quote.grandTotal;
     } catch (err) {
       console.warn("[createAdminRegistration] Pricing failed:", err);
       grandTotal = 0;
+      // Application-internal: pricing threw, so the admin order proceeds at $0.
+      // Dev-actionable; previously silent.
+      await logPaymentError({
+        origin: "application",
+        source: "app_internal",
+        category: "bad_state",
+        familyId: familyId ?? null,
+        dancerId,
+        errorMessage: `Pricing computation failed on admin registration: ${err instanceof Error ? err.message : String(err)}`,
+        rawPayload: { semesterId: input.semesterId },
+      });
     }
   }
 

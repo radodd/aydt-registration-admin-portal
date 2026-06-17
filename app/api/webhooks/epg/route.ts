@@ -9,6 +9,7 @@ import {
   confirmBatch,
   ensureStoredCardAndChargeInstallment1,
 } from "@/utils/payment/installmentConfirmation";
+import { logPaymentError } from "@/utils/payment/logPaymentError";
 
 // Node runtime required — never edge for payment webhooks.
 // Edge runtimes lack crypto.timingSafeEqual and may strip env vars.
@@ -123,6 +124,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch (err) {
     // EPG API down or credential issue — return 500 so EPG retries
     console.error("[epg-webhook] Failed to fetch transaction from EPG:", err);
+    // Dev-actionable: we couldn't reach EPG to resolve the notification.
+    await logPaymentError({
+      origin: "gateway",
+      source: "webhook",
+      category: "api_error",
+      errorMessage: `Failed to fetch transaction from EPG: ${String(err)}`,
+      rawPayload: { notification, error: String(err) },
+    });
     return NextResponse.json(
       { error: "Failed to fetch transaction" },
       { status: 500 },
@@ -233,6 +242,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .eq("custom_reference", batchId);
 
   // -------------------------------------------------------------------------
+  // Step 8b: A hosted-checkout sale was declined — record it for the admin
+  // error log (one row per declined sale). Admin-actionable (card problem).
+  // -------------------------------------------------------------------------
+  if (newState === "declined") {
+    await logPaymentError({
+      origin: "gateway",
+      source: "hpp_checkout",
+      category: "decline",
+      orderId: payment.registration_batch_id ?? null,
+      paymentSessionId: payment.payment_session_id ?? null,
+      transactionId: transaction.id,
+      errorCode: transaction.state,
+      errorMessage: `Hosted-checkout sale declined (${eventType}, state=${transaction.state}).`,
+      rawPayload: { notification, transaction },
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // Step 9: If authorized/captured/settled — confirm the registration
   // -------------------------------------------------------------------------
   const confirmingStates = ["authorized", "captured", "settled"];
@@ -262,6 +289,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await ensureStoredCardAndChargeInstallment1({
         batchId,
         paymentSessionId: payment.payment_session_id,
+        source: "webhook",
       });
     } else {
       // Full-pay path: confirm immediately.

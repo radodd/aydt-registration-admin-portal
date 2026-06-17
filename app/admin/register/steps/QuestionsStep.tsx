@@ -11,6 +11,7 @@ import {
   DEFAULT_ACKNOWLEDGMENT_LABEL,
 } from "@/lib/waiver";
 import { fetchProfilePrefill } from "../actions/fetchProfilePrefill";
+import { inferProfileSeedValue, reconcileSelectValue } from "@/lib/profilePrefill";
 import type { RegistrationFormElement } from "@/types";
 
 type Props = {
@@ -64,8 +65,17 @@ export default function QuestionsStep({
       for (const el of elems) {
         if (el.inputType === "address") {
           if (prefill.address) seed[el.id] = prefill.address;
-        } else if (el.profileField) {
-          const val = prefill.profileMap[el.profileField];
+        } else {
+          // #35: prefer the explicit profileField; fall back to inferring from
+          // the question label for forms whose questions were never tagged.
+          let val = el.profileField
+            ? prefill.profileMap[el.profileField]
+            : inferProfileSeedValue(el.label, prefill.profileMap);
+          // #35: map the value onto this select's actual option vocabulary
+          // (stored grade "6" → option "6th" / "6th Grade").
+          if (val && el.inputType === "select") {
+            val = reconcileSelectValue(val, el.options);
+          }
           if (val) seed[el.id] = val;
         }
       }

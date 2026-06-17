@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { requireAdmin } from "@/utils/requireAdmin";
 import {
   createAdminRegistration,
@@ -150,8 +151,38 @@ export async function registerWaitlistEntryInPortal(
     notes: input.notes,
   };
 
+  // If a refund-/capacity-freed seat is being HELD for the admin (an
+  // admin_reserved placeholder), release ONE so capacity has room for this
+  // enrollment. Restored if the registration fails so the seat isn't lost.
+  // seat_holds is owner-scoped, so use the service-role client.
+  const admin = createAdminClient();
+  const grainCol = entry.section_id ? "section_id" : entry.meeting_id ? "meeting_id" : null;
+  const grainVal = (entry.section_id as string | null) ?? (entry.meeting_id as string | null);
+  let releasedPlaceholderId: string | null = null;
+  if (grainCol && grainVal) {
+    const { data: ph } = await admin
+      .from("seat_holds")
+      .select("id")
+      .eq("hold_type", "admin_reserved")
+      .is("released_at", null)
+      .eq(grainCol, grainVal)
+      .limit(1)
+      .maybeSingle();
+    if (ph) {
+      await admin
+        .from("seat_holds")
+        .update({ released_at: new Date().toISOString() })
+        .eq("id", (ph as { id: string }).id);
+      releasedPlaceholderId = (ph as { id: string }).id;
+    }
+  }
+
   const result = await createAdminRegistration(regInput);
   if (!result.success) {
+    // Restore the held seat so a failed assignment doesn't lose it.
+    if (releasedPlaceholderId) {
+      await admin.from("seat_holds").update({ released_at: null }).eq("id", releasedPlaceholderId);
+    }
     return { success: false, error: result.error ?? "Registration failed." };
   }
 
@@ -160,6 +191,25 @@ export async function registerWaitlistEntryInPortal(
     .from("waitlist_entries")
     .update({ status: "registered" })
     .eq("id", input.entryId);
+
+  // Log the manual assignment for the admin Logs view (best-effort).
+  await admin
+    .from("waitlist_promotion_events")
+    .insert({
+      event_type: "manual_assigned",
+      severity: "info",
+      waitlist_entry_id: input.entryId,
+      class_id: (entry.class_id as string | null) ?? null,
+      section_id: (entry.section_id as string | null) ?? null,
+      meeting_id: (entry.meeting_id as string | null) ?? null,
+      semester_id: semesterId,
+      batch_id: result.batchId ?? null,
+      message: releasedPlaceholderId
+        ? "Admin assigned a held (refund-freed) seat to a waitlisted dancer."
+        : "Admin registered a waitlisted dancer.",
+      detail: { released_placeholder: !!releasedPlaceholderId },
+    })
+    .then(() => {}, () => {});
 
   return { success: true, batchId: result.batchId };
 }

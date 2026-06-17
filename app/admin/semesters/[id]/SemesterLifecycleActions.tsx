@@ -11,7 +11,8 @@ import {
 import { archiveSemester } from "../actions/archiveSemester";
 import { unpublishSemester } from "../actions/unpublishSemester";
 import { restoreSemester } from "../actions/restoreSemester";
-import { Check, AlertTriangle, Pencil } from "lucide-react";
+import { useToast } from "@/app/components/Toast";
+import { Check, AlertTriangle, Pencil, Loader2 } from "lucide-react";
 
 type HealthData = {
   classCount: number;
@@ -66,15 +67,26 @@ function auditLabel(action: string): string {
 export default function SemesterLifecycleActions({
   semesterId, status, publishAt, health, auditLogs,
 }: Props) {
+  const toast = useToast();
   const [pending, startTransition] = useTransition();
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
   const [actionError, setActionError] = useState<string | null>(null);
 
-  function run(fn: () => Promise<any>) {
+  function run(key: string, fn: () => Promise<any>, successMsg: string) {
     setActionError(null);
+    setPendingAction(key);
     startTransition(async () => {
-      try { await fn(); }
-      catch (e) { setActionError(e instanceof Error ? e.message : "Action failed."); }
+      try {
+        await fn();
+        toast.success(successMsg);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Action failed.";
+        setActionError(msg);
+        toast.error(msg);
+      } finally {
+        setPendingAction(null);
+      }
     });
   }
 
@@ -146,21 +158,22 @@ export default function SemesterLifecycleActions({
 
           {(status === "draft" || status === "scheduled") && (
             <button
-              onClick={() => run(() => publishSemesterNow(semesterId))}
+              onClick={() => run("publish", () => publishSemesterNow(semesterId), "Semester published.")}
               disabled={pending}
-              className="w-full px-3 py-2 rounded-lg text-[12.5px] font-semibold text-white disabled:opacity-50 transition-colors"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12.5px] font-semibold text-white disabled:opacity-50 transition-colors"
               style={{ background: "var(--admin-sidebar-active)" }}
             >
-              Publish Now
+              {pendingAction === "publish" && <Loader2 size={13} className="animate-spin" />}
+              {pendingAction === "publish" ? "Publishing…" : "Publish Now"}
             </button>
           )}
 
           {(status === "scheduled" || status === "published") && (
             <div className="flex gap-2">
               <button
-                onClick={() => run(() => saveSemesterDraft(semesterId))}
+                onClick={() => run("draft", () => saveSemesterDraft(semesterId), "Reverted to draft.")}
                 disabled={pending}
-                className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
                 style={{
                   border: "1px solid var(--admin-border)",
                   color: "var(--admin-text-muted)",
@@ -169,13 +182,14 @@ export default function SemesterLifecycleActions({
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
               >
-                Revert to draft
+                {pendingAction === "draft" && <Loader2 size={12} className="animate-spin" />}
+                {pendingAction === "draft" ? "Reverting…" : "Revert to draft"}
               </button>
               {status === "published" && (
                 <button
-                  onClick={() => run(() => unpublishSemester(semesterId))}
+                  onClick={() => run("unpublish", () => unpublishSemester(semesterId), "Semester unpublished.")}
                   disabled={pending}
-                  className="flex-1 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
                   style={{
                     border: "1px solid var(--admin-border)",
                     color: "var(--admin-text-muted)",
@@ -184,7 +198,8 @@ export default function SemesterLifecycleActions({
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
                 >
-                  Unpublish
+                  {pendingAction === "unpublish" && <Loader2 size={12} className="animate-spin" />}
+                  {pendingAction === "unpublish" ? "Unpublishing…" : "Unpublish"}
                 </button>
               )}
             </div>
@@ -192,9 +207,9 @@ export default function SemesterLifecycleActions({
 
           {status === "published" && (
             <button
-              onClick={() => run(() => archiveSemester(semesterId))}
+              onClick={() => run("archive", () => archiveSemester(semesterId), "Semester archived.")}
               disabled={pending}
-              className="w-full px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
               style={{
                 border: "1px solid var(--admin-border-sub)",
                 color: "var(--admin-text-faint)",
@@ -203,15 +218,16 @@ export default function SemesterLifecycleActions({
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
             >
-              Archive semester
+              {pendingAction === "archive" && <Loader2 size={12} className="animate-spin" />}
+              {pendingAction === "archive" ? "Archiving…" : "Archive semester"}
             </button>
           )}
 
           {status === "archived" && (
             <button
-              onClick={() => run(() => restoreSemester(semesterId))}
+              onClick={() => run("restore", () => restoreSemester(semesterId), "Semester restored.")}
               disabled={pending}
-              className="w-full px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-medium disabled:opacity-50 transition-colors"
               style={{
                 border: "1px solid var(--admin-border)",
                 color: "var(--admin-text-muted)",
@@ -220,7 +236,8 @@ export default function SemesterLifecycleActions({
               onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "var(--admin-surface)")}
             >
-              Restore semester
+              {pendingAction === "restore" && <Loader2 size={12} className="animate-spin" />}
+              {pendingAction === "restore" ? "Restoring…" : "Restore semester"}
             </button>
           )}
         </div>
@@ -236,10 +253,14 @@ export default function SemesterLifecycleActions({
               <button
                 onClick={() => {
                   if (!scheduledDate) return;
-                  run(() => scheduleSemester(semesterId, new Date(scheduledDate + "T00:00:00").toISOString()));
+                  run(
+                    "schedule",
+                    () => scheduleSemester(semesterId, new Date(scheduledDate + "T00:00:00").toISOString()),
+                    status === "scheduled" ? "Publish rescheduled." : "Publish scheduled.",
+                  );
                 }}
                 disabled={!scheduledDate || pending}
-                className="px-3 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 style={{
                   border: "1px solid var(--admin-sidebar-active)",
                   color: "var(--admin-sidebar-active)",
@@ -248,7 +269,10 @@ export default function SemesterLifecycleActions({
                 onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(142,42,35,.06)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
-                {status === "scheduled" ? "Reschedule" : "Schedule"}
+                {pendingAction === "schedule" && <Loader2 size={12} className="animate-spin" />}
+                {pendingAction === "schedule"
+                  ? status === "scheduled" ? "Rescheduling…" : "Scheduling…"
+                  : status === "scheduled" ? "Reschedule" : "Schedule"}
               </button>
             </div>
             {publishAt && status === "scheduled" && (
