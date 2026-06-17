@@ -7,6 +7,7 @@ import { waiveInstallment } from "./actions/waiveInstallment";
 import { sendPaymentReminder } from "./actions/sendPaymentReminder";
 import { issueAccountCredit } from "@/app/admin/credits/actions/issueAccountCredit";
 import { PaymentsRightPanel } from "@/app/admin/_components/PaymentsRightPanel";
+import { PaymentErrorLog } from "./PaymentErrorLog";
 import { useToast } from "@/app/components/Toast";
 
 /* -------------------------------------------------------------------------- */
@@ -1150,9 +1151,30 @@ export default function PaymentsAdmin() {
               {TAB_LABELS[tab]} ({tabCount(tab)})
             </button>
           ))}
+          {/* Error Log — separate from the batch tabs (own data, see PaymentErrorLog) */}
+          <button
+            type="button"
+            onClick={() => setCurrentTab("errors")}
+            className="px-3.5 py-1.5 rounded-full text-[12px] font-medium border transition-all"
+            style={
+              currentTab === "errors"
+                ? { background: "var(--admin-text)", color: "#fff", borderColor: "var(--admin-text)" }
+                : {
+                    background: "var(--admin-surface)",
+                    color: "var(--admin-text-muted)",
+                    borderColor: "var(--admin-border)",
+                  }
+            }
+          >
+            Error Log
+          </button>
         </div>
 
-        {/* Batch list */}
+        {/* Error Log tab — self-contained view */}
+        {currentTab === "errors" && <PaymentErrorLog />}
+
+        {/* Batch list (hidden on the Error Log tab) */}
+        {currentTab !== "errors" && (
         <div className="flex flex-col gap-1.5">
           {filteredBatches.length === 0 ? (
             <div className="text-center py-10 text-[13px]" style={{ color: "var(--admin-text-faint)" }}>
@@ -1851,6 +1873,7 @@ export default function PaymentsAdmin() {
             })
           )}
         </div>
+        )}
       </main>
       <div className="hidden lg:block">
         <PaymentsRightPanel />
