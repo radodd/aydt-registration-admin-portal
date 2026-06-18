@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 import type { ReactNode } from "react";
-import type { SemesterDraft, DraftClass, RegistrationFormElement, DraftTuitionRateBand, DraftSpecialProgramTuition } from "@/types";
+import type {
+  SemesterDraft,
+  DraftClass,
+  RegistrationFormElement,
+  DraftTuitionRateBand,
+  DraftSpecialProgramTuition,
+  HydratedDiscount,
+} from "@/types";
+import { getDiscounts } from "@/queries/admin";
 import { wrapEmailLayout } from "@/utils/prepareEmailHtml";
 import {
   AlertTriangle,
@@ -14,10 +22,7 @@ import {
   ChevronUp,
   Monitor,
   Smartphone,
-  Users,
-  Clock,
   Mail,
-  CreditCard,
   Globe,
 } from "lucide-react";
 
@@ -30,8 +35,7 @@ type TabKey =
   | "payment"
   | "discounts"
   | "regform"
-  | "email"
-  | "waitlist";
+  | "email";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "details",   label: "Details" },
@@ -40,8 +44,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "payment",   label: "Payment" },
   { key: "discounts", label: "Discounts" },
   { key: "regform",   label: "Registration Form" },
-  { key: "email",     label: "Confirmation Email" },
-  { key: "waitlist",  label: "Waitlist" },
+  { key: "email",     label: "Emails" },
 ];
 
 type Props = {
@@ -74,6 +77,22 @@ function toTitle(str: string | undefined | null) {
 function fmtMoney(n: number | undefined | null) {
   if (n == null) return "—";
   return `$${n.toFixed(2).replace(/\.00$/, "")}`;
+}
+
+function discountCatLabel(cat: string) {
+  return cat === "multi_session"
+    ? "Multi-session"
+    : cat === "multi_person"
+      ? "Multi-person"
+      : toTitle(cat);
+}
+
+function discountChipCls(cat: string) {
+  return cat === "multi_session"
+    ? "bg-[rgba(125,206,194,0.20)] text-[#0A5A50]"
+    : cat === "multi_person"
+      ? "bg-[rgba(196,160,212,0.20)] text-[#5A2878]"
+      : "bg-neutral-100 text-neutral-500";
 }
 
 const DAY_IDX: Record<string, number> = {
@@ -109,6 +128,44 @@ function countSessions(schedules: DraftClass["schedules"]): number {
 
 // ── Atom components ───────────────────────────────────────────────────────────
 
+/* Card-with-header — the prototype's `.rcard`: a clean header bar (uppercase
+ * title + Edit link) divided from the body. Each review section is one Card,
+ * giving the visual distinction between the tab nav and the content below. */
+function Card({
+  title,
+  onEdit,
+  children,
+  noPad = false,
+}: {
+  title: string;
+  onEdit?: () => void;
+  children: ReactNode;
+  noPad?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-neutral-100">
+        <span className="text-[11px] font-[800] uppercase tracking-[.09em] text-neutral-400">
+          {title}
+        </span>
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1 text-[13px] font-bold px-2 py-1 rounded transition-colors hover:bg-red-50"
+            style={{ color: "var(--admin-sidebar-active)" }}
+          >
+            <Edit2 size={11} />
+            Edit
+          </button>
+        )}
+      </div>
+      <div className={noPad ? "" : "p-5"}>{children}</div>
+    </div>
+  );
+}
+
+/* Retained for the Registration Form panel, which is intentionally left
+ * unchanged per the design request. */
 function SectionHd({ title, onEdit }: { title: string; onEdit?: () => void }) {
   return (
     <div className="flex items-center justify-between mb-2.5">
@@ -129,23 +186,27 @@ function SectionHd({ title, onEdit }: { title: string; onEdit?: () => void }) {
   );
 }
 
+/* Minimalist borderless key/value rows (prototype `.kv`) — sits directly in a
+ * Card body, no nested box. */
 function KVTable({ rows }: { rows: { label: string; value: ReactNode }[] }) {
   return (
-    <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-      {rows.map((row, i) => (
-        <div
-          key={i}
-          className={`flex items-start ${i < rows.length - 1 ? "border-b border-neutral-100" : ""}`}
-        >
-          <div className="w-[200px] shrink-0 px-3.5 py-2.5 text-[12.5px] text-neutral-500 font-medium bg-neutral-50 border-r border-neutral-100">
-            {row.label}
-          </div>
-          <div className="flex-1 px-3.5 py-2.5 text-[13px] font-semibold text-neutral-900">
-            {row.value}
-          </div>
-        </div>
-      ))}
-    </div>
+    <table className="w-full border-collapse">
+      <tbody>
+        {rows.map((row, i) => (
+          <tr
+            key={i}
+            className={i < rows.length - 1 ? "border-b border-neutral-100" : ""}
+          >
+            <td className="py-2.5 pr-4 align-top w-[200px] text-[13.5px] text-neutral-500">
+              {row.label}
+            </td>
+            <td className="py-2.5 text-[13.5px] font-medium text-neutral-900">
+              {row.value}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -177,9 +238,7 @@ function Chip({
 
 function EmptyMsg({ children }: { children: ReactNode }) {
   return (
-    <div className="border border-neutral-200 rounded-lg px-4 py-5 text-sm text-neutral-400 italic">
-      {children}
-    </div>
+    <div className="text-[13px] text-neutral-400 italic py-1.5">{children}</div>
   );
 }
 
@@ -335,6 +394,22 @@ export default function ReviewStep({
   const email        = state.confirmationEmail;
   const waitlist     = state.waitlist;
 
+  // ── Linked discounts (read-only fetch; names not stored on the draft) ──────
+  const [hydratedDiscounts, setHydratedDiscounts] = useState<HydratedDiscount[]>([]);
+  useEffect(() => {
+    let active = true;
+    getDiscounts().then((d) => {
+      if (active) setHydratedDiscounts(d ?? []);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const appliedDiscounts = state.discounts?.appliedDiscounts ?? [];
+  const linkedDiscounts = appliedDiscounts
+    .map((a) => hydratedDiscounts.find((d) => d.id === a.discountId))
+    .filter((d): d is HydratedDiscount => Boolean(d));
+
   // ── Tab validation status ──────────────────────────────────────────────────
 
   const tabStatus = useMemo<Record<TabKey, "ok" | "warn">>(() => {
@@ -347,7 +422,6 @@ export default function ReviewStep({
       discounts: "ok",
       regform:   formElements.length > 0 ? "ok" : "warn",
       email:     email?.subject && email?.htmlBody ? "ok" : "warn",
-      waitlist:  "ok",
     };
   }, [state, classes, payment, formElements, email]);
 
@@ -378,6 +452,118 @@ export default function ReviewStep({
     return m;
   }, [classes]);
 
+  // ── Email preview block (⚠️ DO NOT rebuild — reuses the existing desktop +
+  //    mobile preview iframes; this rendering must not be overwritten) ────────
+  function emailPreview(htmlBody: string, subject: string, fromName: string, fromEmail: string, token: string, idPrefix: string) {
+    return (
+      <div className="space-y-4 mt-4">
+        <span className="text-[10.5px] font-[800] uppercase tracking-[.08em] text-neutral-400">
+          Preview
+        </span>
+        <div className="grid grid-cols-2 gap-4 items-start">
+          {/* Desktop */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Monitor size={11} className="text-neutral-400" />
+              <span className="text-[11px] font-medium text-neutral-400">Desktop</span>
+            </div>
+            <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-md" style={{ width: `${Math.round(600 * 0.575)}px` }}>
+              <div className="flex items-center gap-1.5 px-3 py-2 bg-neutral-50 border-b border-neutral-200">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
+                <div className="flex-1 mx-2 bg-white border border-neutral-200 rounded px-2 py-0.5 text-[11px] text-neutral-400">
+                  mail.google.com
+                </div>
+              </div>
+              <div className="px-4 py-2.5 bg-neutral-50 border-b border-neutral-200">
+                <p className="text-[12.5px] font-bold text-neutral-900 truncate">{subject}</p>
+                <p className="text-[11.5px] text-neutral-500 mt-0.5">
+                  {fromName} &lt;{fromEmail}&gt;
+                </p>
+              </div>
+              <div style={{ height: 300, overflow: "hidden", position: "relative" }}>
+                <iframe
+                  srcDoc={wrapEmailLayout(htmlBody)}
+                  title={`${idPrefix} desktop preview`}
+                  sandbox="allow-same-origin"
+                  style={{
+                    position: "absolute", top: 0, left: 0,
+                    width: 600, height: 560, border: "none",
+                    transform: "scale(0.575)", transformOrigin: "top left",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile */}
+          <div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <Smartphone size={11} className="text-neutral-400" />
+              <span className="text-[11px] font-medium text-neutral-400">Mobile</span>
+            </div>
+            <div className="flex justify-center py-2">
+              <div
+                className="relative shrink-0"
+                style={{
+                  width: 240, height: 490,
+                  background: "#1a1a1a",
+                  borderRadius: 36,
+                  padding: "10px 7px",
+                  boxShadow: "0 20px 50px rgba(0,0,0,0.3), inset 0 0 0 1.5px #3a3a3a",
+                }}
+              >
+                <div
+                  className="absolute left-1/2 -translate-x-1/2"
+                  style={{ top: 16, width: 60, height: 8, background: "#000", borderRadius: 4, zIndex: 2 }}
+                />
+                <div className="w-full h-full overflow-hidden" style={{ borderRadius: 28, background: "#fff" }}>
+                  <div
+                    className="flex items-center gap-1.5 px-2 py-1.5 border-b border-neutral-100"
+                    style={{ background: "#f5f5f5" }}
+                  >
+                    <div className="flex gap-0.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                    </div>
+                    <span className="flex-1 text-center text-[7px] font-medium text-neutral-500 truncate">
+                      Mail — AYDT Studio
+                    </span>
+                  </div>
+                  <div style={{ width: 226, height: 452, overflow: "hidden", position: "relative" }}>
+                    <iframe
+                      srcDoc={wrapEmailLayout(htmlBody)}
+                      title={`${idPrefix} mobile preview`}
+                      sandbox="allow-same-origin"
+                      style={{
+                        position: "absolute", top: 0, left: 0,
+                        width: 390, height: 780, border: "none",
+                        transform: "scale(0.58)", transformOrigin: "top left",
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2.5 px-3.5 py-2.5 rounded-lg border border-indigo-100 bg-indigo-50">
+          <Mail size={13} className="text-indigo-400 shrink-0 mt-0.5" />
+          <p className="text-[12px] text-neutral-600 leading-relaxed">
+            Tokens like{" "}
+            <span className="bg-indigo-100 text-indigo-700 rounded px-1 py-0.5 font-mono text-[11px] font-bold">
+              {token}
+            </span>{" "}
+            will be replaced with real values at send time.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // ── Panel renders ─────────────────────────────────────────────────────────
 
   function renderPanel() {
@@ -386,31 +572,27 @@ export default function ReviewStep({
       // ───────────────────────────────────────────────────────────── DETAILS
       case "details":
         return (
-          <div className="space-y-6">
-            <div>
-              <SectionHd title="Semester Info" onEdit={() => onGoToStep("details")} />
-              <KVTable rows={[
-                {
-                  label: "Semester name",
-                  value: state.details?.name
-                    ?? <span className="italic text-neutral-400 font-normal">Not set</span>,
-                },
-                {
-                  label: "Attendance tracking",
-                  value: <Chip variant={state.details?.trackingMode ? "ok" : "neutral"}>
-                    {state.details?.trackingMode ? "Enabled" : "Disabled"}
-                  </Chip>,
-                },
-                {
-                  label: "Capacity warning",
-                  value: state.details?.capacityWarningThreshold != null
-                    ? `${state.details.capacityWarningThreshold}% remaining spots`
-                    : <span className="italic text-neutral-400 font-normal">Not set</span>,
-                },
-              ]} />
-            </div>
-
-          </div>
+          <Card title="Semester info" onEdit={() => onGoToStep("details")}>
+            <KVTable rows={[
+              {
+                label: "Semester name",
+                value: state.details?.name
+                  ?? <span className="italic text-neutral-400 font-normal">Not set</span>,
+              },
+              {
+                label: "Attendance tracking",
+                value: <Chip variant={state.details?.trackingMode ? "ok" : "neutral"}>
+                  {state.details?.trackingMode ? "Enabled" : "Disabled"}
+                </Chip>,
+              },
+              {
+                label: "Capacity warning",
+                value: state.details?.capacityWarningThreshold != null
+                  ? `${state.details.capacityWarningThreshold}% remaining spots`
+                  : <span className="italic text-neutral-400 font-normal">Not set</span>,
+              },
+            ]} />
+          </Card>
         );
 
       // ───────────────────────────────────────────────────────────── CLASSES
@@ -421,64 +603,62 @@ export default function ReviewStep({
         );
         return (
           <div className="space-y-4">
-            <div>
-              <SectionHd
-                title={`${classes.length} Class${classes.length !== 1 ? "es" : ""} · ${totalSessions} Total Sessions`}
-                onEdit={() => onGoToStep("sessions")}
-              />
+            <Card
+              title={`${classes.length} Class${classes.length !== 1 ? "es" : ""} · ${totalSessions} Total Sessions`}
+              onEdit={() => onGoToStep("sessions")}
+              noPad
+            >
               {classes.length === 0 ? (
-                <EmptyMsg>No classes added yet.</EmptyMsg>
+                <div className="p-5"><EmptyMsg>No classes added yet.</EmptyMsg></div>
               ) : (
-                <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr style={{ background: "var(--admin-sidebar-active)" }}>
-                        {["Class", "Discipline", "Division", "Visibility", "Sessions"].map((h, i) => (
-                          <th
-                            key={h}
-                            className={`px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left${i === 4 ? " text-right" : ""}`}
-                            style={i === 4 ? { textAlign: "right" } : {}}
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr style={{ background: "var(--admin-sidebar-active)" }}>
+                      {["Class", "Discipline", "Division", "Visibility", "Sessions"].map((h, i) => (
+                        <th
+                          key={h}
+                          className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left"
+                          style={i === 4 ? { textAlign: "right" } : {}}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {classes.map((cls, i) => {
+                      const sc = countSessions(cls.schedules ?? []);
+                      const visBadge =
+                        cls.visibility === "public"      ? <Chip variant="sage">Public</Chip> :
+                        cls.visibility === "invite_only" ? <Chip variant="mauve">Invite Only</Chip> :
+                        cls.visibility === "hidden"      ? <Chip variant="neutral">Hidden</Chip> :
+                        <Chip variant="neutral">—</Chip>;
+                      return (
+                        <tr
+                          key={cls.id ?? i}
+                          className={`border-t border-neutral-100 transition-colors hover:bg-red-50/30 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
+                        >
+                          <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{cls.name}</td>
+                          <td className="px-3.5 py-2.5 text-sm text-neutral-600">{toTitle(cls.discipline)}</td>
+                          <td className="px-3.5 py-2.5 text-sm text-neutral-600">{
+                            (cls.isTiered || (cls.schedules ?? []).some((s) => s.isDropIn === true))
+                              ? "—"
+                              : toTitle(cls.division)
+                          }</td>
+                          <td className="px-3.5 py-2.5">{visBadge}</td>
+                          <td
+                            className="px-3.5 py-2.5 text-right text-sm font-bold"
+                            style={sc === 0 ? { color: "#dc2626" } : { color: "var(--admin-text)" }}
                           >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {classes.map((cls, i) => {
-                        const sc = countSessions(cls.schedules ?? []);
-                        const visBadge =
-                          cls.visibility === "public"      ? <Chip variant="sage">Public</Chip> :
-                          cls.visibility === "invite_only" ? <Chip variant="mauve">Invite Only</Chip> :
-                          cls.visibility === "hidden"      ? <Chip variant="neutral">Hidden</Chip> :
-                          <Chip variant="neutral">—</Chip>;
-                        return (
-                          <tr
-                            key={cls.id ?? i}
-                            className={`border-t border-neutral-100 transition-colors hover:bg-red-50/30 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
-                          >
-                            <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{cls.name}</td>
-                            <td className="px-3.5 py-2.5 text-sm text-neutral-600">{toTitle(cls.discipline)}</td>
-                            <td className="px-3.5 py-2.5 text-sm text-neutral-600">{
-                              (cls.isTiered || (cls.schedules ?? []).some((s) => s.isDropIn === true))
-                                ? "—"
-                                : toTitle(cls.division)
-                            }</td>
-                            <td className="px-3.5 py-2.5">{visBadge}</td>
-                            <td
-                              className="px-3.5 py-2.5 text-right text-sm font-bold"
-                              style={sc === 0 ? { color: "#dc2626" } : { color: "var(--admin-text)" }}
-                            >
-                              {sc === 0 ? "0 ⚠" : sc}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                            {sc === 0 ? "0 ⚠" : sc}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               )}
-            </div>
+            </Card>
 
             {zeroScheduleClasses.length > 0 && (
               <div className="flex gap-2.5 px-3.5 py-3 rounded-lg border border-mauve bg-mauve/10">
@@ -498,56 +678,54 @@ export default function ReviewStep({
       // ───────────────────────────────────────────────────────────── GROUPS
       case "groups":
         return (
-          <div>
-            <SectionHd
-              title={`${groups.length} Group${groups.length !== 1 ? "s" : ""}`}
-              onEdit={() => onGoToStep("sessionGroups")}
-            />
+          <Card
+            title={`${groups.length} Group${groups.length !== 1 ? "s" : ""}`}
+            onEdit={() => onGoToStep("sessionGroups")}
+            noPad
+          >
             {groups.length === 0 ? (
-              <EmptyMsg>No class groups configured.</EmptyMsg>
+              <div className="p-5"><EmptyMsg>No class groups configured.</EmptyMsg></div>
             ) : (
-              <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr style={{ background: "var(--admin-sidebar-active)" }}>
-                      {["Group", "Classes included", "Sessions"].map((h, i) => (
-                        <th
-                          key={h}
-                          className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left"
-                          style={i === 2 ? { textAlign: "right" } : {}}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {groups.map((g, i) => {
-                      const labels = g.sessionIds
-                        .map((sid) => scheduleMap.get(sid))
-                        .filter(Boolean) as string[];
-                      return (
-                        <tr
-                          key={g.id}
-                          className={`border-t border-neutral-100 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
-                        >
-                          <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{g.name}</td>
-                          <td className="px-3.5 py-2.5 text-sm text-neutral-600">
-                            {labels.length > 0
-                              ? labels.join(", ")
-                              : <span className="italic text-neutral-400">None assigned</span>}
-                          </td>
-                          <td className="px-3.5 py-2.5 text-right text-sm font-bold text-neutral-900">
-                            {g.sessionIds.length}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr style={{ background: "var(--admin-sidebar-active)" }}>
+                    {["Group", "Classes included", "Sessions"].map((h, i) => (
+                      <th
+                        key={h}
+                        className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left"
+                        style={i === 2 ? { textAlign: "right" } : {}}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map((g, i) => {
+                    const labels = g.sessionIds
+                      .map((sid) => scheduleMap.get(sid))
+                      .filter(Boolean) as string[];
+                    return (
+                      <tr
+                        key={g.id}
+                        className={`border-t border-neutral-100 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
+                      >
+                        <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{g.name}</td>
+                        <td className="px-3.5 py-2.5 text-sm text-neutral-600">
+                          {labels.length > 0
+                            ? labels.join(", ")
+                            : <span className="italic text-neutral-400">None assigned</span>}
+                        </td>
+                        <td className="px-3.5 py-2.5 text-right text-sm font-bold text-neutral-900">
+                          {g.sessionIds.length}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
-          </div>
+          </Card>
         );
 
       // ───────────────────────────────────────────────────────────── PAYMENT
@@ -559,11 +737,10 @@ export default function ReviewStep({
         const tuitionBands   = state.tuitionRateBands ?? [];
         const specialPrograms = state.specialProgramTuition ?? [];
         return (
-          <div className="space-y-6">
+          <div className="space-y-4">
 
             {/* Plan */}
-            <div>
-              <SectionHd title="Payment Plan" onEdit={() => onGoToStep("payment")} />
+            <Card title="Payment plan" onEdit={() => onGoToStep("payment")}>
               <KVTable rows={[
                 {
                   label: "Plan type",
@@ -597,12 +774,11 @@ export default function ReviewStep({
                   value: `${fmtMoney(feeConfig.auto_pay_admin_fee_monthly)} / month`,
                 }] : []),
               ]} />
-            </div>
+            </Card>
 
             {/* Fee config */}
             {feeConfig && (
-              <div>
-                <SectionHd title="Fee Configuration" />
+              <Card title="Fee configuration" onEdit={() => onGoToStep("payment")}>
                 <div className="grid grid-cols-4 gap-2.5">
                   {[
                     { label: "Registration fee",     val: feeConfig.registration_fee_per_child,      sub: "Per child",      money: true },
@@ -613,7 +789,7 @@ export default function ReviewStep({
                     { label: "Auto-pay fee",         val: feeConfig.auto_pay_admin_fee_monthly,       sub: "Per month",      money: true },
                     { label: "Auto-pay installments",val: feeConfig.auto_pay_installment_count,       sub: "# payments",     money: false },
                   ].map((card) => (
-                    <div key={card.label} className="border border-neutral-200 rounded-lg px-4 py-3.5 bg-neutral-50 shadow-sm">
+                    <div key={card.label} className="border border-neutral-200 rounded-lg px-4 py-3.5 bg-neutral-50">
                       <div className="text-[10.5px] font-[800] uppercase tracking-[.08em] text-neutral-400 mb-1.5">
                         {card.label}
                       </div>
@@ -625,14 +801,14 @@ export default function ReviewStep({
                   ))}
                 </div>
                 {(feeConfig.costume_fee_exempt_keys ?? []).length > 0 && (
-                  <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                  <div className="mt-3.5 flex items-center gap-2 flex-wrap">
                     <span className="text-[11px] font-medium text-neutral-400">Costume exempt:</span>
                     {feeConfig.costume_fee_exempt_keys!.map((k) => (
-                      <Chip key={k} variant="neutral">{toTitle(k)}</Chip>
+                      <Chip key={k} variant="lav">{toTitle(k)}</Chip>
                     ))}
                   </div>
                 )}
-              </div>
+              </Card>
             )}
 
             {/* Tuition rate bands — collapsible */}
@@ -647,51 +823,48 @@ export default function ReviewStep({
 
             {/* Sample installment schedule */}
             {(payment?.installments ?? []).length > 0 && (
-              <div>
-                <SectionHd title="Sample Installment Schedule" />
-                <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
+              <Card title="Sample installment schedule" noPad>
+                <div
+                  className="flex items-center gap-3 px-3.5 py-2"
+                  style={{ background: "var(--admin-sidebar-active)" }}
+                >
+                  <span className="w-8" />
+                  <span className="flex-1 text-[11px] font-bold uppercase tracking-[.07em] text-white/80">
+                    Due date
+                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-[.07em] text-white/80">
+                    Amount
+                  </span>
+                </div>
+                {payment!.installments!.map((inst, i) => (
                   <div
-                    className="flex items-center gap-3 px-3.5 py-2"
-                    style={{ background: "var(--admin-sidebar-active)" }}
+                    key={inst.number}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 ${
+                      i < payment!.installments!.length - 1 ? "border-b border-neutral-100" : ""
+                    } ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
                   >
-                    <span className="w-8" />
-                    <span className="flex-1 text-[11px] font-bold uppercase tracking-[.07em] text-white/80">
-                      Due date
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 border-[1.5px]"
+                      style={{
+                        background: "#f5ecea",
+                        borderColor: "#d4938d",
+                        color: "var(--admin-sidebar-active)",
+                      }}
+                    >
+                      {inst.number}
+                    </div>
+                    <span className="flex-1 text-sm font-medium text-neutral-700">
+                      {inst.dueDate === "registration" ? "Due at registration" : fmtD(inst.dueDate)}
                     </span>
-                    <span className="text-[11px] font-bold uppercase tracking-[.07em] text-white/80">
-                      Amount
+                    <span className="text-[13.5px] font-bold text-neutral-900">
+                      {fmtMoney(inst.amount)}
                     </span>
                   </div>
-                  {payment!.installments!.map((inst, i) => (
-                    <div
-                      key={inst.number}
-                      className={`flex items-center gap-3 px-3.5 py-2.5 ${
-                        i < payment!.installments!.length - 1 ? "border-b border-neutral-100" : ""
-                      } ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
-                    >
-                      <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 border-[1.5px]"
-                        style={{
-                          background: "#f5ecea",
-                          borderColor: "#d4938d",
-                          color: "var(--admin-sidebar-active)",
-                        }}
-                      >
-                        {inst.number}
-                      </div>
-                      <span className="flex-1 text-sm font-medium text-neutral-700">
-                        {inst.dueDate === "registration" ? "Due at registration" : fmtD(inst.dueDate)}
-                      </span>
-                      <span className="text-[13.5px] font-bold text-neutral-900">
-                        {fmtMoney(inst.amount)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[11.5px] text-neutral-400 mt-1.5">
+                ))}
+                <p className="text-[11.5px] text-neutral-400 px-3.5 py-2">
                   Sample based on one registration. Actual amounts vary by tuition band.
                 </p>
-              </div>
+              </Card>
             )}
           </div>
         );
@@ -700,69 +873,76 @@ export default function ReviewStep({
       // ─────────────────────────────────────────────────────────── DISCOUNTS
       case "discounts":
         return (
-          <div>
-            <SectionHd
-              title={`${coupons.length} Coupon${coupons.length !== 1 ? "s" : ""}`}
-              onEdit={() => onGoToStep("discounts")}
-            />
+          <Card title="Discounts & coupons" onEdit={() => onGoToStep("discounts")}>
+            {/* Linked discounts */}
+            <div className="text-[10.5px] font-[800] uppercase tracking-[.08em] text-neutral-400 mb-1">
+              Linked discounts · {linkedDiscounts.length}
+            </div>
+            {linkedDiscounts.length === 0 ? (
+              <EmptyMsg>No discounts linked to this semester.</EmptyMsg>
+            ) : (
+              <div>
+                {linkedDiscounts.map((d) => {
+                  const rc = d.discount_rules?.length ?? 0;
+                  return (
+                    <div
+                      key={d.id}
+                      className="flex items-center gap-2.5 py-2.5 border-b border-neutral-100 last:border-0"
+                    >
+                      <span className="text-sm font-semibold text-neutral-900">{d.name}</span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${discountChipCls(d.category)}`}>
+                        {discountCatLabel(d.category)}
+                      </span>
+                      <span className="flex-1" />
+                      <span className="text-xs text-neutral-500">
+                        {rc} rule{rc !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Coupons */}
+            <div className="text-[10.5px] font-[800] uppercase tracking-[.08em] text-neutral-400 mt-5 mb-1">
+              Coupons · {coupons.length}
+            </div>
             {coupons.length === 0 ? (
               <EmptyMsg>No coupons configured for this semester.</EmptyMsg>
             ) : (
-              <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr style={{ background: "var(--admin-sidebar-active)" }}>
-                      {["Name", "Code", "Value", "Max uses", "Stackable", "Status"].map((h) => (
-                        <th
-                          key={h}
-                          className="px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[.07em] text-white text-left"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {coupons.map((c, i) => (
-                      <tr
-                        key={c._clientKey}
-                        className={`border-t border-neutral-100 transition-colors hover:bg-red-50/20 ${i % 2 === 1 ? "bg-neutral-50" : "bg-white"}`}
-                      >
-                        <td className="px-3.5 py-2.5 text-sm font-bold text-neutral-900">{c.name}</td>
-                        <td className="px-3.5 py-2.5">
-                          {c.code
-                            ? <span className="font-mono text-xs bg-neutral-100 px-2 py-0.5 rounded font-bold text-neutral-700">{c.code}</span>
-                            : <span className="text-xs text-neutral-400 italic">Auto-apply</span>}
-                        </td>
-                        <td
-                          className="px-3.5 py-2.5 text-sm font-bold"
-                          style={{ color: "var(--admin-sidebar-active)" }}
-                        >
-                          {c.valueType === "percent" ? `${c.value}% off` : `${fmtMoney(c.value)} flat`}
-                        </td>
-                        <td className="px-3.5 py-2.5 text-sm text-neutral-600">
-                          {c.maxTotalUses ?? "Unlimited"}
-                        </td>
-                        <td className="px-3.5 py-2.5">
-                          <Chip variant={c.stackable ? "ok" : "neutral"}>
-                            {c.stackable ? "Yes" : "No"}
-                          </Chip>
-                        </td>
-                        <td className="px-3.5 py-2.5">
-                          <Chip variant={c.isActive ? "ok" : "neutral"}>
-                            {c.isActive ? "Active" : "Inactive"}
-                          </Chip>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div>
+                {coupons.map((c) => {
+                  const valueText = c.valueType === "percent" ? `${c.value}% off` : `${fmtMoney(c.value)} off`;
+                  return (
+                    <div
+                      key={c._clientKey}
+                      className="flex items-center gap-2.5 py-2.5 border-b border-neutral-100 last:border-0"
+                    >
+                      <span className="text-sm font-semibold text-neutral-900">{c.name}</span>
+                      {c.code ? (
+                        <span className="font-mono text-xs bg-neutral-100 px-2 py-0.5 rounded font-bold text-neutral-700">
+                          {c.code}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-neutral-400 italic">Auto-apply</span>
+                      )}
+                      <span className="flex-1" />
+                      <span className="text-xs text-neutral-500">
+                        {valueText} · {c.usesCount ?? 0} uses
+                      </span>
+                      <Chip variant={c.isActive ? "ok" : "neutral"}>
+                        {c.isActive ? "Active" : "Inactive"}
+                      </Chip>
+                    </div>
+                  );
+                })}
               </div>
             )}
-          </div>
+          </Card>
         );
 
       // ────────────────────────────────────────────────────── REGISTRATION FORM
+      // ⚠️ Left unchanged per the design request — do not restyle this panel.
       case "regform": {
         // Mirror RegistrationFormStep's section grouping logic
         type RSection = { header: RegistrationFormElement; fields: RegistrationFormElement[] };
@@ -786,7 +966,9 @@ export default function ReviewStep({
               onEdit={() => onGoToStep("registrationForm")}
             />
             {formElements.length === 0 ? (
-              <EmptyMsg>No registration form configured.</EmptyMsg>
+              <div className="border border-neutral-200 rounded-lg px-4 py-5 text-sm text-neutral-400 italic">
+                No registration form configured.
+              </div>
             ) : (
               <div className="space-y-4">
                 {rSections.map((section) => (
@@ -842,376 +1024,105 @@ export default function ReviewStep({
         );
       }
 
-      // ─────────────────────────────────────────────────── CONFIRMATION EMAIL
-      case "email":
-        if (!email) return <EmptyMsg>No confirmation email configured.</EmptyMsg>;
-        return (
-          <div className="space-y-5">
-            <div>
-              <SectionHd title="Email Preview" onEdit={() => onGoToStep("confirmationEmail")} />
-              <KVTable rows={[
-                {
-                  label: "From",
-                  value: `${email.fromName || "AYDT Studio"} <${email.fromEmail || "hello@aydt.org"}>`,
-                },
-                { label: "Subject",   value: email.subject },
-                { label: "Signature", value: <Chip variant="ok">Included</Chip> },
-              ]} />
-            </div>
-
-            {email.htmlBody && (
-              <div className="space-y-4">
-                <span className="text-[10.5px] font-[800] uppercase tracking-[.08em] text-neutral-400">
-                  Preview
-                </span>
-
-                <div className="grid grid-cols-2 gap-4 items-start">
-                {/* Desktop */}
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Monitor size={11} className="text-neutral-400" />
-                    <span className="text-[11px] font-medium text-neutral-400">Desktop</span>
-                  </div>
-                  <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-md" style={{ width: `${Math.round(600 * 0.575)}px` }}>
-                    <div className="flex items-center gap-1.5 px-3 py-2 bg-neutral-50 border-b border-neutral-200">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                      <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-                      <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-                      <div className="flex-1 mx-2 bg-white border border-neutral-200 rounded px-2 py-0.5 text-[11px] text-neutral-400">
-                        mail.google.com
-                      </div>
-                    </div>
-                    <div className="px-4 py-2.5 bg-neutral-50 border-b border-neutral-200">
-                      <p className="text-[12.5px] font-bold text-neutral-900 truncate">{email.subject}</p>
-                      <p className="text-[11.5px] text-neutral-500 mt-0.5">
-                        {email.fromName || "AYDT Studio"} &lt;{email.fromEmail || "hello@aydt.org"}&gt;
-                      </p>
-                    </div>
-                    <div style={{ height: 300, overflow: "hidden", position: "relative" }}>
-                      <iframe
-                        srcDoc={wrapEmailLayout(email.htmlBody)}
-                        title="Email desktop preview"
-                        sandbox="allow-same-origin"
-                        style={{
-                          position: "absolute", top: 0, left: 0,
-                          width: 600, height: 560, border: "none",
-                          transform: "scale(0.575)", transformOrigin: "top left",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mobile */}
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Smartphone size={11} className="text-neutral-400" />
-                    <span className="text-[11px] font-medium text-neutral-400">Mobile</span>
-                  </div>
-                  <div className="flex justify-center py-2">
-                    <div
-                      className="relative shrink-0"
-                      style={{
-                        width: 240, height: 490,
-                        background: "#1a1a1a",
-                        borderRadius: 36,
-                        padding: "10px 7px",
-                        boxShadow: "0 20px 50px rgba(0,0,0,0.3), inset 0 0 0 1.5px #3a3a3a",
-                      }}
-                    >
-                      <div
-                        className="absolute left-1/2 -translate-x-1/2"
-                        style={{ top: 16, width: 60, height: 8, background: "#000", borderRadius: 4, zIndex: 2 }}
-                      />
-                      <div className="w-full h-full overflow-hidden" style={{ borderRadius: 28, background: "#fff" }}>
-                        <div
-                          className="flex items-center gap-1.5 px-2 py-1.5 border-b border-neutral-100"
-                          style={{ background: "#f5f5f5" }}
-                        >
-                          <div className="flex gap-0.5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                            <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-                            <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                          </div>
-                          <span className="flex-1 text-center text-[7px] font-medium text-neutral-500 truncate">
-                            Mail — AYDT Studio
-                          </span>
-                        </div>
-                        <div style={{ width: 226, height: 452, overflow: "hidden", position: "relative" }}>
-                          <iframe
-                            srcDoc={wrapEmailLayout(email.htmlBody)}
-                            title="Email mobile preview"
-                            sandbox="allow-same-origin"
-                            style={{
-                              position: "absolute", top: 0, left: 0,
-                              width: 390, height: 780, border: "none",
-                              transform: "scale(0.58)", transformOrigin: "top left",
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                </div>{/* end grid */}
-
-                <div className="flex gap-2.5 px-3.5 py-2.5 mt-3 rounded-lg border border-indigo-100 bg-indigo-50">
-                  <Mail size={13} className="text-indigo-400 shrink-0 mt-0.5" />
-                  <p className="text-[12px] text-neutral-600 leading-relaxed">
-                    Tokens like{" "}
-                    <span className="bg-indigo-100 text-indigo-700 rounded px-1 py-0.5 font-mono text-[11px] font-bold">
-                      {`{{first_name}}`}
-                    </span>{" "}
-                    will be replaced with real values at send time.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-
-      // ──────────────────────────────────────────────────────────── WAITLIST
-      case "waitlist": {
+      // ────────────────────────────────────────────────────────────── EMAILS
+      // Confirmation email + Waitlist invitation combined on one tab, as two
+      // sub-cards. The preview iframes reuse the existing component (untouched).
+      case "email": {
         const wl = waitlist;
         return (
-          <div className="space-y-6">
-            <div>
-              <SectionHd title="Status" onEdit={() => onGoToStep("waitlist")} />
-              <div className="flex items-center gap-3.5 p-4 border border-neutral-200 rounded-lg bg-white shadow-sm">
-                <div
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                    wl?.enabled ? "bg-mint/20" : "bg-neutral-100"
-                  }`}
-                >
-                  <Users size={18} className={wl?.enabled ? "text-mint-text" : "text-neutral-400"} />
+          <Card title="Emails" onEdit={() => onGoToStep("emails")}>
+            <div className="space-y-3">
+
+              {/* ── Confirmation email ── */}
+              <div className="border border-neutral-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[13px] font-bold text-neutral-900">Confirmation email</span>
+                  <Chip variant={email?.subject ? "ok" : "neutral"}>
+                    {email?.subject ? "Active" : "Not set"}
+                  </Chip>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-neutral-900">
-                    {wl?.enabled
-                      ? "Waitlist enabled for this semester"
-                      : "Waitlist is disabled"}
-                  </p>
-                  <p className="text-[12.5px] text-neutral-500 mt-0.5">
-                    {wl?.enabled
-                      ? "Families can join session waitlists when capacity is reached. Automated invitations are active."
-                      : "Enable in the Waitlist step to allow families to queue for full sessions."}
-                  </p>
-                </div>
-                <Chip variant={wl?.enabled ? "ok" : "neutral"}>
-                  {wl?.enabled ? "Enabled" : "Disabled"}
-                </Chip>
+                {email ? (
+                  <>
+                    <KVTable rows={[
+                      {
+                        label: "From",
+                        value: `${email.fromName || "AYDT Studio"} <${email.fromEmail || "hello@aydt.org"}>`,
+                      },
+                      { label: "Subject",   value: email.subject || <span className="italic text-neutral-400 font-normal">Not set</span> },
+                      { label: "Signature", value: <Chip variant="ok">Included</Chip> },
+                    ]} />
+                    {email.htmlBody &&
+                      emailPreview(
+                        email.htmlBody,
+                        email.subject,
+                        email.fromName || "AYDT Studio",
+                        email.fromEmail || "hello@aydt.org",
+                        "{{first_name}}",
+                        "Email",
+                      )}
+                  </>
+                ) : (
+                  <EmptyMsg>No confirmation email configured.</EmptyMsg>
+                )}
               </div>
-            </div>
 
-            {wl?.enabled && (
-              <>
-                <div>
-                  <SectionHd title="Configuration" />
-                  <div className="grid grid-cols-2 gap-2.5 mb-3">
-                    {[
-                      { label: "Invite expiry",       val: `${wl.inviteExpiryHours} hrs`, sub: "After invitation sent" },
-                      { label: "Spot hold",            val: "30 min",                     sub: "After acceptance" },
-                      { label: "Stop accepting",       val: `${wl.stopDaysBeforeClose} days`, sub: "Before registration closes" },
-                      { label: "Processing interval",  val: "1 min",                     sub: "Cron check interval" },
-                    ].map((stat) => (
-                      <div key={stat.label} className="border border-neutral-200 rounded-lg px-4 py-3 bg-neutral-50">
-                        <div className="text-[10.5px] font-[800] uppercase tracking-[.08em] text-neutral-400 mb-1.5">
-                          {stat.label}
-                        </div>
-                        <div className="text-xl font-[800] text-neutral-900 leading-none">{stat.val}</div>
-                        <div className="text-xs text-neutral-500 mt-1">{stat.sub}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <KVTable rows={[
-                    { label: "Queue order",            value: "First in, first invited" },
-                    { label: "Concurrent invitations", value: "1 per session at a time" },
-                    ...(wl.stopDaysBeforeClose && regCloseAt ? [{
-                      label: "Stop date",
-                      value: fmtD(
-                        new Date(
-                          new Date(regCloseAt).getTime() - wl.stopDaysBeforeClose * 24 * 3600 * 1000,
-                        ).toISOString(),
-                      ),
-                    }] : []),
-                  ]} />
+              {/* ── Waitlist invitation ── */}
+              <div className="border border-neutral-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-[13px] font-bold text-neutral-900">Waitlist invitation</span>
+                  <Chip variant={wl?.enabled ? "ok" : "neutral"}>
+                    {wl?.enabled ? "Enabled" : "Disabled"}
+                  </Chip>
                 </div>
-
-                <div>
-                  <SectionHd title="How Automation Works" />
-                  <div className="border border-neutral-200 rounded-lg px-5 py-5 bg-white">
-                    <div className="relative pl-7 space-y-5">
-                      <div className="absolute left-[10px] top-2 bottom-2 w-0.5 bg-neutral-100" />
+                {wl?.enabled ? (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       {[
-                        {
-                          icon: <Users size={10} />,
-                          title: "Family joins waitlist",
-                          desc: 'When a session reaches capacity, a "Join Waitlist" option appears. Families are assigned a queue position by timestamp.',
-                        },
-                        {
-                          icon: <Clock size={10} />,
-                          title: "System checks every minute",
-                          desc: "A pg_cron job runs every 60 seconds, checking for open capacity with no pending invitations and families waiting.",
-                          tag: "pg_cron · process-waitlist()",
-                        },
-                        {
-                          icon: <Mail size={10} />,
-                          title: "Invitation email sent",
-                          desc: `The next family in queue receives an invitation with a unique acceptance link. It expires after ${wl.inviteExpiryHours} hours.`,
-                          tag: "Token link · /waitlist/accept/[token]",
-                        },
-                        {
-                          icon: <CreditCard size={10} />,
-                          title: "Family accepts & holds spot",
-                          desc: "Clicking the link starts a 30-minute spot hold. Payment must be completed within this window to confirm enrollment.",
-                          tag: "hold_expires_at = now + 30min",
-                        },
-                        {
-                          icon: <Check size={10} />,
-                          title: "Spot confirmed or released",
-                          desc: "Payment completed → confirmed. Hold expired → spot released and the next family in queue is invited.",
-                          ok: true,
-                        },
-                      ].map((step, i) => (
-                        <div key={i} className="relative">
-                          <div
-                            className="absolute -left-7 top-0.5 w-[22px] h-[22px] rounded-full flex items-center justify-center border-2"
-                            style={
-                              step.ok
-                                ? { background: "rgba(125,206,194,0.2)", borderColor: "#7DCEC2", color: "#0A5A50" }
-                                : { background: "#f5ecea", borderColor: "#d4938d", color: "var(--admin-sidebar-active)" }
-                            }
-                          >
-                            {step.icon}
+                        { label: "Invite expiry",  val: `${wl.inviteExpiryHours} hrs`,      sub: "After invite sent" },
+                        { label: "Spot hold",      val: "30 min",                          sub: "After acceptance" },
+                        { label: "Stop accepting", val: `${wl.stopDaysBeforeClose} days`,   sub: "Before close" },
+                        { label: "Queue order",    val: "FIFO",                            sub: "First in, first invited" },
+                      ].map((stat) => (
+                        <div key={stat.label} className="border border-neutral-200 rounded-lg px-4 py-3 bg-neutral-50">
+                          <div className="text-[10.5px] font-[800] uppercase tracking-[.08em] text-neutral-400 mb-1.5">
+                            {stat.label}
                           </div>
-                          <p className="text-[13.5px] font-bold text-neutral-900 mb-0.5">{step.title}</p>
-                          <p className="text-[12.5px] text-neutral-500 leading-relaxed">{step.desc}</p>
-                          {step.tag && (
-                            <span
-                              className="inline-block mt-1.5 text-[11.5px] font-bold rounded px-2 py-0.5"
-                              style={{ background: "#f5ecea", color: "var(--admin-sidebar-active)" }}
-                            >
-                              {step.tag}
-                            </span>
-                          )}
+                          <div className="text-lg font-[800] text-neutral-900 leading-none">{stat.val}</div>
+                          <div className="text-[11.5px] text-neutral-500 mt-1">{stat.sub}</div>
                         </div>
                       ))}
                     </div>
-                  </div>
-                </div>
-
-                {wl.invitationEmail?.htmlBody && (
-                  <div className="space-y-4">
-                    <SectionHd title="Invitation Email Preview" onEdit={() => onGoToStep("waitlist")} />
-                    <KVTable rows={[
-                      { label: "From",    value: `${wl.invitationEmail.fromName || "AYDT Studio"} <${wl.invitationEmail.fromEmail || "hello@aydt.org"}>` },
-                      { label: "Subject", value: wl.invitationEmail.subject },
-                    ]} />
-                    <div className="grid grid-cols-2 gap-4 items-start">
-                      {/* Desktop */}
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <Monitor size={11} className="text-neutral-400" />
-                          <span className="text-[11px] font-medium text-neutral-400">Desktop</span>
-                        </div>
-                        <div className="border border-neutral-200 rounded-lg overflow-hidden shadow-md" style={{ width: `${Math.round(600 * 0.575)}px` }}>
-                          <div className="flex items-center gap-1.5 px-3 py-2 bg-neutral-50 border-b border-neutral-200">
-                            <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-                            <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-                            <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-                            <div className="flex-1 mx-2 bg-white border border-neutral-200 rounded px-2 py-0.5 text-[11px] text-neutral-400">
-                              mail.google.com
-                            </div>
-                          </div>
-                          <div className="px-4 py-2.5 bg-neutral-50 border-b border-neutral-200">
-                            <p className="text-[12.5px] font-bold text-neutral-900 truncate">{wl.invitationEmail.subject}</p>
-                            <p className="text-[11.5px] text-neutral-500 mt-0.5">
-                              {wl.invitationEmail.fromName || "AYDT Studio"} &lt;{wl.invitationEmail.fromEmail || "hello@aydt.org"}&gt;
-                            </p>
-                          </div>
-                          <div style={{ height: 300, overflow: "hidden", position: "relative" }}>
-                            <iframe
-                              srcDoc={wrapEmailLayout(wl.invitationEmail.htmlBody)}
-                              title="Waitlist email desktop preview"
-                              sandbox="allow-same-origin"
-                              style={{
-                                position: "absolute", top: 0, left: 0,
-                                width: 600, height: 560, border: "none",
-                                transform: "scale(0.575)", transformOrigin: "top left",
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Mobile */}
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <Smartphone size={11} className="text-neutral-400" />
-                          <span className="text-[11px] font-medium text-neutral-400">Mobile</span>
-                        </div>
-                        <div className="flex justify-center py-2">
-                          <div
-                            className="relative shrink-0"
-                            style={{
-                              width: 240, height: 490,
-                              background: "#1a1a1a",
-                              borderRadius: 36,
-                              padding: "10px 7px",
-                              boxShadow: "0 20px 50px rgba(0,0,0,0.3), inset 0 0 0 1.5px #3a3a3a",
-                            }}
-                          >
-                            <div
-                              className="absolute left-1/2 -translate-x-1/2"
-                              style={{ top: 16, width: 60, height: 8, background: "#000", borderRadius: 4, zIndex: 2 }}
-                            />
-                            <div className="w-full h-full overflow-hidden" style={{ borderRadius: 28, background: "#fff" }}>
-                              <div
-                                className="flex items-center gap-1.5 px-2 py-1.5 border-b border-neutral-100"
-                                style={{ background: "#f5f5f5" }}
-                              >
-                                <div className="flex gap-0.5">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-                                  <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                                </div>
-                                <span className="flex-1 text-center text-[7px] font-medium text-neutral-500 truncate">
-                                  Mail — AYDT Studio
-                                </span>
-                              </div>
-                              <div style={{ width: 226, height: 452, overflow: "hidden", position: "relative" }}>
-                                <iframe
-                                  srcDoc={wrapEmailLayout(wl.invitationEmail.htmlBody)}
-                                  title="Waitlist email mobile preview"
-                                  sandbox="allow-same-origin"
-                                  style={{
-                                    position: "absolute", top: 0, left: 0,
-                                    width: 390, height: 780, border: "none",
-                                    transform: "scale(0.58)", transformOrigin: "top left",
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2.5 px-3.5 py-2.5 rounded-lg border border-indigo-100 bg-indigo-50">
-                      <Mail size={13} className="text-indigo-400 shrink-0 mt-0.5" />
-                      <p className="text-[12px] text-neutral-600 leading-relaxed">
-                        Tokens like{" "}
-                        <span className="bg-indigo-100 text-indigo-700 rounded px-1 py-0.5 font-mono text-[11px] font-bold">
-                          {`{{participant_name}}`}
-                        </span>{" "}
-                        will be replaced with real values at send time.
+                    {wl.stopDaysBeforeClose && regCloseAt && (
+                      <p className="text-[11.5px] text-neutral-400 mt-2.5">
+                        Stops accepting on{" "}
+                        <span className="font-semibold text-neutral-600">
+                          {fmtD(
+                            new Date(
+                              new Date(regCloseAt).getTime() - wl.stopDaysBeforeClose * 24 * 3600 * 1000,
+                            ).toISOString(),
+                          )}
+                        </span>.
                       </p>
-                    </div>
-                  </div>
+                    )}
+                    {wl.invitationEmail?.htmlBody &&
+                      emailPreview(
+                        wl.invitationEmail.htmlBody,
+                        wl.invitationEmail.subject,
+                        wl.invitationEmail.fromName || "AYDT Studio",
+                        wl.invitationEmail.fromEmail || "hello@aydt.org",
+                        "{{participant_name}}",
+                        "Waitlist email",
+                      )}
+                  </>
+                ) : (
+                  <p className="text-[12.5px] text-neutral-500">
+                    Enable in the Emails step to allow families to queue for full sessions.
+                  </p>
                 )}
-              </>
-            )}
-          </div>
+              </div>
+
+            </div>
+          </Card>
         );
       }
     }
@@ -1228,27 +1139,23 @@ export default function ReviewStep({
         style={{ background: "var(--admin-page-bg)" }}
       >
         <p
-          className="text-[11px] font-[800] uppercase tracking-widest mb-5"
+          className="text-[11px] font-[800] uppercase tracking-widest mb-2"
           style={{ color: "var(--admin-text-faint)" }}
         >
-          Step 9 of 9
+          Step 8 of 8
         </p>
 
-{/* Main card */}
-        <div className="bg-white border border-neutral-200 rounded-xl shadow-md overflow-hidden">
+        {/* Header */}
+        <div className="mb-5 max-w-[1000px] mx-auto">
+          <h2 className="text-[26px] font-semibold tracking-tight text-neutral-900">Review &amp; publish</h2>
+          <p className="text-sm text-neutral-500 mt-0.5 leading-relaxed">
+            Confirm everything before publishing. Once published, core settings are locked.
+          </p>
+        </div>
 
-          {/* Card header */}
-          <div className="px-6 py-5 border-b border-neutral-200">
-            <h2 className="text-xl font-[800] text-neutral-900">Review &amp; Publish</h2>
-            <p className="text-sm text-neutral-500 mt-1 leading-relaxed">
-              Confirm all semester details before publishing. Once published, core settings cannot be changed.
-            </p>
-          </div>
-
+        <div className="max-w-[1000px] mx-auto">
           {/* Tab bar */}
-          <div
-            className="flex overflow-x-auto border-b border-neutral-200 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
-          >
+          <div className="flex flex-wrap gap-x-5 border-b border-neutral-200 mb-5">
             {TABS.map((tab) => {
               const ok = tabStatus[tab.key] === "ok";
               const isActive = activeTab === tab.key;
@@ -1256,8 +1163,8 @@ export default function ReviewStep({
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`h-11 px-4 flex items-center gap-1.5 text-[12.5px] font-semibold whitespace-nowrap border-b-2 flex-shrink-0 transition-colors ${
-                    isActive ? "font-bold" : "border-transparent text-neutral-500 hover:text-neutral-700"
+                  className={`flex items-center gap-1.5 py-2.5 text-[13px] font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
+                    isActive ? "font-semibold" : "border-transparent text-neutral-500 hover:text-neutral-700"
                   }`}
                   style={
                     isActive
@@ -1266,7 +1173,7 @@ export default function ReviewStep({
                   }
                 >
                   <span
-                    className={`w-[14px] h-[14px] rounded-full flex items-center justify-center flex-shrink-0 ${
+                    className={`w-[15px] h-[15px] rounded-full flex items-center justify-center flex-shrink-0 ${
                       ok ? "bg-mint/20" : "bg-mauve/20"
                     }`}
                   >
@@ -1283,7 +1190,7 @@ export default function ReviewStep({
           </div>
 
           {/* Panel */}
-          <div className="p-6">{renderPanel()}</div>
+          {renderPanel()}
         </div>
 
         <div className="h-6" />

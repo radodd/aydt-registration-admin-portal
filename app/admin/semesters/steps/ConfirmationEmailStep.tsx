@@ -65,6 +65,9 @@ function buildPreviewHtml(html: string): string {
   );
 }
 
+// ⚠️ NEW-UI NOTE: the desktop + mobile email previews below are intentionally
+// preserved. The new semester-builder UI (merged "Emails" step) must NOT
+// overwrite this preview rendering — EmailsStep reuses this component as-is.
 export default function ConfirmationEmailStep({
   state,
   dispatch,

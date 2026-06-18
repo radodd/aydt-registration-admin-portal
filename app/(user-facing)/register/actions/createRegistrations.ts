@@ -281,26 +281,40 @@ export async function createRegistrations(
   }
 
   // 4. Server-side pricing computation
-  // Group session IDs by dancer (+ tier map for tiered participants).
+  // Partition each dancer's participants by mode so the pricing engine reads
+  // the right table for each enrollment:
+  //   - standard / tiered → schedule path (scheduleIds + classTierIdsBySchedule)
+  //   - drop-in (or legacy unset mode) → session path (sessionIds)
+  // The schedule path reads section.days_of_week directly, so a single class
+  // meeting Mon+Wed correctly bands as 2/WK. The session path only sees the
+  // representative sessionId and would undercount to 1/WK.
   const enrollmentMap = new Map<
     string,
     {
       dancerName?: string;
+      scheduleIds: string[];
+      classTierIdsBySchedule: Record<string, string>;
       sessionIds: string[];
-      classTierIdsBySession: Record<string, string>;
     }
   >();
   for (const p of input.participants) {
     if (!enrollmentMap.has(p.dancerId)) {
       enrollmentMap.set(p.dancerId, {
+        scheduleIds: [],
+        classTierIdsBySchedule: {},
         sessionIds: [],
-        classTierIdsBySession: {},
       });
     }
     const entry = enrollmentMap.get(p.dancerId)!;
-    entry.sessionIds.push(p.sessionId);
-    if (p.mode === "tiered" && p.classTierId) {
-      entry.classTierIdsBySession[p.sessionId] = p.classTierId;
+    const usesSchedulePath =
+      (p.mode === "standard" || p.mode === "tiered") && !!p.scheduleId;
+    if (usesSchedulePath) {
+      entry.scheduleIds.push(p.scheduleId!);
+      if (p.mode === "tiered" && p.classTierId) {
+        entry.classTierIdsBySchedule[p.scheduleId!] = p.classTierId;
+      }
+    } else {
+      entry.sessionIds.push(p.sessionId);
     }
     if (p.newDancer && !entry.dancerName) {
       entry.dancerName = `${p.newDancer.firstName} ${p.newDancer.lastName}`;
@@ -308,14 +322,18 @@ export async function createRegistrations(
   }
 
   const enrollments = Array.from(enrollmentMap.entries()).map(
-    ([dancerId, { dancerName, sessionIds: sids, classTierIdsBySession }]) => ({
+    ([
+      dancerId,
+      { dancerName, scheduleIds, classTierIdsBySchedule, sessionIds },
+    ]) => ({
       dancerId,
       dancerName,
-      sessionIds: sids,
-      classTierIdsBySession:
-        Object.keys(classTierIdsBySession).length > 0
-          ? classTierIdsBySession
+      scheduleIds: scheduleIds.length > 0 ? scheduleIds : undefined,
+      classTierIdsBySchedule:
+        Object.keys(classTierIdsBySchedule).length > 0
+          ? classTierIdsBySchedule
           : undefined,
+      sessionIds: sessionIds.length > 0 ? sessionIds : undefined,
     }),
   );
 

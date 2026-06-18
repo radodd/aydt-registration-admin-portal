@@ -22,7 +22,7 @@ import {
   HydratedDiscount,
   RecipientScope,
 } from "@/types";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                       */
@@ -38,6 +38,13 @@ type DiscountDraft = {
   eligibleSessionsMode: EligibleSessionsMode;
   selectedSessionIds: string[];
   rules: DiscountRules[];
+};
+
+/* A group of discounts that share a normalized name + category. When `items`
+ * has more than one entry the extras are duplicate records of the first. */
+type DiscountGroup = {
+  key: string;
+  items: HydratedDiscount[];
 };
 
 /* -------------------------------------------------------------------------- */
@@ -79,6 +86,59 @@ const EMPTY_COUPON: Omit<DraftCoupon, "_clientKey" | "id"> = {
   appliesToMostExpensiveOnly: false,
   eligibleLineItemTypes: ["tuition", "registration_fee", "recital_fee"],
 };
+
+/* -------------------------------------------------------------------------- */
+/* Modal shell (matches the prototype's create-discount / create-coupon modals) */
+/* -------------------------------------------------------------------------- */
+
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+      style={{ background: "rgba(22,12,10,0.45)" }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="w-full max-w-[560px] max-h-[88vh] flex flex-col overflow-hidden rounded-2xl"
+        style={{
+          background: "var(--admin-surface)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+        }}
+      >
+        <div
+          className="flex items-center justify-between px-5 py-4 shrink-0"
+          style={{ borderBottom: "1px solid var(--admin-border)" }}
+        >
+          <span
+            className="text-base font-semibold"
+            style={{ color: "var(--admin-text)" }}
+          >
+            {title}
+          </span>
+          <button
+            onClick={onClose}
+            className="text-sm transition-colors hover:opacity-70"
+            style={{ color: "var(--admin-text-faint)" }}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-5 space-y-4">{children}</div>
+      </div>
+    </div>
+  );
+}
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                     */
@@ -135,6 +195,24 @@ function categoryLabel(cat: string) {
   return cat.charAt(0).toUpperCase() + cat.slice(1).replaceAll("_", " ");
 }
 
+/* Group discounts by normalized name + category, preserving first-seen order.
+ * Groups with >1 item are duplicate clusters. */
+function groupDiscounts(discounts: HydratedDiscount[]): DiscountGroup[] {
+  const groups: DiscountGroup[] = [];
+  const byKey = new Map<string, DiscountGroup>();
+  for (const d of discounts) {
+    const key = `${d.name.trim().toLowerCase()}|${d.category}`;
+    let g = byKey.get(key);
+    if (!g) {
+      g = { key, items: [] };
+      byKey.set(key, g);
+      groups.push(g);
+    }
+    g.items.push(d);
+  }
+  return groups;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Component                                                                   */
 /* -------------------------------------------------------------------------- */
@@ -164,6 +242,12 @@ export default function DiscountsStep({
     Record<string, string | null>
   >({});
 
+  /* Create-discount modal + duplicate-cluster reveal */
+  const [discountModalOpen, setDiscountModalOpen] = useState(false);
+  const [revealedDupeKeys, setRevealedDupeKeys] = useState<Set<string>>(
+    new Set(),
+  );
+
   /* ── Coupons state ────────────────────────────────────────────────── */
   const [coupons, setCoupons] = useState<DraftCoupon[]>(state.coupons ?? []);
   const [expandedCouponKeys, setExpandedCouponKeys] = useState<Set<string>>(
@@ -182,6 +266,9 @@ export default function DiscountsStep({
   const [historyCache, setHistoryCache] = useState<
     Record<string, { loading: boolean; records: CouponRedemptionRecord[] }>
   >({});
+
+  /* Create-coupon modal */
+  const [couponModalOpen, setCouponModalOpen] = useState(false);
 
   /* ── Keep global state in sync (for footer navigation) ───────────── */
   const isMountedRef = useRef(false);
@@ -257,6 +344,15 @@ export default function DiscountsStep({
     if (discount && !discountDrafts[id]) {
       setDiscountDrafts((d) => ({ ...d, [id]: draftFromHydrated(discount) }));
     }
+  }
+
+  function toggleRevealDupes(key: string) {
+    setRevealedDupeKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
   function setDiscountDraftField<K extends keyof DiscountDraft>(
@@ -350,11 +446,7 @@ export default function DiscountsStep({
               ? draft.selectedSessionIds
               : [],
         });
-        setExpandedDiscountIds((prev) => {
-          const next = new Set(prev);
-          next.delete("new");
-          return next;
-        });
+        setDiscountModalOpen(false);
         setDiscountDrafts((d) => {
           const n = { ...d };
           delete n["new"];
@@ -387,14 +479,44 @@ export default function DiscountsStep({
 
   function openCreateDiscount() {
     setDiscountDrafts((d) => ({ ...d, new: { ...EMPTY_DISCOUNT_DRAFT } }));
-    setExpandedDiscountIds((prev) => new Set([...prev, "new"]));
+    setDiscountErrors((e) => ({ ...e, new: null }));
+    setDiscountModalOpen(true);
+  }
+
+  function closeDiscountModal() {
+    setDiscountModalOpen(false);
+    setDiscountDrafts((d) => {
+      const n = { ...d };
+      delete n["new"];
+      return n;
+    });
+    setDiscountErrors((e) => {
+      const n = { ...e };
+      delete n["new"];
+      return n;
+    });
   }
 
   /* ── Coupon handlers ──────────────────────────────────────────────── */
 
   function openCreateCoupon() {
     setCouponDrafts((d) => ({ ...d, new: { ...EMPTY_COUPON } }));
-    setExpandedCouponKeys((prev) => new Set([...prev, "new"]));
+    setCouponErrors((e) => ({ ...e, new: null }));
+    setCouponModalOpen(true);
+  }
+
+  function closeCouponModal() {
+    setCouponModalOpen(false);
+    setCouponDrafts((d) => {
+      const n = { ...d };
+      delete n["new"];
+      return n;
+    });
+    setCouponErrors((e) => {
+      const n = { ...e };
+      delete n["new"];
+      return n;
+    });
   }
 
   function toggleExpandCoupon(key: string, coupon?: DraftCoupon) {
@@ -460,11 +582,7 @@ export default function DiscountsStep({
         const newId = await createCoupon({ ...draft, semesterId: state.id! });
         const newCoupon: DraftCoupon = { ...draft, _clientKey: newId, id: newId };
         setCoupons((prev) => [...prev, newCoupon]);
-        setExpandedCouponKeys((prev) => {
-          const next = new Set(prev);
-          next.delete("new");
-          return next;
-        });
+        setCouponModalOpen(false);
         setCouponDrafts((d) => {
           const n = { ...d };
           delete n["new"];
@@ -524,14 +642,308 @@ export default function DiscountsStep({
 
   /* ── Render helpers ───────────────────────────────────────────────── */
 
-  function renderDiscountItem(id: string, discount?: HydratedDiscount) {
-    const isNew = id === "new";
-    const expanded = expandedDiscountIds.has(id);
-    const linked = !isNew && isLinked(id);
-    const draft = discountDrafts[id] ?? (discount ? draftFromHydrated(discount) : EMPTY_DISCOUNT_DRAFT);
+  /* Discount form fields, shared by the create modal (isNew) and the inline
+   * edit form on an existing row. Returns the fields only — callers supply the
+   * surrounding container (modal body or inline panel). */
+  function renderDiscountFormFields(
+    id: string,
+    isNew: boolean,
+    fallbackDraft?: DiscountDraft,
+  ) {
+    const draft = discountDrafts[id] ?? fallbackDraft ?? EMPTY_DISCOUNT_DRAFT;
     const saving = discountSaving[id] ?? false;
     const error = discountErrors[id] ?? null;
-    const rulesCount = discount?.discount_rules?.length ?? 0;
+
+    return (
+      <>
+        {error && (
+          <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* Name + Type */}
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-4">
+          <div>
+            <label className={labelCls}>Discount name</label>
+            <input
+              type="text"
+              value={draft.name}
+              onChange={(e) => setDiscountDraftField(id, "name", e.target.value)}
+              placeholder="e.g. Multi-class discount"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Type</label>
+            <select
+              value={draft.category}
+              onChange={(e) =>
+                setDiscountDraftField(
+                  id,
+                  "category",
+                  e.target.value as DiscountCategory,
+                )
+              }
+              className={`${selectCls} w-full`}
+            >
+              <option value="multi_person">Multi Person</option>
+              <option value="multi_session">Multi Session</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Eligible sessions */}
+        <div>
+          <label className={labelCls}>Eligible sessions</label>
+          <div className="flex gap-5">
+            <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+              <input
+                type="radio"
+                checked={draft.eligibleSessionsMode === "all"}
+                onChange={() =>
+                  setDiscountDraftField(id, "eligibleSessionsMode", "all")
+                }
+                className="h-4 w-4 text-primary-600 border-neutral-300 focus:ring-primary-600"
+                style={{ accentColor: "var(--admin-sidebar-active)" }}
+              />
+              All sessions
+            </label>
+            <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+              <input
+                type="radio"
+                checked={draft.eligibleSessionsMode === "selected"}
+                onChange={() =>
+                  setDiscountDraftField(id, "eligibleSessionsMode", "selected")
+                }
+                className="h-4 w-4 text-primary-600 border-neutral-300 focus:ring-primary-600"
+                style={{ accentColor: "var(--admin-sidebar-active)" }}
+              />
+              Selected sessions
+            </label>
+          </div>
+          {draft.eligibleSessionsMode === "selected" &&
+            sessionOptions.length > 0 && (
+              <div className="mt-2 border border-neutral-200 rounded-md p-3 space-y-1.5 max-h-36 overflow-y-auto">
+                {sessionOptions.map((s) => (
+                  <label
+                    key={s.id}
+                    className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={draft.selectedSessionIds.includes(s.id)}
+                      onChange={(e) =>
+                        setDiscountDraftField(
+                          id,
+                          "selectedSessionIds",
+                          e.target.checked
+                            ? [...draft.selectedSessionIds, s.id]
+                            : draft.selectedSessionIds.filter((x) => x !== s.id),
+                        )
+                      }
+                      className="h-4 w-4 text-primary-600 border-neutral-300"
+                      style={{ accentColor: "var(--admin-sidebar-active)" }}
+                    />
+                    {s.name}
+                  </label>
+                ))}
+              </div>
+            )}
+        </div>
+
+        {/* Give discount to */}
+        {(draft.category === "multi_person" ||
+          draft.category === "multi_session") && (
+          <div>
+            <label className={labelCls}>Give discount to</label>
+            {draft.category === "multi_person" ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <select
+                  value={draft.giveSessionScope}
+                  onChange={(e) =>
+                    setDiscountDraftField(
+                      id,
+                      "giveSessionScope",
+                      e.target.value as GiveSessionScope,
+                    )
+                  }
+                  className={selectCls}
+                >
+                  <option value="one_session">1 session</option>
+                  <option value="all_sessions">All sessions</option>
+                </select>
+                <span className="text-sm text-neutral-500">for</span>
+                <select
+                  value={draft.recipientScope}
+                  onChange={(e) =>
+                    setDiscountDraftField(
+                      id,
+                      "recipientScope",
+                      e.target.value as RecipientScope,
+                    )
+                  }
+                  className={selectCls}
+                >
+                  <option value="threshold_only">
+                    the threshold registrant only
+                  </option>
+                  <option value="threshold_and_additional">
+                    threshold + additional registrants
+                  </option>
+                </select>
+              </div>
+            ) : (
+              <select
+                value={draft.giveSessionScope}
+                onChange={(e) =>
+                  setDiscountDraftField(
+                    id,
+                    "giveSessionScope",
+                    e.target.value as GiveSessionScope,
+                  )
+                }
+                className={`${selectCls} w-full max-w-xs`}
+              >
+                <option value="all_sessions_once_threshold">
+                  All sessions once threshold reached
+                </option>
+                <option value="threshold_session_only">
+                  Threshold session only
+                </option>
+                <option value="threshold_and_additional_sessions">
+                  Threshold + additional sessions
+                </option>
+              </select>
+            )}
+          </div>
+        )}
+
+        {/* Discount rules */}
+        <div>
+          <p
+            className="text-[10px] font-semibold uppercase tracking-widest mb-2"
+            style={{ color: "var(--admin-text-faint)" }}
+          >
+            Discount rules
+          </p>
+          <div className="space-y-2">
+            {draft.rules.map((rule, ri) => (
+              <div key={ri} className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-neutral-600">If there are</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={rule.threshold}
+                  onChange={(e) =>
+                    updateDiscountRule(
+                      id,
+                      ri,
+                      "threshold",
+                      Number(e.target.value),
+                    )
+                  }
+                  className="w-16 border border-neutral-200 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <span className="text-sm text-neutral-600">
+                  {draft.category === "multi_person" ? "persons" : "sessions"}{" "}
+                  registered, give
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={rule.value}
+                  onChange={(e) =>
+                    updateDiscountRule(id, ri, "value", Number(e.target.value))
+                  }
+                  className="w-20 border border-neutral-200 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+                <select
+                  value={rule.valueType}
+                  onChange={(e) =>
+                    updateDiscountRule(
+                      id,
+                      ri,
+                      "valueType",
+                      e.target.value as "flat" | "percent",
+                    )
+                  }
+                  className={selectCls}
+                >
+                  <option value="flat">dollars off</option>
+                  <option value="percent">% off</option>
+                </select>
+                {draft.rules.length > 1 && (
+                  <button
+                    onClick={() => removeDiscountRule(id, ri)}
+                    className="text-xs text-neutral-400 hover:text-red-500 transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => addDiscountRule(id)}
+            className="mt-2 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
+          >
+            + Add another rule
+          </button>
+        </div>
+
+        {/* Save */}
+        <div className="flex justify-end pt-1">
+          {isNew && (
+            <button
+              onClick={closeDiscountModal}
+              className="text-sm font-medium rounded-lg px-4 py-2 mr-2 transition-colors hover:bg-neutral-100"
+              style={{ color: "var(--admin-text-muted)" }}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={() => saveDiscount(id, isNew)}
+            disabled={saving}
+            className="text-sm font-semibold text-white rounded-lg px-4 py-2 transition-colors hover:opacity-90 disabled:opacity-60"
+            style={{ background: "var(--admin-sidebar-active)" }}
+          >
+            {saving ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 size={14} className="animate-spin" />
+                Saving…
+              </span>
+            ) : isNew ? (
+              "Create discount"
+            ) : (
+              "Save changes"
+            )}
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  /* An existing discount row (chevron + link toggle + badges + inline edit).
+   * `dupe` is set on the representative row of a duplicate cluster. */
+  function renderDiscountItem(
+    id: string,
+    discount: HydratedDiscount,
+    dupe?: { count: number; key: string },
+  ) {
+    const expanded = expandedDiscountIds.has(id);
+    const linked = isLinked(id);
+    const rulesCount = discount.discount_rules?.length ?? 0;
+    const cat = discount.category;
+    const chipCls =
+      cat === "multi_session"
+        ? "bg-[rgba(125,206,194,0.20)] text-[#0A5A50]"
+        : cat === "multi_person"
+          ? "bg-[rgba(196,160,212,0.20)] text-[#5A2878]"
+          : "bg-neutral-100 text-neutral-500";
+    const revealed = dupe ? revealedDupeKeys.has(dupe.key) : false;
 
     return (
       <div
@@ -545,15 +957,7 @@ export default function DiscountsStep({
         <div className="flex items-center gap-2.5 px-4 py-3">
           {/* Chevron */}
           <button
-            onClick={() =>
-              isNew
-                ? setExpandedDiscountIds((prev) => {
-                    const next = new Set(prev);
-                    expanded ? next.delete("new") : next.add("new");
-                    return next;
-                  })
-                : toggleExpandDiscount(id, discount)
-            }
+            onClick={() => toggleExpandDiscount(id, discount)}
             className="shrink-0 transition-colors"
             style={{ color: "var(--admin-text-faint)" }}
           >
@@ -568,24 +972,22 @@ export default function DiscountsStep({
             </svg>
           </button>
 
-          {/* Link toggle (not shown for new) */}
-          {!isNew && (
-            <button
-              role="switch"
-              aria-checked={linked}
-              onClick={() => toggleLink(id)}
-              disabled={isLocked}
-              className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
-                linked ? "bg-primary-600" : "bg-neutral-200"
+          {/* Link toggle */}
+          <button
+            role="switch"
+            aria-checked={linked}
+            onClick={() => toggleLink(id)}
+            disabled={isLocked}
+            className={`relative shrink-0 inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50 ${
+              linked ? "bg-primary-600" : "bg-neutral-200"
+            }`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform ${
+                linked ? "translate-x-[18px]" : "translate-x-0.5"
               }`}
-            >
-              <span
-                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform ${
-                  linked ? "translate-x-[18px]" : "translate-x-0.5"
-                }`}
-              />
-            </button>
-          )}
+            />
+          </button>
 
           {/* Name + badges */}
           <div className="flex-1 flex items-center gap-2 min-w-0 flex-wrap">
@@ -593,358 +995,360 @@ export default function DiscountsStep({
               className="text-sm font-medium"
               style={{ color: "var(--admin-text)" }}
             >
-              {isNew ? (draft.name || "New Discount") : (discount?.name ?? "")}
+              {discount.name}
             </span>
             {linked && (
               <span className="text-xs font-semibold text-primary-600">
                 Linked
               </span>
             )}
-            {!isNew && (
-              <>
-                <span className="text-xs bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded-full capitalize">
-                  {categoryLabel(discount!.category)}
-                </span>
-                <span className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
-                  {rulesCount} rule{rulesCount !== 1 ? "s" : ""}
-                </span>
-              </>
+            <span
+              className={`text-xs ${chipCls} px-2 py-0.5 rounded-full capitalize`}
+            >
+              {categoryLabel(discount.category)}
+            </span>
+            <span
+              className="text-xs"
+              style={{ color: "var(--admin-text-faint)" }}
+            >
+              {rulesCount} rule{rulesCount !== 1 ? "s" : ""}
+            </span>
+            {dupe && (
+              <button
+                onClick={() => toggleRevealDupes(dupe.key)}
+                title="Duplicate records — click to review and delete extras"
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors"
+                style={{
+                  background: "rgba(232,200,150,0.30)",
+                  color: "#7A4E08",
+                }}
+              >
+                {dupe.count} copies {revealed ? "▲" : "▼"}
+              </button>
             )}
           </div>
 
-          {/* Delete / Cancel */}
+          {/* Delete */}
           {!isLocked && (
             <button
               onClick={async (e) => {
                 e.stopPropagation();
-                if (isNew) {
-                  setExpandedDiscountIds((prev) => {
-                    const next = new Set(prev);
-                    next.delete("new");
-                    return next;
-                  });
-                  setDiscountDrafts((d) => {
-                    const n = { ...d };
-                    delete n["new"];
-                    return n;
-                  });
-                } else {
-                  if (!confirm(`Delete "${discount!.name}"? This cannot be undone.`)) return;
-                  await deleteDiscount(id);
-                  await refreshDiscounts();
-                }
+                if (!confirm(`Delete "${discount.name}"? This cannot be undone.`))
+                  return;
+                await deleteDiscount(id);
+                await refreshDiscounts();
               }}
               className="shrink-0 text-xs font-medium transition-colors px-2 py-1 rounded hover:bg-red-50"
               style={{ color: "var(--admin-text-faint)" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "rgb(220 38 38)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--admin-text-faint)")}
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.color = "var(--admin-text-faint)")
+              }
             >
-              {isNew ? "Cancel" : "Delete"}
+              Delete
             </button>
           )}
         </div>
 
-        {/* Expanded inline form */}
+        {/* Expanded inline edit form */}
         {expanded && (
           <div
             className="px-4 pb-5 pt-4 space-y-4"
             style={{ borderTop: "1px solid var(--admin-border)" }}
           >
-            {error && (
-              <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-                {error}
-              </div>
-            )}
-
-            {/* Name + Type */}
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-4">
-              <div>
-                <label className={labelCls}>Discount name</label>
-                <input
-                  type="text"
-                  value={draft.name}
-                  onChange={(e) =>
-                    setDiscountDraftField(id, "name", e.target.value)
-                  }
-                  placeholder="Discount name"
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Type</label>
-                <select
-                  value={draft.category}
-                  onChange={(e) =>
-                    setDiscountDraftField(
-                      id,
-                      "category",
-                      e.target.value as DiscountCategory,
-                    )
-                  }
-                  className={`${selectCls} w-full`}
-                >
-                  <option value="multi_person">Multi Person</option>
-                  <option value="multi_session">Multi Session</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Eligible sessions */}
-            <div>
-              <label className={labelCls}>Eligible sessions</label>
-              <div className="flex gap-5">
-                <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={draft.eligibleSessionsMode === "all"}
-                    onChange={() =>
-                      setDiscountDraftField(id, "eligibleSessionsMode", "all")
-                    }
-                    className="h-4 w-4 text-primary-600 border-neutral-300 focus:ring-primary-600"
-                    style={{ accentColor: "var(--admin-sidebar-active)" }}
-                  />
-                  All sessions
-                </label>
-                <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
-                  <input
-                    type="radio"
-                    checked={draft.eligibleSessionsMode === "selected"}
-                    onChange={() =>
-                      setDiscountDraftField(
-                        id,
-                        "eligibleSessionsMode",
-                        "selected",
-                      )
-                    }
-                    className="h-4 w-4 text-primary-600 border-neutral-300 focus:ring-primary-600"
-                    style={{ accentColor: "var(--admin-sidebar-active)" }}
-                  />
-                  Selected sessions
-                </label>
-              </div>
-              {draft.eligibleSessionsMode === "selected" &&
-                sessionOptions.length > 0 && (
-                  <div className="mt-2 border border-neutral-200 rounded-md p-3 space-y-1.5 max-h-36 overflow-y-auto">
-                    {sessionOptions.map((s) => (
-                      <label
-                        key={s.id}
-                        className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={draft.selectedSessionIds.includes(s.id)}
-                          onChange={(e) =>
-                            setDiscountDraftField(
-                              id,
-                              "selectedSessionIds",
-                              e.target.checked
-                                ? [...draft.selectedSessionIds, s.id]
-                                : draft.selectedSessionIds.filter(
-                                    (x) => x !== s.id,
-                                  ),
-                            )
-                          }
-                          className="h-4 w-4 text-primary-600 border-neutral-300"
-                          style={{ accentColor: "var(--admin-sidebar-active)" }}
-                        />
-                        {s.name}
-                      </label>
-                    ))}
-                  </div>
-                )}
-            </div>
-
-            {/* Give discount to */}
-            {(draft.category === "multi_person" ||
-              draft.category === "multi_session") && (
-              <div>
-                <label className={labelCls}>Give discount to</label>
-                {draft.category === "multi_person" ? (
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <select
-                      value={draft.giveSessionScope}
-                      onChange={(e) =>
-                        setDiscountDraftField(
-                          id,
-                          "giveSessionScope",
-                          e.target.value as GiveSessionScope,
-                        )
-                      }
-                      className={selectCls}
-                    >
-                      <option value="one_session">1 session</option>
-                      <option value="all_sessions">All sessions</option>
-                    </select>
-                    <span className="text-sm text-neutral-500">for</span>
-                    <select
-                      value={draft.recipientScope}
-                      onChange={(e) =>
-                        setDiscountDraftField(
-                          id,
-                          "recipientScope",
-                          e.target.value as RecipientScope,
-                        )
-                      }
-                      className={selectCls}
-                    >
-                      <option value="threshold_only">
-                        the threshold registrant only
-                      </option>
-                      <option value="threshold_and_additional">
-                        threshold + additional registrants
-                      </option>
-                    </select>
-                  </div>
-                ) : (
-                  <select
-                    value={draft.giveSessionScope}
-                    onChange={(e) =>
-                      setDiscountDraftField(
-                        id,
-                        "giveSessionScope",
-                        e.target.value as GiveSessionScope,
-                      )
-                    }
-                    className={`${selectCls} w-full max-w-xs`}
-                  >
-                    <option value="all_sessions_once_threshold">
-                      All sessions once threshold reached
-                    </option>
-                    <option value="threshold_session_only">
-                      Threshold session only
-                    </option>
-                    <option value="threshold_and_additional_sessions">
-                      Threshold + additional sessions
-                    </option>
-                  </select>
-                )}
-              </div>
-            )}
-
-            {/* Discount rules */}
-            <div>
-              <p
-                className="text-[10px] font-semibold uppercase tracking-widest mb-2"
-                style={{ color: "var(--admin-text-faint)" }}
-              >
-                Discount rules
-              </p>
-              <div className="space-y-2">
-                {draft.rules.map((rule, ri) => (
-                  <div key={ri} className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-neutral-600">
-                      If there are
-                    </span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={rule.threshold}
-                      onChange={(e) =>
-                        updateDiscountRule(
-                          id,
-                          ri,
-                          "threshold",
-                          Number(e.target.value),
-                        )
-                      }
-                      className="w-16 border border-neutral-200 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
-                    <span className="text-sm text-neutral-600">
-                      {draft.category === "multi_person" ? "persons" : "sessions"}{" "}
-                      registered, give
-                    </span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={rule.value}
-                      onChange={(e) =>
-                        updateDiscountRule(
-                          id,
-                          ri,
-                          "value",
-                          Number(e.target.value),
-                        )
-                      }
-                      className="w-20 border border-neutral-200 rounded-md px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
-                    <select
-                      value={rule.valueType}
-                      onChange={(e) =>
-                        updateDiscountRule(
-                          id,
-                          ri,
-                          "valueType",
-                          e.target.value as "flat" | "percent",
-                        )
-                      }
-                      className={selectCls}
-                    >
-                      <option value="flat">dollars off</option>
-                      <option value="percent">% off</option>
-                    </select>
-                    {draft.rules.length > 1 && (
-                      <button
-                        onClick={() => removeDiscountRule(id, ri)}
-                        className="text-xs text-neutral-400 hover:text-red-500 transition-colors"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <button
-                onClick={() => addDiscountRule(id)}
-                className="mt-2 text-sm font-medium text-primary-600 hover:text-primary-700 transition-colors"
-              >
-                + Add another rule
-              </button>
-            </div>
-
-            {/* Save */}
-            <div className="flex justify-end pt-1">
-              <button
-                onClick={() => saveDiscount(id, isNew)}
-                disabled={saving}
-                className="text-sm font-semibold text-white rounded-lg px-4 py-2 transition-colors hover:opacity-90 disabled:opacity-60"
-                style={{ background: "var(--admin-sidebar-active)" }}
-              >
-                {saving ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Loader2 size={14} className="animate-spin" />
-                    Saving…
-                  </span>
-                ) : (
-                  "Save changes"
-                )}
-              </button>
-            </div>
+            {renderDiscountFormFields(id, false, draftFromHydrated(discount))}
           </div>
         )}
       </div>
     );
   }
 
-  function renderCouponItem(couponKey: string, coupon?: DraftCoupon) {
+  /* Coupon form fields, shared by the create modal (isNew) and the inline edit
+   * form on an existing row. */
+  function renderCouponFormFields(couponKey: string, coupon?: DraftCoupon) {
     const isNew = couponKey === "new";
-    const expanded = expandedCouponKeys.has(couponKey);
     const draft =
       couponDrafts[couponKey] ??
       (coupon ? couponDraftFromExisting(coupon) : EMPTY_COUPON);
     const saving = couponSaving[couponKey] ?? false;
     const error = couponErrors[couponKey] ?? null;
 
-    const valueText = coupon
-      ? coupon.valueType === "flat"
+    return (
+      <>
+        {error && (
+          <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* Name + Coupon code */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Name</label>
+            <input
+              type="text"
+              value={draft.name}
+              onChange={(e) =>
+                setCouponDraftField(couponKey, "name", e.target.value)
+              }
+              placeholder="e.g. Summer Saver"
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Coupon code</label>
+            <input
+              type="text"
+              value={draft.code ?? ""}
+              onChange={(e) =>
+                setCouponDraftField(couponKey, "code", e.target.value || null)
+              }
+              placeholder="e.g. SUMMER25"
+              className={`${inputCls} font-mono uppercase`}
+            />
+            <p
+              className="text-xs mt-1"
+              style={{ color: "var(--admin-text-faint)" }}
+            >
+              Leave blank to auto-apply by date range.
+            </p>
+          </div>
+        </div>
+
+        {/* Discount amount + Type + Max per family */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Discount amount</label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={draft.value || ""}
+              onChange={(e) =>
+                setCouponDraftField(
+                  couponKey,
+                  "value",
+                  parseFloat(e.target.value) || 0,
+                )
+              }
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Type</label>
+            <select
+              value={draft.valueType}
+              onChange={(e) =>
+                setCouponDraftField(
+                  couponKey,
+                  "valueType",
+                  e.target.value as "flat" | "percent",
+                )
+              }
+              className={`${selectCls} w-full`}
+            >
+              <option value="flat">$ Off</option>
+              <option value="percent">% Off</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Max per family</label>
+            <input
+              type="number"
+              min={1}
+              value={draft.maxPerFamily}
+              onChange={(e) =>
+                setCouponDraftField(
+                  couponKey,
+                  "maxPerFamily",
+                  parseInt(e.target.value, 10) || 1,
+                )
+              }
+              className={inputCls}
+            />
+          </div>
+        </div>
+
+        {/* Valid from + Expires */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Valid from (optional)</label>
+            <InlineDatePicker
+              value={draft.validFrom?.slice(0, 10) ?? ""}
+              onChange={(v) =>
+                setCouponDraftField(
+                  couponKey,
+                  "validFrom",
+                  v ? new Date(v + "T00:00:00").toISOString() : null,
+                )
+              }
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Expires (optional)</label>
+            <InlineDatePicker
+              value={draft.validUntil?.slice(0, 10) ?? ""}
+              onChange={(v) =>
+                setCouponDraftField(
+                  couponKey,
+                  "validUntil",
+                  v ? new Date(v + "T00:00:00").toISOString() : null,
+                )
+              }
+            />
+          </div>
+        </div>
+
+        {/* Max total uses */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className={labelCls}>Max total uses (optional)</label>
+            <input
+              type="number"
+              min={1}
+              value={draft.maxTotalUses ?? ""}
+              onChange={(e) =>
+                setCouponDraftField(
+                  couponKey,
+                  "maxTotalUses",
+                  e.target.value ? parseInt(e.target.value, 10) : null,
+                )
+              }
+              placeholder="Unlimited"
+              className={inputCls}
+            />
+          </div>
+        </div>
+
+        {/* Discount applies to */}
+        <div>
+          <label className={labelCls}>Discount applies to</label>
+          <div className="flex flex-wrap gap-4">
+            {(
+              [
+                ["tuition", "Tuition"],
+                ["registration_fee", "Registration fee"],
+                ["recital_fee", "Recital fee"],
+              ] as const
+            ).map(([type, label]) => {
+              const checked = (draft.eligibleLineItemTypes ?? []).includes(type);
+              return (
+                <label
+                  key={type}
+                  className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) =>
+                      setCouponDraftField(
+                        couponKey,
+                        "eligibleLineItemTypes",
+                        e.target.checked
+                          ? [...(draft.eligibleLineItemTypes ?? []), type]
+                          : (draft.eligibleLineItemTypes ?? []).filter(
+                              (t) => t !== type,
+                            ),
+                      )
+                    }
+                    className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
+                    style={{ accentColor: "var(--admin-sidebar-active)" }}
+                  />
+                  {label}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Additional options */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draft.stackable}
+              onChange={(e) =>
+                setCouponDraftField(couponKey, "stackable", e.target.checked)
+              }
+              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
+              style={{ accentColor: "var(--admin-sidebar-active)" }}
+            />
+            Can stack with multi-class discounts
+          </label>
+          <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draft.appliesToMostExpensiveOnly ?? false}
+              onChange={(e) =>
+                setCouponDraftField(
+                  couponKey,
+                  "appliesToMostExpensiveOnly",
+                  e.target.checked,
+                )
+              }
+              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
+              style={{ accentColor: "var(--admin-sidebar-active)" }}
+            />
+            Apply to most expensive eligible item only
+          </label>
+          <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draft.isActive}
+              onChange={(e) =>
+                setCouponDraftField(couponKey, "isActive", e.target.checked)
+              }
+              className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
+              style={{ accentColor: "var(--admin-sidebar-active)" }}
+            />
+            Active
+          </label>
+        </div>
+
+        {/* Save */}
+        <div className="flex justify-end pt-1">
+          {isNew && (
+            <button
+              onClick={closeCouponModal}
+              className="text-sm font-medium rounded-lg px-4 py-2 mr-2 transition-colors hover:bg-neutral-100"
+              style={{ color: "var(--admin-text-muted)" }}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={() => saveCouponDraft(couponKey, coupon)}
+            disabled={saving}
+            className="text-sm font-semibold text-white rounded-lg px-4 py-2 transition-colors hover:opacity-90 disabled:opacity-60"
+            style={{ background: "var(--admin-sidebar-active)" }}
+          >
+            {saving ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 size={14} className="animate-spin" />
+                Saving…
+              </span>
+            ) : isNew ? (
+              "Save coupon"
+            ) : (
+              "Save changes"
+            )}
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  function renderCouponItem(couponKey: string, coupon: DraftCoupon) {
+    const expanded = expandedCouponKeys.has(couponKey);
+
+    const valueText =
+      coupon.valueType === "flat"
         ? `$${coupon.value} off`
-        : `${coupon.value}% off`
-      : null;
-    const usageText = coupon
-      ? coupon.maxTotalUses !== null
+        : `${coupon.value}% off`;
+    const usageText =
+      coupon.maxTotalUses !== null
         ? `${coupon.usesCount} / ${coupon.maxTotalUses} uses`
-        : `${coupon.usesCount} uses`
-      : null;
+        : `${coupon.usesCount} uses`;
 
     return (
       <div
@@ -956,15 +1360,7 @@ export default function DiscountsStep({
         <div className="flex items-center gap-2.5 px-4 py-3">
           {/* Chevron */}
           <button
-            onClick={() =>
-              isNew
-                ? setExpandedCouponKeys((prev) => {
-                    const next = new Set(prev);
-                    expanded ? next.delete("new") : next.add("new");
-                    return next;
-                  })
-                : toggleExpandCoupon(couponKey, coupon)
-            }
+            onClick={() => toggleExpandCoupon(couponKey, coupon)}
             className="shrink-0 transition-colors"
             style={{ color: "var(--admin-text-faint)" }}
           >
@@ -985,37 +1381,30 @@ export default function DiscountsStep({
               className="text-sm font-medium"
               style={{ color: "var(--admin-text)" }}
             >
-              {isNew ? (draft.name || "New Coupon") : (coupon?.name ?? "")}
+              {coupon.name}
             </span>
-            {coupon?.code && (
+            {coupon.code && (
               <span className="text-xs font-mono bg-neutral-100 text-neutral-600 px-2 py-0.5 rounded">
                 {coupon.code}
               </span>
             )}
-            {coupon && (
-              <span
-                className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                  coupon.isActive
-                    ? "bg-green-50 text-green-700"
-                    : "bg-neutral-100 text-neutral-500"
-                }`}
-              >
-                {coupon.isActive ? "Active" : "Inactive"}
-              </span>
-            )}
-            {valueText && (
-              <span
-                className="text-xs"
-                style={{ color: "var(--admin-text-faint)" }}
-              >
-                {valueText} · {usageText}
-              </span>
-            )}
+            <span
+              className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                coupon.isActive
+                  ? "bg-green-50 text-green-700"
+                  : "bg-neutral-100 text-neutral-500"
+              }`}
+            >
+              {coupon.isActive ? "Active" : "Inactive"}
+            </span>
+            <span className="text-xs" style={{ color: "var(--admin-text-faint)" }}>
+              {valueText} · {usageText}
+            </span>
           </div>
 
-          {/* History + Delete/Cancel */}
+          {/* History + Delete */}
           <div className="flex items-center gap-1 shrink-0">
-            {coupon?.id && (
+            {coupon.id && (
               <button
                 onClick={() => toggleHistory(coupon.id!)}
                 className="text-xs font-medium transition-colors px-2 py-1 rounded hover:bg-neutral-50"
@@ -1026,22 +1415,7 @@ export default function DiscountsStep({
             )}
             {!isLocked && (
               <button
-                onClick={async () => {
-                  if (isNew) {
-                    setExpandedCouponKeys((prev) => {
-                      const next = new Set(prev);
-                      next.delete("new");
-                      return next;
-                    });
-                    setCouponDrafts((d) => {
-                      const n = { ...d };
-                      delete n["new"];
-                      return n;
-                    });
-                  } else if (coupon) {
-                    await handleDeleteCoupon(coupon);
-                  }
-                }}
+                onClick={() => handleDeleteCoupon(coupon)}
                 className="text-xs font-medium transition-colors px-2 py-1 rounded hover:bg-red-50"
                 style={{ color: "var(--admin-text-faint)" }}
                 onMouseEnter={(e) =>
@@ -1051,26 +1425,32 @@ export default function DiscountsStep({
                   (e.currentTarget.style.color = "var(--admin-text-faint)")
                 }
               >
-                {isNew ? "Cancel" : "Delete"}
+                Delete
               </button>
             )}
           </div>
         </div>
 
         {/* Redemption history panel */}
-        {coupon?.id && expandedHistoryId === coupon.id && (
+        {coupon.id && expandedHistoryId === coupon.id && (
           <div
             className="px-4 py-3"
             style={{ borderTop: "1px solid var(--admin-border)" }}
           >
             {historyCache[coupon.id]?.loading && (
-              <p className="text-xs py-1" style={{ color: "var(--admin-text-faint)" }}>
+              <p
+                className="text-xs py-1"
+                style={{ color: "var(--admin-text-faint)" }}
+              >
                 Loading…
               </p>
             )}
             {!historyCache[coupon.id]?.loading &&
               (historyCache[coupon.id]?.records.length ?? 0) === 0 && (
-                <p className="text-xs py-1" style={{ color: "var(--admin-text-faint)" }}>
+                <p
+                  className="text-xs py-1"
+                  style={{ color: "var(--admin-text-faint)" }}
+                >
                   No redemptions yet.
                 </p>
               )}
@@ -1089,280 +1469,37 @@ export default function DiscountsStep({
           </div>
         )}
 
-        {/* Expanded inline form */}
+        {/* Expanded inline edit form */}
         {expanded && (
           <div
             className="px-4 pb-5 pt-4 space-y-4"
             style={{ borderTop: "1px solid var(--admin-border)" }}
           >
-            {error && (
-              <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-                {error}
-              </div>
-            )}
-
-            {/* Name + Coupon code */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Name</label>
-                <input
-                  type="text"
-                  value={draft.name}
-                  onChange={(e) =>
-                    setCouponDraftField(couponKey, "name", e.target.value)
-                  }
-                  placeholder="e.g. Fall Early Bird"
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Coupon code</label>
-                <input
-                  type="text"
-                  value={draft.code ?? ""}
-                  onChange={(e) =>
-                    setCouponDraftField(
-                      couponKey,
-                      "code",
-                      e.target.value || null,
-                    )
-                  }
-                  placeholder="e.g. FALL2026"
-                  className={`${inputCls} font-mono uppercase`}
-                />
-                <p
-                  className="text-xs mt-1"
-                  style={{ color: "var(--admin-text-faint)" }}
-                >
-                  Leave blank to auto-apply by date range.
-                </p>
-              </div>
-            </div>
-
-            {/* Discount amount + Type + Max per family */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className={labelCls}>Discount amount</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={draft.value || ""}
-                  onChange={(e) =>
-                    setCouponDraftField(
-                      couponKey,
-                      "value",
-                      parseFloat(e.target.value) || 0,
-                    )
-                  }
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Type</label>
-                <select
-                  value={draft.valueType}
-                  onChange={(e) =>
-                    setCouponDraftField(
-                      couponKey,
-                      "valueType",
-                      e.target.value as "flat" | "percent",
-                    )
-                  }
-                  className={`${selectCls} w-full`}
-                >
-                  <option value="flat">$ Off</option>
-                  <option value="percent">% Off</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Max per family</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={draft.maxPerFamily}
-                  onChange={(e) =>
-                    setCouponDraftField(
-                      couponKey,
-                      "maxPerFamily",
-                      parseInt(e.target.value, 10) || 1,
-                    )
-                  }
-                  className={inputCls}
-                />
-              </div>
-            </div>
-
-            {/* Valid from + Expires */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Valid from (optional)</label>
-                <InlineDatePicker
-                  value={draft.validFrom?.slice(0, 10) ?? ""}
-                  onChange={(v) =>
-                    setCouponDraftField(
-                      couponKey,
-                      "validFrom",
-                      v ? new Date(v + "T00:00:00").toISOString() : null,
-                    )
-                  }
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Expires (optional)</label>
-                <InlineDatePicker
-                  value={draft.validUntil?.slice(0, 10) ?? ""}
-                  onChange={(v) =>
-                    setCouponDraftField(
-                      couponKey,
-                      "validUntil",
-                      v ? new Date(v + "T00:00:00").toISOString() : null,
-                    )
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Max total uses */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Max total uses (optional)</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={draft.maxTotalUses ?? ""}
-                  onChange={(e) =>
-                    setCouponDraftField(
-                      couponKey,
-                      "maxTotalUses",
-                      e.target.value ? parseInt(e.target.value, 10) : null,
-                    )
-                  }
-                  placeholder="Unlimited"
-                  className={inputCls}
-                />
-              </div>
-            </div>
-
-            {/* Discount applies to */}
-            <div>
-              <label className={labelCls}>Discount applies to</label>
-              <div className="flex flex-wrap gap-4">
-                {(
-                  [
-                    ["tuition", "Tuition"],
-                    ["registration_fee", "Registration fee"],
-                    ["recital_fee", "Recital fee"],
-                  ] as const
-                ).map(([type, label]) => {
-                  const checked = (
-                    draft.eligibleLineItemTypes ?? []
-                  ).includes(type);
-                  return (
-                    <label
-                      key={type}
-                      className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={(e) =>
-                          setCouponDraftField(
-                            couponKey,
-                            "eligibleLineItemTypes",
-                            e.target.checked
-                              ? [...(draft.eligibleLineItemTypes ?? []), type]
-                              : (draft.eligibleLineItemTypes ?? []).filter(
-                                  (t) => t !== type,
-                                ),
-                          )
-                        }
-                        className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
-                        style={{ accentColor: "var(--admin-sidebar-active)" }}
-                      />
-                      {label}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Additional options */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={draft.stackable}
-                  onChange={(e) =>
-                    setCouponDraftField(couponKey, "stackable", e.target.checked)
-                  }
-                  className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
-                  style={{ accentColor: "var(--admin-sidebar-active)" }}
-                />
-                Can stack with multi-class discounts
-              </label>
-              <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={draft.appliesToMostExpensiveOnly ?? false}
-                  onChange={(e) =>
-                    setCouponDraftField(
-                      couponKey,
-                      "appliesToMostExpensiveOnly",
-                      e.target.checked,
-                    )
-                  }
-                  className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
-                  style={{ accentColor: "var(--admin-sidebar-active)" }}
-                />
-                Apply to most expensive eligible item only
-              </label>
-              <label className="flex items-center gap-2 text-sm text-neutral-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={draft.isActive}
-                  onChange={(e) =>
-                    setCouponDraftField(couponKey, "isActive", e.target.checked)
-                  }
-                  className="h-4 w-4 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
-                  style={{ accentColor: "var(--admin-sidebar-active)" }}
-                />
-                Active
-              </label>
-            </div>
-
-            {/* Save */}
-            <div className="flex justify-end pt-1">
-              <button
-                onClick={() => saveCouponDraft(couponKey, coupon)}
-                disabled={saving}
-                className="text-sm font-semibold text-white rounded-lg px-4 py-2 transition-colors hover:opacity-90 disabled:opacity-60"
-                style={{ background: "var(--admin-sidebar-active)" }}
-              >
-                {saving ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Loader2 size={14} className="animate-spin" />
-                    Saving…
-                  </span>
-                ) : (
-                  "Save changes"
-                )}
-              </button>
-            </div>
+            {renderCouponFormFields(couponKey, coupon)}
           </div>
         )}
       </div>
     );
   }
 
+  /* ── Derived: duplicate-aware discount grouping ───────────────────── */
+  const discountGroups = groupDiscounts(allDiscounts);
+  const dupeGroups = discountGroups.filter((g) => g.items.length > 1);
+  const dupeSummary =
+    dupeGroups
+      .slice(0, 4)
+      .map((g) => `${g.items.length}× “${g.items[0].name}”`)
+      .join(", ") +
+    (dupeGroups.length > 4 ? `, and ${dupeGroups.length - 4} more` : "");
+
   /* ── Render ───────────────────────────────────────────────────────── */
 
   return (
-    <div>
+    <div className="max-w-[940px] mx-auto">
       {/* Header */}
       <div className="mb-6">
         <h2
-          className="text-xl font-semibold"
+          className="text-[26px] font-semibold tracking-tight"
           style={{ color: "var(--admin-text)" }}
         >
           Discounts &amp; coupons
@@ -1409,13 +1546,33 @@ export default function DiscountsStep({
       {/* ── Discounts Tab ──────────────────────────────────────────────── */}
       {activeTab === "discounts" && (
         <div>
-          <div className="flex items-start justify-between mb-4">
-            <p
-              className="text-sm"
-              style={{ color: "var(--admin-text-muted)" }}
+          {/* Duplicate-records warning banner (prototype parity) */}
+          {dupeGroups.length > 0 && (
+            <div
+              className="flex items-center gap-3 rounded-xl px-4 py-3 mb-5"
+              style={{
+                background: "rgba(232,200,150,0.16)",
+                border: "1px solid rgba(212,160,80,0.45)",
+              }}
             >
-              Toggle to link a discount to this semester. Expand to view or
-              edit its rules.
+              <span
+                className="w-5 h-5 shrink-0 rounded-full inline-flex items-center justify-center text-xs font-bold"
+                style={{ background: "rgba(212,160,80,0.30)", color: "#7A4E08" }}
+              >
+                !
+              </span>
+              <span className="text-[13px] flex-1" style={{ color: "#7A4E08" }}>
+                <b>Duplicate discount records found</b> — {dupeSummary}. The list
+                below shows one of each; click a “copies” badge to review and
+                delete the extras.
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-start justify-between mb-4">
+            <p className="text-sm" style={{ color: "var(--admin-text-muted)" }}>
+              Toggle to link a discount to this semester. Expand to view or edit
+              its rules.
             </p>
             {!isLocked && (
               <button
@@ -1428,23 +1585,41 @@ export default function DiscountsStep({
             )}
           </div>
 
-          {expandedDiscountIds.has("new") && renderDiscountItem("new")}
-
-          {allDiscounts.length === 0 && !expandedDiscountIds.has("new") && (
+          {allDiscounts.length === 0 && (
             <div
               className="rounded-lg border border-dashed p-8 text-center"
               style={{ borderColor: "var(--admin-border)" }}
             >
-              <p
-                className="text-sm"
-                style={{ color: "var(--admin-text-faint)" }}
-              >
+              <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
                 No discounts yet.
               </p>
             </div>
           )}
 
-          {allDiscounts.map((d) => renderDiscountItem(d.id, d))}
+          {discountGroups.map((g) => {
+            const rep = g.items[0];
+            const extras = g.items.slice(1);
+            const revealed = revealedDupeKeys.has(g.key);
+            return (
+              <Fragment key={g.key}>
+                {renderDiscountItem(
+                  rep.id,
+                  rep,
+                  extras.length
+                    ? { count: g.items.length, key: g.key }
+                    : undefined,
+                )}
+                {extras.length > 0 && revealed && (
+                  <div
+                    className="ml-6 mb-1 pl-3"
+                    style={{ borderLeft: "2px solid var(--admin-border)" }}
+                  >
+                    {extras.map((d) => renderDiscountItem(d.id, d))}
+                  </div>
+                )}
+              </Fragment>
+            );
+          })}
         </div>
       )}
 
@@ -1452,10 +1627,7 @@ export default function DiscountsStep({
       {activeTab === "coupons" && (
         <div>
           <div className="flex items-start justify-between mb-4">
-            <p
-              className="text-sm"
-              style={{ color: "var(--admin-text-muted)" }}
-            >
+            <p className="text-sm" style={{ color: "var(--admin-text-muted)" }}>
               Coupon codes families can enter at checkout for this semester.
             </p>
             {!isLocked && (
@@ -1469,17 +1641,12 @@ export default function DiscountsStep({
             )}
           </div>
 
-          {expandedCouponKeys.has("new") && renderCouponItem("new")}
-
-          {coupons.length === 0 && !expandedCouponKeys.has("new") && (
+          {coupons.length === 0 && (
             <div
               className="rounded-lg border border-dashed p-8 text-center"
               style={{ borderColor: "var(--admin-border)" }}
             >
-              <p
-                className="text-sm"
-                style={{ color: "var(--admin-text-faint)" }}
-              >
+              <p className="text-sm" style={{ color: "var(--admin-text-faint)" }}>
                 No coupon codes yet.
               </p>
             </div>
@@ -1487,6 +1654,20 @@ export default function DiscountsStep({
 
           {coupons.map((c) => renderCouponItem(c._clientKey, c))}
         </div>
+      )}
+
+      {/* ── Create-discount modal ──────────────────────────────────────── */}
+      {discountModalOpen && (
+        <Modal title="Create discount" onClose={closeDiscountModal}>
+          {renderDiscountFormFields("new", true)}
+        </Modal>
+      )}
+
+      {/* ── Create-coupon modal ────────────────────────────────────────── */}
+      {couponModalOpen && (
+        <Modal title="Create coupon" onClose={closeCouponModal}>
+          {renderCouponFormFields("new", undefined)}
+        </Modal>
       )}
     </div>
   );

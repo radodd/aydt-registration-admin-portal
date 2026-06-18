@@ -9,8 +9,7 @@ import PaymentStep from "./steps/PaymentStep";
 import DiscountsStep from "./steps/DiscountsStep";
 import ReviewStep from "./steps/ReviewStep";
 import SessionsGroupsStep from "./steps/SessionGroupsStep";
-import ConfirmationEmailStep from "./steps/ConfirmationEmailStep";
-import WaitlistStep from "./steps/WaitlistStep";
+import EmailsStep from "./steps/EmailsStep";
 import {
   publishSemesterNow,
   saveSemesterDraft,
@@ -148,8 +147,7 @@ const STEPS = [
   { key: "payment",           label: "Payment" },
   { key: "discounts",         label: "Discounts" },
   { key: "registrationForm",  label: "Registration form" },
-  { key: "confirmationEmail", label: "Confirmation email" },
-  { key: "waitlist",          label: "Waitlist" },
+  { key: "emails",            label: "Emails" },
   { key: "review",            label: "Review & publish" },
 ] as const;
 
@@ -422,17 +420,8 @@ export default function SemesterForm({
         semesterId={state.id}
       />
     ),
-    confirmationEmail: (
-      <ConfirmationEmailStep
-        state={state}
-        dispatch={dispatchAndSync}
-        onNext={nextStep}
-        onBack={previousStep}
-        isLocked={isLocked}
-      />
-    ),
-    waitlist: (
-      <WaitlistStep
+    emails: (
+      <EmailsStep
         state={state}
         dispatch={dispatchAndSync}
         onNext={nextStep}
@@ -501,31 +490,54 @@ export default function SemesterForm({
           borderRight: "1px solid var(--admin-sidebar-border)",
         }}
       >
-        <div className="flex flex-col gap-0.5 px-2 py-6">
+        {/* Brand header */}
+        <div
+          className="px-5 pt-6 pb-5 mb-2"
+          style={{ borderBottom: "1px solid var(--admin-sidebar-border)" }}
+        >
+          <div
+            className="text-[13px] font-medium"
+            style={{ color: "#fff", letterSpacing: "0.18em" }}
+          >
+            AYDT ADMIN
+          </div>
+          <div
+            className="text-[11px] mt-0.5"
+            style={{ color: "var(--admin-sidebar-text)", opacity: 0.6 }}
+          >
+            Semester builder
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-0.5 px-3 flex-1">
           {STEPS.map((step, index) => {
             const isActive = index === activeStepIndex;
+            const isDone = index < activeStepIndex;
             return (
               <button
                 key={step.key}
                 onClick={() => navigateToStep(index)}
-                className="flex items-center gap-2 px-2 py-2 rounded-lg text-left w-full transition-colors hover:bg-white/5"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-left w-full transition-colors hover:bg-white/5"
+                style={isActive ? { background: "rgba(142,42,35,0.16)" } : undefined}
               >
                 <span
                   className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-colors"
                   style={
                     isActive
                       ? { background: "var(--admin-sidebar-active)", color: "#fff" }
-                      : { background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.35)" }
+                      : isDone
+                      ? { background: "rgba(125,206,194,0.16)", color: "#7DCEC2" }
+                      : { background: "rgba(255,255,255,0.06)", color: "var(--admin-sidebar-text)" }
                   }
                 >
-                  {index + 1}
+                  {isDone ? "✓" : index + 1}
                 </span>
                 <span
-                  className="text-sm font-medium leading-tight transition-colors"
+                  className="text-sm leading-tight transition-colors"
                   style={
                     isActive
-                      ? { color: "#fff" }
-                      : { color: "var(--admin-sidebar-text)", opacity: 0.7 }
+                      ? { color: "#fff", fontWeight: 500 }
+                      : { color: "var(--admin-sidebar-text)", opacity: isDone ? 0.85 : 0.7 }
                   }
                 >
                   {step.label}
@@ -645,11 +657,11 @@ export default function SemesterForm({
 
         {/* Content area */}
         <div
-          className={`flex-1 min-h-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none] ${activeStepKey === "sessions" || activeStepKey === "sessionGroups" || activeStepKey === "confirmationEmail" || activeStepKey === "waitlist" || activeStepKey === "review" ? "overflow-hidden flex flex-col" : "overflow-y-auto p-4 md:p-8"}`}
+          className={`flex-1 min-h-0 [&::-webkit-scrollbar]:hidden [scrollbar-width:none] ${activeStepKey === "sessions" || activeStepKey === "sessionGroups" || activeStepKey === "emails" || activeStepKey === "review" ? "overflow-hidden flex flex-col" : "overflow-y-auto p-4 md:p-8"}`}
           style={{ background: "var(--admin-page-bg)" }}
         >
           {/* Step indicator — hidden on full-bleed steps */}
-          {activeStepKey !== "sessions" && activeStepKey !== "sessionGroups" && activeStepKey !== "confirmationEmail" && activeStepKey !== "waitlist" && activeStepKey !== "review" && (
+          {activeStepKey !== "sessions" && activeStepKey !== "sessionGroups" && activeStepKey !== "emails" && activeStepKey !== "review" && (
             <p
               className="text-[11px] font-semibold uppercase tracking-widest mb-5"
               style={{ color: "var(--admin-text-faint)" }}
@@ -667,7 +679,7 @@ export default function SemesterForm({
             <div className="flex-1 min-h-0 overflow-y-auto md:overflow-hidden flex [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
               {stepRenderers[activeStepKey]}
             </div>
-          ) : activeStepKey === "confirmationEmail" || activeStepKey === "waitlist" ? (
+          ) : activeStepKey === "emails" ? (
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
               {stepRenderers[activeStepKey]}
             </div>

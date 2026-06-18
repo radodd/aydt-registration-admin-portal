@@ -563,7 +563,7 @@ export default function SessionsStep({
         <div className="flex items-start justify-between px-6 py-4 border-b border-neutral-200">
           <div>
             <h2 className="text-base font-semibold text-neutral-900">
-              Classes &amp; schedules
+              Classes &amp; offerings
             </h2>
             <p className="text-xs text-neutral-500 mt-0.5">
               Each class can have one or more schedule blocks. Sessions generate automatically.

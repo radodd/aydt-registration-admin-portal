@@ -118,11 +118,13 @@ function SortableFieldRowItem({
   isLocked,
   onEdit,
   onDelete,
+  onToggleRequired,
 }: {
   el: RegistrationFormElement;
   isLocked: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleRequired: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: el.id });
 
@@ -179,32 +181,48 @@ function SortableFieldRowItem({
         <div className="text-xs text-neutral-400 mt-0.5 pl-[18px]">{typeLabel}</div>
       </div>
 
-      {!isLocked && (
-        <div className="relative ml-3 shrink-0" ref={rowMenuRef}>
+      <div className="flex items-center gap-2 ml-3 shrink-0">
+        {/* Required / Optional badge (hover-revealed; toggles for questions & waivers) */}
+        {(el.type === "question" || el.type === "waiver") && (
           <button
-            onClick={() => setRowMenuOpen((o) => !o)}
-            className="p-1.5 rounded text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors"
+            type="button"
+            disabled={isLocked}
+            onClick={onToggleRequired}
+            className={`opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+              el.required ? "bg-primary-100 text-primary-700" : "bg-neutral-100 text-neutral-500"
+            } ${isLocked ? "cursor-default" : "hover:brightness-95 cursor-pointer"}`}
           >
-            <MoreHorizontal size={14} />
+            {el.required ? "Required" : "Optional"}
           </button>
-          {rowMenuOpen && (
-            <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[100px]">
-              <button
-                onClick={() => { onEdit(); setRowMenuOpen(false); }}
-                className="w-full text-left px-3 py-1.5 text-sm text-primary-600 hover:bg-neutral-50"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => { onDelete(); setRowMenuOpen(false); }}
-                className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-neutral-50"
-              >
-                Remove
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+
+        {!isLocked && (
+          <div className="relative" ref={rowMenuRef}>
+            <button
+              onClick={() => setRowMenuOpen((o) => !o)}
+              className="p-1.5 rounded text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 transition-colors"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            {rowMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-neutral-200 rounded-lg shadow-lg py-1 min-w-[100px]">
+                <button
+                  onClick={() => { onEdit(); setRowMenuOpen(false); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-primary-600 hover:bg-neutral-50"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => { onDelete(); setRowMenuOpen(false); }}
+                  className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-neutral-50"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -223,6 +241,7 @@ function SortableSectionCard({
   onAddField,
   onEditField,
   onDeleteField,
+  onToggleRequired,
 }: {
   section: SectionGroup;
   isLocked: boolean;
@@ -233,6 +252,7 @@ function SortableSectionCard({
   onAddField: (afterIndex: number, type: "question" | "text_block" | "waiver") => void;
   onEditField: (el: RegistrationFormElement) => void;
   onDeleteField: (id: string) => void;
+  onToggleRequired: (el: RegistrationFormElement) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: section.header.id });
 
@@ -350,6 +370,7 @@ function SortableSectionCard({
                 isLocked={isLocked}
                 onEdit={() => onEditField(el)}
                 onDelete={() => onDeleteField(el.id)}
+                onToggleRequired={() => onToggleRequired(el)}
               />
             ))}
           </SortableContext>
@@ -419,6 +440,8 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
   const [addingToSectionAfterIndex, setAddingToSectionAfterIndex] = useState<number | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
 
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -459,6 +482,18 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.registrationForm]);
 
+  // Close the "+ Add" dropdown on outside click
+  useEffect(() => {
+    if (!addMenuOpen) return;
+    function onOutside(e: MouseEvent) {
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target as Node)) {
+        setAddMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, [addMenuOpen]);
+
   /* -------------------------------------------------------------------------- */
   /* Modal controls                                                              */
   /* -------------------------------------------------------------------------- */
@@ -493,6 +528,12 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
 
   function handleDelete(id: string) {
     dispatch({ type: "REMOVE_FORM_ELEMENT", payload: id });
+  }
+
+  function handleToggleRequired(el: RegistrationFormElement) {
+    if (isLocked) return;
+    if (el.type !== "question" && el.type !== "waiver") return;
+    dispatch({ type: "UPDATE_FORM_ELEMENT", payload: { ...el, required: !el.required } });
   }
 
   function openAddFieldToSection(afterIndex: number, type: "question" | "text_block" | "waiver") {
@@ -577,17 +618,19 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
   /* -------------------------------------------------------------------------- */
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+    <div className="max-w-[840px] mx-auto">
+      {/* Step header */}
+      <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-neutral-900">Registration Form</h2>
-          <p className="text-sm text-neutral-500 mt-1">
-            Customize the questions users must complete before registering.
+          <h2 className="text-[26px] font-semibold tracking-tight" style={{ color: "var(--admin-text)" }}>
+            Registration form
+          </h2>
+          <p className="text-sm mt-1" style={{ color: "var(--admin-text-faint)" }}>
+            Customize the questions families complete before registering. Drag rows to reorder.
           </p>
         </div>
         {autosaving && (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 mt-1">
+          <span className="flex items-center gap-1.5 text-xs font-medium shrink-0 mt-1" style={{ color: "var(--admin-text-faint)" }}>
             <Loader2 size={13} className="animate-spin" />
             Saving…
           </span>
@@ -596,43 +639,49 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
 
       {/* Locked banner */}
       {isLocked && (
-        <div className="rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
-          This semester has active registrations. The registration form is locked.
+        <div className="mb-4 rounded-xl bg-mauve/10 border border-mauve px-4 py-3 text-sm text-mauve-text">
+          🔒 This semester has active registrations — the form is locked.
         </div>
       )}
 
-      {/* Add Controls */}
+      {/* Toolbar: single "+ Add" dropdown */}
       {!isLocked && (
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => openModal("question")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary-600 text-primary-600 hover:bg-primary-50 transition text-sm font-medium"
-          >
-            + Custom question
-          </button>
-          <button
-            onClick={() => openModal("subheader")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-neutral-300 text-neutral-600 hover:bg-neutral-50 transition text-sm"
-          >
-            + New section
-          </button>
-          <button
-            onClick={() => openModal("text_block")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-neutral-300 text-neutral-600 hover:bg-neutral-50 transition text-sm"
-          >
-            + Text block
-          </button>
-          <button
-            onClick={() => openModal("waiver")}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-neutral-300 text-neutral-600 hover:bg-neutral-50 transition text-sm"
-          >
-            + Waiver
-          </button>
+        <div className="flex items-center justify-between mb-4">
+          <div className="relative" ref={addMenuRef}>
+            <button
+              onClick={() => setAddMenuOpen((o) => !o)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-semibold transition-colors hover:bg-primary-50"
+              style={{ borderColor: "var(--admin-sidebar-active)", color: "var(--admin-sidebar-active)" }}
+            >
+              <Plus size={14} /> Add
+              <ChevronDown size={13} />
+            </button>
+            {addMenuOpen && (
+              <div className="absolute left-0 top-full mt-1 z-30 w-48 rounded-lg border border-neutral-200 bg-white shadow-lg overflow-hidden py-1">
+                {([
+                  ["question", "Question"],
+                  ["subheader", "Section"],
+                  ["text_block", "Text block"],
+                  ["waiver", "Waiver"],
+                ] as const).map(([type, label]) => (
+                  <button
+                    key={type}
+                    onClick={() => { setAddMenuOpen(false); openModal(type); }}
+                    className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-primary-50 hover:text-primary-700 transition-colors"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {elements.length === 0 && (
-        <div className="text-sm text-neutral-400 py-8 text-center">No form elements added yet.</div>
+        <div className="text-sm py-8 text-center" style={{ color: "var(--admin-text-faint)" }}>
+          No form elements added yet.
+        </div>
       )}
 
       {/* Sections with drag & drop */}
@@ -656,6 +705,7 @@ export default function RegistrationFormStep({ state, dispatch, isLocked = false
                 onAddField={openAddFieldToSection}
                 onEditField={(el) => openModal(el.type, el)}
                 onDeleteField={handleDelete}
+                onToggleRequired={handleToggleRequired}
               />
             ))}
           </div>
