@@ -50,6 +50,7 @@ interface ClassListItem {
   is_active: boolean;
   semester_id: string;
   class_meetings: ClassSession[];
+  class_sections: { id: string }[];
 }
 
 interface ClassDetail extends ClassListItem {
@@ -2008,32 +2009,53 @@ function ClassesPageContent() {
       .then(({ data }) => setSemesterName(data?.name ?? null));
   }, [semesterId]);
 
-  // Load enrollment counts after classes are loaded (per-session model)
+  // Load enrollment counts after classes are loaded. A class can use the
+  // per-session model (meeting_enrollments) and/or the full-schedule model
+  // (section_enrollments); the badge must count confirmed enrollments across
+  // BOTH, matching the detail roster (getClassRegistrants).
   useEffect(() => {
     if (classes.length === 0) return;
-    const sessionIds = classes.flatMap((c) => c.class_meetings.map((s) => s.id));
-    if (sessionIds.length === 0) return;
+    const meetingIds = classes.flatMap((c) => c.class_meetings.map((s) => s.id));
+    const sectionIds = classes.flatMap((c) =>
+      (c.class_sections ?? []).map((s) => s.id)
+    );
+    if (meetingIds.length === 0 && sectionIds.length === 0) return;
 
     const supabase = createClient();
-    supabase
-      .from("meeting_enrollments")
-      .select("meeting_id")
-      .in("meeting_id", sessionIds)
-      .eq("status", "confirmed")
-      .then(({ data }) => {
-        const sessionClassMap: Record<string, string> = {};
-        for (const cls of classes) {
-          for (const s of cls.class_meetings) {
-            sessionClassMap[s.id] = cls.id;
-          }
-        }
-        const counts: Record<string, number> = {};
-        for (const r of data ?? []) {
-          const classId = sessionClassMap[r.meeting_id];
-          if (classId) counts[classId] = (counts[classId] ?? 0) + 1;
-        }
-        setEnrolledCounts(counts);
-      });
+    const meetingClassMap: Record<string, string> = {};
+    const sectionClassMap: Record<string, string> = {};
+    for (const cls of classes) {
+      for (const s of cls.class_meetings) meetingClassMap[s.id] = cls.id;
+      for (const s of cls.class_sections ?? []) sectionClassMap[s.id] = cls.id;
+    }
+
+    Promise.all([
+      meetingIds.length
+        ? supabase
+            .from("meeting_enrollments")
+            .select("meeting_id")
+            .in("meeting_id", meetingIds)
+            .eq("status", "confirmed")
+        : Promise.resolve({ data: [] as { meeting_id: string }[] }),
+      sectionIds.length
+        ? supabase
+            .from("section_enrollments")
+            .select("section_id")
+            .in("section_id", sectionIds)
+            .eq("status", "confirmed")
+        : Promise.resolve({ data: [] as { section_id: string }[] }),
+    ]).then(([meetingRes, sectionRes]) => {
+      const counts: Record<string, number> = {};
+      for (const r of (meetingRes.data ?? []) as { meeting_id: string }[]) {
+        const classId = meetingClassMap[r.meeting_id];
+        if (classId) counts[classId] = (counts[classId] ?? 0) + 1;
+      }
+      for (const r of (sectionRes.data ?? []) as { section_id: string }[]) {
+        const classId = sectionClassMap[r.section_id];
+        if (classId) counts[classId] = (counts[classId] ?? 0) + 1;
+      }
+      setEnrolledCounts(counts);
+    });
   }, [classes]);
 
   // Meeting-plan #25: load the active waitlist once. getWaitlistEntries returns
