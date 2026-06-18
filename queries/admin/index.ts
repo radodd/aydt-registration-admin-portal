@@ -127,7 +127,7 @@ export async function getClasses(semesterId?: string) {
 
   let query = supabase
     .from("classes")
-    .select("*, class_meetings(*), class_sections(id)")
+    .select("*, class_meetings(*), class_sections(id, start_date, end_date)")
     .order("created_at", { ascending: false });
 
   if (semesterId) {

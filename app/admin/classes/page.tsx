@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useMemo, useTransition, type ReactNode } from "react";
+import { Suspense, useEffect, useRef, useState, useMemo, useTransition, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   getClasses,
@@ -50,7 +50,7 @@ interface ClassListItem {
   is_active: boolean;
   semester_id: string;
   class_meetings: ClassSession[];
-  class_sections: { id: string }[];
+  class_sections: { id: string; start_date: string | null; end_date: string | null }[];
 }
 
 interface ClassDetail extends ClassListItem {
@@ -80,15 +80,27 @@ const DAY_ORDER = [
   "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
 ];
 
-const FILTER_CHIPS = [
-  { key: "all", label: "All" },
-  { key: "ballet", label: "Ballet" },
-  { key: "tap", label: "Tap" },
-  { key: "hip_hop", label: "Hip Hop" },
-  { key: "junior", label: "Junior" },
-  { key: "senior", label: "Senior" },
-  { key: "competition", label: "Comp" },
-];
+// Shared styling for the list-filter inputs/selects (matches the search box).
+const FILTER_CONTROL_STYLE = {
+  background: "#F7F5F2",
+  border: "0.5px solid #DDD9D2",
+  color: "#201D18",
+  fontFamily: "inherit",
+};
+const FILTER_CONTROL_CLASS =
+  "w-full text-[12px] h-8 rounded-lg px-2 focus:outline-none cursor-pointer";
+const FILTER_LABEL_CLASS = "block text-[10px] mb-1";
+const FILTER_LABEL_STYLE = { color: "#9E9890" };
+
+/** Normalize a discipline string to its filter key ("Hip Hop" → "hip_hop"). */
+function disciplineKey(d: string | null): string {
+  return (d ?? "").toLowerCase().replace(/\s+/g, "_");
+}
+
+/** Title-case a snake/space value for display ("hip_hop" → "Hip Hop"). */
+function titleCase(s: string): string {
+  return s.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -116,15 +128,6 @@ function getSemesterFromDetail(
   return Array.isArray(detail.semesters)
     ? detail.semesters[0]
     : detail.semesters;
-}
-
-function matchesChip(cls: ClassListItem, key: string): boolean {
-  if (key === "all") return true;
-  if (key === "junior") return cls.division === "junior";
-  if (key === "senior") return cls.division === "senior";
-  if (key === "competition") return cls.division === "competition";
-  const disc = cls.discipline.toLowerCase().replace(/\s+/g, "_");
-  return disc === key || disc.includes(key.replace(/-/g, "_"));
 }
 
 function totalCapacity(cls: ClassListItem): number {
@@ -1960,13 +1963,24 @@ function ClassesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedId = searchParams.get("id");
-  const semesterId = searchParams.get("semester");
+  const initialSemester = useRef(searchParams.get("semester"));
 
   const [classes, setClasses] = useState<ClassListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [semesterName, setSemesterName] = useState<string | null>(null);
+  const [semesters, setSemesters] = useState<
+    { id: string; name: string; status: string }[]
+  >([]);
+  // "" = all semesters. Seeded from ?semester=, else defaulted to most-recent
+  // published once the semester list loads.
+  const [semesterFilter, setSemesterFilter] = useState<string>(
+    initialSemester.current ?? ""
+  );
+  const didDefaultSemester = useRef(false);
   const [search, setSearch] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [disciplineFilter, setDisciplineFilter] = useState("");
+  const [divisionFilter, setDivisionFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [enrolledCounts, setEnrolledCounts] = useState<Record<string, number>>({});
   // Meeting-plan #25: active waitlist entries (waiting/invited) across all classes.
   const [waitlist, setWaitlist] = useState<AdminWaitlistEntry[]>([]);
@@ -1982,32 +1996,48 @@ function ClassesPageContent() {
   const [archiving, setArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
 
-  // Load class list (re-runs when semester filter changes)
+  // Load the semester list once (for the Semester dropdown).
+  useEffect(() => {
+    createClient()
+      .from("semesters")
+      .select("id, name, status")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setSemesters(data ?? []));
+  }, []);
+
+  // When no explicit ?semester= was given, default to the most-recent published
+  // semester once the list loads (runs exactly once).
+  useEffect(() => {
+    if (didDefaultSemester.current) return;
+    if (initialSemester.current) {
+      didDefaultSemester.current = true;
+      return;
+    }
+    if (semesters.length === 0) return;
+    didDefaultSemester.current = true;
+    const published = semesters.find((s) => s.status === "published");
+    if (published) setSemesterFilter(published.id);
+  }, [semesters]);
+
+  // Load class list (re-runs when the selected semester changes)
   useEffect(() => {
     setLoading(true);
     setClasses([]);
     setEnrolledCounts({});
     setSearch("");
-    setActiveFilter("all");
-    getClasses(semesterId ?? undefined).then((data) => {
+    setDisciplineFilter("");
+    setDivisionFilter("");
+    setDateFrom("");
+    setDateTo("");
+    getClasses(semesterFilter || undefined).then((data) => {
       setClasses(data as ClassListItem[]);
       setLoading(false);
     });
-  }, [semesterId]);
+  }, [semesterFilter]);
 
-  // Fetch semester name when semesterId is present
-  useEffect(() => {
-    if (!semesterId) {
-      setSemesterName(null);
-      return;
-    }
-    createClient()
-      .from("semesters")
-      .select("name")
-      .eq("id", semesterId)
-      .single()
-      .then(({ data }) => setSemesterName(data?.name ?? null));
-  }, [semesterId]);
+  const currentSemesterName =
+    semesters.find((s) => s.id === semesterFilter)?.name ?? null;
 
   // Load enrollment counts after classes are loaded. A class can use the
   // per-session model (meeting_enrollments) and/or the full-schedule model
@@ -2097,12 +2127,21 @@ function ClassesPageContent() {
   function selectClass(id: string) {
     if (selectedId === id) return;
     const params = new URLSearchParams();
-    if (semesterId) params.set("semester", semesterId);
+    if (semesterFilter) params.set("semester", semesterFilter);
     params.set("id", id);
     router.replace(`/admin/classes?${params.toString()}`, { scroll: false });
     setArchiveError(null);
     setShowEmailModal(false);
     setShowEditModal(false);
+  }
+
+  // Switching semesters clears the open class (it may not exist in the new one)
+  // and keeps the URL shareable.
+  function changeSemester(value: string) {
+    setSemesterFilter(value);
+    const params = new URLSearchParams();
+    if (value) params.set("semester", value);
+    router.replace(`/admin/classes?${params.toString()}`, { scroll: false });
   }
 
   async function handleArchive() {
@@ -2146,10 +2185,54 @@ function ClassesPageContent() {
     );
   }
 
+  // Distinct discipline/division values present in the loaded classes, for the
+  // two filter dropdowns (so options reflect real data per semester).
+  const disciplineOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of classes) {
+      const key = disciplineKey(c.discipline);
+      if (key && !map.has(key)) map.set(key, titleCase(c.discipline));
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [classes]);
+
+  const divisionOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of classes) {
+      if (c.division && !map.has(c.division))
+        map.set(c.division, DIVISION_LABELS[c.division] ?? titleCase(c.division));
+    }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [classes]);
+
+  const hasActiveFilter =
+    !!search || !!disciplineFilter || !!divisionFilter || !!dateFrom || !!dateTo;
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return classes.filter((cls) => {
-      if (!matchesChip(cls, activeFilter)) return false;
+      if (disciplineFilter && disciplineKey(cls.discipline) !== disciplineFilter)
+        return false;
+      if (divisionFilter && cls.division !== divisionFilter) return false;
+
+      // Date range: keep classes whose dates overlap the [dateFrom, dateTo]
+      // window — checking BOTH the full-schedule term (class_sections) and the
+      // per-session/drop-in meetings (class_meetings), since both carry
+      // start_date/end_date. Rows with no dates don't match a date filter.
+      if (dateFrom || dateTo) {
+        const dated = [
+          ...(cls.class_sections ?? []),
+          ...(cls.class_meetings ?? []),
+        ];
+        const overlaps = dated.some((s) => {
+          if (s.start_date == null && s.end_date == null) return false;
+          if (dateTo && s.start_date && s.start_date > dateTo) return false;
+          if (dateFrom && s.end_date && s.end_date < dateFrom) return false;
+          return true;
+        });
+        if (!overlaps) return false;
+      }
+
       if (!q) return true;
       const tokens = q.split(/\s+/).filter(Boolean);
       const text = [
@@ -2162,7 +2245,7 @@ function ClassesPageContent() {
         .toLowerCase();
       return tokens.every((t) => text.includes(t));
     });
-  }, [classes, search, activeFilter]);
+  }, [classes, search, disciplineFilter, divisionFilter, dateFrom, dateTo]);
 
   const semesterForDetail = detail ? getSemesterFromDetail(detail) : null;
 
@@ -2210,30 +2293,25 @@ function ClassesPageContent() {
             borderRight: "0.5px solid #DDD9D2",
           }}
         >
-          {/* Header */}
+          {/* Header + filters */}
           <div
-            className="p-4 shrink-0"
+            className="p-4 shrink-0 space-y-2.5"
             style={{ borderBottom: "0.5px solid #DDD9D2" }}
           >
-            <div className="flex items-center justify-between mb-0.5">
+            <div>
               <p className="text-[15px] font-medium" style={{ color: "#201D18" }}>
-                {semesterName ?? "All Classes"}
+                {currentSemesterName ?? "All Classes"}
               </p>
-              {semesterId && (
-                <Link
-                  href="/admin/classes"
-                  className="text-[11px] transition hover:opacity-70"
-                  style={{ color: "#8E2A23" }}
-                >
-                  View all →
-                </Link>
-              )}
+              <p className="text-[11px]" style={{ color: "#9E9890" }}>
+                {loading
+                  ? "Loading…"
+                  : hasActiveFilter
+                    ? `${filtered.length} of ${classes.length} ${classes.length === 1 ? "class" : "classes"}`
+                    : `${classes.length} ${classes.length === 1 ? "class" : "classes"}${semesterFilter ? "" : " across all semesters"}`}
+              </p>
             </div>
-            <p className="text-[11px] mb-2.5" style={{ color: "#9E9890" }}>
-              {loading
-                ? "Loading…"
-                : `${classes.length} ${semesterId ? "classes in this semester" : "classes across all semesters"}`}
-            </p>
+
+            {/* Search */}
             <div className="relative">
               <svg
                 className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -2259,31 +2337,92 @@ function ClassesPageContent() {
                 }}
               />
             </div>
-          </div>
 
-          {/* Filter chips */}
-          <div
-            className="flex gap-1.5 px-4 py-2.5 shrink-0 overflow-x-auto"
-            style={{ borderBottom: "0.5px solid #DDD9D2" }}
-          >
-            {FILTER_CHIPS.map((chip) => (
-              <button
-                key={chip.key}
-                onClick={() => setActiveFilter(chip.key)}
-                className="shrink-0 text-[11px] px-2.5 py-1 rounded-full transition"
-                style={{
-                  border: "0.5px solid",
-                  borderColor:
-                    activeFilter === chip.key ? "#8E2A23" : "#DDD9D2",
-                  background: activeFilter === chip.key ? "#8E2A23" : "#fff",
-                  color: activeFilter === chip.key ? "#fff" : "#736D65",
-                  whiteSpace: "nowrap",
-                  cursor: "pointer",
-                }}
+            {/* Semester */}
+            <div>
+              <label className={FILTER_LABEL_CLASS} style={FILTER_LABEL_STYLE}>
+                Semester
+              </label>
+              <select
+                value={semesterFilter}
+                onChange={(e) => changeSemester(e.target.value)}
+                className={FILTER_CONTROL_CLASS}
+                style={FILTER_CONTROL_STYLE}
               >
-                {chip.label}
-              </button>
-            ))}
+                <option value="">All semesters</option>
+                {semesters.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                    {s.status !== "published" ? ` (${s.status})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date range (class term dates) */}
+            <div>
+              <label className={FILTER_LABEL_CLASS} style={FILTER_LABEL_STYLE}>
+                Date range
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  aria-label="Term start from"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="flex-1 text-[12px] h-8 rounded-lg px-2 focus:outline-none"
+                  style={FILTER_CONTROL_STYLE}
+                />
+                <input
+                  type="date"
+                  aria-label="Term end to"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="flex-1 text-[12px] h-8 rounded-lg px-2 focus:outline-none"
+                  style={FILTER_CONTROL_STYLE}
+                />
+              </div>
+            </div>
+
+            {/* Discipline + Division */}
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className={FILTER_LABEL_CLASS} style={FILTER_LABEL_STYLE}>
+                  Discipline
+                </label>
+                <select
+                  value={disciplineFilter}
+                  onChange={(e) => setDisciplineFilter(e.target.value)}
+                  className={FILTER_CONTROL_CLASS}
+                  style={FILTER_CONTROL_STYLE}
+                >
+                  <option value="">All</option>
+                  {disciplineOptions.map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className={FILTER_LABEL_CLASS} style={FILTER_LABEL_STYLE}>
+                  Division
+                </label>
+                <select
+                  value={divisionFilter}
+                  onChange={(e) => setDivisionFilter(e.target.value)}
+                  className={FILTER_CONTROL_CLASS}
+                  style={FILTER_CONTROL_STYLE}
+                >
+                  <option value="">All</option>
+                  {divisionOptions.map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Scrollable list */}
@@ -2301,7 +2440,7 @@ function ClassesPageContent() {
                 className="p-5 text-[12px] text-center"
                 style={{ color: "#9E9890" }}
               >
-                {search || activeFilter !== "all"
+                {hasActiveFilter
                   ? "No matching classes."
                   : "No classes found."}
               </p>
