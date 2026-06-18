@@ -552,6 +552,7 @@ function OverviewTab({
                   </button>
                   {openMenuId === s.id && (
                     <div
+                      onClick={(e) => e.stopPropagation()}
                       className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 overflow-hidden"
                       style={{
                         background: "var(--admin-surface)",
