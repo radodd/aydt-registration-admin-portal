@@ -18,10 +18,10 @@ import { InlineDatePicker } from "@/app/components/ui/InlineDatePicker";
 type SubStep = "plans" | "tuition" | "programs" | "fees";
 
 const SUB_STEPS: { key: SubStep; label: string }[] = [
-  { key: "plans", label: "1. Payment Plans" },
-  { key: "tuition", label: "2. Tuition Rates" },
-  { key: "programs", label: "3. Special Programs" },
-  { key: "fees", label: "4. Fee Config" },
+  { key: "plans", label: "Payment plans" },
+  { key: "tuition", label: "Tuition rates" },
+  { key: "programs", label: "Special programs" },
+  { key: "fees", label: "Fee config" },
 ];
 
 const DIVISIONS = [
@@ -314,14 +314,14 @@ export default function PaymentStep({
 
   function addProgram() {
     if (newProgram.semesterTotal <= 0) {
-      alert("Semester total must be greater than zero.");
+      alert("Base tuition must be greater than zero.");
       return;
     }
     if (
       newProgram.autoPayInstallmentAmount !== null &&
       newProgram.autoPayInstallmentAmount > newProgram.semesterTotal
     ) {
-      alert("Auto-pay installment amount cannot exceed semester total.");
+      alert("Auto-pay installment amount cannot exceed base tuition.");
       return;
     }
     const duplicate = programs.some((p) => p.programKey === newProgram.programKey);
@@ -583,6 +583,10 @@ export default function PaymentStep({
       return next;
     });
   }
+  // Collapse unused rate bands / special programs behind a "Show N unused…" toggle
+  // (declutters the default view — typically only a couple of bands are in use).
+  const [showUnusedBands, setShowUnusedBands] = useState(false);
+  const [showUnusedPrograms, setShowUnusedPrograms] = useState(false);
   const visibleSubSteps = hasStandardClass
     ? SUB_STEPS
     : SUB_STEPS.filter((s) => s.key !== "tuition" && s.key !== "programs");
@@ -647,11 +651,11 @@ export default function PaymentStep({
   }, [activeSubStep, hasStandardClass]);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5">
+    <div className="max-w-[940px] mx-auto space-y-5">
       {/* Header */}
       <div>
         <h2
-          className="text-xl font-semibold tracking-tight"
+          className="text-[26px] font-semibold tracking-tight"
           style={{ color: "var(--admin-text)" }}
         >
           Payment &amp; pricing
@@ -922,7 +926,7 @@ export default function PaymentStep({
               style={{ border: "0.5px solid var(--admin-border)" }}
             >
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
+                <table className="w-full border-collapse [&_td]:align-top">
                   <thead>
                     <tr style={{ background: "var(--admin-table-header-bg)" }}>
                       {(["Division","Classes/Wk","Base Tuition","Discount %","Semester Total","Auto-Pay /mo","Notes"] as const).map((h) => (
@@ -948,6 +952,7 @@ export default function PaymentStep({
                       const applicable = isBandApplicable(band);
                       const expanded = expandedRows.has(band._clientKey);
                       if (!applicable && !expanded && !isLocked) {
+                        if (!showUnusedBands) return null;
                         const divLabel =
                           DIVISIONS.find((d) => d.value === band.division)?.label ??
                           band.division;
@@ -1212,6 +1217,19 @@ export default function PaymentStep({
                   </tbody>
                 </table>
               </div>
+              {!isLocked && (() => {
+                const n = bands.filter((b) => !isBandApplicable(b) && !expandedRows.has(b._clientKey)).length;
+                if (n === 0) return null;
+                return (
+                  <div
+                    onClick={() => setShowUnusedBands((v) => !v)}
+                    className="text-center cursor-pointer text-sm font-semibold py-2.5 transition-colors hover:bg-[#FDF2F1]"
+                    style={{ color: "var(--admin-sidebar-active)", borderTop: "0.5px solid var(--admin-border)" }}
+                  >
+                    {showUnusedBands ? "Hide unused rate bands ⌃" : `Show ${n} unused rate band${n === 1 ? "" : "s"} ⌄`}
+                  </div>
+                );
+              })()}
             </div>
             ) : (
               <div
@@ -1426,8 +1444,10 @@ export default function PaymentStep({
             >
               <span>
                 Fixed-tuition programs that bypass division-based progressive
-                discount calculations. Amounts are used exactly as entered —
-                no additional discounts apply.
+                discount calculations. <strong>Enter base tuition only</strong> —
+                no additional discounts apply, but registration and any
+                costume/video fees from the Fee Config below are still added
+                at checkout.
               </span>
               {!isLocked && (
                 <button
@@ -1454,11 +1474,13 @@ export default function PaymentStep({
                 style={{ border: "0.5px solid var(--admin-border)" }}
               >
                 <div className="overflow-x-auto">
-                  <table className="admin-table">
+                  <table className="admin-table [&_td]:align-top">
                     <thead>
                       <tr>
                         <th>Program</th>
-                        <th>Semester total ($)</th>
+                        <th title="Tuition only, pre-fee. Reg/costume/video added at checkout.">
+                          Base tuition ($, pre-fee)
+                        </th>
                         <th>Auto-pay /mo</th>
                         <th>Installments</th>
                         <th>Reg. fee override</th>
@@ -1471,6 +1493,7 @@ export default function PaymentStep({
                         const applicable = isProgramApplicable(prog);
                         const expanded = expandedRows.has(prog._clientKey);
                         if (!applicable && !expanded && !isLocked) {
+                          if (!showUnusedPrograms) return null;
                           return (
                             <tr
                               key={prog._clientKey}
@@ -1728,6 +1751,19 @@ export default function PaymentStep({
                     </tbody>
                   </table>
                 </div>
+                {!isLocked && (() => {
+                  const n = programs.filter((p) => !isProgramApplicable(p) && !expandedRows.has(p._clientKey)).length;
+                  if (n === 0) return null;
+                  return (
+                    <div
+                      onClick={() => setShowUnusedPrograms((v) => !v)}
+                      className="text-center cursor-pointer text-sm font-semibold py-2.5 transition-colors hover:bg-[#FDF2F1]"
+                      style={{ color: "var(--admin-sidebar-active)", borderTop: "0.5px solid var(--admin-border)" }}
+                    >
+                      {showUnusedPrograms ? "Hide unused programs ⌃" : `Show ${n} unused program${n === 1 ? "" : "s"} ⌄`}
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <div
@@ -1789,7 +1825,7 @@ export default function PaymentStep({
                       className="text-xs font-medium"
                       style={{ color: "var(--admin-text-muted)" }}
                     >
-                      Semester total ($)
+                      Base tuition ($, pre-fee)
                     </label>
                     <input
                       type="number"
@@ -1805,6 +1841,14 @@ export default function PaymentStep({
                       }
                       className="admin-input"
                     />
+                    <p
+                      className="text-xs"
+                      style={{ color: "var(--admin-text-faint)" }}
+                    >
+                      Tuition only — do not include the registration fee or
+                      any costume/video fees. Those are added at checkout per
+                      the Fee Config.
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <label

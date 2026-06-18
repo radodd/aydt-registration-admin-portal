@@ -10,6 +10,21 @@ import {
 } from "@/types";
 import { buildPaymentSchedule } from "@/utils/buildPaymentSchedule";
 
+/**
+ * AYDT policy: families paying monthly installments for ONLY technique /
+ * pointe / pre-pointe special programs are exempt from the +$5/mo admin fee
+ * that otherwise applies to installment orders. Any other enrollment in the
+ * order (standard, competition, early-childhood) opts the order back into
+ * the admin fee. The fee AMOUNT remains editable per-semester via
+ * `semester_fee_config.auto_pay_admin_fee_monthly`; this set governs WHEN
+ * the fee is applied.
+ */
+const INSTALLMENT_ADMIN_FEE_EXEMPT_PROGRAM_KEYS = new Set([
+  "technique",
+  "pointe",
+  "pre_pointe",
+]);
+
 /* -------------------------------------------------------------------------- */
 /* Public server action                                                        */
 /* -------------------------------------------------------------------------- */
@@ -311,6 +326,12 @@ export async function computePricingQuote(
   /* ---------------------------------------------------------------------- */
   const perDancer: DancerPricingBreakdown[] = [];
 
+  // Installment-admin-fee exemption (AYDT policy): suppress the +$5/mo admin
+  // fee when EVERY enrollment in the family's order is a technique / pointe /
+  // pre-pointe special program. Counted across both schedule + session paths.
+  let totalEnrollmentBuckets = 0;
+  let totalExemptInstallmentEnrollments = 0;
+
   for (const {
     dancerId,
     dancerName: dancerNameOverride,
@@ -482,6 +503,20 @@ export async function computePricingQuote(
           c.tuition_override_amount == null
         );
       });
+
+      // Installment-admin-fee tracking — one bucket per enrolled section.
+      // Bumps the exempt counter only when the section maps to a fee-exempt
+      // special program (technique / pointe / pre_pointe).
+      totalEnrollmentBuckets += scheduleRows.length;
+      for (const s of specialSchedules) {
+        const cls = Array.isArray(s.classes) ? s.classes[0] : s.classes;
+        const key = cls
+          ? classifySpecialProgramKey(cls as ScheduleClassInfo)
+          : null;
+        if (key && INSTALLMENT_ADMIN_FEE_EXEMPT_PROGRAM_KEYS.has(key)) {
+          totalExemptInstallmentEnrollments++;
+        }
+      }
 
       // Tiered path: each enrolled tiered section must have a tier selected.
       // Tuition = sum of class_tiers.price_cents/100; no costume/video/reg fee.
@@ -957,6 +992,19 @@ export async function computePricingQuote(
       return cls == null || cls.tuition_override_amount == null;
     });
 
+    // Installment-admin-fee tracking — one bucket per session enrolled
+    // (includes drop-in dates). Exempt counter advances only for technique /
+    // pointe / pre_pointe; drop-in dates always count against exemption since
+    // they're standard / non-special programs.
+    totalEnrollmentBuckets += resolvedSessionIds.length;
+    for (const sid of specialIds) {
+      const cls = sessionClassMap.get(sid);
+      const key = cls ? classifySpecialProgramKey(cls) : null;
+      if (key && INSTALLMENT_ADMIN_FEE_EXEMPT_PROGRAM_KEYS.has(key)) {
+        totalExemptInstallmentEnrollments++;
+      }
+    }
+
     const lineItems: LineItem[] = [];
     let tuition = 0;
     let recitalFee = 0;
@@ -1389,9 +1437,16 @@ export async function computePricingQuote(
 
   /* ---------------------------------------------------------------------- */
   /* 7. Auto-pay admin fee: $X/month × installment count                    */
+  /* AYDT policy: suppress the admin fee when the entire order is           */
+  /* technique / pointe / pre-pointe special programs. Any other enrollment */
+  /* opts the order back into the fee. Family-level all-or-nothing.          */
   /* ---------------------------------------------------------------------- */
+  const allEnrollmentsExemptFromInstallmentFee =
+    totalEnrollmentBuckets > 0 &&
+    totalEnrollmentBuckets === totalExemptInstallmentEnrollments;
   const autoPayAdminFeeTotal =
-    input.paymentPlanType === "auto_pay_monthly"
+    input.paymentPlanType === "auto_pay_monthly" &&
+    !allEnrollmentsExemptFromInstallmentFee
       ? round2(
           feeConfig.auto_pay_admin_fee_monthly *
             feeConfig.auto_pay_installment_count,

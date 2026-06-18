@@ -96,6 +96,19 @@
 
   --admin-card-accent:        #8E2A23;
 
+  /* ── SPACING & DENSITY (4px scale, two cell densities) ── */
+  --space-1:                  4px;
+  --space-2:                  8px;
+  --space-3:                  12px;
+  --space-4:                  16px;
+  --space-5:                  24px;
+  --space-6:                  32px;
+  --space-7:                  48px;
+  --space-8:                  64px;
+
+  --density-cell-compact:     8px 12px;   /* default — scanning surfaces */
+  --density-cell-comfortable: 12px 16px;  /* focused detail/edit views */
+
 }
 
 

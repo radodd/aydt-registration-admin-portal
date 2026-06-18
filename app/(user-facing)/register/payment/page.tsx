@@ -317,33 +317,50 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
     // Preview computes the quote too (tolerateMissingPrices below) so the
     // Review & Confirm summary renders identically to the live experience.
     if (fullyAssigned.length === 0) return;
+    // Wait for semesterSessions to load so scheduleId can be resolved from
+    // sessionMap. Without this, standard/tiered participants silently fall
+    // back through the session path and a single class meeting Mon+Wed would
+    // band as 1/WK instead of 2/WK.
+    if (semesterSessions.length === 0) return;
 
-    // Group session IDs by dancer (+ per-dancer tier map for tiered classes).
+    // Partition each dancer's participants by mode (mirrors createRegistrations):
+    //   - standard / tiered → schedule path (scheduleIds + classTierIdsBySchedule)
+    //   - drop-in (or legacy unset mode) → session path (sessionIds)
     const enrollmentMap = new Map<
       string,
       {
         dancerName?: string;
+        scheduleIds: string[];
+        classTierIdsBySchedule: Record<string, string>;
         sessionIds: string[];
-        classTierIdsBySession: Record<string, string>;
       }
     >();
     for (const p of fullyAssigned) {
       if (!p.dancerId) continue;
       if (!enrollmentMap.has(p.dancerId)) {
         enrollmentMap.set(p.dancerId, {
+          scheduleIds: [],
+          classTierIdsBySchedule: {},
           sessionIds: [],
-          classTierIdsBySession: {},
         });
       }
       const entry = enrollmentMap.get(p.dancerId)!;
-      entry.sessionIds.push(p.sessionId);
       const owner = cartItems.find((it) => {
         if (it.mode === "drop-in")
           return (it.selectedDateIds ?? []).includes(p.sessionId);
         return it.sessionId === p.sessionId;
       });
-      if (owner?.mode === "tiered" && owner.classTierId) {
-        entry.classTierIdsBySession[p.sessionId] = owner.classTierId;
+      const scheduleId = sessionMap.get(p.sessionId)?.scheduleId ?? null;
+      const usesSchedulePath =
+        (owner?.mode === "standard" || owner?.mode === "tiered") &&
+        !!scheduleId;
+      if (usesSchedulePath) {
+        entry.scheduleIds.push(scheduleId!);
+        if (owner?.mode === "tiered" && owner.classTierId) {
+          entry.classTierIdsBySchedule[scheduleId!] = owner.classTierId;
+        }
+      } else {
+        entry.sessionIds.push(p.sessionId);
       }
     }
 
@@ -357,14 +374,18 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
     }
 
     const enrollments = Array.from(enrollmentMap.entries()).map(
-      ([dancerId, { dancerName, sessionIds, classTierIdsBySession }]) => ({
+      ([
+        dancerId,
+        { dancerName, scheduleIds, classTierIdsBySchedule, sessionIds },
+      ]) => ({
         dancerId,
         dancerName,
-        sessionIds,
-        classTierIdsBySession:
-          Object.keys(classTierIdsBySession).length > 0
-            ? classTierIdsBySession
+        scheduleIds: scheduleIds.length > 0 ? scheduleIds : undefined,
+        classTierIdsBySchedule:
+          Object.keys(classTierIdsBySchedule).length > 0
+            ? classTierIdsBySchedule
             : undefined,
+        sessionIds: sessionIds.length > 0 ? sessionIds : undefined,
       }),
     );
 
@@ -406,7 +427,9 @@ export function PaymentContent({ semesterId }: { semesterId: string }) {
       })
       .finally(() => setQuoteLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.participants, semesterId, appliedCouponCode, planType, selectedAddOnIds.join(",")]);
+    // semesterSessions in deps so the quote re-fires once sessions load and
+    // sessionMap can resolve scheduleId for standard/tiered participants.
+  }, [state.participants, semesterId, appliedCouponCode, planType, selectedAddOnIds.join(","), semesterSessions]);
 
   async function handleSaveAddress() {
     setAddressError(null);
