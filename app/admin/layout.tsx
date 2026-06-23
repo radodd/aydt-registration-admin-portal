@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@/utils/supabase/client";
+import { signOut } from "@/app/auth/actions";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
@@ -113,8 +114,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/auth");
+    await signOut();
   };
 
   return (

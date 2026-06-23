@@ -2,20 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
-import { useRouter } from "next/navigation";
+import { signOut } from "@/app/auth/actions";
 import { LogOut, UserCircle } from "lucide-react";
 
 export function InstructorTopBar({ displayName }: { displayName: string }) {
-  const router  = useRouter();
   const [open, setOpen] = useState(false);
 
   const initial = displayName.trim()[0]?.toUpperCase() ?? "I";
 
   const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/auth");
+    await signOut();
   };
 
   return (

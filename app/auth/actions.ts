@@ -119,10 +119,16 @@ export async function signUp(formData: FormData) {
   redirect(safePath);
 }
 
-export async function signOut() {
+export async function signOut(options?: { scope?: "local" | "global" }) {
   const supabase = await createClient();
-  const { error } = await supabase.auth.signOut();
-  if (error) console.error("Sign out error.", error.message);
+  // `options` may be a FormData when invoked via `<form action={signOut}>`;
+  // in that case `scope` is simply absent and a default sign-out runs.
+  const scope = options && "scope" in options ? options.scope : undefined;
+  const { error } = await supabase.auth.signOut(scope ? { scope } : undefined);
+  if (error) {
+    console.error("Sign out error.", error.message);
+    return { error: error.message };
+  }
   revalidatePath("/", "layout");
   redirect("/auth");
 }

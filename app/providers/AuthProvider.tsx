@@ -17,7 +17,6 @@ interface AuthContextValue {
   userRecord: User | null;
   session: Session | null;
   isLoading: boolean;
-  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -74,13 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-  }, [supabase]);
-
   return (
     <AuthContext.Provider
-      value={{ supabaseUser, userRecord, session, isLoading, signOut }}
+      value={{ supabaseUser, userRecord, session, isLoading }}
     >
       {children}
     </AuthContext.Provider>
