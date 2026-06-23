@@ -70,7 +70,7 @@ async function sendSmsViaApi(
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 const siteUrl = Deno.env.get("SITE_URL") ?? "https://aydt.com";
 const adminEmail = Deno.env.get("ADMIN_NOTIFICATION_EMAIL") ?? "admin@aydt.nyc";
-const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@aydt.nyc";
+const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "admin@aydt.nyc";
 
 /* -------------------------------------------------------------------------- */
 /* EPG server-to-server charge helper (inline — Deno can't import Node utils) */

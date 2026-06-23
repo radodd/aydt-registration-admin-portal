@@ -151,7 +151,7 @@ export async function cancelClass(
 
   // 5. Notify each family
   const resend = new Resend(process.env.RESEND_API_KEY!);
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@aydt.nyc";
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "admin@aydt.nyc";
   let notified = 0;
 
   for (const family of familyMap.values()) {

@@ -45,7 +45,13 @@ Net-new, but mirror the existing `check_session_capacity()` trigger pattern (`pe
 - [ ] Admin login redirect by role → `/admin` (deferred until close to deploy)
 - [ ] Strip EPG/Cart debug logging (the `⚠️ TEMP` / `// TODO: DELETE` / `[Cart]` lines) — C3 cleanup
 - [ ] GTM/GA4 review — validate purchase event + confirmation analytics post-EPG
-- [ ] Resend prod domain: verify **aydt.nyc** (not .com), set `RESEND_FROM_EMAIL`, fix hardcoded `noreply@aydt.com` fallback
+- [ ] Resend prod domain: verify **aydt.nyc** (not .com) in the prod Resend account
+  - [x] Code: all from-email fallbacks standardized to **`admin@aydt.nyc`** — runtime + edge functions (2026-06-23, Window B). One monitored address everywhere; fallback == env value.
+  - [ ] Set `RESEND_FROM_EMAIL=admin@aydt.nyc` in **both** Vercel env **and** Supabase edge secrets (separate stores — one isn't visible to the other; same value in each). Vercel already = `admin@aydt.nyc`; Supabase edge was **missing it** (probe confirmed `resendFromEmailSet:false`).
+  - [ ] Set `SITE_URL` in **Supabase edge secrets** (was missing → 3 crons fell back to `https://aydt.com`). Edge does NOT need `NEXT_PUBLIC_SITE_URL`.
+  - [ ] Edge URL-var consolidation: `process-scheduled-emails` + `send-email-broadcast` migrated `APP_URL` → `SITE_URL` (code done). After redeploy, **unset** stale `APP_URL`, `NEXT_PUBLIC_BASE_URL`, `NEXT_PUBLIC_APP_URL` in Supabase.
+  - [ ] **Redeploy the edge functions** so code changes go live: `supabase functions deploy process-overdue-payments process-waitlist process-scheduled-emails send-email-broadcast`
+  - [ ] Verify EPG secrets exist in Supabase edge (`EPG_MERCHANT_ALIAS`/`EPG_SECRET_KEY`/`EPG_BASE_URL`) — appeared absent in the secrets list; `process-overdue-payments` charging needs them.
 - [ ] Production env vars / secrets audit
 - [ ] Smoke test on prod build before announce
 

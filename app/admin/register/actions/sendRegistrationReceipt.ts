@@ -303,7 +303,7 @@ export async function sendRegistrationReceipt(params: {
       paymentPlanType,
     });
 
-    const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@aydt.nyc";
+    const fromEmail = process.env.RESEND_FROM_EMAIL ?? "admin@aydt.nyc";
     const resend = new Resend(apiKey);
 
     const to: string[] = parentEmail ? [parentEmail] : [adminEmail!];

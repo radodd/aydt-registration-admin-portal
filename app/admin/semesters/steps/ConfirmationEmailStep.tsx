@@ -335,7 +335,7 @@ export default function ConfirmationEmailStep({
                   value={fromEmail}
                   onChange={(e) => handleEmailInfoChange("fromEmail", e.target.value)}
                   disabled={isLocked}
-                  placeholder="noreply@aydt.nyc"
+                  placeholder="admin@aydt.nyc"
                   className="w-full border border-neutral-300 rounded-xl px-4 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-600 focus:outline-none disabled:bg-neutral-50 disabled:text-neutral-400"
                 />
               </div>
@@ -508,7 +508,7 @@ export default function ConfirmationEmailStep({
                           {subject ? applyTokens(subject) : "Your registration is confirmed!"}
                         </p>
                         <p style={{ fontSize: 9, color: "#888" }} className="mt-0.5">
-                          From: {fromName || "AYDT Registration"} &lt;{fromEmail || "noreply@aydt.nyc"}&gt;
+                          From: {fromName || "AYDT Registration"} &lt;{fromEmail || "admin@aydt.nyc"}&gt;
                         </p>
                       </div>
                       <div style={{ height: 316, overflow: "hidden", position: "relative" }}>

@@ -62,7 +62,7 @@ export async function sendTestWaitlistEmail(
     : "Test: Waitlist Invitation";
 
   const fromName = email.fromName || "AYDT Registration";
-  const fromEmail = email.fromEmail || process.env.RESEND_FROM_EMAIL || "noreply@aydt.nyc";
+  const fromEmail = email.fromEmail || process.env.RESEND_FROM_EMAIL || "admin@aydt.nyc";
 
   try {
     await resend.emails.send({

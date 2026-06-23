@@ -85,7 +85,7 @@ export async function sendInviteEmail(
   );
   const fromName = config?.fromName ?? "AYDT Registration";
   const fromEmail =
-    config?.fromEmail ?? process.env.RESEND_FROM_EMAIL ?? "noreply@aydt.nyc";
+    config?.fromEmail ?? process.env.RESEND_FROM_EMAIL ?? "admin@aydt.nyc";
 
   // Build HTML body
   let htmlBody: string;

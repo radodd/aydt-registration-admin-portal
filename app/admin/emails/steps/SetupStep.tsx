@@ -106,7 +106,7 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
               setSenderEmail(e.target.value);
               syncToReducer({ senderEmail: e.target.value });
             }}
-            placeholder="noreply@aydt.com"
+            placeholder="admin@aydt.nyc"
             className="w-full border border-neutral-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
           />
         </div>
@@ -124,7 +124,7 @@ export default function SetupStep({ state, dispatch, onNext }: Props) {
               setReplyToEmail(e.target.value);
               syncToReducer({ replyToEmail: e.target.value || undefined });
             }}
-            placeholder="admin@aydt.com"
+            placeholder="admin@aydt.nyc"
             className="w-full border border-neutral-300 text-slate-500 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary-600 focus:outline-none"
           />
         </div>

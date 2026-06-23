@@ -47,7 +47,7 @@ export async function sendWaitlistOfferEmail(
   `;
 
   const fromName = "AYDT Registration";
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@aydt.nyc";
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "admin@aydt.nyc";
 
   try {
     await resend.emails.send({
@@ -72,7 +72,7 @@ export function formatExpiryWindow(hours: number): string {
 }
 
 const FROM_NAME = "AYDT Registration";
-const fromAddr = () => process.env.RESEND_FROM_EMAIL || "noreply@aydt.nyc";
+const fromAddr = () => process.env.RESEND_FROM_EMAIL || "admin@aydt.nyc";
 
 /**
  * Pre-expiry nudge for an outstanding offer. Sent once by the engine ~a few hours

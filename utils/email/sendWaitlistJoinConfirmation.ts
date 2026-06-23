@@ -21,7 +21,7 @@ export async function sendWaitlistJoinConfirmation(
   input: WaitlistJoinConfirmationInput,
 ): Promise<{ success: boolean; error?: string }> {
   const fromName = "AYDT Registration";
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@aydt.nyc";
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "admin@aydt.nyc";
 
   const greetingName = input.contactName?.trim();
   const dancerLine = input.dancerName?.trim()
