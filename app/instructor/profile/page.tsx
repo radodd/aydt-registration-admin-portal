@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { signOut } from "@/app/auth/actions";
 import { updateInstructorPhone } from "@/app/instructor/actions/updateProfile";
 import {
   getInstructorThisSeasonStats,
@@ -40,7 +40,6 @@ const CERTIFICATIONS = [
 /* -------------------------------------------------------------------------- */
 
 export default function InstructorProfilePage() {
-  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [stats,   setStats]   = useState<ThisSeasonStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -133,15 +132,13 @@ export default function InstructorProfilePage() {
 
   async function handleSignOut(scope: "local" | "global") {
     setSigningOut(scope === "global" ? "all" : "this");
-    const supabase = createClient();
-    const { error } = await supabase.auth.signOut({ scope });
-    if (error) {
-      alert(error.message);
+    // Canonical server action: revalidates layouts + redirects to /auth on
+    // success; returns { error } (no redirect) so we can surface failures.
+    const res = await signOut({ scope });
+    if (res?.error) {
+      alert(res.error);
       setSigningOut("none");
-      return;
     }
-    router.push("/auth/login");
-    router.refresh();
   }
 
   if (loading) {

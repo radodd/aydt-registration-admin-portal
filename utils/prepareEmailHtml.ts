@@ -75,13 +75,13 @@ function processImages(html: string): string {
 }
 
 const LOGO_URL =
-  typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_URL
-    ? `${process.env.NEXT_PUBLIC_APP_URL}/email-logo.png`
-    : "https://aydt.com/email-logo.png";
+  typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL
+    ? `${process.env.NEXT_PUBLIC_SITE_URL}/email-logo.png`
+    : "https://aydt.nyc/email-logo.png";
 
 const SITE_URL =
-  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_URL) ||
-  "https://aydt.com";
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL) ||
+  "https://aydt.nyc";
 
 export function wrapEmailLayout(content: string): string {
   return `<!DOCTYPE html>

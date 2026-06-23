@@ -341,7 +341,7 @@ async function processSession(sessionId: string, now: string) {
   const fromEmail =
     emailConfig.fromEmail ||
     Deno.env.get("RESEND_FROM_EMAIL") ||
-    "noreply@aydt.com";
+    "admin@aydt.nyc";
 
   try {
     await resend.emails.send({

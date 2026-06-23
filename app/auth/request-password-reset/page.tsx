@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { sendPasswordResetEmail } from "../actions";
+import { authTokens } from "../authTokens";
 
 export default function RequestPasswordResetPage() {
   useEffect(() => {
@@ -19,6 +20,7 @@ export default function RequestPasswordResetPage() {
 
   return (
     <div style={{
+      ...authTokens,
       minHeight: "calc(100vh - 66px)",
       display: "flex",
       alignItems: "center",

@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   const signature = request.headers.get("x-twilio-signature") ?? "";
   // URL must match exactly what is configured in the Twilio Console
-  const url = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/twilio`;
+  const url = `${process.env.SITE_URL}/api/webhooks/twilio`;
   const valid = validateRequest(authToken, signature, url, params);
   if (!valid) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });

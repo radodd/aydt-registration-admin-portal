@@ -6,7 +6,7 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
-const APP_URL = Deno.env.get("APP_URL") ?? "";
+const SITE_URL = Deno.env.get("SITE_URL") ?? "";
 const BATCH_SIZE = 100;
 
 // Top-level helpers — must be outside Deno.serve so they can
@@ -141,8 +141,8 @@ Deno.serve(async () => {
             };
 
             // Footer must be built per recipient (needs recipient.user_id).
-            const unsubscribeFooter = APP_URL
-              ? `<p style="font-size:12px;color:#9ca3af;text-align:center;margin-top:32px;"><a href="${APP_URL}/unsubscribe?uid=${recipient.user_id}" style="color:#9ca3af;">Unsubscribe</a></p>`
+            const unsubscribeFooter = SITE_URL
+              ? `<p style="font-size:12px;color:#9ca3af;text-align:center;margin-top:32px;"><a href="${SITE_URL}/unsubscribe?uid=${recipient.user_id}" style="color:#9ca3af;">Unsubscribe</a></p>`
               : "";
 
             const personalizedHtml = prepareEmailHtml(

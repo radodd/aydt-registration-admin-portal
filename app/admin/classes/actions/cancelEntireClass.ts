@@ -102,7 +102,7 @@ export async function cancelEntireClass(
 
   // 5. Notify each unique family
   const resend = new Resend(process.env.RESEND_API_KEY!);
-  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "noreply@aydt.com";
+  const fromEmail = process.env.RESEND_FROM_EMAIL ?? "admin@aydt.nyc";
   let notified = 0;
 
   for (const family of familyMap.values()) {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   Upload,
@@ -15,6 +15,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { signOut } from "@/app/auth/actions";
 import { NotificationBell } from "./NotificationBell";
 
 const PAGE_TITLES: Record<string, string> = {
@@ -57,7 +58,6 @@ const ROLE_LABELS: Record<string, string> = {
 
 export function TopBar({ adminInitial }: { adminInitial?: string }) {
   const pathname = usePathname();
-  const router = useRouter();
   const supabase = createClient();
   const title = getPageTitle(pathname);
   const initial = adminInitial ?? "A";
@@ -98,8 +98,7 @@ export function TopBar({ adminInitial }: { adminInitial?: string }) {
   }, [menuOpen]);
 
   async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.push("/auth");
+    await signOut();
   }
 
   return (

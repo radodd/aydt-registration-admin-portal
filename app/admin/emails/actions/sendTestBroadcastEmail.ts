@@ -93,18 +93,30 @@ export async function sendTestBroadcastEmail(
 
   try {
     const { error: sendErr } = await resend.emails.send({
-      from: `${email.sender_name || "AYDT Admin"} <${email.sender_email || "noreply@aydt.com"}>`,
+      from: `${email.sender_name || "AYDT Admin"} <${email.sender_email || process.env.RESEND_FROM_EMAIL || "admin@aydt.nyc"}>`,
       to: toAddress,
       subject: `[TEST] ${email.subject || "(no subject)"}`,
       html: finalHtml,
     });
 
-    if (sendErr) return { success: false, error: sendErr.message };
+    if (sendErr) {
+      // Resend returns { name, message } — surface both so the UI shows the
+      // real reason (e.g. "validation_error: The aydt.nyc domain is not verified").
+      const detail = [sendErr.name, sendErr.message].filter(Boolean).join(": ");
+      return {
+        success: false,
+        error: detail || "Resend rejected the send (no detail provided).",
+      };
+    }
     return { success: true };
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : "Send failed",
-    };
+    // Don't let a non-Error throw collapse to "[object Object]" / nothing.
+    const detail =
+      err instanceof Error
+        ? err.message
+        : typeof err === "object" && err !== null
+          ? JSON.stringify(err)
+          : String(err);
+    return { success: false, error: detail || "Send failed" };
   }
 }
