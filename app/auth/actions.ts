@@ -134,7 +134,7 @@ export async function sendPasswordResetEmail(formData: FormData) {
   console.log("Sending password reset email to:", email);
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/reset-password`,
+    redirectTo: `${process.env.SITE_URL}/auth/reset-password`,
   });
   if (error) {
     console.error("Error sending password reset email:", error.message);
@@ -146,14 +146,22 @@ export async function resetPassword(formData: FormData) {
   const supabase = await createClient();
 
   const password = formData.get("password") as string;
+  const confirmPassword = formData.get("confirmPassword") as string;
+
+  if (!password || password.length < 8) {
+    redirect("/auth/reset-password?error=length");
+  }
+  if (password !== confirmPassword) {
+    redirect("/auth/reset-password?error=mismatch");
+  }
 
   const { error } = await supabase.auth.updateUser({
     password: password,
   });
   if (error) {
     console.error("Error resetting password:", error.message);
-    redirect("/error");
+    redirect("/auth/reset-password?error=update");
   }
 
-  redirect("/auth/login");
+  redirect("/auth/login?reset=1");
 }

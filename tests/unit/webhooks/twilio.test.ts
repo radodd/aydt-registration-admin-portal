@@ -83,7 +83,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   process.env.TWILIO_WEBHOOK_AUTH_TOKEN = "test_webhook_token";
-  process.env.NEXT_PUBLIC_APP_URL       = "https://aydt.nyc";
+  process.env.SITE_URL                  = "https://aydt.nyc";
 
   // Default: signature is valid
   mockValidateRequest.mockReturnValue(true);

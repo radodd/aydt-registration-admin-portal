@@ -48,7 +48,7 @@ export async function sendInviteEmail(
   }
 
   // Build tokens
-  const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://aydt.com";
+  const siteUrl = process.env.SITE_URL ?? "";
   const inviteLink = `${siteUrl}/audition/${invite.invite_token}`;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const cls = (invite as any).class as {
@@ -85,7 +85,7 @@ export async function sendInviteEmail(
   );
   const fromName = config?.fromName ?? "AYDT Registration";
   const fromEmail =
-    config?.fromEmail ?? process.env.RESEND_FROM_EMAIL ?? "noreply@aydt.com";
+    config?.fromEmail ?? process.env.RESEND_FROM_EMAIL ?? "noreply@aydt.nyc";
 
   // Build HTML body
   let htmlBody: string;

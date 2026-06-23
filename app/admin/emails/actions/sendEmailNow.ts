@@ -141,7 +141,7 @@ export async function sendEmailNow(
 
     await Promise.allSettled(
       batch.map(async (recipient) => {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+        const appUrl = process.env.SITE_URL ?? "";
         const unsubscribeParam = recipient.subscriberId
           ? `sub=${recipient.subscriberId}`
           : `uid=${recipient.userId}`;
@@ -165,7 +165,7 @@ export async function sendEmailNow(
 
         try {
           const { data: sentData, error: sendErr } = await resend.emails.send({
-            from: `${email.sender_name} <${email.sender_email}>`,
+            from: `${email.sender_name || "AYDT Admin"} <${email.sender_email || process.env.RESEND_FROM_EMAIL || "admin@aydt.nyc"}>`,
             to: recipient.emailAddress,
             subject: email.subject,
             html: personalizedHtml,

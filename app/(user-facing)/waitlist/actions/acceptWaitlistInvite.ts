@@ -226,7 +226,7 @@ export async function acceptWaitlistInvite(token: string): Promise<AcceptResult>
   }
 
   // 5. Hosted-checkout handoff (immediate sale — doCapture true, no card storage).
-  const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const siteUrl = process.env.SITE_URL ?? "";
   const returnUrl = `${siteUrl}/register/confirmation?semester=${semesterId}&batch=${batchId}`;
   const cancelUrl = `${siteUrl}/waitlist/accept/${token}?cancelled=1`;
 

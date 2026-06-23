@@ -95,7 +95,7 @@ export async function subscribeForNotification(params: {
     });
 
     const { data: sendData, error: sendError } = await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL ?? "noreply@aydt.com",
+      from: process.env.RESEND_FROM_EMAIL ?? "noreply@aydt.nyc",
       to: email,
       subject,
       html,

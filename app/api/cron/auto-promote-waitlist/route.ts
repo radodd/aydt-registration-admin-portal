@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { sendWaitlistOfferEmail, formatExpiryWindow } from "@/utils/email/waitlistOfferEmail";
+import {
+  sendWaitlistOfferEmail,
+  sendWaitlistOfferReminderEmail,
+  sendWaitlistOfferExpiredEmail,
+  formatExpiryWindow,
+} from "@/utils/email/waitlistOfferEmail";
 
 export const runtime = "nodejs";
 
@@ -26,6 +31,7 @@ export const runtime = "nodejs";
  */
 
 const OFFER_WINDOW_HOURS = 24;
+const REMINDER_BEFORE_HOURS = 6; // pre-expiry nudge ~6h before the claim window lapses
 const FAR_FUTURE = () => new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString();
 
 type Sb = ReturnType<typeof createAdminClient>;
@@ -69,6 +75,7 @@ interface QueueEntry {
   contact_email: string | null;
   invite_token: string;
   offer_attempts: number | null;
+  invitation_expires_at?: string | null;
   classes?: any;
 }
 const QUEUE_SELECT =
@@ -198,17 +205,55 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const sb = createAdminClient();
   const now = new Date();
   const nowIso = now.toISOString();
-  const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const summary = { rolled: 0, reopened: 0, offered: 0, manual: 0, skipped: 0, errors: 0 };
+  const siteUrl = process.env.SITE_URL ?? "";
+  const summary = { reminded: 0, rolled: 0, reopened: 0, offered: 0, manual: 0, skipped: 0, errors: 0 };
+
+  /* ───────── PHASE 0 — pre-expiry reminders ───────── */
+  const reminderThreshold = new Date(now.getTime() + REMINDER_BEFORE_HOURS * 3600 * 1000).toISOString();
+  const { data: dueReminders } = await sb
+    .from("waitlist_entries")
+    .select(`${QUEUE_SELECT}, invitation_expires_at`)
+    .eq("status", "offered")
+    .is("offer_reminder_sent_at", null)
+    .gt("invitation_expires_at", nowIso)
+    .lte("invitation_expires_at", reminderThreshold);
+
+  for (const raw of dueReminders ?? []) {
+    const e = raw as QueueEntry;
+    try {
+      // Mark first so a transient email failure doesn't re-send every tick.
+      await sb.from("waitlist_entries").update({ offer_reminder_sent_at: nowIso }).eq("id", e.id);
+      const cb = classBits(e, null);
+      const msLeft = e.invitation_expires_at ? new Date(e.invitation_expires_at).getTime() - now.getTime() : 0;
+      const hoursLeft = Math.max(1, Math.round(msLeft / 3600000));
+      if (e.contact_email) {
+        const claimLink = `${siteUrl}/waitlist/accept/${e.invite_token}`;
+        const r = await sendWaitlistOfferReminderEmail({
+          toEmail: e.contact_email, contactName: e.contact_name, className: cb.className,
+          semesterName: cb.semesterName, claimLink, timeLeftLabel: formatExpiryWindow(hoursLeft),
+        });
+        await logEvent(sb, r.ok
+          ? { event_type: "offer_reminder_sent", severity: "info", waitlist_entry_id: e.id, class_id: e.class_id, section_id: e.section_id, meeting_id: e.meeting_id, semester_id: cb.semesterId, message: `Reminder sent (~${formatExpiryWindow(hoursLeft)} left to claim).` }
+          : { event_type: "error", severity: "warn", waitlist_entry_id: e.id, class_id: e.class_id, semester_id: cb.semesterId, message: `Reminder email failed: ${r.error}` });
+      } else {
+        await logEvent(sb, { event_type: "offer_reminder_sent", severity: "warn", waitlist_entry_id: e.id, class_id: e.class_id, semester_id: cb.semesterId, message: "Reminder due but the entry has no contact email." });
+      }
+      summary.reminded++;
+    } catch (err) {
+      summary.errors++;
+      await logEvent(sb, { event_type: "error", severity: "error", waitlist_entry_id: e.id, class_id: e.class_id, message: "Reminder pass failed.", detail: { error: err instanceof Error ? err.message : String(err) } });
+    }
+  }
 
   /* ───────── PHASE 1 — resolve lapsed offers (roll-to-next) ───────── */
   const { data: lapsed } = await sb
     .from("waitlist_entries")
-    .select("id, class_id, section_id, meeting_id, offer_attempts")
+    .select(QUEUE_SELECT)
     .eq("status", "offered")
     .lte("invitation_expires_at", nowIso);
 
-  for (const e of lapsed ?? []) {
+  for (const raw of lapsed ?? []) {
+    const e = raw as QueueEntry;
     const grain = grainOf(e);
     const classId = e.class_id as string | null;
     try {
@@ -221,6 +266,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         class_id: classId, section_id: e.section_id as string | null, meeting_id: e.meeting_id as string | null,
         message: "Offer lapsed unclaimed.",
       });
+      // Notify the family their held seat moved on (best-effort).
+      if (e.contact_email) {
+        const cb = classBits(e, null);
+        const r = await sendWaitlistOfferExpiredEmail({
+          toEmail: e.contact_email, contactName: e.contact_name, className: cb.className, semesterName: cb.semesterName,
+        });
+        if (!r.ok) await logEvent(sb, { event_type: "error", severity: "warn", waitlist_entry_id: e.id, class_id: classId, message: `Expired-notice email failed: ${r.error}` });
+      }
       if (!grain || !classId) continue;
 
       // The placeholder for this seat (now expired but unreleased) — reuse it so

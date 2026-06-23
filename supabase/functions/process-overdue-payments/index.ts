@@ -69,7 +69,8 @@ async function sendSmsViaApi(
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 const siteUrl = Deno.env.get("SITE_URL") ?? "https://aydt.com";
-const adminEmail = Deno.env.get("ADMIN_NOTIFICATION_EMAIL") ?? "admin@aydt.com";
+const adminEmail = Deno.env.get("ADMIN_NOTIFICATION_EMAIL") ?? "admin@aydt.nyc";
+const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@aydt.nyc";
 
 /* -------------------------------------------------------------------------- */
 /* EPG server-to-server charge helper (inline — Deno can't import Node utils) */
@@ -389,7 +390,7 @@ Deno.serve(async (_req) => {
 
           if (parent?.email) {
             await resend.emails.send({
-              from: "AYDT Payments <noreply@aydt.com>",
+              from: `AYDT Payments <${fromEmail}>`,
               to: parent.email,
               subject: `AYDT — Installment ${row.installment_number} Payment Processed`,
               html: `<p style="font-family:sans-serif;">Hi ${parent.first_name},</p>
@@ -585,7 +586,7 @@ Deno.serve(async (_req) => {
     `;
 
     await resend.emails.send({
-      from: "AYDT Payments <noreply@aydt.com>",
+      from: `AYDT Payments <${fromEmail}>`,
       to: adminEmail,
       subject: `[AYDT] ${overdueIds.length} Overdue Payment${overdueIds.length !== 1 ? "s" : ""} — ${today}`,
       html,

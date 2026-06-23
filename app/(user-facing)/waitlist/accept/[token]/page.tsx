@@ -77,8 +77,8 @@ function StatusPage({
         <p className="text-sm text-neutral-500">{message}</p>
         <p className="text-xs text-neutral-400">
           Questions? Contact us at{" "}
-          <a href="mailto:info@aydt.com" className="underline">
-            info@aydt.com
+          <a href="mailto:info@aydt.nyc" className="underline">
+            info@aydt.nyc
           </a>
         </p>
       </div>

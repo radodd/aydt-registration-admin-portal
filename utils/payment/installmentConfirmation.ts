@@ -90,7 +90,7 @@ async function alertAdminEmailFailure(params: {
     return;
   }
 
-  const fromEmail = (process.env.RESEND_FROM_EMAIL || "noreply@aydt.com").trim();
+  const fromEmail = (process.env.RESEND_FROM_EMAIL || "noreply@aydt.nyc").trim();
   try {
     const { error } = await resend.emails.send({
       from: `AYDT System <${fromEmail}>`,
@@ -366,7 +366,7 @@ export async function sendConfirmationEmail(
     const fromEmail = (
       emailTemplate.fromEmail ||
       process.env.RESEND_FROM_EMAIL ||
-      "noreply@aydt.com"
+      "noreply@aydt.nyc"
     ).trim();
     const fromName = (emailTemplate.fromName || "AYDT").trim();
 

@@ -106,7 +106,7 @@ export async function retryFailedRecipients(
     return html + sig;
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const appUrl = process.env.SITE_URL ?? "";
 
   let succeeded = 0;
   let stillFailed = 0;
@@ -138,7 +138,7 @@ export async function retryFailedRecipients(
 
       try {
         const { data: sentData, error: sendErr } = await resend.emails.send({
-          from: `${email.sender_name} <${email.sender_email}>`,
+          from: `${email.sender_name || "AYDT Admin"} <${email.sender_email || process.env.RESEND_FROM_EMAIL || "admin@aydt.nyc"}>`,
           to: delivery.email_address,
           subject: email.subject,
           html: personalizedHtml,
