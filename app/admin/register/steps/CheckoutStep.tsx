@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { ChevronLeft, Check, Tag, AlertCircle, Pencil, X, Plus } from "lucide-react";
 import { computePricingQuote } from "@/app/actions/computePricingQuote";
 import type { PricingQuote, AdminAdjustment, FamilyAccountCredit } from "@/types";
@@ -41,6 +41,9 @@ type Props = {
   // Callbacks
   onBack: () => void;
   onSuccess: (batchId: string, dancerId: string) => void;
+  /** Optional card(s) rendered at the top of the sidebar column (e.g. the
+   *  "Registering" dancer card) so every summary card stacks in one column. */
+  sidebarTop?: ReactNode;
 };
 
 const NIL_UUID = "00000000-0000-0000-0000-000000000000";
@@ -83,6 +86,7 @@ export default function CheckoutStep({
   waitlistEntryId,
   onBack,
   onSuccess,
+  sidebarTop,
 }: Props) {
   // Pricing
   const [quote, setQuote] = useState<PricingQuote | null>(null);
@@ -420,7 +424,7 @@ export default function CheckoutStep({
                 onClick={() => handlePaymentPlanChange(plan)}
                 className={`py-2 px-3 rounded-xl text-sm font-medium border transition ${
                   paymentPlanType === plan
-                    ? "bg-[#8E2A23] border-[#8E2A23] text-white"
+                    ? "bg-[#EDE9E4] border-[#8E2A23] text-[#8E2A23]"
                     : "border-[#DDD9D2] text-[#736D65] hover:bg-[#F7F5F2]"
                 }`}
               >
@@ -614,7 +618,7 @@ export default function CheckoutStep({
                     onClick={() => setAdjType(t)}
                     className={`py-1.5 px-3 rounded-xl text-xs font-medium border transition ${
                       adjType === t
-                        ? "bg-[#8E2A23] border-[#8E2A23] text-white"
+                        ? "bg-[#EDE9E4] border-[#8E2A23] text-[#8E2A23]"
                         : "border-[#DDD9D2] text-[#736D65] hover:bg-[#F7F5F2] bg-white"
                     }`}
                   >
@@ -820,7 +824,7 @@ export default function CheckoutStep({
                   m === "ach" ? "uppercase" : "capitalize"
                 } ${
                   paymentMethod === m
-                    ? "bg-[#8E2A23] border-[#8E2A23] text-white"
+                    ? "bg-[#EDE9E4] border-[#8E2A23] text-[#8E2A23]"
                     : "border-[#DDD9D2] text-[#736D65] hover:bg-[#F7F5F2]"
                 }`}
               >
@@ -965,6 +969,7 @@ export default function CheckoutStep({
 
       {/* Sidebar — order summary */}
       <div className="space-y-4">
+        {sidebarTop}
         {/* Sessions */}
         <div className="bg-white border border-[#DDD9D2] rounded-xl p-4 space-y-3">
           <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { ChevronRight, ChevronLeft, Check, AlertCircle, MapPin, Calendar, Users, X, Search } from "lucide-react";
 import {
   fetchSemesterClasses,
@@ -52,6 +52,9 @@ type Props = {
   initialTierIdByClass?: Record<string, string>;
   onNext: (result: ClassesStepResult) => void;
   onBack: () => void;
+  /** Optional card(s) rendered at the top of the sidebar column (e.g. the
+   *  "Registering" dancer card) so every summary card stacks in one column. */
+  sidebarTop?: ReactNode;
 };
 
 function isDropInClass(cls: AdminClassGroup): boolean {
@@ -129,6 +132,7 @@ export default function ClassesStep({
   initialTierIdByClass = {},
   onNext,
   onBack,
+  sidebarTop,
 }: Props) {
   const [semesterId, setSemesterId] = useState(initialSemesterId);
   const [semesterName, setSemesterName] = useState(initialSemesterName);
@@ -531,7 +535,7 @@ export default function ClassesStep({
             {semesterId ? (
               <div className="flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[#201D18]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#8E2A23] inline-block" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#736D65] inline-block" />
                   {semesterName}
                 </span>
                 <button
@@ -678,6 +682,7 @@ export default function ClassesStep({
 
       {/* Sidebar */}
       <div className="space-y-3 lg:sticky lg:top-6">
+        {sidebarTop}
         {/* Selected classes */}
         <div className="bg-white border border-[#DDD9D2] rounded-xl p-4 space-y-3">
           <p className="text-xs font-semibold text-[#9E9890] uppercase tracking-wide">
@@ -902,10 +907,10 @@ function ClassCard({
         {/* Checkbox */}
         <div
           className={`mt-0.5 w-5 h-5 rounded flex items-center justify-center shrink-0 border transition ${
-            isSelected ? "bg-[#8E2A23] border-[#8E2A23]" : "border-[#DDD9D2] bg-white"
+            isSelected ? "bg-white border-[#8E2A23]" : "border-[#DDD9D2] bg-white"
           }`}
         >
-          {isSelected && <Check className="w-3 h-3 text-white" />}
+          {isSelected && <Check className="w-3 h-3 text-[#8E2A23]" />}
         </div>
 
         {/* Class info */}
