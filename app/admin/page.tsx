@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { EmailsTabSection } from "./_components/EmailsTabSection";
 import { Badge } from "@/app/components/ui";
 import type { BadgeStatus } from "@/app/components/ui";
 import { Search, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, Plus } from "lucide-react";
@@ -67,45 +66,6 @@ type DashboardData = {
   activeClassCount: number;
   overduePayments: OverdueRow[];
   recentEmails: EmailRow[];
-};
-
-type PeopleDancerRow = {
-  id: string;
-  first_name: string;
-  last_name: string;
-  birth_date: string | null;
-  grade: string | null;
-  family_id: string | null;
-  families: {
-    users: { first_name: string; last_name: string; is_primary_parent: boolean }[];
-  } | null;
-};
-
-type PeopleFamilyRow = {
-  id: string;
-  family_name: string | null;
-  users: { first_name: string; last_name: string; is_primary_parent: boolean }[];
-  dancer_names: string[];
-  class_count: number;
-};
-
-type WaitlistRow = {
-  id: string;
-  position: number;
-  status: string;
-  invitation_sent_at: string | null;
-  dancers: { id: string; first_name: string; last_name: string; family_id: string | null; family_name: string | null } | null;
-  class_name: string | null;
-  semester_name: string | null;
-};
-
-type PeopleData = {
-  dancers: PeopleDancerRow[];
-  families: PeopleFamilyRow[];
-  waitlist: WaitlistRow[];
-  totalDancers: number;
-  totalFamilies: number;
-  totalWaitlisted: number;
 };
 
 /* ─── Helpers ───────────────────────────────────────────────────────── */
@@ -229,16 +189,6 @@ function SectionHeader({
     </div>
   );
 }
-
-/* ─── Tab nav ───────────────────────────────────────────────────────── */
-
-type Tab = "overview" | "people" | "finance" | "emails";
-const TABS: { key: Tab; label: string }[] = [
-  { key: "overview", label: "Overview" },
-  { key: "people",   label: "People" },
-  { key: "finance",  label: "Finance" },
-  { key: "emails",   label: "Emails" },
-];
 
 /* ─── Table header ──────────────────────────────────────────────────── */
 
@@ -481,9 +431,15 @@ function OverviewTab({
               : "No archived semesters"}
           </p>
         ) : (
-          <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: "272px" }}>
+          // Scroll window grows with viewport height — taller screens show more
+          // semesters before scrolling (bounded so it never gets unwieldy).
+          <div className="overflow-y-auto overflow-x-hidden" style={{ maxHeight: "clamp(340px, calc(100vh - 340px), 900px)" }}>
           <ul>
-            {displayed.map((s, i) => (
+            {displayed.map((s, i) => {
+              // Last rows sit at the bottom of the overflow-clipped scroll
+              // window — flip the menu upward so it isn't cut off.
+              const flipUp = displayed.length > 2 && i >= displayed.length - 2;
+              return (
               <li
                 key={s.id}
                 onClick={() => router.push(`/admin/semesters/${s.id}`)}
@@ -553,7 +509,7 @@ function OverviewTab({
                   {openMenuId === s.id && (
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 overflow-hidden"
+                      className={`absolute right-0 ${flipUp ? "bottom-full mb-1" : "top-full mt-1"} rounded-lg shadow-lg z-20 overflow-hidden`}
                       style={{
                         background: "var(--admin-surface)",
                         border: "1px solid var(--admin-border)",
@@ -670,7 +626,8 @@ function OverviewTab({
                 </div>
                 </div>{/* end desktop columns */}
               </li>
-            ))}
+              );
+            })}
           </ul>
           </div>
         )}
@@ -848,713 +805,11 @@ function OverviewTab({
   );
 }
 
-/* ─── People tab ────────────────────────────────────────────────────── */
-
-type SubPeopleTab = "dancers" | "families" | "waitlisted";
-
-function calcAge(birthDate: string | null): string {
-  if (!birthDate) return "—";
-  return String(Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 86_400_000)));
-}
-
-function formatGrade(grade: string | null): string {
-  if (!grade) return "—";
-  const n = parseInt(grade, 10);
-  if (isNaN(n)) return grade; // "K", "Pre-K", etc.
-  const mod = n % 100;
-  const suffix =
-    mod >= 11 && mod <= 13 ? "th"
-    : n % 10 === 1 ? "st"
-    : n % 10 === 2 ? "nd"
-    : n % 10 === 3 ? "rd"
-    : "th";
-  return `${n}${suffix}`;
-}
-
-const WAITLIST_STATUS_BADGE: Record<string, BadgeStatus> = {
-  waiting:  "warning",  // amber — needs action
-  invited:  "success",  // green — positive, no action needed
-  expired:  "error",
-  accepted: "success",
-  declined: "error",
-};
-
-const WAITLIST_STATUS_LABEL: Record<string, string> = {
-  waiting:  "Not yet",
-  invited:  "Invited",
-  expired:  "Expired",
-  accepted: "Accepted",
-  declined: "Declined",
-};
-
-function DancersTable({ rows, search }: { rows: PeopleDancerRow[]; search: string }) {
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  return (
-    <>
-      {openMenuId && <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />}
-
-      {/* Desktop header — hidden on mobile */}
-      <div className="hidden md:flex items-center px-5 py-2" style={{ background: "var(--admin-table-header-bg)" }}>
-        <span className="flex-1 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Dancer</span>
-        <span className="w-16 text-right text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Age</span>
-        <span className="w-28 pl-6 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Grade</span>
-        <span className="w-10" />
-      </div>
-
-      {rows.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
-          {search ? `No dancers matching "${search}"` : "No dancers"}
-        </p>
-      ) : (
-        <ul>
-          {rows.map((d, i) => {
-            const name = `${d.first_name} ${d.last_name}`;
-            const color = avatarColor(name);
-            const age = calcAge(d.birth_date);
-            const grade = formatGrade(d.grade);
-            return (
-              <li
-                key={d.id}
-                className="flex items-center px-4 md:px-5 py-3 border-b"
-                style={{
-                  borderColor: "var(--admin-border-sub)",
-                  background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)",
-                }}
-              >
-                {/* Avatar + name + mobile meta */}
-                <div className="flex-1 flex items-center gap-2.5 min-w-0">
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                    style={{ background: color.bg, color: color.text }}
-                  >
-                    {initials(d.first_name, d.last_name)}
-                  </div>
-                  <div className="min-w-0">
-                    {d.family_id ? (
-                      <Link
-                        href={`/admin/families/${d.family_id}?focus=dancer:${d.id}`}
-                        className="text-[13px] font-medium truncate block hover:underline"
-                        style={{ color: "var(--admin-text)" }}
-                      >
-                        {name}
-                      </Link>
-                    ) : (
-                      <span className="text-[13px] font-medium truncate block" style={{ color: "var(--admin-text)" }}>
-                        {name}
-                      </span>
-                    )}
-                    {/* Mobile: age · grade below name */}
-                    <p className="md:hidden text-[11.5px] mt-0.5" style={{ color: "var(--admin-text-faint)" }}>
-                      {age !== "—" ? `${age} yrs` : "—"}{grade !== "—" ? ` · ${grade} grade` : ""}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Desktop-only columns */}
-                <p className="hidden md:block w-16 text-right text-[12px]" style={{ color: "var(--admin-text-muted)" }}>{age}</p>
-                <p className="hidden md:block w-28 pl-6 text-[12px] truncate" style={{ color: "var(--admin-text-faint)" }}>{grade}</p>
-
-                {/* ⋯ menu */}
-                <div className="relative shrink-0 ml-2">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === d.id ? null : d.id); }}
-                    className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
-                    style={{ color: "var(--admin-text-faint)", background: openMenuId === d.id ? "var(--admin-surface-sub)" : "transparent" }}
-                  >
-                    <MoreHorizontal size={15} />
-                  </button>
-                  {openMenuId === d.id && d.family_id && (
-                    <div
-                      className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 overflow-hidden"
-                      style={{ background: "var(--admin-surface)", border: "1px solid var(--admin-border)", minWidth: "148px" }}
-                    >
-                      <Link
-                        href={`/admin/emails/new?familyId=${d.family_id}`}
-                        onClick={() => setOpenMenuId(null)}
-                        className="flex items-center px-3.5 py-2 text-[12px]"
-                        style={{ color: "var(--admin-text)" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        Email family
-                      </Link>
-                      <Link
-                        href={`/admin/families/${d.family_id}?focus=dancer:${d.id}`}
-                        onClick={() => setOpenMenuId(null)}
-                        className="flex items-center px-3.5 py-2 text-[12px]"
-                        style={{ color: "var(--admin-text)" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        View profile
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {rows.length > 0 && (
-        <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
-          Showing {rows.length.toLocaleString()} {rows.length === 1 ? "dancer" : "dancers"}
-        </p>
-      )}
-    </>
-  );
-}
-
-function FamiliesTable({ rows, search }: { rows: PeopleFamilyRow[]; search: string }) {
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  return (
-    <>
-      {openMenuId && <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />}
-
-      {/* Desktop header — hidden on mobile */}
-      <div className="hidden md:flex items-center px-5 py-2" style={{ background: "var(--admin-table-header-bg)" }}>
-        <span className="flex-1 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Family</span>
-        <span className="w-40 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Primary Parent</span>
-        <span className="w-44 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Dancers</span>
-        <span className="w-20 text-right text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Classes</span>
-        <span className="w-10" />
-      </div>
-
-      {rows.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
-          {search ? `No families matching "${search}"` : "No families"}
-        </p>
-      ) : (
-        <ul>
-          {rows.map((f, i) => {
-            const familyName = f.family_name ?? "Unknown family";
-            const primaryParent = f.users.find((u) => u.is_primary_parent) ?? f.users[0];
-            const primaryParentName = primaryParent
-              ? `${primaryParent.first_name} ${primaryParent.last_name}`
-              : "—";
-            const color = primaryParent
-              ? avatarColor(`${primaryParent.first_name} ${primaryParent.last_name}`)
-              : avatarColor(familyName);
-            const avatarInitials = primaryParent
-              ? initials(primaryParent.first_name, primaryParent.last_name)
-              : initials(familyName.split(" ")[0] ?? "F", familyName.split(" ")[1] ?? "A");
-            const MAX_SHOWN = 2;
-            const shownNames = f.dancer_names.slice(0, MAX_SHOWN).join(", ");
-            const extra = f.dancer_names.length - MAX_SHOWN;
-            const dancerNamesDisplay =
-              f.dancer_names.length === 0 ? "—"
-              : extra > 0 ? `${shownNames} +${extra} more`
-              : shownNames;
-            return (
-              <li
-                key={f.id}
-                className="flex items-center px-4 md:px-5 py-3 border-b"
-                style={{
-                  borderColor: "var(--admin-border-sub)",
-                  background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)",
-                }}
-              >
-                {/* Avatar + family name + mobile meta */}
-                <div className="flex-1 flex items-center gap-2.5 min-w-0">
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                    style={{ background: color.bg, color: color.text }}
-                  >
-                    {avatarInitials}
-                  </div>
-                  <div className="min-w-0">
-                    <Link
-                      href={`/admin/families/${f.id}`}
-                      className="text-[13px] font-medium truncate block hover:underline"
-                      style={{ color: "var(--admin-text)" }}
-                    >
-                      {familyName}
-                    </Link>
-                    {/* Mobile: primary parent below family name */}
-                    <p className="md:hidden text-[11.5px] mt-0.5 truncate" style={{ color: "var(--admin-text-faint)" }}>
-                      {primaryParentName}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Desktop-only columns */}
-                <p className="hidden md:block w-40 text-[12px] truncate" style={{ color: "var(--admin-text-muted)" }}>{primaryParentName}</p>
-                <p className="hidden md:block w-44 text-[12px] truncate" style={{ color: "var(--admin-text-faint)" }}>{dancerNamesDisplay}</p>
-                <p className="hidden md:block w-20 text-right text-[12px]" style={{ color: "var(--admin-text-muted)" }}>{f.class_count}</p>
-
-                {/* ⋯ menu */}
-                <div className="relative shrink-0 ml-2">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === f.id ? null : f.id); }}
-                    className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
-                    style={{ color: "var(--admin-text-faint)", background: openMenuId === f.id ? "var(--admin-surface-sub)" : "transparent" }}
-                  >
-                    <MoreHorizontal size={15} />
-                  </button>
-                  {openMenuId === f.id && (
-                    <div
-                      className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 overflow-hidden"
-                      style={{ background: "var(--admin-surface)", border: "1px solid var(--admin-border)", minWidth: "148px" }}
-                    >
-                      <Link
-                        href={`/admin/emails/new?familyId=${f.id}`}
-                        onClick={() => setOpenMenuId(null)}
-                        className="flex items-center px-3.5 py-2 text-[12px]"
-                        style={{ color: "var(--admin-text)" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        Email family
-                      </Link>
-                      <Link
-                        href={`/admin/families/${f.id}`}
-                        onClick={() => setOpenMenuId(null)}
-                        className="flex items-center px-3.5 py-2 text-[12px]"
-                        style={{ color: "var(--admin-text)" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                      >
-                        View family
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {rows.length > 0 && (
-        <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
-          Showing {rows.length.toLocaleString()} {rows.length === 1 ? "family" : "families"}
-        </p>
-      )}
-    </>
-  );
-}
-
-type WaitlistFilter = "all" | "waiting" | "invited";
-
-function WaitlistTable({ rows, search }: { rows: WaitlistRow[]; search: string }) {
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<WaitlistFilter>("all");
-
-  const visibleRows = statusFilter === "all"
-    ? rows
-    : rows.filter((w) => w.status === statusFilter);
-
-  return (
-    <>
-      {openMenuId && <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />}
-
-      {/* Status filter pills */}
-      <div className="flex items-center gap-2 px-4 md:px-5 py-2.5 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
-        {(["all", "waiting", "invited"] as const).map((f) => {
-          const active = statusFilter === f;
-          const activeBg =
-            f === "waiting" ? "rgba(212,160,192,0.3)" :
-            f === "invited" ? "rgba(125,206,194,0.3)" :
-            "var(--admin-sidebar-active)";
-          const activeColor =
-            f === "waiting" ? "#702858" :
-            f === "invited" ? "#0A5A50" :
-            "#fff";
-          return (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className="px-3 py-1 rounded-full text-[11.5px] font-medium transition-colors"
-              style={{
-                background: active ? activeBg : "transparent",
-                color: active ? activeColor : "var(--admin-text-muted)",
-                border: active ? "none" : "1px solid var(--admin-border)",
-                cursor: "pointer",
-              }}
-            >
-              {f === "all" ? "All" : f === "waiting" ? "Not yet invited" : "Invited"}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Desktop header — hidden on mobile */}
-      <div className="hidden md:flex items-center px-5 py-2" style={{ background: "var(--admin-table-header-bg)" }}>
-        <span className="flex-1 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Dancer</span>
-        <span className="w-40 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Class</span>
-        <span className="w-36 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Semester</span>
-        <span className="w-20 text-right text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Position</span>
-        <span className="w-24 text-right text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Status</span>
-        <span className="w-10" />
-      </div>
-
-      {visibleRows.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
-          {search
-            ? `No waitlisted dancers matching "${search}"`
-            : statusFilter !== "all"
-            ? `No ${statusFilter === "waiting" ? "uninvited" : "invited"} dancers`
-            : "No waitlisted dancers"}
-        </p>
-      ) : (
-        <ul>
-          {visibleRows.map((w, i) => {
-            const dancer = w.dancers;
-            const name = dancer ? `${dancer.first_name} ${dancer.last_name}` : "Unknown";
-            const color = avatarColor(name);
-            return (
-              <li
-                key={w.id}
-                className="flex items-center px-4 md:px-5 py-3 border-b"
-                style={{
-                  borderColor: "var(--admin-border-sub)",
-                  background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)",
-                }}
-              >
-                {/* Avatar + name + mobile meta */}
-                <div className="flex-1 flex items-center gap-2.5 min-w-0">
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                    style={{ background: color.bg, color: color.text }}
-                  >
-                    {dancer ? initials(dancer.first_name, dancer.last_name) : "?"}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-medium truncate" style={{ color: "var(--admin-text)" }}>
-                      {name}
-                    </p>
-                    {/* Mobile: class name below name */}
-                    <p className="md:hidden text-[11.5px] mt-0.5 truncate" style={{ color: "var(--admin-text-faint)" }}>
-                      {w.class_name ?? "—"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Mobile: position badge (loud, labelled) + status badge */}
-                <div className="md:hidden flex items-center gap-2 shrink-0 ml-2">
-                  <div className="flex flex-col items-center gap-0.5">
-                    <span
-                      className="inline-flex items-center justify-center rounded-full text-[12px] font-bold"
-                      style={{
-                        minWidth: "28px",
-                        height: "28px",
-                        padding: "0 6px",
-                        background: "rgba(142,42,35,0.1)",
-                        color: "var(--admin-sidebar-active)",
-                        border: "1.5px solid rgba(142,42,35,0.25)",
-                      }}
-                    >
-                      #{w.position}
-                    </span>
-                    <span
-                      className="text-[9px] font-medium uppercase tracking-wide"
-                      style={{ color: "var(--admin-text-faint)" }}
-                    >
-                      in queue
-                    </span>
-                  </div>
-                  <Badge status={WAITLIST_STATUS_BADGE[w.status] ?? "neutral"}>
-                    {WAITLIST_STATUS_LABEL[w.status] ?? w.status}
-                  </Badge>
-                </div>
-
-                {/* Desktop-only columns */}
-                <p className="hidden md:block w-40 text-[12px] truncate" style={{ color: "var(--admin-text-muted)" }}>{w.class_name ?? "—"}</p>
-                <p className="hidden md:block w-36 text-[11px] truncate" style={{ color: "var(--admin-text-faint)" }}>{w.semester_name ?? "—"}</p>
-                <p className="hidden md:block w-20 text-right text-[12px] font-medium" style={{ color: "var(--admin-text-muted)" }}>#{w.position}</p>
-                <div className="hidden md:flex w-24 justify-end">
-                  <Badge status={WAITLIST_STATUS_BADGE[w.status] ?? "neutral"}>
-                    {WAITLIST_STATUS_LABEL[w.status] ?? w.status}
-                  </Badge>
-                </div>
-
-                {/* ⋯ menu */}
-                <div className="relative shrink-0 ml-2">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === w.id ? null : w.id); }}
-                    className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
-                    style={{ color: "var(--admin-text-faint)", background: openMenuId === w.id ? "var(--admin-surface-sub)" : "transparent" }}
-                  >
-                    <MoreHorizontal size={15} />
-                  </button>
-                  {openMenuId === w.id && (
-                    <div
-                      className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 overflow-hidden"
-                      style={{ background: "var(--admin-surface)", border: "1px solid var(--admin-border)", minWidth: "148px" }}
-                    >
-                      {w.status === "waiting" && (
-                        <button
-                          onClick={() => { setOpenMenuId(null); alert("Invite flow coming soon"); }}
-                          className="w-full text-left flex items-center px-3.5 py-2 text-[12px]"
-                          style={{ color: "var(--admin-sidebar-active)", background: "transparent", border: "none", cursor: "pointer" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        >
-                          Send invite
-                        </button>
-                      )}
-                      {w.status === "invited" && (
-                        <button
-                          onClick={() => { setOpenMenuId(null); alert("View invite coming soon"); }}
-                          className="w-full text-left flex items-center px-3.5 py-2 text-[12px]"
-                          style={{ color: "var(--admin-text)", background: "transparent", border: "none", cursor: "pointer" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        >
-                          View invite
-                        </button>
-                      )}
-                      {dancer?.family_id && (
-                        <Link
-                          href={`/admin/families/${dancer.family_id}`}
-                          onClick={() => setOpenMenuId(null)}
-                          className="flex items-center px-3.5 py-2 text-[12px]"
-                          style={{ color: "var(--admin-text)" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        >
-                          View family
-                        </Link>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {visibleRows.length > 0 && (
-        <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
-          Showing {visibleRows.length.toLocaleString()}{statusFilter !== "all" ? ` (filtered from ${rows.length})` : ""} waitlisted
-        </p>
-      )}
-    </>
-  );
-}
-
-function PeopleTab({
-  peopleData,
-  loading,
-}: {
-  peopleData: PeopleData | null;
-  loading: boolean;
-}) {
-  const [subTab, setSubTab] = useState<SubPeopleTab>("dancers");
-  const [search, setSearch] = useState("");
-
-  const filteredDancers = useMemo(() => {
-    if (!peopleData) return [];
-    const q = search.toLowerCase();
-    if (!q) return peopleData.dancers;
-    return peopleData.dancers.filter((d) => {
-      const name = `${d.first_name} ${d.last_name}`.toLowerCase();
-      const email = (d.email ?? "").toLowerCase();
-      return name.includes(q) || email.includes(q);
-    });
-  }, [peopleData, search]);
-
-  const filteredFamilies = useMemo(() => {
-    if (!peopleData) return [];
-    const q = search.toLowerCase();
-    if (!q) return peopleData.families;
-    return peopleData.families.filter((f) => {
-      const name = (f.family_name ?? "").toLowerCase();
-      const parents = f.users.map((u) => `${u.first_name} ${u.last_name}`).join(" ").toLowerCase();
-      return name.includes(q) || parents.includes(q);
-    });
-  }, [peopleData, search]);
-
-  const filteredWaitlist = useMemo(() => {
-    if (!peopleData) return [];
-    const q = search.toLowerCase();
-    if (!q) return peopleData.waitlist;
-    return peopleData.waitlist.filter((w) => {
-      const dancer = w.dancers ? `${w.dancers.first_name} ${w.dancers.last_name}`.toLowerCase() : "";
-      const cls = (w.class_name ?? "").toLowerCase();
-      return dancer.includes(q) || cls.includes(q);
-    });
-  }, [peopleData, search]);
-
-  const SUB_TABS: { key: SubPeopleTab; label: string; count: number }[] = [
-    { key: "dancers",    label: "Dancers",    count: peopleData?.totalDancers ?? 0 },
-    { key: "families",   label: "Families",   count: peopleData?.totalFamilies ?? 0 },
-    { key: "waitlisted", label: "Waitlisted", count: peopleData?.totalWaitlisted ?? 0 },
-  ];
-
-  return (
-    <div className="space-y-4">
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 md:gap-3">
-        <MetricCard label="Total Dancers" value={peopleData ? peopleData.totalDancers.toLocaleString() : "—"} sub="across all semesters" />
-        <MetricCard label="Families" value={peopleData ? peopleData.totalFamilies.toLocaleString() : "—"} sub="active accounts" />
-        <MetricCard label="Waitlisted" value={peopleData ? peopleData.totalWaitlisted.toLocaleString() : "—"} sub="across all classes" />
-      </div>
-
-      {/* Main card */}
-      <div className="admin-card overflow-hidden">
-        {/* Search bar */}
-        <div className="px-5 py-2.5 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
-          <div
-            className="flex items-center gap-2 rounded-lg px-3 py-1.5"
-            style={{ background: "var(--admin-surface-sub)", border: "1px solid var(--admin-border)" }}
-          >
-            <Search size={13} style={{ color: "var(--admin-text-faint)", flexShrink: 0 }} />
-            <input
-              type="text"
-              placeholder="Search by name, email, or class…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-[12.5px]"
-              style={{ color: "var(--admin-text)", fontFamily: "var(--font-outfit)" }}
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="text-[11px] leading-none"
-                style={{ color: "var(--admin-text-faint)" }}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Sub-tab pills */}
-        <div className="flex items-center gap-2 px-5 py-2.5 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
-          {SUB_TABS.map((t) => {
-            const active = subTab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setSubTab(t.key)}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium transition-colors"
-                style={{
-                  background: active ? "var(--admin-sidebar-active)" : "transparent",
-                  color: active ? "#fff" : "var(--admin-text-muted)",
-                  border: active ? "none" : "1px solid var(--admin-border)",
-                  cursor: "pointer",
-                  fontFamily: "var(--font-outfit)",
-                }}
-              >
-                {t.label}
-                <span className="text-[11px]" style={{ opacity: active ? 0.8 : 0.6 }}>
-                  {t.count.toLocaleString()}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Loading state */}
-        {loading && (
-          <div className="flex items-center justify-center h-40">
-            <div
-              className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: "#8E2A23", borderTopColor: "transparent" }}
-            />
-          </div>
-        )}
-
-        {/* Tables */}
-        {!loading && subTab === "dancers"    && <DancersTable    rows={filteredDancers}  search={search} />}
-        {!loading && subTab === "families"   && <FamiliesTable   rows={filteredFamilies} search={search} />}
-        {!loading && subTab === "waitlisted" && <WaitlistTable   rows={filteredWaitlist} search={search} />}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Finance tab ───────────────────────────────────────────────────── */
-
-function FinanceTab({ data }: { data: DashboardData }) {
-  const { overduePayments } = data;
-
-  const totalOverdue = overduePayments.reduce((s, r) => s + r.amount_due, 0);
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 md:gap-3">
-        <MetricCard label="Collected (YTD)" value="—" sub="payments received" />
-        <MetricCard label="Outstanding" value="—" sub="across all families" />
-        <MetricCard
-          label="Overdue"
-          value={String(overduePayments.length)}
-          sub={overduePayments.length > 0 ? formatCurrency(totalOverdue) + " total" : "none past due"}
-        />
-        <MetricCard label="Credits issued" value="—" sub="this semester" />
-      </div>
-
-      <div className="admin-card overflow-hidden">
-        <SectionHeader
-          title="Overdue payments"
-          linkLabel="All payments"
-          linkHref="/admin/payments"
-        />
-        <TableHead cols={[
-          { label: "Family",    className: "flex-1" },
-          { label: "Balance",   className: "w-24 text-right" },
-          { label: "Due date",  className: "w-28 text-right" },
-          { label: "Status",    className: "w-24 text-right" },
-        ]} />
-        {overduePayments.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
-            No overdue payments
-          </p>
-        ) : (
-          <ul>
-            {overduePayments.map((row, i) => {
-              const batch = row.registration_orders;
-              const user = batch?.users;
-              const family = batch?.families;
-              const familyName = family
-                ? family.family_name
-                : user
-                ? `${user.first_name} ${user.last_name}`
-                : "Unknown";
-              const daysOverdue = Math.floor(
-                (Date.now() - new Date(row.due_date + "T00:00:00").getTime()) / 86_400_000
-              );
-              return (
-                <li
-                  key={row.id}
-                  className="flex items-center px-5 py-3 border-b"
-                  style={{
-                    borderColor: "var(--admin-border-sub)",
-                    background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)",
-                  }}
-                >
-                  <div className="flex-1">
-                    <p className="text-[12.5px] font-medium" style={{ color: "var(--admin-text)" }}>
-                      {familyName}
-                    </p>
-                  </div>
-                  <p className="w-24 text-right text-[13px] font-medium" style={{ color: "var(--admin-text)" }}>
-                    {formatCurrency(row.amount_due)}
-                  </p>
-                  <p className="w-28 text-right text-[11px]" style={{ color: "#802818", fontFamily: "var(--font-outfit)" }}>
-                    {formatDate(row.due_date)}
-                  </p>
-                  <div className="w-24 flex justify-end">
-                    <Badge status="error">{daysOverdue}d overdue</Badge>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* ─── Page ──────────────────────────────────────────────────────────── */
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [peopleData, setPeopleData] = useState<PeopleData | null>(null);
-  const [peopleLoading, setPeopleLoading] = useState(false);
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -1691,101 +946,6 @@ export default function AdminDashboardPage() {
 
   }, []);
 
-  useEffect(() => {
-    if (activeTab !== "people" || peopleData !== null) return;
-    async function fetchPeople() {
-      setPeopleLoading(true);
-      const supabase = createClient();
-
-      const [{ count: totalDancers }, { count: totalFamilies }, { count: totalWaitlisted }] = await Promise.all([
-        supabase.from("dancers").select("*", { count: "exact", head: true }),
-        supabase.from("families").select("*", { count: "exact", head: true }),
-        supabase.from("waitlist_entries").select("*", { count: "exact", head: true }).in("status", ["waiting", "invited"]),
-      ]);
-
-      const [dancersRes, familiesRes, waitlistRes] = await Promise.all([
-        supabase
-          .from("dancers")
-          .select("id, first_name, last_name, birth_date, grade, family_id, families!family_id(users!family_id(first_name, last_name, is_primary_parent))")
-          .order("last_name", { ascending: true })
-          .limit(200),
-
-        supabase
-          .from("families")
-          .select(`
-            id, family_name,
-            users:users!family_id(first_name, last_name, is_primary_parent),
-            dancers:dancers!family_id(
-              id, first_name,
-              registrations:meeting_enrollments!dancer_id(id, status, class_meetings!meeting_id(classes(name)))
-            )
-          `)
-          .order("family_name", { ascending: true })
-          .limit(200),
-
-        supabase
-          .from("waitlist_entries")
-          .select(`
-            id, position, status, invitation_sent_at,
-            dancers(id, first_name, last_name, family_id, families(family_name)),
-            class_meetings!meeting_id(classes(name), semesters(name))
-          `)
-          .in("status", ["waiting", "invited"])
-          .order("position", { ascending: true })
-          .limit(200),
-      ]);
-
-      const families: PeopleFamilyRow[] = ((familiesRes.data ?? []) as any[]).map((f) => {
-        const confirmedRegs = (f.dancers ?? []).flatMap((d: any) =>
-          (d.registrations ?? []).filter((r: any) => r.status === "confirmed")
-        );
-        const uniqueClasses = new Set(
-          confirmedRegs.map((r: any) => r.class_meetings?.classes?.name).filter(Boolean)
-        );
-        return {
-          id: f.id,
-          family_name: f.family_name,
-          users: f.users ?? [],
-          dancer_names: (f.dancers ?? []).map((d: any) => d.first_name).filter(Boolean),
-          class_count: uniqueClasses.size,
-        };
-      });
-
-      const waitlist: WaitlistRow[] = ((waitlistRes.data ?? []) as any[]).map((w) => {
-        const dancer = Array.isArray(w.dancers) ? w.dancers[0] : w.dancers;
-        const cs = Array.isArray(w.class_meetings) ? w.class_meetings[0] : w.class_meetings;
-        return {
-          id: w.id,
-          position: w.position,
-          status: w.status,
-          invitation_sent_at: w.invitation_sent_at,
-          dancers: dancer
-            ? {
-                id: dancer.id,
-                first_name: dancer.first_name,
-                last_name: dancer.last_name,
-                family_id: dancer.family_id,
-                family_name: dancer.families?.family_name ?? null,
-              }
-            : null,
-          class_name: cs?.classes?.name ?? null,
-          semester_name: cs?.semesters?.name ?? null,
-        };
-      });
-
-      setPeopleData({
-        dancers: (dancersRes.data ?? []) as PeopleDancerRow[],
-        families,
-        waitlist,
-        totalDancers: totalDancers ?? 0,
-        totalFamilies: totalFamilies ?? 0,
-        totalWaitlisted: totalWaitlisted ?? 0,
-      });
-      setPeopleLoading(false);
-    }
-    fetchPeople();
-  }, [activeTab, peopleData]);
-
   if (loading || !data) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1804,83 +964,35 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="flex gap-0 min-w-0 md:-mx-8 md:-my-8" style={{ minHeight: "calc(100vh - 56px)" }}>
-      {/* Tab content */}
+      {/* Dashboard content */}
       <div className="flex-1 min-w-0 w-0 overflow-y-auto overflow-x-hidden">
-        {/* Secondary nav tabs — sticky so they stay visible while scrolling.
-            Register dancer relocated here from the global header. */}
-        <div
-          className="flex items-center justify-between border-b px-0 md:px-8 sticky top-0 z-10"
-          style={{
-            background: "var(--admin-surface)",
-            borderColor: "var(--admin-border)",
-          }}
-        >
-          <div className="flex overflow-x-auto">
-            {TABS.map((t) => {
-              const active = activeTab === t.key;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setActiveTab(t.key)}
-                  className="px-3.5 py-2.5 text-[12px] transition-colors border-b-2"
-                  style={{
-                    borderBottomColor: active ? "var(--admin-sidebar-active)" : "transparent",
-                    color: active ? "var(--admin-sidebar-active)" : "var(--admin-text-muted)",
-                    fontWeight: active ? 500 : 400,
-                    fontFamily: "var(--font-outfit)",
-                    background: "transparent",
-                    border: "none",
-                    borderBottom: `2px solid ${active ? "var(--admin-sidebar-active)" : "transparent"}`,
-                    cursor: "pointer",
-                  }}
-                >
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-          <Link
-            href="/admin/register"
-            className="admin-btn-primary hidden md:inline-flex items-center gap-1.5 shrink-0 ml-3"
-            style={{ fontSize: "13px", padding: "7px 14px" }}
-          >
-            <Plus size={14} />
-            Register dancer
-          </Link>
-        </div>
-
-        {/* Tab body */}
+        {/* Body */}
         <div className="pt-2 pb-28 px-0 md:px-8 md:pt-6 md:pb-8">
-          {activeTab === "overview" && (
-            <OverviewTab
-              data={data}
-              onSemesterArchived={(id) =>
-                setData((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        activeSemesters: prev.activeSemesters.filter((s) => s.id !== id),
-                        openSemesterCount: prev.openSemesterCount - 1,
-                      }
-                    : prev
-                )
-              }
-              onSemesterDeleted={(id) =>
-                setData((prev) => {
-                  if (!prev) return prev;
-                  const activeSemesters = prev.activeSemesters.filter((s) => s.id !== id);
-                  return {
-                    ...prev,
-                    activeSemesters,
-                    openSemesterCount: activeSemesters.filter((s) => s.status === "published").length,
-                  };
-                })
-              }
-            />
-          )}
-          {activeTab === "people"   && <PeopleTab   peopleData={peopleData} loading={peopleLoading} />}
-          {activeTab === "finance"  && <FinanceTab  data={data} />}
-          {activeTab === "emails"   && <EmailsTabSection />}
+          <OverviewTab
+            data={data}
+            onSemesterArchived={(id) =>
+              setData((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      activeSemesters: prev.activeSemesters.filter((s) => s.id !== id),
+                      openSemesterCount: prev.openSemesterCount - 1,
+                    }
+                  : prev
+              )
+            }
+            onSemesterDeleted={(id) =>
+              setData((prev) => {
+                if (!prev) return prev;
+                const activeSemesters = prev.activeSemesters.filter((s) => s.id !== id);
+                return {
+                  ...prev,
+                  activeSemesters,
+                  openSemesterCount: activeSemesters.filter((s) => s.status === "published").length,
+                };
+              })
+            }
+          />
         </div>
       </div>
     </div>
