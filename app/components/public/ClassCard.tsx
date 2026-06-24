@@ -175,9 +175,11 @@ function ScCard({
   // Price display
   let priceDisplay = "";
   let priceSub = "";
-  if (rep.pricingModel === "full_schedule" && rep.priceTiers && rep.priceTiers.length > 0) {
-    const defaultTier = rep.priceTiers.find((t) => t.isDefault) ?? rep.priceTiers[0]!;
-    priceDisplay = formatDollars(defaultTier.amount);
+  if (rep.pricingModel === "full_schedule" && rep.flatTuition != null) {
+    // Admin-set flat tuition (override or division rate band), resolved
+    // server-side. NOT section_price_tiers — that column is unused for standard
+    // classes and can hold stale/garbage values.
+    priceDisplay = formatDollars(rep.flatTuition);
     priceSub = `${group.sessions.length} session${group.sessions.length !== 1 ? "s" : ""}`;
   } else if (rep.dropInPrice != null) {
     priceDisplay = formatDollars(rep.dropInPrice);
@@ -190,6 +192,20 @@ function ScCard({
     inCart ? "in-cart" : "",
   ].filter(Boolean).join(" ");
 
+  // Object-form add so the standard cart item carries classId, className, and the
+  // flat-tuition priceSnapshot — the bare string form leaves them empty, which is
+  // why standard rows used to render "—" in the cart.
+  function addStandard() {
+    add({
+      semesterId,
+      classId: rep.classId ?? "",
+      sessionId: rep.id,
+      className: rep.name,
+      mode: "standard",
+      priceSnapshot: rep.flatTuition ?? undefined,
+    });
+  }
+
   function handleClick() {
     if (isFull && !rep.waitlistEnabled) return;
     if (isFull && rep.waitlistEnabled) {
@@ -197,7 +213,7 @@ function ScCard({
       return;
     }
     if (inCart) remove(rep.id);
-    else add(rep.id);
+    else addStandard();
   }
 
   return (
@@ -298,7 +314,7 @@ function ScCard({
         ) : (
           <button
             className="sem-atc"
-            onClick={(e) => { e.stopPropagation(); add(rep.id); }}
+            onClick={(e) => { e.stopPropagation(); addStandard(); }}
           >
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <circle cx="9" cy="21" r="1"/>

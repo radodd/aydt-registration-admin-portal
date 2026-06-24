@@ -63,6 +63,7 @@ export async function getSemesterForDisplay(
         max_grade,
         is_active,
         is_competition_track,
+        tuition_override_amount,
         is_tiered,
         waitlist_enabled,
         visibility,
@@ -221,6 +222,28 @@ export async function getSemesterForDisplay(
   }
 
   /* ---------------------------------------------------------------------- */
+  /* 3b. Flat tuition per division (standard / full_schedule classes).        */
+  /*     The admin-set base tuition for a single class = the weekly_class_count=1 */
+  /*     rate band for the class's division. A per-class tuition_override_amount */
+  /*     (resolved later, per class) takes precedence. No front-end math: this  */
+  /*     mirrors the engine's standard-class path in computePricingQuote.       */
+  /* ---------------------------------------------------------------------- */
+  const { data: rateBandRows } = await supabase
+    .from("tuition_rate_bands")
+    .select("division, base_tuition")
+    .eq("semester_id", semesterId)
+    .eq("weekly_class_count", 1);
+
+  const flatTuitionByDivision: Record<string, number | null> = {};
+  for (const row of (rateBandRows ?? []) as {
+    division: string;
+    base_tuition: number | null;
+  }[]) {
+    flatTuitionByDivision[row.division] =
+      row.base_tuition != null ? Number(row.base_tuition) : null;
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* 4. Normalize class_meetings → PublicSession[]                           */
   /*    Each active class_session = one enrollable public session.            */
   /* ---------------------------------------------------------------------- */
@@ -264,6 +287,17 @@ export async function getSemesterForDisplay(
               isDefault: t.is_default,
             }));
 
+          // Flat tuition shown to the user for standard (full_schedule) classes:
+          // the per-class override if the admin set one, otherwise the division's
+          // 1x/week rate band. Fees (registration/costume/video) are excluded —
+          // they appear in the cart breakdown, not the sticker price.
+          const flatTuition =
+            pricingModel === "full_schedule"
+              ? c.tuition_override_amount != null
+                ? Number(c.tuition_override_amount)
+                : (flatTuitionByDivision[c.division] ?? null)
+              : null;
+
           // Phase 2 tiers (per-class) — distinct from section_price_tiers above.
           const classTiers = ((c.class_tiers ?? []) as ClassTierRow[])
             .slice()
@@ -304,6 +338,7 @@ export async function getSemesterForDisplay(
             scheduleId: cs.section_id ?? null,
             pricingModel,
             priceTiers,
+            flatTuition,
             dropInPrice: cs.drop_in_price ?? null,
             isTiered: c.is_tiered ?? false,
             classTiers,
@@ -523,6 +558,8 @@ interface ClassRow {
   max_grade: number | null;
   is_active: boolean;
   is_competition_track: boolean;
+  /** Admin per-class custom tuition; overrides the division rate band when set. */
+  tuition_override_amount?: number | null;
   /** Phase 2: per-class tiered flag. */
   is_tiered?: boolean | null;
   /** Meeting-plan #5: per-class manual-waitlist toggle. */

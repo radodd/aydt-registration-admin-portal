@@ -14,7 +14,8 @@ function formatCurrency(cents: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(cents / 100);
 }
 
@@ -22,16 +23,17 @@ function formatDollars(dollars: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(dollars);
 }
 
 /**
  * Per-row item price. tiered + drop-in items snapshot their authoritative
- * price at add-to-cart time. Standard-mode items have no snapshot because
- * their tuition depends on the dancer's full enrollment (progressive rate
- * band) — show "—" per row; the live engine quote at the bottom carries
- * the real total.
+ * price at add-to-cart time; standard items now snapshot their admin-set flat
+ * tuition (rate band 1x/week, or the per-class override) too. The live engine
+ * quote at the bottom still carries the real total (fees, multi-class banding,
+ * discounts). Falls back to 0 only when an item has no snapshot.
  */
 function itemPrice(item: CartItem): number {
   if (item.priceSnapshot != null) return item.priceSnapshot;

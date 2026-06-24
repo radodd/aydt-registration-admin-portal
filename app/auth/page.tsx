@@ -92,15 +92,21 @@ function AuthForm() {
               </p>
               <p style={{ fontSize: 14, color: "var(--color-text-muted, #6b7280)", marginTop: 12 }}>
                 Didn&apos;t get it? Check your spam folder, or{" "}
-                <button
-                  type="button"
-                  className="aydt-auth-link"
-                  onClick={() => setActiveTab("signup")}
-                >
+                <a className="aydt-auth-link" href="/auth?tab=signup">
                   try signing up again
-                </button>
+                </a>
                 .
               </p>
+
+              <div className="aydt-auth-footer" style={{ marginTop: 24 }}>
+                <a className="aydt-auth-link" href="/auth">
+                  Back to log in
+                </a>
+                <span style={{ margin: "0 8px", color: "#C9C0B6" }}>·</span>
+                <a className="aydt-auth-link" href="/">
+                  Return to home
+                </a>
+              </div>
             </div>
           )}
 
