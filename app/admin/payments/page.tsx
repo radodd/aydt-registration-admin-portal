@@ -682,7 +682,7 @@ export default function PaymentsAdmin() {
   ];
   const currentStatusLabel = STATUS_OPTIONS.find((s) => s.k === currentTab)?.l ?? "All";
   const currentSortLabel = SORT_OPTIONS.find((s) => s.k === sortMode)?.l ?? "Priority";
-  const currentTermLabel = selectedTerm === "all" ? "All terms" : selectedTerm;
+  const currentTermLabel = selectedTerm === "all" ? "All semesters" : selectedTerm;
 
   function getBatchLineItems(batch: BatchRow) {
     const items: Array<{ desc: string; type: string; qty: number; price: number }> = [];
@@ -1109,7 +1109,7 @@ export default function PaymentsAdmin() {
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-semibold"
                   style={{ border: "0.5px solid var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-text)" }}
                 >
-                  <span style={{ color: "var(--admin-text-faint)", fontWeight: 500 }}>Term</span>
+                  <span style={{ color: "var(--admin-text-faint)", fontWeight: 500 }}>Semester</span>
                   {currentTermLabel}
                   <span style={{ color: "var(--admin-text-faint)", fontSize: 9 }}>▼</span>
                 </button>
@@ -1126,7 +1126,7 @@ export default function PaymentsAdmin() {
                         className="w-full text-left px-2.5 py-2 rounded-lg text-[13px]"
                         style={{ background: t === selectedTerm ? "var(--admin-surface-sub)" : "transparent", fontWeight: t === selectedTerm ? 600 : 400, color: "var(--admin-text)" }}
                       >
-                        {t === "all" ? "All terms" : t}
+                        {t === "all" ? "All semesters" : t}
                       </button>
                     ))}
                   </div>
