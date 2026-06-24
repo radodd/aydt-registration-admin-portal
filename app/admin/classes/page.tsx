@@ -121,6 +121,25 @@ function fmtWaitlistDate(d: string): string {
   });
 }
 
+// Meeting-plan #42: roster shows the dancer's age/grade (from their profile)
+// instead of the redundant registered/waitlisted status. Compact "9 · Gr 5",
+// falling back to whichever value exists.
+function formatAgeGrade(
+  birthDate: string | null,
+  grade: string | null
+): string {
+  const age = birthDate
+    ? String(
+        Math.floor(
+          (Date.now() - new Date(birthDate).getTime()) / (365.25 * 86_400_000)
+        )
+      )
+    : null;
+  const g = grade?.trim() ? `Gr ${grade.trim()}` : null;
+  if (age && g) return `${age} · ${g}`;
+  return age ?? g ?? "—";
+}
+
 function getSemesterFromDetail(
   detail: ClassDetail
 ): { id: string; name: string; status: string } | null {
@@ -1540,7 +1559,7 @@ function ClassDetailPanel({
               <table className="w-full text-[13px]">
                 <thead>
                   <tr>
-                    {["Dancer", "Parent", "Status", "Enrolled"].map((h) => (
+                    {["Dancer", "Parent", "Age / Grade", "Enrolled"].map((h) => (
                       <th
                         key={h}
                         className="text-left px-5 py-2.5 text-[10px] uppercase tracking-wider font-medium"
@@ -1576,25 +1595,8 @@ function ClassDetailPanel({
                       <td className="px-5 py-2.5" style={{ color: "#736D65" }}>
                         {r.parentName ?? "—"}
                       </td>
-                      <td className="px-5 py-2.5">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span
-                            className="inline-block rounded-full"
-                            style={{
-                              width: "6px",
-                              height: "6px",
-                              background:
-                                r.status === "confirmed"
-                                  ? "#1D9E75"
-                                  : r.status === "pending_payment" || r.status === "pending"
-                                  ? "#E8A838"
-                                  : "#9E9890",
-                            }}
-                          />
-                          <span className="capitalize" style={{ color: "#201D18" }}>
-                            {r.status.replace(/_/g, " ")}
-                          </span>
-                        </span>
+                      <td className="px-5 py-2.5" style={{ color: "#736D65" }}>
+                        {formatAgeGrade(r.birthDate, r.grade)}
                       </td>
                       <td className="px-5 py-2.5 text-[11px]" style={{ color: "#9E9890" }}>
                         {new Date(r.createdAt).toLocaleDateString("en-US", {

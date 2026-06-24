@@ -180,6 +180,8 @@ export interface Registrant {
   id: string;
   dancerId: string | null;
   dancerName: string;
+  birthDate: string | null;
+  grade: string | null;
   parentEmail: string | null;
   parentName: string | null;
   status: string;
@@ -228,7 +230,7 @@ export async function getClassRegistrants(
     const { data: regs } = await supabase
       .from("meeting_enrollments")
       .select(
-        "id, status, meeting_id, created_at, dancers(id, first_name, last_name), users(id, first_name, last_name, email), class_meetings(day_of_week, start_time, end_time)"
+        "id, status, meeting_id, created_at, dancers(id, first_name, last_name, birth_date, grade), users(id, first_name, last_name, email), class_meetings(day_of_week, start_time, end_time)"
       )
       .in("meeting_id", sessionIds)
       .neq("status", "cancelled");
@@ -248,6 +250,8 @@ export async function getClassRegistrants(
         dancerName: dancer
           ? `${dancer.first_name} ${dancer.last_name}`
           : "Unknown",
+        birthDate: dancer?.birth_date ?? null,
+        grade: dancer?.grade ?? null,
         parentEmail: user?.email ?? null,
         parentName: user
           ? `${user.first_name} ${user.last_name}`
@@ -275,7 +279,7 @@ export async function getClassRegistrants(
     const { data: enrollments } = await supabase
       .from("section_enrollments")
       .select(
-        "id, status, section_id, created_at, dancers(id, first_name, last_name), registration_orders(id, parent_id)"
+        "id, status, section_id, created_at, dancers(id, first_name, last_name, birth_date, grade), registration_orders(id, parent_id)"
       )
       .in("section_id", scheduleIds)
       .neq("status", "cancelled");
@@ -327,6 +331,8 @@ export async function getClassRegistrants(
         dancerName: dancer
           ? `${dancer.first_name} ${dancer.last_name}`
           : "Unknown",
+        birthDate: dancer?.birth_date ?? null,
+        grade: dancer?.grade ?? null,
         parentEmail: parent?.email ?? null,
         parentName: parent
           ? `${parent.first_name} ${parent.last_name}`
