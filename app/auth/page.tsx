@@ -105,10 +105,16 @@ function AuthForm() {
           )}
 
           {/* Login screen */}
-          {!messageParam && activeTab === "login" && (
+          {(!messageParam || messageParam === "email_confirmed") && activeTab === "login" && (
             <div>
               <h2 className="aydt-auth-heading">Welcome back</h2>
               <p className="aydt-auth-subhead">Sign in to manage your family&apos;s registrations.</p>
+
+              {messageParam === "email_confirmed" && (
+                <div className="aydt-auth-success">
+                  Your email is confirmed. Please log in to continue.
+                </div>
+              )}
 
               {errorParam === "invalid_credentials" && (
                 <div className="aydt-auth-error">Invalid email or password. Please try again.</div>

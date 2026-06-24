@@ -54,8 +54,14 @@ export async function signUp(formData: FormData) {
   const first_name = formData.get("first_name") as string;
   const last_name = formData.get("last_name") as string;
 
-  const next = formData.get("next") as string | null;
-  const callbackNext = next?.startsWith("/") ? next : "/";
+  // After confirming their email the user is sent to the login page to sign in
+  // manually (we do not auto-log-them-in). Preserve any original deep-link as a
+  // nested `next` so login can forward them there afterwards.
+  const originalNext = formData.get("next") as string | null;
+  const postConfirm =
+    originalNext?.startsWith("/") && originalNext !== "/"
+      ? `/auth?message=email_confirmed&next=${encodeURIComponent(originalNext)}`
+      : "/auth?message=email_confirmed";
 
   // The confirmation link must return to the production site. Prefer SITE_URL
   // (the canonical server-side origin, e.g. register.aydt.nyc); if unset, omit
@@ -63,7 +69,7 @@ export async function signUp(formData: FormData) {
   // than rejecting the signup with "Redirect URL not allowed".
   const baseUrl = process.env.SITE_URL;
   const emailRedirectTo = baseUrl
-    ? `${baseUrl}/auth/callback?next=${encodeURIComponent(callbackNext)}`
+    ? `${baseUrl}/auth/callback?next=${encodeURIComponent(postConfirm)}`
     : undefined;
 
   console.log(
@@ -73,9 +79,10 @@ export async function signUp(formData: FormData) {
 
   // Standard email-verification signup: Supabase sends the confirmation email
   // and the account stays unconfirmed until the user clicks the link, which
-  // lands on /auth/callback to exchange the code for a session. The
-  // handle_new_user() trigger on auth.users creates the public.families +
-  // public.users rows from user_metadata, so no manual insert is needed here.
+  // lands on /auth/callback to finalize confirmation and then forwards them to
+  // the login page. The handle_new_user() trigger on auth.users creates the
+  // public.families + public.users rows from user_metadata, so no manual
+  // insert is needed here.
   const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
