@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/server";
-import { createAdminClient } from "@/utils/supabase/admin";
 import { signUpSchema } from "../lib/validation/auth";
 
 export async function login(formData: FormData) {
@@ -48,15 +47,7 @@ export async function signUp(formData: FormData) {
 
   console.log("[signUp] Validation passed");
 
-  // TEMPORARY (pre-launch): gate the unverified-signup path behind an env flag
-  // so it can be disabled in production by unsetting ENABLE_UNVERIFIED_SIGNUP.
-  if (process.env.ENABLE_UNVERIFIED_SIGNUP !== "true") {
-    console.error("[signUp] Blocked: ENABLE_UNVERIFIED_SIGNUP is not enabled.");
-    redirect("/auth?error=signup_disabled");
-  }
-
   const supabase = await createClient();
-  const adminSupabase = createAdminClient();
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -64,59 +55,52 @@ export async function signUp(formData: FormData) {
   const last_name = formData.get("last_name") as string;
 
   const next = formData.get("next") as string | null;
-  const safePath = next?.startsWith("/") ? next : "/";
+  const callbackNext = next?.startsWith("/") ? next : "/";
 
-  // TEMPORARY (pre-launch): create users with email pre-confirmed via the
-  // admin API. This skips the confirmation-email flow entirely so stakeholders
-  // can sign up and access the admin portal during testing without hitting
-  // Supabase's email rate limit. Revert to supabase.auth.signUp() before
-  // production launch so real users go through email verification.
-  const { data: createdUser, error: createError } =
-    await adminSupabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { first_name, last_name },
-    });
+  // The confirmation link must return to the production site. Prefer SITE_URL
+  // (the canonical server-side origin, e.g. register.aydt.nyc); if unset, omit
+  // emailRedirectTo so Supabase falls back to its configured Site URL rather
+  // than rejecting the signup with "Redirect URL not allowed".
+  const baseUrl = process.env.SITE_URL;
+  const emailRedirectTo = baseUrl
+    ? `${baseUrl}/auth/callback?next=${encodeURIComponent(callbackNext)}`
+    : undefined;
 
-  if (createError) {
-    console.error("[signUp] admin.createUser error:", createError.message, createError);
-    if (
-      createError.message.toLowerCase().includes("already") ||
-      createError.message.toLowerCase().includes("registered") ||
-      createError.message.toLowerCase().includes("exists")
-    ) {
-      redirect("/auth?error=email_exists");
-    }
-    redirect("/error");
-  }
+  console.log(
+    "[signUp] emailRedirectTo:",
+    emailRedirectTo ?? "(omitted — using Supabase Site URL)",
+  );
 
-  const authUser = createdUser.user;
-  console.log("[signUp] Auth user created (pre-confirmed):", authUser?.id ?? "null");
-
-  if (!authUser) {
-    console.error("[signUp] No auth user returned after admin.createUser.");
-    redirect("/error");
-  }
-
-  // The handle_new_user() trigger on auth.users automatically inserts the
-  // public.families + public.users rows, so no manual insert is needed here.
-
-  // Sign the new user in immediately so they land in the app authenticated.
-  const { error: signInError } = await supabase.auth.signInWithPassword({
+  // Standard email-verification signup: Supabase sends the confirmation email
+  // and the account stays unconfirmed until the user clicks the link, which
+  // lands on /auth/callback to exchange the code for a session. The
+  // handle_new_user() trigger on auth.users creates the public.families +
+  // public.users rows from user_metadata, so no manual insert is needed here.
+  const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      ...(emailRedirectTo ? { emailRedirectTo } : {}),
+      data: { first_name, last_name },
+    },
   });
 
-  if (signInError) {
-    console.error("[signUp] Post-signup sign-in failed:", signInError.message);
-    // Account was created — fall back to the login screen with email prefilled.
-    redirect(`/auth?email=${encodeURIComponent(email)}`);
+  if (authError) {
+    console.error("[signUp] signUp error:", authError.message, authError);
+    redirect("/error");
   }
 
-  console.log("[signUp] Signed in. Redirecting to", safePath);
+  // Supabase obfuscates an already-registered email to prevent enumeration:
+  // it returns a user with an empty identities array and no error. Surface the
+  // friendly "email already exists" state in that case.
+  if (authData.user && (authData.user.identities?.length ?? 0) === 0) {
+    console.log("[signUp] Email already registered (obfuscated response).");
+    redirect("/auth?error=email_exists");
+  }
+
+  console.log("[signUp] Signup accepted. Redirecting to check-email.");
   revalidatePath("/", "layout");
-  redirect(safePath);
+  redirect(`/auth?message=check_email&email=${encodeURIComponent(email)}`);
 }
 
 export async function signOut(options?: { scope?: "local" | "global" }) {
