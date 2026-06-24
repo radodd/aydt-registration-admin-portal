@@ -74,14 +74,42 @@ function processImages(html: string): string {
   });
 }
 
-const LOGO_URL =
-  typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL
-    ? `${process.env.NEXT_PUBLIC_SITE_URL}/email-logo.png`
-    : "https://aydt.nyc/email-logo.png";
-
 const SITE_URL =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL) ||
   "https://aydt.nyc";
+
+// Horizontal brand lockup (dancer mark + "American Youth" / "Dance Theater"
+// in the brand fonts). Served from /public/brand — an image is used instead
+// of live web fonts because Outlook and Gmail strip @font-face entirely.
+const LOGO_URL = `${SITE_URL}/brand/logo-primary-blush-cherry.png`;
+
+/**
+ * Brand palette for emails. The single source of truth so every email —
+ * and the reusable button below — stays on-brand without copy/paste drift.
+ */
+export const EMAIL_COLORS = {
+  cherry: "#691F19", // header rule + footer background
+  mauve: "#AA6260", // primary call-to-action button
+  cream: "#FFFBF9", // header background
+  pageBg: "#EFE7E3", // outer page background
+  textPrimary: "#1F1513",
+  footerText: "#F4DDD9",
+  footerMuted: "#E3BFBA",
+} as const;
+
+/**
+ * Reusable branded call-to-action button.
+ *
+ * Use this everywhere a primary action link is needed so the button color and
+ * shape stay consistent across every email. Padding lives on the <a> to match
+ * the existing email-button convention in this codebase.
+ *
+ * @example
+ *   wrapEmailLayout(`<p>Your spot is ready.</p>${emailButton(url, "Accept invite")}`)
+ */
+export function emailButton(href: string, label: string): string {
+  return `<a href="${href}" style="display:inline-block;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;color:#ffffff;background-color:${EMAIL_COLORS.mauve};padding:13px 30px;border-radius:8px;text-decoration:none;">${label}</a>`;
+}
 
 export function wrapEmailLayout(content: string): string {
   return `<!DOCTYPE html>
@@ -91,49 +119,45 @@ export function wrapEmailLayout(content: string): string {
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>AYDT Email</title>
 </head>
-<body style="margin:0;padding:0;background-color:#F2E7E4;font-family:Arial,Helvetica,sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#F2E7E4" style="background-color:#F2E7E4;">
+<body style="margin:0;padding:0;background-color:${EMAIL_COLORS.pageBg};font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="${EMAIL_COLORS.pageBg}" style="background-color:${EMAIL_COLORS.pageBg};">
   <tr>
-    <td align="center">
+    <td align="center" style="padding:32px 16px;">
       <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;">
 
-   <!-- HEADER -->
+   <!-- HEADER — cream background, centered brand lockup -->
 <tr>
-  <td bgcolor="#7B1F1A" style="background-color:#7B1F1A;padding:18px 24px;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-      <tr>
-        <td style="vertical-align:middle;width:120px;">
-          <img 
-            src="https://bulplzknfbietpmdfwlk.supabase.co/storage/v1/object/public/email-assets/email-images/04d4ec78-727f-4f61-a6a1-372e9c1623b4.png"
-            width="50"
-            style="display:block;width:50px;height:auto;border:0;"
-            alt="AYDT Logo">
-        </td>
-        <td style="vertical-align:middle;color:#ffffff;font-size:18px;font-weight:600;font-family:Arial,Helvetica,sans-serif;">
-          American Youth Dance Theater
-        </td>
-      </tr>
-    </table>
+  <td align="center" bgcolor="${EMAIL_COLORS.cream}" style="background-color:${EMAIL_COLORS.cream};padding:28px 24px 24px;">
+    <img
+      src="${LOGO_URL}"
+      width="260"
+      alt="American Youth Dance Theater"
+      style="display:block;width:260px;max-width:72%;height:auto;border:0;margin:0 auto;">
   </td>
+</tr>
+
+   <!-- CHERRY RULE -->
+<tr>
+  <td bgcolor="${EMAIL_COLORS.cherry}" style="height:3px;line-height:3px;font-size:0;background-color:${EMAIL_COLORS.cherry};">&nbsp;</td>
 </tr>
 
         <!-- CONTENT -->
         <tr>
-          <td style="padding:32px;color:#333333;font-size:16px;line-height:1.6;">
+          <td style="padding:36px 40px 40px;color:${EMAIL_COLORS.textPrimary};font-size:16px;line-height:1.65;font-family:Arial,Helvetica,sans-serif;">
             ${content}
           </td>
         </tr>
 
-        <!-- FOOTER -->
+        <!-- WINE FOOTER -->
 <tr>
-  <td bgcolor="#7B1F1A" style="background-color:#7B1F1A;padding:28px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;">
-    
+  <td bgcolor="${EMAIL_COLORS.cherry}" style="background-color:${EMAIL_COLORS.cherry};padding:28px;color:${EMAIL_COLORS.footerText};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;">
+
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
       <tr>
 
         <!-- LOCATION 1 -->
-        <td style="vertical-align:top;width:50%;padding-right:12px;">
-          <strong style="font-size:14px;">Upper East Side</strong><br>
+        <td style="vertical-align:top;width:50%;padding-right:12px;color:${EMAIL_COLORS.footerMuted};">
+          <strong style="font-size:14px;color:#ffffff;">Upper East Side</strong><br>
           428 E 75th Street<br>
           New York, NY 10021<br><br>
 
@@ -145,8 +169,8 @@ export function wrapEmailLayout(content: string): string {
         </td>
 
         <!-- LOCATION 2 -->
-        <td style="vertical-align:top;width:50%;padding-left:12px;">
-          <strong style="font-size:14px;">Washington Heights</strong><br>
+        <td style="vertical-align:top;width:50%;padding-left:12px;color:${EMAIL_COLORS.footerMuted};">
+          <strong style="font-size:14px;color:#ffffff;">Washington Heights</strong><br>
           4140 Broadway, Fl 2 @ NoMAA<br>
           New York, NY 10033<br><br>
 
@@ -162,9 +186,9 @@ export function wrapEmailLayout(content: string): string {
 
     <!-- FOOTER LINKS -->
     <div style="margin-top:22px;text-align:center;">
-      <a href="${SITE_URL}" style="color:#E6D5D1;text-decoration:none;">Visit Website</a>
+      <a href="${SITE_URL}" style="color:${EMAIL_COLORS.footerText};text-decoration:none;">Visit Website</a>
       &nbsp;|&nbsp;
-      <a href="${SITE_URL}/contact" style="color:#E6D5D1;text-decoration:none;">Contact Us</a>
+      <a href="${SITE_URL}/contact" style="color:${EMAIL_COLORS.footerText};text-decoration:none;">Contact Us</a>
     </div>
 
   </td>

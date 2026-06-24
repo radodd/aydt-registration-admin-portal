@@ -24,22 +24,91 @@ function prepareEmailHtml(html: string): string {
       /data-layout="banner"/i.test(attrs) || !/data-layout=/i.test(attrs);
     return `<img${attrs} width="${isBanner ? 600 : 400}">`;
   });
+  // Keep this layout byte-identical to wrapEmailLayout() in
+  // utils/prepareEmailHtml.ts — edge functions can't import it.
+  const LOGO_URL = `${SITE_URL || "https://aydt.nyc"}/brand/logo-primary-blush-cherry.png`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AYDT Email</title>
 </head>
-<body style="margin:0;padding:0;background-color:#f3f4f6;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f3f4f6" style="background-color:#f3f4f6;">
+<body style="margin:0;padding:0;background-color:#EFE7E3;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#EFE7E3" style="background-color:#EFE7E3;">
   <tr>
     <td align="center" style="padding:32px 16px;">
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;">
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;">
+
+   <!-- HEADER — cream background, centered brand lockup -->
+<tr>
+  <td align="center" bgcolor="#FFFBF9" style="background-color:#FFFBF9;padding:28px 24px 24px;">
+    <img
+      src="${LOGO_URL}"
+      width="260"
+      alt="American Youth Dance Theater"
+      style="display:block;width:260px;max-width:72%;height:auto;border:0;margin:0 auto;">
+  </td>
+</tr>
+
+   <!-- CHERRY RULE -->
+<tr>
+  <td bgcolor="#691F19" style="height:3px;line-height:3px;font-size:0;background-color:#691F19;">&nbsp;</td>
+</tr>
+
+        <!-- CONTENT -->
         <tr>
-          <td style="padding:32px;">
+          <td style="padding:36px 40px 40px;color:#1F1513;font-size:16px;line-height:1.65;font-family:Arial,Helvetica,sans-serif;">
             ${processed}
           </td>
         </tr>
+
+        <!-- WINE FOOTER -->
+<tr>
+  <td bgcolor="#691F19" style="background-color:#691F19;padding:28px;color:#F4DDD9;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;">
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+      <tr>
+
+        <!-- LOCATION 1 -->
+        <td style="vertical-align:top;width:50%;padding-right:12px;color:#E3BFBA;">
+          <strong style="font-size:14px;color:#ffffff;">Upper East Side</strong><br>
+          428 E 75th Street<br>
+          New York, NY 10021<br><br>
+
+          O: (212) 717-5419<br>
+          F: (866) 679-8943<br><br>
+
+          Mon – Fri 9:00 am – 8:30 pm<br>
+          Sat 9:00 am – 3:00 pm
+        </td>
+
+        <!-- LOCATION 2 -->
+        <td style="vertical-align:top;width:50%;padding-left:12px;color:#E3BFBA;">
+          <strong style="font-size:14px;color:#ffffff;">Washington Heights</strong><br>
+          4140 Broadway, Fl 2 @ NoMAA<br>
+          New York, NY 10033<br><br>
+
+          O: (212) 717-5419<br>
+          Español: (646) 586-8661<br><br>
+
+          Tues 3:00 pm – 5:45 pm<br>
+          Sat 10:00 am – 1:00 pm
+        </td>
+
+      </tr>
+    </table>
+
+    <!-- FOOTER LINKS -->
+    <div style="margin-top:22px;text-align:center;">
+      <a href="${SITE_URL || "https://aydt.nyc"}" style="color:#F4DDD9;text-decoration:none;">Visit Website</a>
+      &nbsp;|&nbsp;
+      <a href="${SITE_URL || "https://aydt.nyc"}/contact" style="color:#F4DDD9;text-decoration:none;">Contact Us</a>
+    </div>
+
+  </td>
+</tr>
+
       </table>
     </td>
   </tr>
