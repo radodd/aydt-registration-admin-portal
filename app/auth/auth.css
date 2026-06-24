@@ -300,6 +300,15 @@
   color: #B91C1C;
   margin-bottom: 18px;
 }
+.aydt-auth-success {
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #15803D;
+  margin-bottom: 18px;
+}
 .aydt-field-error {
   font-size: 11px;
   color: #B91C1C;
