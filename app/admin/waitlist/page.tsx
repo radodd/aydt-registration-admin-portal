@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { getWaitlistEntries, type AdminWaitlistEntry } from "./queries";
 import { inviteWaitlistEntryByLink } from "./actions/inviteWaitlistEntryByLink";
-import { registerWaitlistEntryInPortal } from "./actions/registerWaitlistEntryInPortal";
 import { getFreedSeats, type FreedSeatGroup } from "./actions/getFreedSeats";
 import { reopenFreedSeatsToPublic } from "./actions/reopenFreedSeatsToPublic";
 
@@ -41,137 +41,6 @@ function StatusPill({ status }: { status: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Register-in-portal modal (Path B)                                           */
-/* -------------------------------------------------------------------------- */
-
-function RegisterModal({
-  entry,
-  onClose,
-  onRegistered,
-}: {
-  entry: AdminWaitlistEntry;
-  onClose: () => void;
-  onRegistered: () => void;
-}) {
-  const [price, setPrice] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [amount, setAmount] = useState<string>("");
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit() {
-    setSaving(true);
-    setError(null);
-    const result = await registerWaitlistEntryInPortal({
-      entryId: entry.id,
-      priceOverride: price ? Number(price) : null,
-      paymentMethod,
-      amountCollected: amount ? Number(amount) : 0,
-      notes: notes || undefined,
-    });
-    if (!result.success) {
-      setError(result.error ?? "Failed to register");
-      setSaving(false);
-      return;
-    }
-    onRegistered();
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-5">
-        <div>
-          <h2 className="text-lg font-semibold text-neutral-900">
-            Register from waitlist
-          </h2>
-          <p className="text-sm text-neutral-500 mt-1">
-            {entry.dancerName ?? "Dancer"} → {entry.className}
-          </p>
-        </div>
-
-        {error && (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs uppercase tracking-wide text-neutral-400 mb-1">
-              Custom total (optional)
-            </label>
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="Leave blank to use standard pricing"
-              className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400 text-slate-700"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs uppercase tracking-wide text-neutral-400 mb-1">
-                Payment method
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400 text-slate-700"
-              >
-                <option value="cash">Cash</option>
-                <option value="check">Check</option>
-                <option value="card_present">Card (in person)</option>
-                <option value="comp">Comp / waived</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs uppercase tracking-wide text-neutral-400 mb-1">
-                Amount collected
-              </label>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400 text-slate-700"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs uppercase tracking-wide text-neutral-400 mb-1">
-              Notes (optional)
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-400 resize-none text-slate-700"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between pt-1">
-          <button
-            onClick={onClose}
-            className="text-sm text-neutral-500 hover:text-neutral-800 transition"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="px-5 py-2 rounded-xl text-sm font-medium bg-primary-600 text-white hover:bg-primary-700 transition disabled:opacity-50"
-          >
-            {saving ? "Registering…" : "Register dancer"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 /* Page                                                                        */
 /* -------------------------------------------------------------------------- */
 
@@ -180,7 +49,6 @@ export default function WaitlistAdminPage() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ id: string; text: string; ok: boolean } | null>(null);
-  const [registerTarget, setRegisterTarget] = useState<AdminWaitlistEntry | null>(null);
   const [freedSeats, setFreedSeats] = useState<FreedSeatGroup[]>([]);
   const [reopenBusy, setReopenBusy] = useState<string | null>(null);
 
@@ -352,12 +220,12 @@ export default function WaitlistAdminPage() {
                           >
                             {busyId === e.id ? "Sending…" : "Send payment link"}
                           </button>
-                          <button
-                            onClick={() => setRegisterTarget(e)}
+                          <Link
+                            href={`/admin/register?fromWaitlist=${e.id}`}
                             className="text-xs px-3 py-1.5 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition"
                           >
                             Register
-                          </button>
+                          </Link>
                         </div>
                       </td>
                     </tr>
@@ -367,17 +235,6 @@ export default function WaitlistAdminPage() {
             </div>
           ))}
         </div>
-      )}
-
-      {registerTarget && (
-        <RegisterModal
-          entry={registerTarget}
-          onClose={() => setRegisterTarget(null)}
-          onRegistered={() => {
-            setRegisterTarget(null);
-            load();
-          }}
-        />
       )}
     </div>
   );
