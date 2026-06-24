@@ -89,12 +89,13 @@
   --admin-text-muted:         #736D65;
   --admin-text-faint:         #9E9890;
 
-  --admin-table-header-bg:    #8E2A23;
-  --admin-table-header-text:  #FFFFFF;
+  --admin-table-header-bg:    #EDE9E4;
+  --admin-table-header-text:  #736D65;
   --admin-table-row-alt:      #F7F5F2;
   --admin-table-border:       #DDD9D2;
 
-  --admin-card-accent:        #8E2A23;
+  /* Wine is an accent, not a surface — card top-accents stay neutral (DS v2.2). */
+  --admin-card-accent:        #DDD9D2;
 
   /* ── SPACING & DENSITY (4px scale, two cell densities) ── */
   --space-1:                  4px;
