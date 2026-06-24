@@ -68,6 +68,16 @@ export interface PublicSession {
    */
   dropInPrice?: number | null;
 
+  /**
+   * full_schedule only: the admin-set flat tuition to register for this single
+   * class. Resolved server-side (no front-end weekly-count math): the class's
+   * tuition_override_amount if set, otherwise the division's
+   * weekly_class_count=1 rate band base_tuition. Excludes registration/costume/
+   * video fees — those are layered on at checkout. Null when no rate is
+   * configured.
+   */
+  flatTuition?: number | null;
+
   /** Capacity semantics differ by pricingModel:
    *  full_schedule → schedule-level enrollment count (section_enrollments)
    *  per_session   → per-session registration count (registrations)
