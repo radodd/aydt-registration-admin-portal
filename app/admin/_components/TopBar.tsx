@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   Upload,
   Search,
-  Home,
   GraduationCap,
   UserCircle,
   ExternalLink,
@@ -18,39 +17,6 @@ import { createClient } from "@/utils/supabase/client";
 import { signOut } from "@/app/auth/actions";
 import { NotificationBell } from "./NotificationBell";
 
-const PAGE_TITLES: Record<string, string> = {
-  "/admin":              "AYDT Admin",
-  "/admin/semesters":   "Semesters",
-  "/admin/classes":     "Classes",
-  "/admin/sessions":    "Sessions",
-  "/admin/dancers":     "Dancers",
-  "/admin/families":    "Families",
-  "/admin/users":       "Users",
-  "/admin/payments":    "Payments",
-  "/admin/credits":     "Credits",
-  "/admin/emails":      "Emails",
-  "/admin/media":       "Media",
-  "/admin/profile":     "Profile",
-  "/admin/register":    "Register Dancer",
-};
-
-/* Cross-surface navigation — links out to the other AYDT surfaces.
-   Icons chosen to match each destination's purpose. */
-const CROSS_NAV: Array<{ href: string; label: string; icon: typeof Home; external?: boolean }> = [
-  { href: "/admin",       label: "Home",                 icon: Home },
-  { href: "/instructor",  label: "Instructor Dashboard", icon: GraduationCap },
-  { href: "/",            label: "User Portal",          icon: UserCircle, external: true },
-];
-
-function getPageTitle(pathname: string): string {
-  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
-  const sorted = Object.keys(PAGE_TITLES).sort((a, b) => b.length - a.length);
-  for (const key of sorted) {
-    if (pathname.startsWith(key + "/")) return PAGE_TITLES[key];
-  }
-  return "Admin";
-}
-
 const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super Admin",
   admin: "Admin",
@@ -59,7 +25,6 @@ const ROLE_LABELS: Record<string, string> = {
 export function TopBar({ adminInitial }: { adminInitial?: string }) {
   const pathname = usePathname();
   const supabase = createClient();
-  const title = getPageTitle(pathname);
   const initial = adminInitial ?? "A";
 
   const [adminName, setAdminName] = useState<string>("Admin");
@@ -103,7 +68,7 @@ export function TopBar({ adminInitial }: { adminInitial?: string }) {
 
   return (
     <div
-      className="sticky top-0 z-20 flex items-center justify-between gap-4 px-4 md:px-8 min-w-0 overflow-x-hidden"
+      className="sticky top-0 z-20 flex items-center justify-between gap-4 px-4 md:px-8 min-w-0"
       style={{
         height: "56px",
         background: "var(--admin-surface)",
@@ -112,7 +77,7 @@ export function TopBar({ adminInitial }: { adminInitial?: string }) {
       }}
     >
 
-      {/* ── Mobile left: avatar + page title ────────────────────── */}
+      {/* ── Mobile left: avatar + persistent brand (links to dashboard) ── */}
       <div className="flex items-center gap-3 md:hidden">
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
@@ -120,57 +85,23 @@ export function TopBar({ adminInitial }: { adminInitial?: string }) {
         >
           {initial}
         </div>
-        <span className="text-[17px] font-medium" style={{ color: "var(--admin-text)", letterSpacing: "-0.01em" }}>
-          {title}
-        </span>
+        <Link href="/admin" className="flex flex-col leading-tight">
+          <span className="text-[15px] font-semibold" style={{ color: "var(--admin-text)", letterSpacing: "-0.01em" }}>AYDT Admin</span>
+          <span className="text-[10px]" style={{ color: "var(--admin-text-muted)" }}>Parent Portal</span>
+        </Link>
       </div>
 
-      {/* ── Desktop left: page title + cross-surface nav ────────── */}
-      <div className="hidden md:flex items-center gap-4 min-w-0">
-        <span className="text-[15px] font-medium shrink-0" style={{ color: "var(--admin-text)" }}>
-          {title}
-        </span>
-        <nav className="flex items-center gap-1" style={{ borderLeft: "0.5px solid var(--admin-border)", paddingLeft: "12px" }}>
-          {CROSS_NAV.map(({ href, label, icon: Icon, external }) => {
-            const isActive = !external && (pathname === href || (href !== "/admin" && pathname.startsWith(href)));
-            const content = (
-              <>
-                <Icon size={15} className="shrink-0" />
-                <span className="hidden lg:inline whitespace-nowrap">{label}</span>
-                {external && <ExternalLink size={11} className="shrink-0" style={{ color: "var(--admin-text-faint)" }} />}
-              </>
-            );
-            const cls = "inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors";
-            const style: React.CSSProperties = isActive
-              ? { color: "var(--admin-text)", background: "var(--admin-surface-sub)" }
-              : { color: "var(--admin-text-muted)" };
-            return external ? (
-              <a
-                key={href}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={cls}
-                style={style}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--admin-surface-sub)"; e.currentTarget.style.color = "var(--admin-text)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--admin-text-muted)"; }}
-              >
-                {content}
-              </a>
-            ) : (
-              <Link
-                key={href}
-                href={href}
-                className={cls}
-                style={style}
-                onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = "var(--admin-surface-sub)"; e.currentTarget.style.color = "var(--admin-text)"; } }}
-                onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--admin-text-muted)"; } }}
-              >
-                {content}
-              </Link>
-            );
-          })}
-        </nav>
+      {/* ── Desktop left: persistent brand (links back to the dashboard) ─ */}
+      <div className="hidden md:flex items-center min-w-0 overflow-hidden">
+        <Link
+          href="/admin"
+          className="flex flex-col leading-tight shrink-0 rounded-md px-1.5 py-1 -ml-1.5 transition-colors"
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        >
+          <span className="text-[14px] font-semibold" style={{ color: "var(--admin-text)" }}>AYDT Admin</span>
+          <span className="text-[10px]" style={{ color: "var(--admin-text-muted)" }}>Parent Portal</span>
+        </Link>
       </div>
 
       {/* ── Mobile right: search + bell ─────────────────────────── */}
@@ -225,13 +156,42 @@ export function TopBar({ adminInitial }: { adminInitial?: string }) {
 
           {menuOpen && (
             <div
-              className="absolute right-0 mt-1.5 w-52 rounded-xl p-1.5 z-30"
+              className="absolute right-0 mt-1.5 w-56 rounded-xl p-1.5 z-30"
               style={{
                 background: "var(--admin-surface)",
                 border: "0.5px solid var(--admin-border)",
                 boxShadow: "var(--shadow-dropdown, 0 8px 24px rgba(0,0,0,.10))",
               }}
             >
+              {/* Cross-surface navigation */}
+              <Link
+                href="/instructor"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-colors"
+                style={{ color: "var(--admin-text)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <GraduationCap size={15} style={{ color: "var(--admin-text-muted)" }} />
+                Instructor Dashboard
+              </Link>
+              <a
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-colors"
+                style={{ color: "var(--admin-text)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <UserCircle size={15} style={{ color: "var(--admin-text-muted)" }} />
+                User Portal
+                <ExternalLink size={11} className="ml-auto" style={{ color: "var(--admin-text-faint)" }} />
+              </a>
+
+              <div style={{ height: "0.5px", background: "var(--admin-border)", margin: "6px 4px" }} />
+
               <Link
                 href="/admin/profile"
                 onClick={() => setMenuOpen(false)}
