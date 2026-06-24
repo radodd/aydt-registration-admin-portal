@@ -76,7 +76,9 @@ function processImages(html: string): string {
 
 const SITE_URL =
   (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SITE_URL) ||
-  "https://aydt.nyc";
+  // Fallback must be the live Next app (serves /brand assets); the apex
+  // aydt.nyc is the marketing site and 404s on /brand.
+  "https://register.aydt.nyc";
 
 // Horizontal brand lockup (dancer mark + "American Youth" / "Dance Theater"
 // in the brand fonts). Served from /public/brand — an image is used instead

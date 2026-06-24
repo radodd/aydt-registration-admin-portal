@@ -24,7 +24,7 @@ function prepareEmailHtml(html: string): string {
   });
   // Keep this layout byte-identical to wrapEmailLayout() in
   // utils/prepareEmailHtml.ts — edge functions can't import it.
-  const LOGO_URL = `${SITE_URL || "https://aydt.nyc"}/brand/logo-primary-blush-cherry.png`;
+  const LOGO_URL = `${SITE_URL || "https://register.aydt.nyc"}/brand/logo-primary-blush-cherry.png`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -99,9 +99,9 @@ function prepareEmailHtml(html: string): string {
 
     <!-- FOOTER LINKS -->
     <div style="margin-top:22px;text-align:center;">
-      <a href="${SITE_URL || "https://aydt.nyc"}" style="color:#F4DDD9;text-decoration:none;">Visit Website</a>
+      <a href="${SITE_URL || "https://register.aydt.nyc"}" style="color:#F4DDD9;text-decoration:none;">Visit Website</a>
       &nbsp;|&nbsp;
-      <a href="${SITE_URL || "https://aydt.nyc"}/contact" style="color:#F4DDD9;text-decoration:none;">Contact Us</a>
+      <a href="${SITE_URL || "https://register.aydt.nyc"}/contact" style="color:#F4DDD9;text-decoration:none;">Contact Us</a>
     </div>
 
   </td>

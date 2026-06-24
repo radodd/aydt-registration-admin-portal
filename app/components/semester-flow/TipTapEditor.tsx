@@ -45,6 +45,7 @@ import type { RawCommands, ChainedCommands } from "@tiptap/core";
 /* -------------------------------------------------------------------------- */
 
 const BRAND_COLORS = [
+  { label: "Mauve", value: "#AA6260" },
   { label: "Deep Maroon", value: "#7B1F1A" },
   { label: "Wine Red", value: "#8E2A23" },
   { label: "Dusty Rose", value: "#D8C4BF" },
@@ -101,7 +102,7 @@ const IMAGE_WIDTHS: { label: string; key: string; px: number }[] = [
 ];
 
 const BUTTON_PRESETS = {
-  bgColor: "#4f46e5",
+  bgColor: "#AA6260",
   textColor: "#ffffff",
   borderRadius: 6,
   paddingV: 12,
