@@ -310,6 +310,79 @@ function computeGeneratedCount(schedule: DraftClassSchedule): number {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Inline capacity cell (Classes list)                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Editable capacity cell for the Classes list. Commits to the class's primary
+ * schedule on blur / Enter. Empty → undefined ("no cap"); rejects 0 and
+ * negatives (DB enforces capacity > 0) by reverting to the last good value, so
+ * an invalid entry can never reach the persist layer.
+ */
+function CapacityCell({
+  value,
+  disabled,
+  onCommit,
+}: {
+  value: number | null | undefined;
+  disabled: boolean;
+  onCommit: (capacity: number | undefined) => void;
+}) {
+  const [draft, setDraft] = useState(value != null ? String(value) : "");
+
+  // Reflect external changes (e.g. edits made in the panel) when not mid-edit.
+  useEffect(() => {
+    setDraft(value != null ? String(value) : "");
+  }, [value]);
+
+  function commit() {
+    const trimmed = draft.trim();
+    if (trimmed === "") {
+      if (value != null) onCommit(undefined);
+      return;
+    }
+    const n = Math.floor(Number(trimmed));
+    if (!Number.isFinite(n) || n < 1) {
+      setDraft(value != null ? String(value) : ""); // revert invalid (incl. 0)
+      return;
+    }
+    if (n !== value) onCommit(n);
+  }
+
+  if (disabled) {
+    return value != null ? (
+      <span>{value}</span>
+    ) : (
+      <span className="text-neutral-300">—</span>
+    );
+  }
+
+  return (
+    <input
+      type="number"
+      min={1}
+      inputMode="numeric"
+      value={draft}
+      placeholder="—"
+      aria-label="Capacity"
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          (e.target as HTMLInputElement).blur();
+        } else if (e.key === "Escape") {
+          setDraft(value != null ? String(value) : "");
+          (e.target as HTMLInputElement).blur();
+        }
+      }}
+      className="w-16 rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm text-neutral-700 placeholder:text-neutral-300 focus:outline-none focus:border-primary-400 focus:ring-1 focus:ring-primary-400 hover:border-neutral-300 transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* Main Component                                                             */
 /* -------------------------------------------------------------------------- */
 
@@ -756,7 +829,13 @@ export default function SessionsStep({
                       )}
                       {!selectedClass && (
                         <td className="px-4 py-3 text-neutral-600">
-                          {firstSched?.capacity ?? <span className="text-neutral-300">—</span>}
+                          <CapacityCell
+                            value={firstSched?.capacity}
+                            disabled={isLocked || !firstSched}
+                            onCommit={(capacity) =>
+                              handleUpdateSchedule(idx, 0, { capacity })
+                            }
+                          />
                         </td>
                       )}
                       <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-right w-px`}>
