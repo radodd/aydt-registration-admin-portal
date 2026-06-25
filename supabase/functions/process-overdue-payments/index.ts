@@ -380,6 +380,26 @@ Deno.serve(async (_req) => {
           `[charge] installment ${row.id} paid — txn ${result.transactionId}`,
         );
 
+        // #48 resolve-on-success: the balance is now collected, so clear any
+        // open error rows for this installment (e.g. a prior declined attempt
+        // this cron logged). Keeps the actionable Error Log free of self-
+        // resolved recurring failures. Best-effort; service-role, no user.
+        // Deno can't import the Node helper, so this mirrors resolveOpenPaymentErrors.
+        try {
+          await supabase
+            .from("payment_error_logs")
+            .update({
+              status: "resolved",
+              resolved_by: null,
+              resolved_at: new Date().toISOString(),
+              resolution_notes: `Resolved on payment success via recurring cron — txn ${result.transactionId ?? "n/a"}.`,
+            })
+            .eq("installment_id", row.id)
+            .in("status", ["new", "acknowledged", "actioned"]);
+        } catch (resolveErr) {
+          console.error(`[charge] resolve-on-success failed for installment ${row.id}:`, resolveErr);
+        }
+
         // Send receipt email to parent
         try {
           const { data: parent } = await supabase

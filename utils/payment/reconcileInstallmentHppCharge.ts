@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveOpenPaymentErrors } from "@/utils/payment/resolveOpenPaymentErrors";
 
 /**
  * Meeting-plan #47 Part B — reconcile a NEW-CARD HPP charge of a single
@@ -59,18 +60,12 @@ export async function reconcileInstallmentHppCharge(
     return { marked: false, alreadyPaid: true };
   }
 
-  // Charge cleared — resolve any open error-log row for this installment so the
-  // Error Log reflects reality (mirrors retryInstallmentChargeFromError).
-  await supabase
-    .from("payment_error_logs")
-    .update({
-      status: "resolved",
-      resolved_by: opts?.resolvedBy ?? null,
-      resolved_at: nowIso,
-      resolution_notes: `Resolved via ${opts?.via ?? "new-card charge"} — txn ${txn.id}.`,
-    })
-    .eq("installment_id", installmentId)
-    .in("status", ["new", "acknowledged", "actioned"]);
+  // Charge cleared — resolve any open error-log row for this installment (#48).
+  await resolveOpenPaymentErrors(
+    supabase,
+    { installmentId },
+    { resolvedBy: opts?.resolvedBy ?? null, via: opts?.via ?? "new-card charge", transactionId: txn.id },
+  );
 
   return { marked: true, alreadyPaid: false };
 }

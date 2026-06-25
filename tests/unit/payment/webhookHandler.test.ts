@@ -13,10 +13,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ── Hoist mock objects so vi.mock factories can reference them ────────────────
-const { mockFrom, mockEmailSend, mockFetchEpgTransaction } = vi.hoisted(() => ({
+const { mockFrom, mockEmailSend, mockFetchEpgTransaction, mockLogPaymentError } = vi.hoisted(() => ({
   mockFrom: vi.fn(),
   mockEmailSend: vi.fn().mockResolvedValue({ data: { id: "email-001" }, error: null }),
   mockFetchEpgTransaction: vi.fn(),
+  mockLogPaymentError: vi.fn().mockResolvedValue("err-row-001"),
 }));
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -39,6 +40,12 @@ vi.mock("@/utils/payment/epg", async (importOriginal) => {
 
 vi.mock("@/utils/prepareEmailHtml", () => ({
   prepareEmailHtml: (html: string) => html,
+}));
+
+// #48: spy on the error-log writer so we can assert suppression of
+// customer-present card declines vs. logging of dev-lane integration failures.
+vi.mock("@/utils/payment/logPaymentError", () => ({
+  logPaymentError: mockLogPaymentError,
 }));
 
 vi.mock("next/server", () => ({
@@ -470,6 +477,52 @@ describe("POST /api/webhooks/epg", () => {
       // registration_orders should never be touched for a declined payment
       expect(mockFrom).not.toHaveBeenCalledWith("registration_orders");
       expect(mockEmailSend).not.toHaveBeenCalled();
+    });
+
+    // #48: a customer-present card decline (state="declined") is self-
+    // serviceable — the family retries on the hosted page — so it must NOT
+    // create an actionable Error Log row.
+    it("does NOT log an error for a customer-present card decline (#48 suppression)", async () => {
+      const paymentsChain = makeChain({ maybeSingleResult: { data: MOCK_PAYMENT_ROW } });
+      mockFrom.mockImplementation((table: string) =>
+        table === "payments" ? paymentsChain : makeChain(),
+      );
+      mockFetchEpgTransaction.mockResolvedValue({
+        ...MOCK_TRANSACTION,
+        isAuthorized: false,
+        state: "declined",
+      });
+
+      const res = await POST(
+        makeRequest({ authHeader: VALID_AUTH, body: makeNotification({ eventType: "saleDeclined" }) }) as any,
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockLogPaymentError).not.toHaveBeenCalled();
+    });
+
+    // #48: a DEV-lane failure (e.g. a network/integration problem surfaced on a
+    // declined event) IS a real bug and must still be logged.
+    it("DOES log an error for a dev-lane integration failure on a declined event (#48)", async () => {
+      const paymentsChain = makeChain({ maybeSingleResult: { data: MOCK_PAYMENT_ROW } });
+      mockFrom.mockImplementation((table: string) =>
+        table === "payments" ? paymentsChain : makeChain(),
+      );
+      mockFetchEpgTransaction.mockResolvedValue({
+        ...MOCK_TRANSACTION,
+        isAuthorized: false,
+        state: "network_timeout", // classifies as dev-lane (network)
+      });
+
+      const res = await POST(
+        makeRequest({ authHeader: VALID_AUTH, body: makeNotification({ eventType: "saleDeclined" }) }) as any,
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockLogPaymentError).toHaveBeenCalledTimes(1);
+      expect(mockLogPaymentError).toHaveBeenCalledWith(
+        expect.objectContaining({ source: "hpp_checkout" }),
+      );
     });
   });
 
