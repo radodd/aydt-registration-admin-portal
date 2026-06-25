@@ -4,7 +4,7 @@ import { getDancers } from "@/queries/admin";
 import { Dancer } from "@/types";
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Search } from "lucide-react";
 import Link from "next/link";
 
 /* ── helpers ──────────────────────────────────────────────────────────── */
@@ -43,6 +43,18 @@ export default function DancersAdmin() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  const filtered = dancers.filter((d) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const name = `${d.first_name} ${d.last_name}`.toLowerCase();
+    const parent =
+      Array.isArray(d.users) && d.users.length > 0
+        ? `${d.users[0].first_name} ${d.users[0].last_name}`.toLowerCase()
+        : "";
+    return name.includes(q) || parent.includes(q);
+  });
 
   useEffect(() => {
     (async () => {
@@ -85,12 +97,41 @@ export default function DancersAdmin() {
               style={{ borderColor: "#8E2A23", borderTopColor: "transparent" }}
             />
           </div>
-        ) : dancers.length === 0 ? (
-          <p className="px-5 py-10 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
-            No dancers found.
-          </p>
         ) : (
           <>
+            {/* Search bar */}
+            <div className="px-5 py-2.5 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
+              <div
+                className="flex items-center gap-2 rounded-lg px-3 py-1.5"
+                style={{ background: "var(--admin-surface-sub)", border: "1px solid var(--admin-border)" }}
+              >
+                <Search size={13} style={{ color: "var(--admin-text-faint)", flexShrink: 0 }} />
+                <input
+                  type="text"
+                  placeholder="Search by name or parent…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-[12.5px]"
+                  style={{ color: "var(--admin-text)" }}
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="text-[11px] leading-none"
+                    style={{ color: "var(--admin-text-faint)" }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {filtered.length === 0 ? (
+              <p className="px-5 py-10 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
+                {search ? `No dancers matching "${search}"` : "No dancers found."}
+              </p>
+            ) : (
+            <>
             {/* Desktop table header */}
             <div
               className="hidden md:flex items-center px-5 py-2"
@@ -104,7 +145,7 @@ export default function DancersAdmin() {
             </div>
 
             <ul>
-              {dancers.map((dancer, i) => {
+              {filtered.map((dancer, i) => {
                 const name = `${dancer.first_name} ${dancer.last_name}`;
                 const color = avatarColor(name);
                 const age = calcAge(dancer.birth_date);
@@ -233,8 +274,10 @@ export default function DancersAdmin() {
             </ul>
 
             <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
-              {dancers.length.toLocaleString()} dancer{dancers.length !== 1 ? "s" : ""}
+              {filtered.length.toLocaleString()} dancer{filtered.length !== 1 ? "s" : ""}
             </p>
+              </>
+            )}
           </>
         )}
       </div>
