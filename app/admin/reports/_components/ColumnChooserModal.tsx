@@ -160,17 +160,17 @@ export function ColumnChooserModal({ selected, onSave, onClose }: Props) {
         {/* Header */}
         <div
           className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-          style={{ background: "#8E2A23" }}
+          style={{ background: "#FFFFFF", borderBottom: "0.5px solid #DDD9D2" }}
         >
-          <span className="text-base font-semibold text-white">
+          <span className="text-base font-semibold text-[#201D18]">
             Choose columns
           </span>
           <button
             onClick={onClose}
             className="w-7 h-7 rounded-full flex items-center justify-center cursor-pointer"
-            style={{ background: "rgba(255,255,255,0.15)" }}
+            style={{ background: "#EDE9E4" }}
           >
-            <X size={14} color="white" />
+            <X size={14} color="#736D65" />
           </button>
         </div>
 

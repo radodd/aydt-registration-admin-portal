@@ -958,7 +958,7 @@ function ReportTableRow({
           borderBottom: "0.5px solid var(--admin-table-border)",
           borderRight: "0.5px solid var(--admin-border-sub)",
           verticalAlign: "middle",
-          color: isName ? "#8E2A23" : "var(--admin-text-muted)",
+          color: isName ? "var(--admin-text)" : "var(--admin-text-muted)",
           fontWeight: isName ? 500 : undefined,
           fontVariantNumeric:
             col === "Balance" || col === "Tuition amount"

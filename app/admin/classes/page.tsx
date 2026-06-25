@@ -1589,7 +1589,7 @@ function ClassDetailPanel({
                             {r.dancerName}
                           </Link>
                         ) : (
-                          <span style={{ color: "#8E2A23" }}>{r.dancerName}</span>
+                          <span style={{ color: "#201D18" }}>{r.dancerName}</span>
                         )}
                       </td>
                       <td className="px-5 py-2.5" style={{ color: "#736D65" }}>
@@ -1734,8 +1734,8 @@ function ClassDetailPanel({
                     {/* Session label */}
                     <div className="flex items-center gap-2 mb-2">
                       <span
-                        className="shrink-0 text-[10px] font-medium text-white rounded-md"
-                        style={{ background: "#8E2A23", padding: "2px 7px" }}
+                        className="shrink-0 text-[10px] font-medium text-[#736D65] rounded-md"
+                        style={{ background: "#EDE9E4", padding: "2px 7px" }}
                       >
                         {dayStr}
                       </span>
@@ -1756,7 +1756,7 @@ function ClassDetailPanel({
                         >
                           <span
                             className="text-[9px] font-semibold text-white rounded-full px-1.5 py-px"
-                            style={{ background: instructor.isLead ? "#8E2A23" : "#736D65" }}
+                            style={{ background: instructor.isLead ? "#201D18" : "#736D65" }}
                           >
                             {instructor.isLead ? "Lead" : "Asst"}
                           </span>
@@ -1828,7 +1828,7 @@ function ClassDetailPanel({
                                     </span>
                                     <span
                                       className="text-[9px] font-semibold text-white rounded-full px-1.5 py-px shrink-0"
-                                      style={{ background: willBeLead ? "#8E2A23" : "#736D65" }}
+                                      style={{ background: willBeLead ? "#201D18" : "#736D65" }}
                                     >
                                       {willBeLead ? "Lead" : "Asst"}
                                     </span>
