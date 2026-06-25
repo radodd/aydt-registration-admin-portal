@@ -76,19 +76,20 @@ export function NotificationBell() {
         });
       }
 
-      // Unreviewed enrollment warnings (soft warns + hard blocks)
-      const { count: warnCount } = await supabase
-        .from("enrollment_warnings")
-        .select("*", { count: "exact", head: true })
-        .eq("is_reviewed", false);
-      if (warnCount && warnCount > 0) {
-        items.push({
-          type: "warning",
-          message: `${warnCount} unreviewed enrollment warning${warnCount !== 1 ? "s" : ""}`,
-          dotColor: "#7A4E08",
-          href: "/admin/warnings",
-        });
-      }
+      // Hidden from UI — enrollment warnings feature not yet built; reopen later.
+      // Suppressed so the bell doesn't surface notifications linking to the hidden /admin/warnings page.
+      // const { count: warnCount } = await supabase
+      //   .from("enrollment_warnings")
+      //   .select("*", { count: "exact", head: true })
+      //   .eq("is_reviewed", false);
+      // if (warnCount && warnCount > 0) {
+      //   items.push({
+      //     type: "warning",
+      //     message: `${warnCount} unreviewed enrollment warning${warnCount !== 1 ? "s" : ""}`,
+      //     dotColor: "#7A4E08",
+      //     href: "/admin/warnings",
+      //   });
+      // }
 
       setAlerts(items);
       setLoading(false);
