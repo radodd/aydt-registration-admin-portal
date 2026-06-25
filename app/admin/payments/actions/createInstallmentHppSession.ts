@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { createEpgOrder, createEpgPaymentSession } from "@/utils/payment/epg";
+import { INSTALLMENT_RETRY_PREFIX } from "./installmentRetryRef";
 
 /**
  * Meeting-plan #47 Part B — "Pay Now (new card)" for a single failed/overdue
@@ -26,8 +27,6 @@ import { createEpgOrder, createEpgPaymentSession } from "@/utils/payment/epg";
  *
  * Super-admin only (matches the other installment charge actions).
  */
-
-export const INSTALLMENT_RETRY_PREFIX = "installment-retry-";
 
 export interface CreateInstallmentHppSessionResult {
   paymentSessionUrl?: string;

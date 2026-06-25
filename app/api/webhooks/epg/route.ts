@@ -11,7 +11,7 @@ import {
 } from "@/utils/payment/installmentConfirmation";
 import { logPaymentError } from "@/utils/payment/logPaymentError";
 import { reconcileInstallmentHppCharge } from "@/utils/payment/reconcileInstallmentHppCharge";
-import { INSTALLMENT_RETRY_PREFIX } from "@/app/admin/payments/actions/createInstallmentHppSession";
+import { INSTALLMENT_RETRY_PREFIX } from "@/app/admin/payments/actions/installmentRetryRef";
 
 // Node runtime required — never edge for payment webhooks.
 // Edge runtimes lack crypto.timingSafeEqual and may strip env vars.
