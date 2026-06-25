@@ -170,6 +170,8 @@ export default function SessionsGroupsStep({
   const [groups, setGroups] = useState<LocalGroup[]>(state.sessionGroups?.groups ?? []);
   const [newGroupName, setNewGroupName] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Display-only ordering for the Classes table (true = A–Z, false = Z–A).
+  const [sortAsc, setSortAsc] = useState(true);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -191,6 +193,20 @@ export default function SessionsGroupsStep({
   const totalSessions = useMemo(
     () => classRows.reduce((a, r) => a + r.sessionIds.length, 0),
     [classRows],
+  );
+
+  // Alphabetical view of the classes table (case-insensitive, toggleable).
+  const sortedRows = useMemo(
+    () =>
+      [...classRows].sort(
+        (a, b) =>
+          (sortAsc ? 1 : -1) *
+          a.name.localeCompare(b.name, undefined, {
+            sensitivity: "base",
+            numeric: true,
+          }),
+      ),
+    [classRows, sortAsc],
   );
 
   const groupedIds = useMemo(
@@ -369,13 +385,23 @@ export default function SessionsGroupsStep({
                   <thead className="sticky top-0 z-10">
                     <tr style={{ background: "var(--admin-table-header-bg)" }}>
                       <th className="w-9 px-4 py-2.5" />
-                      <th className="text-left px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Class</th>
+                      <th className="text-left px-4 py-2.5" style={{ color: "var(--admin-table-header-text)" }}>
+                        <button
+                          type="button"
+                          onClick={() => setSortAsc((v) => !v)}
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide hover:opacity-70 transition-opacity"
+                          title={`Sort ${sortAsc ? "Z–A" : "A–Z"}`}
+                        >
+                          Class
+                          <span className="text-[8px] leading-none">{sortAsc ? "▲" : "▼"}</span>
+                        </button>
+                      </th>
                       <th className="text-right px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Sessions</th>
                       <th className="text-left px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wide w-[200px]" style={{ color: "var(--admin-table-header-text)" }}>Group</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-100">
-                    {classRows.map((row) => {
+                    {sortedRows.map((row) => {
                       const color = DISCIPLINE_COLORS[row.discipline] ?? { bg: "bg-neutral-100", text: "text-neutral-600" };
                       const gid = classGroupId(row);
                       return (

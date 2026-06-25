@@ -1983,6 +1983,7 @@ function ClassesPageContent() {
   const [divisionFilter, setDivisionFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [sortOrder, setSortOrder] = useState<"az" | "za">("az");
   const [enrolledCounts, setEnrolledCounts] = useState<Record<string, number>>({});
   // Meeting-plan #25: active waitlist entries (waiting/invited) across all classes.
   const [waitlist, setWaitlist] = useState<AdminWaitlistEntry[]>([]);
@@ -2249,6 +2250,19 @@ function ClassesPageContent() {
     });
   }, [classes, search, disciplineFilter, divisionFilter, dateFrom, dateTo]);
 
+  // Order the filtered list alphabetically by class name (A–Z or Z–A).
+  const sorted = useMemo(() => {
+    const dir = sortOrder === "za" ? -1 : 1;
+    return [...filtered].sort(
+      (a, b) =>
+        dir *
+        (a.name ?? "").localeCompare(b.name ?? "", undefined, {
+          sensitivity: "base",
+          numeric: true,
+        })
+    );
+  }, [filtered, sortOrder]);
+
   const semesterForDetail = detail ? getSemesterFromDetail(detail) : null;
 
   return (
@@ -2425,6 +2439,22 @@ function ClassesPageContent() {
                 </select>
               </div>
             </div>
+
+            {/* Sort */}
+            <div>
+              <label className={FILTER_LABEL_CLASS} style={FILTER_LABEL_STYLE}>
+                Sort
+              </label>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "az" | "za")}
+                className={FILTER_CONTROL_CLASS}
+                style={FILTER_CONTROL_STYLE}
+              >
+                <option value="az">Name (A–Z)</option>
+                <option value="za">Name (Z–A)</option>
+              </select>
+            </div>
           </div>
 
           {/* Scrollable list */}
@@ -2447,7 +2477,7 @@ function ClassesPageContent() {
                   : "No classes found."}
               </p>
             ) : (
-              filtered.map((cls) => (
+              sorted.map((cls) => (
                 <ClassListRow
                   key={cls.id}
                   cls={cls}
