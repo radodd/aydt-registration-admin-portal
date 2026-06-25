@@ -10,6 +10,8 @@ import {
   ensureStoredCardAndChargeInstallment1,
 } from "@/utils/payment/installmentConfirmation";
 import { logPaymentError } from "@/utils/payment/logPaymentError";
+import { reconcileInstallmentHppCharge } from "@/utils/payment/reconcileInstallmentHppCharge";
+import { INSTALLMENT_RETRY_PREFIX } from "@/app/admin/payments/actions/createInstallmentHppSession";
 
 // Node runtime required — never edge for payment webhooks.
 // Edge runtimes lack crypto.timingSafeEqual and may strip env vars.
@@ -42,7 +44,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const expected = "Basic " + Buffer.from(expectedRaw).toString("base64");
 
   console.log("[EPG WEBHOOK] received");
-  console.log("[EPG WEBHOOK] ⚠️ TEMP - DELETE ME - auth header received:", request.headers.get("authorization")); // TODO: DELETE before production
 
   let authValid = false;
   try {
@@ -87,7 +88,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   console.log(
     `[epg-webhook] notification id=${notification.id} eventType=${eventType} resourceType=${resourceType}`,
   );
-  console.log("[epg-webhook] ⚠️ TEMP full notification body:", JSON.stringify(notification)); // TODO: DELETE
 
   // -------------------------------------------------------------------------
   // Step 3: Ignore non-transaction or non-sale events
@@ -139,7 +139,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   // -------------------------------------------------------------------------
-  console.log("[epg-webhook] ⚠️ TEMP full transaction object:", JSON.stringify(transaction)); // TODO: DELETE
   // Step 5: Resolve batchId from transaction.customReference
   // EPG does not propagate customReference to the transaction object in UAT —
   // it appears on transaction.orderReference instead. Fall back through all
@@ -148,6 +147,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const batchId = transaction.customReference ?? transaction.orderReference ?? notification.customReference;
   if (!batchId) {
     console.warn("[epg-webhook] Transaction has no customReference — ignoring");
+    return NextResponse.json({ ok: true }, { status: 200 });
+  }
+
+  // -------------------------------------------------------------------------
+  // Step 5b: #47 Part B — new-card HPP charge of a SINGLE installment.
+  // These sessions carry customReference = `installment-retry-{installmentId}`
+  // and intentionally have NO payments row (payments.registration_batch_id is
+  // UNIQUE per order — the original checkout owns it). So they must be handled
+  // BEFORE the payments lookup below, which would otherwise drop them. We
+  // reconcile the installment directly from the authoritative transaction;
+  // reconcileInstallmentHppCharge is idempotent across EPG's replayed events.
+  // -------------------------------------------------------------------------
+  if (batchId.startsWith(INSTALLMENT_RETRY_PREFIX)) {
+    const installmentId = batchId.slice(INSTALLMENT_RETRY_PREFIX.length);
+    if (transaction.isAuthorized) {
+      await reconcileInstallmentHppCharge(supabase, installmentId, transaction, {
+        via: "new-card charge (webhook)",
+      });
+    } else {
+      // Declined new-card attempt — admin-actionable (card problem).
+      await logPaymentError({
+        origin: "gateway",
+        source: "hpp_checkout",
+        category: "decline",
+        installmentId,
+        transactionId: transaction.id,
+        errorCode: transaction.state,
+        errorMessage: `New-card installment charge declined (${eventType}, state=${transaction.state}).`,
+        rawPayload: { notification, transaction },
+      });
+    }
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
