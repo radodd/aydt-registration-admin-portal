@@ -330,6 +330,15 @@ function emptyToNull<T>(v: T | "" | null | undefined): T | null {
   return v as T;
 }
 
+/**
+ * Capacity → positive integer or null. The DB enforces `capacity > 0`, so a
+ * stray 0 (or non-finite value) from a hydrated/cloned draft must become null
+ * ("no explicit cap") rather than tripping the CHECK constraint.
+ */
+function capacityOrNull(v: number | null | undefined): number | null {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
+}
+
 function buildScheduleRow(
   s: DraftClassSchedule,
   classId: string,
@@ -345,14 +354,14 @@ function buildScheduleRow(
     end_date: emptyToNull(s.endDate),
     location: emptyToNull(s.location),
     instructor_name: emptyToNull(s.instructorName),
-    capacity: s.capacity ?? null,
+    capacity: capacityOrNull(s.capacity),
     // Schedule-level default drop-in price (Mode B). Also propagated onto each
     // class_meetings row at generation time; this is the value the editor reads
     // back as the schedule default. Null for full_schedule mode.
     drop_in_price: s.dropInPrice ?? null,
     registration_open_at: s.registrationOpenAt ?? null,
     registration_close_at: s.registrationCloseAt ?? null,
-    gender_restriction: s.genderRestriction ?? null,
+    gender_restriction: emptyToNull(s.genderRestriction),
     urgency_threshold: s.urgencyThreshold ?? null,
     pricing_model: s.pricingModel ?? "full_schedule",
     is_drop_in: s.isDropIn ?? false,
@@ -439,7 +448,7 @@ async function generateSessionsForSchedule(
       return {
         start_time: startTime,
         end_time: endTime,
-        capacity: o?.capacity ?? schedule.capacity ?? null,
+        capacity: capacityOrNull(o?.capacity ?? schedule.capacity),
         drop_in_price: o?.dropInPrice ?? schedule.dropInPrice ?? null,
       };
     }
@@ -472,7 +481,7 @@ async function generateSessionsForSchedule(
         drop_in_price: eff.drop_in_price,
         registration_open_at: schedule.registrationOpenAt ?? null,
         registration_close_at: schedule.registrationCloseAt ?? null,
-        gender_restriction: schedule.genderRestriction ?? null,
+        gender_restriction: emptyToNull(schedule.genderRestriction),
         urgency_threshold: schedule.urgencyThreshold ?? null,
         is_active: true,
       };
@@ -522,7 +531,7 @@ async function generateSessionsForSchedule(
         drop_in_price: eff.drop_in_price,
         registration_open_at: schedule.registrationOpenAt ?? null,
         registration_close_at: schedule.registrationCloseAt ?? null,
-        gender_restriction: schedule.genderRestriction ?? null,
+        gender_restriction: emptyToNull(schedule.genderRestriction),
         urgency_threshold: schedule.urgencyThreshold ?? null,
       })
       .eq("id", sessionId);
