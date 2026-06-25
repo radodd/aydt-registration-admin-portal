@@ -17,8 +17,13 @@ function AuthForm() {
   const messageParam = searchParams.get("message");
   const prefillEmailFromMessage = searchParams.get("email") ?? "";
 
+  // Signups are enabled unless NEXT_PUBLIC_SIGNUPS_ENABLED is explicitly
+  // "false". When disabled, the signup tab is hidden and the server-side
+  // signUp action rejects direct posts (see app/auth/actions.ts).
+  const signupsEnabled = process.env.NEXT_PUBLIC_SIGNUPS_ENABLED !== "false";
+
   const [activeTab, setActiveTab] = useState<"login" | "signup">(
-    tabParam === "signup" ? "signup" : "login"
+    signupsEnabled && tabParam === "signup" ? "signup" : "login"
   );
   const [signupErrors, setSignupErrors] = useState<Record<string, string>>({});
   const [showLoginPw, setShowLoginPw] = useState(false);
@@ -183,22 +188,24 @@ function AuthForm() {
                   Log in
                 </button>
 
-                <div className="aydt-auth-footer">
-                  New to AYDT?{" "}
-                  <button
-                    type="button"
-                    className="aydt-auth-link"
-                    onClick={() => setActiveTab("signup")}
-                  >
-                    Create an account
-                  </button>
-                </div>
+                {signupsEnabled && (
+                  <div className="aydt-auth-footer">
+                    New to AYDT?{" "}
+                    <button
+                      type="button"
+                      className="aydt-auth-link"
+                      onClick={() => setActiveTab("signup")}
+                    >
+                      Create an account
+                    </button>
+                  </div>
+                )}
               </form>
             </div>
           )}
 
           {/* Signup screen */}
-          {!messageParam && activeTab === "signup" && (
+          {!messageParam && signupsEnabled && activeTab === "signup" && (
             <div>
               <h2 className="aydt-auth-heading">Create your account</h2>
               <p className="aydt-auth-subhead">Set up your family account to get started.</p>
