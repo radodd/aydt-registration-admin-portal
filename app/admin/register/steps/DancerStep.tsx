@@ -33,6 +33,24 @@ export type DancerStepResult = {
 
 type Props = {
   onNext: (result: DancerStepResult) => void;
+  /** Pre-selected existing dancer (e.g. carried from a waitlist entry) so the
+   *  step opens already-satisfied — the admin can continue without re-picking. */
+  initialExisting?: {
+    id: string;
+    name: string;
+    familyId: string | null;
+    parentUserId: string | null;
+  } | null;
+  /** Pre-filled brand-new dancer carried from a waitlist entry. */
+  initialNew?: {
+    firstName: string;
+    lastName: string;
+    birthDate: string;
+    gender: string;
+    grade: string;
+    familyId: string | null;
+    newFamilyName: string | null;
+  } | null;
 };
 
 function calcAge(birthDate: string): number {
@@ -363,8 +381,8 @@ function FamilySelectModal({ family, onSelect, onClose }: FamilyModalProps) {
 
 // ─── Main DancerStep ────────────────────────────────────────────────────────
 
-export default function DancerStep({ onNext }: Props) {
-  const [mode, setMode] = useState<"search" | "new">("search");
+export default function DancerStep({ onNext, initialExisting, initialNew }: Props) {
+  const [mode, setMode] = useState<"search" | "new">(initialNew ? "new" : "search");
 
   const [firstNameQ, setFirstNameQ] = useState("");
   const [lastNameQ, setLastNameQ] = useState("");
@@ -374,24 +392,47 @@ export default function DancerStep({ onNext }: Props) {
   const [familyResults, setFamilyResults] = useState<FamilySearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [selected, setSelected] = useState<DancerSearchResult | null>(null);
+  const [selected, setSelected] = useState<DancerSearchResult | null>(() => {
+    if (!initialExisting) return null;
+    // Seed a minimal result from the carried-over dancer so the "selected"
+    // card renders and Continue is enabled without re-searching. dancerId is
+    // authoritative downstream; the split name is display-only.
+    const trimmed = initialExisting.name.trim();
+    const firstSpace = trimmed.indexOf(" ");
+    const firstName = firstSpace === -1 ? trimmed : trimmed.slice(0, firstSpace);
+    const lastName = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1);
+    return {
+      id: initialExisting.id,
+      firstName,
+      lastName,
+      birthDate: null,
+      gender: null,
+      grade: null,
+      familyId: initialExisting.familyId,
+      familyName: null,
+      primaryParentId: initialExisting.parentUserId,
+      primaryParentName: null,
+    };
+  });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [modalFamily, setModalFamily] = useState<FamilyDetails | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
 
   const [nd, setNd] = useState({
-    firstName: "",
-    lastName: "",
-    birthDate: "",
-    gender: "",
-    grade: "",
+    firstName: initialNew?.firstName ?? "",
+    lastName: initialNew?.lastName ?? "",
+    birthDate: initialNew?.birthDate ?? "",
+    gender: initialNew?.gender ?? "",
+    grade: initialNew?.grade ?? "",
   });
-  const [familyMode, setFamilyMode] = useState<"existing" | "new">("new");
+  const [familyMode, setFamilyMode] = useState<"existing" | "new">(
+    initialNew?.familyId ? "existing" : "new",
+  );
   const [famQuery, setFamQuery] = useState("");
   const [famResults, setFamResults] = useState<FamilySearchResult[]>([]);
   const [selectedFamily, setSelectedFamily] = useState<FamilySearchResult | null>(null);
-  const [newFamilyName, setNewFamilyName] = useState("");
+  const [newFamilyName, setNewFamilyName] = useState(initialNew?.newFamilyName ?? "");
   const famDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -522,7 +563,7 @@ export default function DancerStep({ onNext }: Props) {
             onClick={() => setMode("search")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${
               mode === "search"
-                ? "bg-[#8E2A23] text-white"
+                ? "bg-[#EDE9E4] text-[#8E2A23] ring-1 ring-inset ring-[#8E2A23]"
                 : "bg-white border border-[#DDD9D2] text-[#736D65] hover:bg-[#F7F5F2]"
             }`}
           >
@@ -533,7 +574,7 @@ export default function DancerStep({ onNext }: Props) {
             onClick={() => setMode("new")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${
               mode === "new"
-                ? "bg-[#8E2A23] text-white"
+                ? "bg-[#EDE9E4] text-[#8E2A23] ring-1 ring-inset ring-[#8E2A23]"
                 : "bg-white border border-[#DDD9D2] text-[#736D65] hover:bg-[#F7F5F2]"
             }`}
           >
@@ -774,7 +815,7 @@ export default function DancerStep({ onNext }: Props) {
                   onClick={() => setFamilyMode("new")}
                   className={`px-3 py-1.5 rounded-xl text-sm font-medium transition ${
                     familyMode === "new"
-                      ? "bg-[#FDF0EF] text-[#8E2A23]"
+                      ? "bg-[#EDE9E4] text-[#8E2A23] ring-1 ring-inset ring-[#8E2A23]"
                       : "bg-[#F7F5F2] text-[#736D65] hover:bg-[#EDEAE5]"
                   }`}
                 >
@@ -784,7 +825,7 @@ export default function DancerStep({ onNext }: Props) {
                   onClick={() => setFamilyMode("existing")}
                   className={`px-3 py-1.5 rounded-xl text-sm font-medium transition ${
                     familyMode === "existing"
-                      ? "bg-[#FDF0EF] text-[#8E2A23]"
+                      ? "bg-[#EDE9E4] text-[#8E2A23] ring-1 ring-inset ring-[#8E2A23]"
                       : "bg-[#F7F5F2] text-[#736D65] hover:bg-[#EDEAE5]"
                   }`}
                 >

@@ -2,10 +2,33 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { MoreHorizontal, Search } from "lucide-react";
 import type { Family } from "@/types";
 import { getFamilies } from "@/queries/admin";
 import { createFamily, type CreateFamilyInput } from "./actions/createFamily";
 import { FormField, ModalActions, inputCls } from "./_components/FormHelpers";
+
+/* ── helpers ──────────────────────────────────────────────────────────── */
+
+const AVATAR_COLORS = [
+  { bg: "rgba(158,196,180,.25)", text: "#20503A" },
+  { bg: "rgba(196,160,212,.20)", text: "#5A2878" },
+  { bg: "rgba(212,160,192,.20)", text: "#702858" },
+  { bg: "rgba(232,184,176,.20)", text: "#802818" },
+  { bg: "rgba(125,206,194,.20)", text: "#0A5A50" },
+];
+
+function avatarColor(s: string) {
+  let h = 0;
+  for (const c of s) h = (h * 31 + c.charCodeAt(0)) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[Math.abs(h)];
+}
+
+function initials(first: string, last: string) {
+  return (first[0] ?? "") + (last[0] ?? "");
+}
+
+/* ── page ─────────────────────────────────────────────────────────────── */
 
 export default function FamiliesAdmin() {
   const [families, setFamilies] = useState<Family[]>([]);
@@ -13,6 +36,8 @@ export default function FamiliesAdmin() {
   const [showCreate, setShowCreate] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     getFamilies()
@@ -34,92 +59,224 @@ export default function FamiliesAdmin() {
     });
   };
 
-  if (loading) {
-    return (
-      <main className="max-w-3xl mx-auto">
-        <div className="text-sm text-neutral-400">Loading families…</div>
-      </main>
-    );
-  }
+  const filtered = families.filter((f) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    const name = (f.family_name ?? "").toLowerCase();
+    const parents = f.users
+      .map((u) => `${u.first_name} ${u.last_name} ${u.email}`)
+      .join(" ")
+      .toLowerCase();
+    const dancerNames = f.dancers
+      .map((d) => `${d.first_name} ${d.last_name}`)
+      .join(" ")
+      .toLowerCase();
+    return name.includes(q) || parents.includes(q) || dancerNames.includes(q);
+  });
 
   return (
-    <main className="max-w-3xl mx-auto space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-5">
+      {openMenuId && (
+        <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+      )}
+
+      {/* Page header */}
+      <div className="admin-page-header">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">Families</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">
-            {families.length} famil{families.length !== 1 ? "ies" : "y"}
-          </p>
+          <h1 className="admin-page-title">Families</h1>
+          <p className="admin-page-subtitle">Manage family accounts and their dancers.</p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition-colors"
+          className="admin-btn-primary admin-btn-sm"
         >
           + New Family
         </button>
       </div>
 
-      {/* Family list */}
-      {families.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-neutral-200 px-6 py-12 text-center text-sm text-neutral-400">
-          No families yet. Create one to get started.
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {families.map((family) => {
-            const primaryParent = family.users.find((u) => u.is_primary_parent);
-            const activeRegs = family.dancers.flatMap((d) =>
-              d.registrations.filter((r) => r.status !== "cancelled")
-            ).length;
-
-            return (
-              <Link
-                key={family.id}
-                href={`/admin/families/${family.id}`}
-                className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-neutral-200 bg-white hover:bg-neutral-50 transition-colors group"
+      {/* Card */}
+      <div className="admin-card overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center h-40">
+            <div
+              className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: "#8E2A23", borderTopColor: "transparent" }}
+            />
+          </div>
+        ) : (
+          <>
+            {/* Search bar */}
+            <div className="px-5 py-2.5 border-b" style={{ borderColor: "var(--admin-border-sub)" }}>
+              <div
+                className="flex items-center gap-2 rounded-lg px-3 py-1.5"
+                style={{ background: "var(--admin-surface-sub)", border: "1px solid var(--admin-border)" }}
               >
-                {/* Avatar */}
-                <div className="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-semibold shrink-0">
-                  {(family.family_name ?? "?")[0].toUpperCase()}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-neutral-900 text-sm group-hover:text-primary-600 transition-colors">
-                    {family.family_name}
-                  </p>
-                  {primaryParent && (
-                    <p className="text-xs text-neutral-500 mt-0.5 truncate">
-                      {primaryParent.first_name} {primaryParent.last_name} · {primaryParent.email}
-                    </p>
-                  )}
-                </div>
-
-                {/* Stats */}
-                <div className="flex items-center gap-3 shrink-0 text-xs text-neutral-500">
-                  <span>
-                    {family.dancers.length} dancer{family.dancers.length !== 1 ? "s" : ""}
-                  </span>
-                  {activeRegs > 0 && (
-                    <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-                      {activeRegs} enrolled
-                    </span>
-                  )}
-                  <svg
-                    className="w-4 h-4 text-neutral-300 group-hover:text-neutral-400 transition-colors"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                <Search size={13} style={{ color: "var(--admin-text-faint)", flexShrink: 0 }} />
+                <input
+                  type="text"
+                  placeholder="Search by family, parent, or dancer…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-[12.5px]"
+                  style={{ color: "var(--admin-text)" }}
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    className="text-[11px] leading-none"
+                    style={{ color: "var(--admin-text-faint)" }}
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {filtered.length === 0 ? (
+              <p className="px-5 py-10 text-sm text-center" style={{ color: "var(--admin-text-faint)" }}>
+                {search ? `No families matching "${search}"` : "No families yet. Create one to get started."}
+              </p>
+            ) : (
+              <>
+                {/* Desktop table header */}
+                <div
+                  className="hidden md:flex items-center px-5 py-2"
+                  style={{ background: "var(--admin-table-header-bg)" }}
+                >
+                  <span className="flex-1 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Family</span>
+                  <span className="w-44 text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Primary Parent</span>
+                  <span className="w-20 text-right text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Dancers</span>
+                  <span className="w-24 pl-4 text-right text-[10.5px] font-medium uppercase tracking-wide" style={{ color: "var(--admin-table-header-text)" }}>Enrolled</span>
+                  <span className="w-10" />
                 </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+
+                <ul>
+                  {filtered.map((family, i) => {
+                    const familyName = family.family_name ?? "Unknown family";
+                    const primaryParent =
+                      family.users.find((u) => u.is_primary_parent) ?? family.users[0];
+                    const primaryParentName = primaryParent
+                      ? `${primaryParent.first_name} ${primaryParent.last_name}`
+                      : "—";
+                    const color = avatarColor(
+                      primaryParent ? `${primaryParent.first_name} ${primaryParent.last_name}` : familyName
+                    );
+                    const avatarInitials = primaryParent
+                      ? initials(primaryParent.first_name, primaryParent.last_name)
+                      : (familyName[0] ?? "F").toUpperCase();
+                    const activeRegs = family.dancers.flatMap((d) =>
+                      d.registrations.filter((r) => r.status !== "cancelled")
+                    ).length;
+
+                    return (
+                      <li
+                        key={family.id}
+                        className="flex items-center px-4 md:px-5 py-3 border-b"
+                        style={{
+                          borderColor: "var(--admin-border-sub)",
+                          background: i % 2 !== 0 ? "var(--admin-table-row-alt)" : "var(--admin-surface)",
+                        }}
+                      >
+                        {/* Avatar + family name + mobile sub-text */}
+                        <div className="flex-1 flex items-center gap-2.5 min-w-0">
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                            style={{ background: color.bg, color: color.text }}
+                          >
+                            {avatarInitials}
+                          </div>
+                          <div className="min-w-0">
+                            <Link
+                              href={`/admin/families/${family.id}`}
+                              className="text-[13px] font-medium truncate block hover:underline"
+                              style={{ color: "var(--admin-text)" }}
+                            >
+                              {familyName}
+                            </Link>
+                            {/* Mobile: primary parent · counts */}
+                            <p
+                              className="md:hidden text-[11.5px] mt-0.5 truncate"
+                              style={{ color: "var(--admin-text-faint)" }}
+                            >
+                              {primaryParentName}
+                              {` · ${family.dancers.length} dancer${family.dancers.length !== 1 ? "s" : ""}`}
+                              {activeRegs > 0 ? ` · ${activeRegs} enrolled` : ""}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Desktop columns */}
+                        <p className="hidden md:block w-44 text-[12px] truncate" style={{ color: "var(--admin-text-muted)" }}>
+                          {primaryParentName}
+                        </p>
+                        <p className="hidden md:block w-20 text-right text-[12px]" style={{ color: "var(--admin-text-muted)" }}>
+                          {family.dancers.length}
+                        </p>
+                        <p className="hidden md:block w-24 pl-4 text-right text-[12px]" style={{ color: "var(--admin-text-faint)" }}>
+                          {activeRegs}
+                        </p>
+
+                        {/* ⋯ menu */}
+                        <div className="relative shrink-0 ml-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId(openMenuId === family.id ? null : family.id);
+                            }}
+                            className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
+                            style={{
+                              color: "var(--admin-text-faint)",
+                              background: openMenuId === family.id ? "var(--admin-surface-sub)" : "transparent",
+                            }}
+                          >
+                            <MoreHorizontal size={15} />
+                          </button>
+
+                          {openMenuId === family.id && (
+                            <div
+                              className="absolute right-0 top-full mt-1 rounded-lg shadow-lg z-20 overflow-hidden"
+                              style={{
+                                background: "var(--admin-surface)",
+                                border: "1px solid var(--admin-border)",
+                                minWidth: "148px",
+                              }}
+                            >
+                              <Link
+                                href={`/admin/families/${family.id}`}
+                                onClick={() => setOpenMenuId(null)}
+                                className="flex items-center px-3.5 py-2 text-[12px]"
+                                style={{ color: "var(--admin-text)" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                              >
+                                View family
+                              </Link>
+                              <Link
+                                href={`/admin/emails/new?familyId=${family.id}`}
+                                onClick={() => setOpenMenuId(null)}
+                                className="flex items-center px-3.5 py-2 text-[12px]"
+                                style={{ color: "var(--admin-text)" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-surface-sub)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                              >
+                                Email family
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <p className="px-5 py-3 text-[11px]" style={{ color: "var(--admin-text-faint)" }}>
+                  {filtered.length.toLocaleString()} famil{filtered.length !== 1 ? "ies" : "y"}
+                </p>
+              </>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Create Family Modal */}
       {showCreate && (
@@ -134,7 +291,7 @@ export default function FamiliesAdmin() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }
 
@@ -238,9 +395,9 @@ function CreateFamilyModal({
             className="mt-0.5 rounded border-neutral-300 text-primary-600 focus:ring-primary-600"
           />
           <div>
-            <p className="text-sm font-medium text-neutral-800">Send invite email</p>
+            <p className="text-sm font-medium text-neutral-800">Send welcome email</p>
             <p className="text-xs text-neutral-500">
-              A welcome email will be sent to the parent once auth is configured.
+              Emails the parent a secure link to set their password and sign in.
             </p>
           </div>
         </label>

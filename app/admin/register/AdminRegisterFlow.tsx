@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { CheckCircle, ExternalLink } from "lucide-react";
+import { CheckCircle, ExternalLink, User, BookOpen } from "lucide-react";
 import DancerStep, { type DancerStepResult } from "./steps/DancerStep";
 import ClassesStep, { type ClassesStepResult, type ClassInfo } from "./steps/ClassesStep";
 import QuestionsStep from "./steps/QuestionsStep";
 import CheckoutStep from "./steps/CheckoutStep";
+import { computePricingQuote } from "@/app/actions/computePricingQuote";
+import type { PricingQuote } from "@/types";
 import type { NewDancerInput } from "./actions/createAdminRegistration";
+
+const NIL_UUID = "00000000-0000-0000-0000-000000000000";
 
 type Props = {
   initialSemesterId: string;
@@ -99,6 +103,47 @@ export default function AdminRegisterFlow({
   });
 
   const [success, setSuccess] = useState<{ batchId: string; dancerId: string } | null>(null);
+
+  // Base (pay-in-full) quote for the summary sidebar, recomputed whenever the
+  // selected classes change. The Checkout step stays the source of truth for the
+  // actual charge (coupons, adjustments, overrides) — this is a read-only preview
+  // so the admin can see class fees while stepping through the flow.
+  const [quote, setQuote] = useState<PricingQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+
+  useEffect(() => {
+    if (!state.semesterId || state.scheduleIds.length === 0) {
+      setQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setQuoteLoading(true);
+    computePricingQuote({
+      semesterId: state.semesterId,
+      familyId: state.familyId ?? undefined,
+      enrollments: [
+        {
+          dancerId: state.dancerId ?? NIL_UUID,
+          dancerName: state.isNewDancer ? state.dancerName : undefined,
+          scheduleIds: state.scheduleIds,
+          classTierIdsBySchedule: state.classTierIdsBySchedule,
+        },
+      ],
+      paymentPlanType: "pay_in_full",
+    })
+      .then((q) => { if (!cancelled) setQuote(q); })
+      .catch(() => { if (!cancelled) setQuote(null); })
+      .finally(() => { if (!cancelled) setQuoteLoading(false); });
+    return () => { cancelled = true; };
+  }, [
+    state.semesterId,
+    state.familyId,
+    state.dancerId,
+    state.isNewDancer,
+    state.dancerName,
+    state.scheduleIds,
+    state.classTierIdsBySchedule,
+  ]);
 
   function handleDancerNext(result: DancerStepResult) {
     setState((s) => ({
@@ -201,13 +246,53 @@ export default function AdminRegisterFlow({
     );
   }
 
+  // The Classes (2) and Checkout (4) steps have their own sidebar column; they
+  // host the dancer card there so every summary card stacks in a single column.
+  // Other steps use the flow-level sidebar.
+  const showFlowSidebar = state.step !== 2 && state.step !== 4;
+  const dancerCard = (
+    <DancerSummaryCard
+      dancerName={state.dancerName}
+      isNewDancer={state.isNewDancer}
+      newDancer={state.newDancer}
+    />
+  );
+
   return (
-    <div className="space-y-6">
+    <div className={showFlowSidebar ? "lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-8 lg:items-start" : ""}>
+      <div className="space-y-6 min-w-0">
       {/* Step indicator */}
       <StepIndicator currentStep={state.step} />
 
       {/* Step content */}
-      {state.step === 1 && <DancerStep onNext={handleDancerNext} />}
+      {state.step === 1 && (
+        <DancerStep
+          onNext={handleDancerNext}
+          initialExisting={
+            !state.isNewDancer && state.dancerId
+              ? {
+                  id: state.dancerId,
+                  name: state.dancerName,
+                  familyId: state.familyId,
+                  parentUserId: state.parentUserId,
+                }
+              : null
+          }
+          initialNew={
+            state.isNewDancer && state.newDancer
+              ? {
+                  firstName: state.newDancer.firstName,
+                  lastName: state.newDancer.lastName,
+                  birthDate: state.newDancer.birthDate,
+                  gender: state.newDancer.gender,
+                  grade: state.newDancer.grade,
+                  familyId: state.newDancer.familyId ?? null,
+                  newFamilyName: state.newDancer.newFamilyName ?? null,
+                }
+              : null
+          }
+        />
+      )}
 
       {state.step === 2 && (
         <ClassesStep
@@ -222,6 +307,7 @@ export default function AdminRegisterFlow({
           initialTierIdByClass={initialTierIdByClass}
           onNext={handleClassesNext}
           onBack={() => setState((s) => ({ ...s, step: 1 }))}
+          sidebarTop={dancerCard}
         />
       )}
 
@@ -259,8 +345,181 @@ export default function AdminRegisterFlow({
           waitlistEntryId={waitlistEntryId}
           onBack={() => setState((s) => ({ ...s, step: 3 }))}
           onSuccess={handleSuccess}
+          sidebarTop={dancerCard}
         />
       )}
+      </div>
+
+      {/* Summary sidebar — who we're registering + class fees/pricing.
+          Hidden on the Classes step, which hosts these cards in its own column. */}
+      {showFlowSidebar && (
+        <aside className="hidden lg:block">
+          <div className="sticky top-6">
+            <RegistrationSummary
+              dancerName={state.dancerName}
+              isNewDancer={state.isNewDancer}
+              newDancer={state.newDancer}
+              semesterName={state.semesterName}
+              classInfos={state.classInfos}
+              quote={quote}
+              quoteLoading={quoteLoading}
+            />
+          </div>
+        </aside>
+      )}
+    </div>
+  );
+}
+
+function fmtTime(t: string | null): string {
+  if (!t) return "";
+  const [hStr, m] = t.split(":");
+  const h = parseInt(hStr, 10);
+  if (Number.isNaN(h)) return "";
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m ?? "00"} ${period}`;
+}
+
+export function DancerSummaryCard({
+  dancerName,
+  isNewDancer,
+  newDancer,
+}: {
+  dancerName: string;
+  isNewDancer: boolean;
+  newDancer: NewDancerInput | null;
+}) {
+  return (
+    <div className="rounded-xl border border-[#DDD9D2] bg-white p-4">
+      <div className="flex items-center gap-1.5 mb-3">
+        <User className="w-3.5 h-3.5 text-primary-600" />
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[#736D65]">Registering</h3>
+      </div>
+      {dancerName ? (
+        <>
+          <p className="text-sm font-semibold text-[#201D18]">{dancerName}</p>
+          <span
+            className={`inline-block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+              isNewDancer ? "bg-amber-50 text-amber-700" : "bg-[#EDE9E4] text-[#736D65]"
+            }`}
+          >
+            {isNewDancer ? "New dancer" : "Existing dancer"}
+          </span>
+          {isNewDancer && newDancer && (
+            <dl className="mt-3 space-y-1 text-xs">
+              {newDancer.grade && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-[#9E9890]">Grade</dt>
+                  <dd className="text-[#201D18] text-right">{newDancer.grade}</dd>
+                </div>
+              )}
+              {newDancer.gender && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-[#9E9890]">Gender</dt>
+                  <dd className="text-[#201D18] text-right capitalize">{newDancer.gender}</dd>
+                </div>
+              )}
+              {newDancer.birthDate && (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-[#9E9890]">Birth date</dt>
+                  <dd className="text-[#201D18] text-right">{newDancer.birthDate}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+        </>
+      ) : (
+        <p className="text-sm text-[#9E9890]">No dancer selected yet</p>
+      )}
+    </div>
+  );
+}
+
+function PricingSummaryCard({
+  semesterName,
+  classInfos,
+  quote,
+  quoteLoading,
+}: {
+  semesterName: string;
+  classInfos: ClassInfo[];
+  quote: PricingQuote | null;
+  quoteLoading: boolean;
+}) {
+  const fmt$ = (n: number) => `$${Math.abs(n).toFixed(2)}`;
+  return (
+    <div className="rounded-xl border border-[#DDD9D2] bg-white p-4">
+      <div className="flex items-center gap-1.5 mb-3">
+        <BookOpen className="w-3.5 h-3.5 text-primary-600" />
+        <h3 className="text-[11px] font-semibold uppercase tracking-wide text-[#736D65]">Registration summary</h3>
+      </div>
+      {semesterName && <p className="text-xs text-[#9E9890] mb-2">{semesterName}</p>}
+
+      {classInfos.length > 0 ? (
+        <ul className="space-y-2 mb-3">
+          {classInfos.map((c) => (
+            <li key={c.scheduleId}>
+              <p className="text-sm font-medium text-[#201D18] leading-snug">{c.className}</p>
+              <p className="text-xs text-[#9E9890]">
+                {[c.discipline, c.dayOfWeek, fmtTime(c.startTime)].filter(Boolean).join(" · ")}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-xs text-[#9E9890] mb-3">Class details appear as you proceed.</p>
+      )}
+
+      <div className="border-t border-[#EDE9E4] pt-3">
+        {quoteLoading ? (
+          <p className="text-xs text-[#9E9890]">Calculating fees…</p>
+        ) : quote ? (
+          <>
+            <ul className="space-y-1.5 mb-2">
+              {quote.lineItems.map((li, i) => (
+                <li key={i} className="flex justify-between gap-2 text-xs">
+                  <span className="text-[#736D65]">{li.label}</span>
+                  <span className={li.amount < 0 ? "text-emerald-600 shrink-0" : "text-[#201D18] shrink-0"}>
+                    {li.amount < 0 ? "−" : ""}{fmt$(li.amount)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-between items-baseline border-t border-[#EDE9E4] pt-2">
+              <span className="text-sm font-semibold text-[#201D18]">Total</span>
+              <span className="text-sm font-semibold text-primary-600">{fmt$(quote.grandTotal)}</span>
+            </div>
+            <p className="text-[10px] text-[#9E9890] mt-1.5 leading-snug">
+              Pay-in-full estimate. Discounts, plan &amp; overrides are finalized at checkout.
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-[#9E9890]">Fees appear once a class is selected.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RegistrationSummary(props: {
+  dancerName: string;
+  isNewDancer: boolean;
+  newDancer: NewDancerInput | null;
+  semesterName: string;
+  classInfos: ClassInfo[];
+  quote: PricingQuote | null;
+  quoteLoading: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <DancerSummaryCard dancerName={props.dancerName} isNewDancer={props.isNewDancer} newDancer={props.newDancer} />
+      <PricingSummaryCard
+        semesterName={props.semesterName}
+        classInfos={props.classInfos}
+        quote={props.quote}
+        quoteLoading={props.quoteLoading}
+      />
     </div>
   );
 }
@@ -277,7 +536,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition ${
                   isDone
-                    ? "bg-[#8E2A23] text-white"
+                    ? "bg-[#EDE9E4] text-[#736D65]"
                     : isActive
                     ? "bg-[#8E2A23] text-white ring-4 ring-[#8E2A23]/10"
                     : "bg-[#F7F5F2] text-[#9E9890]"
@@ -296,7 +555,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
             {i < STEPS.length - 1 && (
               <div
                 className={`w-8 sm:w-16 h-px mx-2 ${
-                  isDone ? "bg-[#C8A09D]" : "bg-[#DDD9D2]"
+                  isDone ? "bg-[#9E9890]" : "bg-[#DDD9D2]"
                 }`}
               />
             )}

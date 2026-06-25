@@ -1,7 +1,7 @@
 # AYDT Admin Portal — Design System
 
-**Version:** 2.0
-**Last updated:** 2026-03-23
+**Version:** 2.2
+**Last updated:** 2026-06-24
 **CSS source:** `app/globals.css`
 **Scope:** All pages under `app/admin/`
 
@@ -11,20 +11,21 @@
 
 1. [Overview](#overview)
 2. [Typography](#typography)
-3. [Color Palette](#color-palette)
-4. [CSS Custom Properties](#css-custom-properties)
-5. [Layout & Shell](#layout--shell)
-6. [Navigation](#navigation)
-7. [Page Structure](#page-structure)
-8. [Cards](#cards)
-9. [Buttons](#buttons)
-10. [Form Controls](#form-controls)
-11. [Tables](#tables)
-12. [Badges](#badges)
-13. [Toasts](#toasts)
-14. [Alert Banners](#alert-banners)
-15. [Shadows & Elevation](#shadows--elevation)
-16. [File Map](#file-map)
+3. [Spacing & Density](#spacing--density)
+4. [Color Palette](#color-palette)
+5. [CSS Custom Properties](#css-custom-properties)
+6. [Layout & Shell](#layout--shell)
+7. [Navigation](#navigation)
+8. [Page Structure](#page-structure)
+9. [Cards](#cards)
+10. [Buttons](#buttons)
+11. [Form Controls](#form-controls)
+12. [Tables](#tables)
+13. [Badges](#badges)
+14. [Toasts](#toasts)
+15. [Alert Banners](#alert-banners)
+16. [Shadows & Elevation](#shadows--elevation)
+17. [File Map](#file-map)
 
 ---
 
@@ -73,6 +74,45 @@ All headings (`h1`–`h6`) default to `font-weight: 500` via the base layer.
 
 ---
 
+## Spacing & Density
+
+One 4px-based scale, applied at two densities. Hierarchy is built from **spacing contrast** — tight gaps within a group, generous gaps between groups — so structure reads at a glance without extra color, borders, or weight doing the work.
+
+The `--space-*` and `--density-cell-*` tokens are defined in `:root` within `app/globals.css`.
+
+### Principle — Spacing Contrast
+
+Same type, same color — the contrast alone is the hierarchy. Even spacing reads as a flat list; grouped spacing reads as distinct items.
+
+- **Within-group gap:** `space-1` (4px) — e.g. label-to-value inside one stat
+- **Between-group gap:** `space-5` (24px) — e.g. one stat block to the next
+
+### Spacing Scale (`--space-*`)
+
+| Token | Value | Use |
+|-------|-------|-----|
+| `--space-1` | 4px | Label-to-value, icon gaps, within a single field |
+| `--space-2` | 8px | Compact cell padding, pill insets, button internals |
+| `--space-3` | 12px | Comfortable cell padding, gaps between related fields |
+| `--space-4` | 16px | Card padding, default gap between controls |
+| `--space-5` | 24px | Between stat groups, card-to-card in a grid |
+| `--space-6` | 32px | Page gutters, between distinct content blocks |
+| `--space-7` | 48px | Between major page sections |
+| `--space-8` | 64px | Top of page, large region separation |
+
+**Rule of thumb:** within a group use 1–3 · between groups use 5–6 · between sections use 7–8. Skipping a tier on purpose is what creates the contrast.
+
+### Density Tiers
+
+Tiers differ **only in cell padding** — same scale, no new tokens beyond the two below.
+
+| Token | Padding (y / x) | Default for |
+|-------|-----------------|-------------|
+| `--density-cell-compact` | 8px / 12px | Daily scanning surfaces — rosters, waitlists, payment lists. Anywhere you scan many rows to find one thing. **(default)** |
+| `--density-cell-comfortable` | 12px / 16px | Focused, one-record-at-a-time surfaces — forms, family detail, edit views. Reading carefully, not scanning. |
+
+---
+
 ## Color Palette
 
 ### Primary Brand — Wine Red
@@ -82,10 +122,15 @@ All headings (`h1`–`h6`) default to `font-weight: 500` via the base layer.
 | `primary-50` | `#FDF2F1` | Hover tint (outline buttons) |
 | `primary-100` | `#F2E7E4` | Light backgrounds, avatar bg, secondary btn |
 | `primary-200` | `#E6D5D1` | Secondary btn hover |
-| `primary-600` | `#8E2A23` | **Primary CTA, active states, focus rings, table headers** |
+| `primary-600` | `#8E2A23` | **Primary CTA, active nav marker, focus rings, text links, destructive/overdue states** |
 | `primary-700` | `#7B1F1A` | Hover on primary-600, dark accent text |
 | `primary-800` | `#5C1713` | Dark text on light primary backgrounds |
 | `primary-900` | `#3D0E0B` | Maximum contrast headings |
+
+> **Wine is an accent, not a surface (v2.2).** It marks action and meaning — never neutral structure. Reserving it keeps the portal calm and lets the red that remains actually signal something.
+>
+> **Wine appears on:** primary buttons (one per view), the active-nav marker, focus rings & text links, destructive/overdue/error states.
+> **Wine never on:** table headers (neutral `#EDE9E4`), card borders or decorative top accents, section chrome/breadcrumbs/dividers, or neutral facts (plan type, term name, counts).
 
 ### Warm Neutrals
 
@@ -155,12 +200,12 @@ All defined in `:root` within `app/globals.css`.
 --admin-text-muted:         #736D65
 --admin-text-faint:         #9E9890
 
---admin-table-header-bg:    #8E2A23
---admin-table-header-text:  #FFFFFF
+--admin-table-header-bg:    #EDE9E4   /* neutral (v2.2 — was wine) */
+--admin-table-header-text:  #736D65   /* muted  (v2.2 — was white) */
 --admin-table-row-alt:      #F7F5F2
 --admin-table-border:       #DDD9D2
 
---admin-card-accent:        #8E2A23
+--admin-card-accent:        #DDD9D2   /* neutral (v2.2 — was wine; accent-only rule) */
 ```
 
 ### Shared (`--shared-*`)
@@ -170,6 +215,24 @@ All defined in `:root` within `app/globals.css`.
 --shared-primary-hover:     #7B1F1A
 --shared-focus-ring:        rgba(142, 42, 35, 0.12)
 --shared-border-focus:      #8E2A23
+```
+
+### Spacing & Density (`--space-*`, `--density-cell-*`)
+
+See [Spacing & Density](#spacing--density) for usage rules.
+
+```
+--space-1:                  4px
+--space-2:                  8px
+--space-3:                  12px
+--space-4:                  16px
+--space-5:                  24px
+--space-6:                  32px
+--space-7:                  48px
+--space-8:                  64px
+
+--density-cell-compact:     8px 12px    (default)
+--density-cell-comfortable: 12px 16px
 ```
 
 ---
@@ -259,11 +322,11 @@ box-shadow: shadow-card
 ```
 
 ### `.admin-card-stat`
-Metric/KPI card with wine red top accent.
+Metric/KPI card with a neutral top accent. Emphasis comes from type & weight, not color (v2.2 — accent is no longer wine).
 
 ```
 Same as admin-card, plus:
-border-top: 3px solid var(--admin-card-accent) → #8E2A23
+border-top: 3px solid var(--admin-card-accent) → #DDD9D2
 padding: 1rem (p-4)
 ```
 
@@ -339,12 +402,12 @@ padding-right: 36px (space for caret)
 ## Tables
 
 ### `.admin-table`
-Full-width table with wine red inverted header.
+Full-width table with a neutral header (v2.2 — was wine inverted).
 
 **Header row:**
 ```
-background: var(--admin-table-header-bg)  → #8E2A23
-color: var(--admin-table-header-text)     → #FFFFFF
+background: var(--admin-table-header-bg)  → #EDE9E4
+color: var(--admin-table-header-text)     → #736D65
 font-size: 10px, font-weight: 500
 text-transform: uppercase
 letter-spacing: 0.05em

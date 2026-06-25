@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
+import { createClient } from "@/utils/supabase/client";
 import {
   EmailTab,
   EmailListRow,
@@ -69,6 +71,9 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<EmailTab>("drafts");
   const [page, setPage] = useState(0);
+  const [counts, setCounts] = useState<Partial<Record<EmailTab, number>> | null>(null);
+  const [tabMenuOpen, setTabMenuOpen] = useState(false);
+  const tabMenuRef = useRef<HTMLDivElement>(null);
 
   const [draftData, setDraftData] =
     useState<PaginatedResult<EmailListRow> | null>(null);
@@ -113,7 +118,33 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [simulatingId, setSimulatingId] = useState<string | null>(null);
 
-  console.log("SENT DATA EMAIL", sentData);
+  /* Tab count badges — mirrors the indicator from the old dashboard emails tab.
+     Failed surfaces in red so unresolved deliveries are visible at a glance. */
+  const fetchCounts = useCallback(async () => {
+    const supabase = createClient();
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const [draftRes, scheduledRes, sentRes, failedRes, tplRes, unsubRes, subRes, extRes] =
+      await Promise.all([
+        supabase.from("emails").select("*", { count: "exact", head: true }).eq("status", "draft").is("deleted_at", null),
+        supabase.from("emails").select("*", { count: "exact", head: true }).eq("status", "scheduled").is("deleted_at", null),
+        supabase.from("emails").select("*", { count: "exact", head: true }).eq("status", "sent").gte("sent_at", thirtyDaysAgo).is("deleted_at", null),
+        supabase.from("emails").select("*", { count: "exact", head: true }).eq("status", "failed").is("deleted_at", null),
+        supabase.from("email_templates").select("*", { count: "exact", head: true }).is("deleted_at", null),
+        supabase.from("email_subscriptions").select("*", { count: "exact", head: true }).eq("is_subscribed", false),
+        supabase.from("email_subscriptions").select("*", { count: "exact", head: true }).eq("is_subscribed", true),
+        supabase.from("email_subscribers").select("*", { count: "exact", head: true }),
+      ]);
+    setCounts({
+      drafts: draftRes.count ?? 0,
+      scheduled: scheduledRes.count ?? 0,
+      sent: sentRes.count ?? 0,
+      failed: failedRes.count ?? 0,
+      templates: tplRes.count ?? 0,
+      unsubscribed: unsubRes.count ?? 0,
+      subscribed: subRes.count ?? 0,
+      external_subscribers: extRes.count ?? 0,
+    });
+  }, []);
 
   const fetchTab = useCallback(
     async (tab: EmailTab, p: number) => {
@@ -168,14 +199,26 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
         );
       } finally {
         setIsLoading(false);
+        fetchCounts();
       }
     },
-    [extSubSearch],
+    [extSubSearch, fetchCounts],
   );
 
   useEffect(() => {
     fetchTab(activeTab, page);
   }, [activeTab, page, fetchTab]);
+
+  // Close the section dropdown on outside click.
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (tabMenuOpen && tabMenuRef.current && !tabMenuRef.current.contains(e.target as Node)) {
+        setTabMenuOpen(false);
+      }
+    }
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, [tabMenuOpen]);
 
   // Debounced search for external subscribers
   useEffect(() => {
@@ -426,23 +469,90 @@ export default function EmailsClient({ isSuperAdmin }: Props) {
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="border-b border-neutral-200">
-          <div className="flex gap-1 -mb-px overflow-x-auto">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => handleTabChange(t.key)}
-                className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                  activeTab === t.key
-                    ? "border-primary-600 text-primary-600"
-                    : "border-transparent text-neutral-500 hover:text-neutral-700 hover:border-neutral-300"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+        {/* Section selector — collapsed into a dropdown to reduce visual noise.
+            A persistent red "failed" shortcut keeps unresolved deliveries visible
+            even while collapsed. */}
+        <div className="border-b border-neutral-200 py-2.5 flex items-center gap-3">
+          <div className="relative" ref={tabMenuRef}>
+            <button
+              type="button"
+              onClick={() => setTabMenuOpen((o) => !o)}
+              className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+            >
+              <span>{TABS.find((t) => t.key === activeTab)?.label ?? "Select section"}</span>
+              {(() => {
+                const c = counts?.[activeTab];
+                const isFailed = activeTab === "failed" && (c ?? 0) > 0;
+                return c != null && c > 0 ? (
+                  <span
+                    className={`inline-flex items-center justify-center rounded-full text-[10px] font-semibold px-1.5 min-w-[17px] h-[17px] ${
+                      isFailed ? "bg-red-100 text-red-600" : "bg-neutral-200 text-neutral-600"
+                    }`}
+                  >
+                    {c}
+                  </span>
+                ) : null;
+              })()}
+              <ChevronDown
+                size={15}
+                className={`text-neutral-400 transition-transform ${tabMenuOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            {tabMenuOpen && (
+              <div className="absolute left-0 mt-1.5 w-60 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-lg z-20">
+                {TABS.map((t) => {
+                  const active = activeTab === t.key;
+                  const count = counts?.[t.key];
+                  const isFailed = t.key === "failed" && (count ?? 0) > 0;
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => {
+                        handleTabChange(t.key);
+                        setTabMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-sm text-left transition-colors ${
+                        active
+                          ? "bg-neutral-100 text-primary-600 font-medium"
+                          : isFailed
+                            ? "text-red-600 hover:bg-neutral-50"
+                            : "text-neutral-700 hover:bg-neutral-50"
+                      }`}
+                    >
+                      <span>{t.label}</span>
+                      {count != null && count > 0 && (
+                        <span
+                          className={`inline-flex items-center justify-center rounded-full text-[10px] font-semibold px-1.5 min-w-[17px] h-[17px] ${
+                            active
+                              ? "bg-primary-600 text-white"
+                              : isFailed
+                                ? "bg-red-100 text-red-600"
+                                : "bg-neutral-200 text-neutral-600"
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+          {(counts?.failed ?? 0) > 0 && activeTab !== "failed" && (
+            <button
+              type="button"
+              onClick={() => handleTabChange("failed")}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-2.5 py-1.5 text-[12px] font-medium text-red-600 hover:bg-red-100 transition-colors"
+            >
+              <span className="inline-flex items-center justify-center rounded-full bg-red-100 text-red-600 text-[10px] font-semibold px-1.5 min-w-[17px] h-[17px]">
+                {counts?.failed}
+              </span>
+              failed
+            </button>
+          )}
         </div>
 
         {/* Content */}

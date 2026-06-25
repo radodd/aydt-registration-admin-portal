@@ -16,16 +16,24 @@ import {
   LayoutDashboard,
   Plus,
   UserCheck,
-  AlertTriangle,
+  // AlertTriangle, // unused while Warnings nav item is hidden (see below)
   ClipboardList,
   ScrollText,
+  Mail,
+  ChevronDown,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { TopBar } from "./_components/TopBar";
 import { MobileNav } from "./_components/MobileNav";
 import { ToastProvider } from "@/app/components/Toast";
 
 /* ── Desktop sidebar nav structure ─────────────────────────────── */
-const NAV_GROUPS = [
+type NavLeaf = { href: string; label: string; icon: LucideIcon };
+// `parent` makes a group render as a collapsible item (links to parent.href)
+// with its `items` as indented children. Otherwise it renders as a label + items.
+type NavGroup = { label: string; items: NavLeaf[]; parent?: NavLeaf };
+
+const NAV_GROUPS: NavGroup[] = [
   {
     label: "Studio",
     items: [
@@ -36,6 +44,7 @@ const NAV_GROUPS = [
   },
   {
     label: "People",
+    parent: { href: "/admin/people", label: "People", icon: Users },
     items: [
       { href: "/admin/dancers",   label: "Dancers",    icon: Users },
       { href: "/admin/families",  label: "Families",   icon: Home },
@@ -45,7 +54,9 @@ const NAV_GROUPS = [
     label: "Finance & Comms",
     items: [
       { href: "/admin/payments",  label: "Payments",   icon: CreditCard },
-      { href: "/admin/warnings",  label: "Warnings",   icon: AlertTriangle },
+      { href: "/admin/emails",    label: "Emails",     icon: Mail },
+      // Hidden from UI — enrollment warnings feature not yet built; reopen later. Code kept under app/admin/warnings/.
+      // { href: "/admin/warnings",  label: "Warnings",   icon: AlertTriangle },
       { href: "/admin/logs",      label: "Logs",       icon: ScrollText },
     ],
   },
@@ -69,6 +80,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [expanded,     setExpanded]     = useState(false);
   const [isMobile,     setIsMobile]     = useState(false);
   const [adminInitial, setAdminInitial] = useState("A");
+  const [peopleOpen,   setPeopleOpen]   = useState(false);
 
   // JS-based breakpoint detection — drives sidebar transform + margin without CSS fights
   useEffect(() => {
@@ -141,8 +153,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         >
           {expanded ? (
             <>
-              <p className="admin-sidebar-logo-title">AYDT</p>
-              <p className="admin-sidebar-logo-sub">Studio Admin</p>
+              <p className="admin-sidebar-logo-title">AYDT Admin</p>
+              <p className="admin-sidebar-logo-sub">Parent Portal</p>
             </>
           ) : (
             <p className="text-sm font-semibold tracking-widest text-white">A</p>
@@ -164,35 +176,114 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </div>
 
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label} className="mb-4">
-              {expanded && (
-                <p
-                  className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest"
-                  style={{ color: "var(--admin-sidebar-text)", opacity: 0.5 }}
-                >
-                  {group.label}
-                </p>
-              )}
-              {!expanded && <div className="mb-1" style={{ height: "1px", background: "rgba(255,255,255,0.05)", margin: "6px 8px" }} />}
-              <div className="flex flex-col gap-0.5">
-                {group.items.map(({ href, label, icon: Icon }) => {
-                  const isActive = pathname === href || pathname.startsWith(href + "/");
-                  return (
+          {NAV_GROUPS.map((group) => {
+            /* Collapsible parent group (e.g. People → /admin/people with Dancers/Families children) */
+            if (group.parent) {
+              const { href: pHref, label: pLabel, icon: PIcon } = group.parent;
+              const parentActive = pathname === pHref || pathname.startsWith(pHref + "/");
+              const childActive = group.items.some(
+                (it) => pathname === it.href || pathname.startsWith(it.href + "/")
+              );
+
+              /* Collapsed rail: just the parent icon linking to the parent route. */
+              if (!expanded) {
+                return (
+                  <div key={group.label} className="mb-4">
+                    <div className="mb-1" style={{ height: "1px", background: "rgba(255,255,255,0.05)", margin: "6px 8px" }} />
+                    <div className="flex flex-col gap-0.5">
+                      <Link
+                        href={pHref}
+                        className={parentActive ? "admin-nav-item-active" : "admin-nav-item"}
+                        style={{ justifyContent: "center", gap: 0 }}
+                      >
+                        <PIcon size={14} className="shrink-0" />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              }
+
+              /* Expanded: clickable parent (navigates) + chevron toggle, then children. */
+              const open = peopleOpen || parentActive || childActive;
+              return (
+                <div key={group.label} className="mb-4">
+                  <div className="flex items-center gap-0.5">
                     <Link
-                      key={href}
-                      href={href}
-                      className={isActive ? "admin-nav-item-active" : "admin-nav-item"}
-                      style={{ justifyContent: expanded ? undefined : "center", gap: expanded ? undefined : 0 }}
+                      href={pHref}
+                      className={`${parentActive ? "admin-nav-item-active" : "admin-nav-item"} flex-1`}
                     >
-                      <Icon size={14} className="shrink-0" />
-                      {expanded && <span>{label}</span>}
+                      <PIcon size={14} className="shrink-0" />
+                      <span>{pLabel}</span>
                     </Link>
-                  );
-                })}
+                    <button
+                      type="button"
+                      onClick={() => setPeopleOpen((o) => !o)}
+                      aria-label={open ? `Collapse ${pLabel}` : `Expand ${pLabel}`}
+                      className="admin-nav-item shrink-0"
+                      style={{ padding: "0.5rem" }}
+                    >
+                      <ChevronDown
+                        size={14}
+                        className="shrink-0 transition-transform"
+                        style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }}
+                      />
+                    </button>
+                  </div>
+                  {open && (
+                    <div
+                      className="flex flex-col gap-0.5 mt-0.5 ml-4 pl-2"
+                      style={{ borderLeft: "1px solid rgba(255,255,255,0.08)" }}
+                    >
+                      {group.items.map(({ href, label, icon: Icon }) => {
+                        const isActive = pathname === href || pathname.startsWith(href + "/");
+                        return (
+                          <Link
+                            key={href}
+                            href={href}
+                            className={isActive ? "admin-nav-item-active" : "admin-nav-item"}
+                          >
+                            <Icon size={14} className="shrink-0" />
+                            <span>{label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            /* Standard label + items group */
+            return (
+              <div key={group.label} className="mb-4">
+                {expanded && (
+                  <p
+                    className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest"
+                    style={{ color: "var(--admin-sidebar-text)", opacity: 0.5 }}
+                  >
+                    {group.label}
+                  </p>
+                )}
+                {!expanded && <div className="mb-1" style={{ height: "1px", background: "rgba(255,255,255,0.05)", margin: "6px 8px" }} />}
+                <div className="flex flex-col gap-0.5">
+                  {group.items.map(({ href, label, icon: Icon }) => {
+                    const isActive = pathname === href || pathname.startsWith(href + "/");
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        className={isActive ? "admin-nav-item-active" : "admin-nav-item"}
+                        style={{ justifyContent: expanded ? undefined : "center", gap: expanded ? undefined : 0 }}
+                      >
+                        <Icon size={14} className="shrink-0" />
+                        {expanded && <span>{label}</span>}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
         {/* Profile + sign out */}

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { markInstallmentPaid } from "./actions/markInstallmentPaid";
+import { reprocessInstallment } from "./actions/reprocessInstallment";
+import { createInstallmentHppSession } from "./actions/createInstallmentHppSession";
 import { waiveInstallment } from "./actions/waiveInstallment";
 import { sendPaymentReminder } from "./actions/sendPaymentReminder";
 import { issueAccountCredit } from "@/app/admin/credits/actions/issueAccountCredit";
@@ -67,6 +69,9 @@ type BatchRow = {
   status: string;
   created_at: string;
   confirmed_at: string | null;
+  // #47: saved encrypted card on this order, if any — drives Reprocess vs Pay Now.
+  stored_payment_method_id: string | null;
+  stored_payment_methods: { type: string | null; card_last4: string | null; card_scheme: string | null } | null;
   users: { id: string; first_name: string; last_name: string; email: string; phone_number: string | null } | null;
   semesters: { name: string } | null;
   order_payment_installments: InstallmentRow[];
@@ -152,6 +157,8 @@ export default function PaymentsAdmin() {
   const [batches, setBatches] = useState<BatchRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingPaid, setMarkingPaid] = useState<string | null>(null);
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
+  const [payNowId, setPayNowId] = useState<string | null>(null);
   const [waivingId, setWaivingId] = useState<string | null>(null);
 
   // UI state
@@ -237,7 +244,8 @@ export default function PaymentsAdmin() {
       .select(
         `id, family_id, grand_total, tuition_total, registration_fee_total,
          family_discount_amount, auto_pay_admin_fee_total, payment_plan_type,
-         amount_due_now, status, created_at, confirmed_at,
+         amount_due_now, status, created_at, confirmed_at, stored_payment_method_id,
+         stored_payment_methods:stored_payment_method_id(type, card_last4, card_scheme),
          users:parent_id(id, first_name, last_name, email, phone_number),
          semesters:semester_id(name),
          order_payment_installments(id, installment_number, amount_due, due_date, status, paid_at, paid_amount),
@@ -400,11 +408,51 @@ export default function PaymentsAdmin() {
     }
   }
 
-  async function handleMarkPaid(installmentId: string) {
+  // #47: "Mark Paid (offline)" — explicit manual reconciliation for cash/check
+  // received outside the system. This does NOT charge a card; the confirm makes
+  // that unambiguous (the old bare "Mark Paid" read as a charge and was scary).
+  async function handleMarkPaid(installmentId: string, amountDue: number) {
+    const ok = window.confirm(
+      `Record an OFFLINE payment of ${formatCurrency(amountDue)}?\n\n` +
+        `This marks the installment paid for cash/check received outside the system. ` +
+        `It does NOT charge a card. To charge a saved card, use "Reprocess".`,
+    );
+    if (!ok) return;
     setMarkingPaid(installmentId);
     await markInstallmentPaid(installmentId);
     await loadBatches();
     setMarkingPaid(null);
+  }
+
+  // #47: "Reprocess" — charge the family's SAVED card via the idempotent MIT
+  // stored-card path (reprocessInstallment → chargeStoredPaymentInstallment).
+  async function handleReprocess(installmentId: string) {
+    setReprocessingId(installmentId);
+    const result = await reprocessInstallment(installmentId);
+    if (result.success) {
+      showToast(
+        `Charge approved${result.transactionId ? ` — txn ${result.transactionId}` : ""}.`,
+        "success",
+      );
+      await loadBatches();
+    } else {
+      showToast(result.error ?? "Charge failed.", "error");
+    }
+    setReprocessingId(null);
+  }
+
+  // #47 Part B: "Pay Now (new card)" — charge a NEW/different card. New cards
+  // are cardholder-present and 3DS-enforced, so they go through the hosted
+  // payment page. We create the session and redirect the admin to Elavon.
+  async function handlePayNow(installmentId: string) {
+    setPayNowId(installmentId);
+    const result = await createInstallmentHppSession(installmentId);
+    if (result.paymentSessionUrl) {
+      window.location.href = result.paymentSessionUrl;
+      return; // redirecting away — leave the loading state set
+    }
+    showToast(result.error ?? "Could not start the card payment.", "error");
+    setPayNowId(null);
   }
 
   async function handleWaive(installmentId: string) {
@@ -682,7 +730,7 @@ export default function PaymentsAdmin() {
   ];
   const currentStatusLabel = STATUS_OPTIONS.find((s) => s.k === currentTab)?.l ?? "All";
   const currentSortLabel = SORT_OPTIONS.find((s) => s.k === sortMode)?.l ?? "Priority";
-  const currentTermLabel = selectedTerm === "all" ? "All terms" : selectedTerm;
+  const currentTermLabel = selectedTerm === "all" ? "All semesters" : selectedTerm;
 
   function getBatchLineItems(batch: BatchRow) {
     const items: Array<{ desc: string; type: string; qty: number; price: number }> = [];
@@ -1109,7 +1157,7 @@ export default function PaymentsAdmin() {
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] font-semibold"
                   style={{ border: "0.5px solid var(--admin-border)", background: "var(--admin-surface)", color: "var(--admin-text)" }}
                 >
-                  <span style={{ color: "var(--admin-text-faint)", fontWeight: 500 }}>Term</span>
+                  <span style={{ color: "var(--admin-text-faint)", fontWeight: 500 }}>Semester</span>
                   {currentTermLabel}
                   <span style={{ color: "var(--admin-text-faint)", fontSize: 9 }}>▼</span>
                 </button>
@@ -1126,7 +1174,7 @@ export default function PaymentsAdmin() {
                         className="w-full text-left px-2.5 py-2 rounded-lg text-[13px]"
                         style={{ background: t === selectedTerm ? "var(--admin-surface-sub)" : "transparent", fontWeight: t === selectedTerm ? 600 : 400, color: "var(--admin-text)" }}
                       >
-                        {t === "all" ? "All terms" : t}
+                        {t === "all" ? "All semesters" : t}
                       </button>
                     ))}
                   </div>
@@ -1909,14 +1957,56 @@ export default function PaymentsAdmin() {
                                     </span>
                                     {(inst.status === "scheduled" || inst.status === "overdue") && (
                                       <>
+                                        {/* #47: Reprocess the SAVED card (real charge) — only when a
+                                            stored card is on file. New-card "Pay Now" (HPP) is Part B. */}
+                                        {isInstOverdue && batch.stored_payment_method_id && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); handleReprocess(inst.id); }}
+                                            disabled={reprocessingId === inst.id}
+                                            className="text-[10px] text-white px-2 py-1 rounded hover:opacity-80 transition-opacity disabled:opacity-50"
+                                            style={{ background: "var(--admin-sidebar-active)" }}
+                                            title="Charge the family's saved card now"
+                                          >
+                                            {reprocessingId === inst.id
+                                              ? "Charging…"
+                                              : `Reprocess${batch.stored_payment_methods?.card_last4 ? ` ····${batch.stored_payment_methods.card_last4}` : ""}`}
+                                          </button>
+                                        )}
+                                        {/* #47 Part B: charge a NEW/different card via the hosted page
+                                            (expired card, or a different card). Always available on an
+                                            overdue row; primary CTA when no saved card is on file. */}
+                                        {isInstOverdue && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); handlePayNow(inst.id); }}
+                                            disabled={payNowId === inst.id}
+                                            className="text-[10px] px-2 py-1 rounded hover:opacity-80 transition-opacity disabled:opacity-50"
+                                            style={
+                                              batch.stored_payment_method_id
+                                                ? { background: "transparent", color: "var(--admin-sidebar-active)", border: "1px solid var(--admin-sidebar-active)" }
+                                                : { background: "var(--admin-sidebar-active)", color: "#fff" }
+                                            }
+                                            title="Charge a new or different card on the secure hosted page"
+                                          >
+                                            {payNowId === inst.id
+                                              ? "Starting…"
+                                              : batch.stored_payment_method_id ? "New card" : "Pay Now"}
+                                          </button>
+                                        )}
                                         <button
                                           type="button"
-                                          onClick={(e) => { e.stopPropagation(); handleMarkPaid(inst.id); }}
+                                          onClick={(e) => { e.stopPropagation(); handleMarkPaid(inst.id, inst.amount_due); }}
                                           disabled={markingPaid === inst.id}
-                                          className="text-[10px] text-white px-2 py-1 rounded hover:opacity-80 transition-opacity disabled:opacity-50"
-                                          style={{ background: "#16A34A" }}
+                                          className="text-[10px] px-2 py-1 rounded hover:opacity-80 transition-opacity disabled:opacity-50"
+                                          style={{
+                                            background: "transparent",
+                                            color: "var(--admin-text-muted)",
+                                            border: "0.5px solid var(--admin-border)",
+                                          }}
+                                          title="Record a cash/check payment received offline — does not charge a card"
                                         >
-                                          {markingPaid === inst.id ? "Saving…" : "Mark Paid"}
+                                          {markingPaid === inst.id ? "Saving…" : "Mark Paid (offline)"}
                                         </button>
                                         {isInstOverdue && (
                                           <>

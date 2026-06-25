@@ -71,7 +71,11 @@ export async function inviteWaitlistEntryByLink(
     return { success: false, error: updateError.message };
   }
 
-  const siteUrl = process.env.SITE_URL ?? "";
+  // SITE_URL is the canonical server-side origin used by every payment/redirect
+  // link in the app. In dev it's the ngrok tunnel; in production it must be
+  // https://register.aydt.nyc. Fall back to the public site URL so the emailed
+  // link still resolves to production even if SITE_URL is somehow unset there.
+  const siteUrl = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const link = `${siteUrl}/waitlist/accept/${entry.invite_token}`;
 
   const result = await sendWaitlistOfferEmail({
