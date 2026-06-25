@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/utils/supabase/admin";
 import { requireAdmin } from "@/utils/requireAdmin";
+import { sendInstructorInviteEmail } from "@/utils/email/sendInstructorInviteEmail";
 
 export interface CreateInstructorInput {
   firstName: string;
@@ -10,37 +11,36 @@ export interface CreateInstructorInput {
 }
 
 /**
- * Invite a new instructor via Supabase's built-in invite flow.
+ * Invite a new instructor.
  *
  * Flow:
- *  1. Creates the auth.users row and emails the instructor a magic link.
- *     The email template is configured in Supabase Dashboard → Auth → Email Templates
- *     → Invite User to use /auth/confirm?token_hash=...&type=invite&next=/instructor/setup
- *     so the instructor lands on the dedicated password-setup page.
- *  2. The handle_new_user() DB trigger fires synchronously, inserting a
- *     public.users row with role = 'instructor' (no family).
- *  3. We update that row to status = 'invited' so the admin list shows the
+ *  1. generateLink({ type: 'invite' }) creates the auth.users row and mints a
+ *     setup link WITHOUT sending any email (we own the email). The
+ *     handle_new_user() DB trigger fires synchronously, inserting a public.users
+ *     row with role = 'instructor' (no family).
+ *  2. We update that row to status = 'invited' so the admin list shows the
  *     correct pending state until the instructor completes setup.
+ *  3. We send our OWN branded invite email via Resend (sendInstructorInviteEmail)
+ *     — NOT the Supabase "Invite User" template (a single global slot we keep
+ *     free so families can have their own email too, see sendFamilyWelcomeEmail).
+ *     The link routes through /auth/confirm?type=invite&next=/instructor/setup.
  */
 export async function createInstructor(input: CreateInstructorInput) {
   await requireAdmin();
 
   const adminClient = createAdminClient();
 
-  // No redirectTo needed — the Supabase "Invite User" email template is configured
-  // to use /auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/instructor/setup
-  // so the app handles OTP verification directly rather than relying on the
-  // Supabase /auth/v1/verify redirect (which sends the session as an unreadable hash fragment).
-  const { data, error } = await adminClient.auth.admin.inviteUserByEmail(
-    input.email,
-    {
+  const { data, error } = await adminClient.auth.admin.generateLink({
+    type: "invite",
+    email: input.email,
+    options: {
       data: {
         role:       "instructor",
         first_name: input.firstName,
         last_name:  input.lastName,
       },
     },
-  );
+  });
 
   if (error) {
     if (error.message.toLowerCase().includes("already been registered")) {
@@ -56,5 +56,24 @@ export async function createInstructor(input: CreateInstructorInput) {
 
   if (updateErr) {
     console.error("createInstructor — failed to set status:", updateErr.message);
+  }
+
+  // Send our own branded invite. Build the setup link from the OTP token_hash and
+  // route it through /auth/confirm (rather than Supabase's /auth/v1/verify redirect,
+  // which sends the session as an unreadable hash fragment).
+  const hashedToken = data.properties?.hashed_token;
+  if (!hashedToken) {
+    throw new Error("Failed to generate the instructor setup link.");
+  }
+  const base = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const setupLink = `${base}/auth/confirm?token_hash=${hashedToken}&type=invite&next=${encodeURIComponent("/instructor/setup")}`;
+  const res = await sendInstructorInviteEmail({
+    toEmail: input.email,
+    firstName: input.firstName,
+    setupLink,
+  });
+  if (!res.ok) {
+    console.error("createInstructor — invite email failed:", res.error);
+    throw new Error("The instructor account was created, but the invite email failed to send.");
   }
 }

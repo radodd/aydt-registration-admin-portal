@@ -91,7 +91,7 @@ const LOGO_URL = `${SITE_URL}/brand/logo-primary-blush-cherry.png`;
  */
 export const EMAIL_COLORS = {
   cherry: "#691F19", // header rule + footer background
-  mauve: "#AA6260", // primary call-to-action button
+  button: "#8E2A23", // primary call-to-action button (brand wine)
   cream: "#FFFBF9", // header background
   pageBg: "#EFE7E3", // outer page background
   textPrimary: "#1F1513",
@@ -110,7 +110,7 @@ export const EMAIL_COLORS = {
  *   wrapEmailLayout(`<p>Your spot is ready.</p>${emailButton(url, "Accept invite")}`)
  */
 export function emailButton(href: string, label: string): string {
-  return `<a href="${href}" style="display:inline-block;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;color:#ffffff;background-color:${EMAIL_COLORS.mauve};padding:13px 30px;border-radius:8px;text-decoration:none;">${label}</a>`;
+  return `<a href="${href}" style="display:inline-block;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;color:#ffffff;background-color:${EMAIL_COLORS.button};padding:13px 30px;border-radius:8px;text-decoration:none;">${label}</a>`;
 }
 
 export function wrapEmailLayout(content: string): string {
