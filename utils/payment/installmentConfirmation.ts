@@ -36,6 +36,8 @@ import {
 import { prepareEmailHtml } from "@/utils/prepareEmailHtml";
 import { buildRegistrationSummaryHtml } from "@/utils/email/buildRegistrationSummary";
 import { logPaymentError } from "@/utils/payment/logPaymentError";
+import { classifyPaymentError } from "@/utils/payment/classifyPaymentError";
+import { resolveOpenPaymentErrors } from "@/utils/payment/resolveOpenPaymentErrors";
 import type { PaymentErrorSource } from "@/types";
 
 const supabase = createClient(
@@ -242,10 +244,6 @@ export async function sendConfirmationEmail(
     const dancerNames = [...dancerNameSet].join(", ");
     const classNames = [...classNameSet].join(", ");
 
-    console.log(
-      `[installment-confirm] ⚠️ TEMP - email aggregation batch=${batchId} regs=${(registrations ?? []).length} enrollments=${(enrollments ?? []).length} dancers="${dancerNames}" classes="${classNames}"`,
-    ); // TODO: DELETE
-
     // Format the amount actually charged + a registration date. Matches the
     // admin preview format in ConfirmationEmailStep.tsx (currency + long date).
     const totalAmount = amountChargedRaw
@@ -370,12 +368,6 @@ export async function sendConfirmationEmail(
     ).trim();
     const fromName = (emailTemplate.fromName || "AYDT").trim();
 
-    // ⚠️ TEMP - pre-send diagnostics so we can confirm the resolved values
-    // (esp. the `from` field that was rendering as " <>"). TODO: DELETE
-    console.log(
-      `[installment-confirm] ⚠️ TEMP - sending confirmation email batch=${batchId} from="${fromName} <${fromEmail}>" to=${parent.email} subject="${subject}" templateFromEmail="${emailTemplate.fromEmail ?? ""}" envFromEmail="${process.env.RESEND_FROM_EMAIL ?? ""}"`,
-    );
-
     // Resend v6 returns { data, error } and does NOT throw on 4xx — must check
     // error explicitly, or a validation failure silently looks like success.
     const { data: resendData, error: resendError } = await resend.emails.send({
@@ -450,6 +442,15 @@ export async function confirmBatch(params: {
     .eq("batch_id", batchId)
     .eq("installment_number", 1)
     .eq("status", "scheduled");
+
+  // #48 resolve-on-success: the order is now paid/confirmed, so clear any open
+  // error rows for it (e.g. a logged dev-lane checkout failure that the family
+  // then completed). Best-effort; service-role client, no authed user.
+  await resolveOpenPaymentErrors(
+    supabase,
+    { orderId: batchId },
+    { via: "payment confirmation", transactionId },
+  );
 
   // 9c. Confirm individual enrollment rows in BOTH tables.
   //   - registrations: drop-in / legacy per-session rows (status pending_payment → confirmed)
@@ -651,21 +652,35 @@ export async function ensureStoredCardAndChargeInstallment1(params: {
         })
         .eq("id", inst1.id);
 
-      // History layer: one row per ACTUAL declined attempt. Sits in the real-
-      // charge branch (not the early attempt-cap return above), so repeated
-      // polling of the finalize route never duplicates a row.
-      await logPaymentError({
+      // #48: this is the completion of a customer-PRESENT checkout (the family
+      // just submitted their card). An admin-lane CARD decline is self-
+      // serviceable — they retry on the hosted page — so it must NOT enter the
+      // actionable Error Log (it stays in payments/transaction history). Only a
+      // DEV-lane failure (network / api / 3DS / state) is a real integration bug
+      // worth logging. History layer: one row per ACTUAL declined attempt, in
+      // the real-charge branch so finalize-route polling never duplicates a row.
+      // Classify off the raw EPG state only (see the webhook step-8b note: a
+      // message containing "declined" would force admin-lane and defeat the gate).
+      const declineClass = classifyPaymentError({
         origin: "gateway",
         source: errorSource,
-        category: "decline",
-        orderId: batchId,
-        installmentId: inst1.id,
-        installmentNumber: 1,
         errorCode: installment1Txn.state,
-        errorMessage: `Installment 1 charge declined (state=${installment1Txn.state}).`,
-        retryCount: newCount,
-        rawPayload: { state: installment1Txn.state, transactionId: installment1Txn.id },
+        errorMessage: installment1Txn.state ?? "declined",
       });
+      if (declineClass.ownerLane === "dev") {
+        await logPaymentError({
+          origin: "gateway",
+          source: errorSource,
+          category: declineClass.category,
+          orderId: batchId,
+          installmentId: inst1.id,
+          installmentNumber: 1,
+          errorCode: installment1Txn.state,
+          errorMessage: `Installment 1 charge failed (state=${installment1Txn.state}).`,
+          retryCount: newCount,
+          rawPayload: { state: installment1Txn.state, transactionId: installment1Txn.id },
+        });
+      }
 
       return { status: "declined", detail: installment1Txn.state };
     }

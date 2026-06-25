@@ -5,6 +5,7 @@ import {
   fetchEpgTransaction,
   epgEventTypeToPaymentState,
 } from "@/utils/payment/epg";
+import { classifyPaymentError } from "@/utils/payment/classifyPaymentError";
 import {
   confirmBatch,
   ensureStoredCardAndChargeInstallment1,
@@ -166,17 +167,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         via: "new-card charge (webhook)",
       });
     } else {
-      // Declined new-card attempt — admin-actionable (card problem).
-      await logPaymentError({
+      // #48: a declined new-card attempt is cardholder-PRESENT (the admin is
+      // driving the hosted page on the family's behalf) and self-serviceable —
+      // they retry another card, and the overdue installment remains the
+      // actionable artifact on the Transactions tab. So suppress admin-lane card
+      // declines; only log a DEV-lane integration failure.
+      const declineClass = classifyPaymentError({
         origin: "gateway",
         source: "hpp_checkout",
-        category: "decline",
-        installmentId,
-        transactionId: transaction.id,
         errorCode: transaction.state,
-        errorMessage: `New-card installment charge declined (${eventType}, state=${transaction.state}).`,
-        rawPayload: { notification, transaction },
+        errorMessage: transaction.state, // raw state only — see step 8b note
       });
+      if (declineClass.ownerLane === "dev") {
+        await logPaymentError({
+          origin: "gateway",
+          source: "hpp_checkout",
+          category: declineClass.category,
+          installmentId,
+          transactionId: transaction.id,
+          errorCode: transaction.state,
+          errorMessage: `New-card installment charge failed (${eventType}, state=${transaction.state}).`,
+          rawPayload: { notification, transaction },
+        });
+      }
     }
     return NextResponse.json({ ok: true }, { status: 200 });
   }
@@ -272,21 +285,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     .eq("custom_reference", batchId);
 
   // -------------------------------------------------------------------------
-  // Step 8b: A hosted-checkout sale was declined — record it for the admin
-  // error log (one row per declined sale). Admin-actionable (card problem).
+  // Step 8b: A hosted-checkout sale was declined.
+  // #48: the family is PRESENT on the hosted page and can simply retry with
+  // another card, and the decline is already in payments/transaction history —
+  // so an admin-lane CARD decline must NOT enter the actionable Error Log. Only
+  // a DEV-lane failure (network / api / 3DS / state) is a real integration bug
+  // worth surfacing. classifyPaymentError decides the lane from the EPG state.
   // -------------------------------------------------------------------------
   if (newState === "declined") {
-    await logPaymentError({
+    // Classify off the raw EPG state only — do NOT feed the eventType in, since
+    // "saleDeclined" contains the substring "declined" and would force every
+    // case to admin-lane, defeating the dev-lane escape hatch.
+    const declineClass = classifyPaymentError({
       origin: "gateway",
       source: "hpp_checkout",
-      category: "decline",
-      orderId: payment.registration_batch_id ?? null,
-      paymentSessionId: payment.payment_session_id ?? null,
-      transactionId: transaction.id,
       errorCode: transaction.state,
-      errorMessage: `Hosted-checkout sale declined (${eventType}, state=${transaction.state}).`,
-      rawPayload: { notification, transaction },
+      errorMessage: transaction.state,
     });
+    if (declineClass.ownerLane === "dev") {
+      await logPaymentError({
+        origin: "gateway",
+        source: "hpp_checkout",
+        category: declineClass.category,
+        orderId: payment.registration_batch_id ?? null,
+        paymentSessionId: payment.payment_session_id ?? null,
+        transactionId: transaction.id,
+        errorCode: transaction.state,
+        errorMessage: `Hosted-checkout sale failed (${eventType}, state=${transaction.state}).`,
+        rawPayload: { notification, transaction },
+      });
+    }
   }
 
   // -------------------------------------------------------------------------

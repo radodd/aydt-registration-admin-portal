@@ -33,6 +33,17 @@ export async function login(formData: FormData) {
 export async function signUp(formData: FormData) {
   console.log("[signUp] action called");
 
+  // Self-service signup gate. When NEXT_PUBLIC_SIGNUPS_ENABLED is explicitly
+  // "false" (e.g. in production, to stop random visitors from creating
+  // accounts), reject the signup before touching Supabase. Any other value —
+  // including unset — leaves signups enabled. This is the authoritative check;
+  // the auth page also hides the signup tab off the same flag, but a direct
+  // POST to this action must still be blocked here.
+  if (process.env.NEXT_PUBLIC_SIGNUPS_ENABLED === "false") {
+    console.log("[signUp] Signups disabled by flag. Rejecting.");
+    redirect("/auth?error=signup_disabled");
+  }
+
   const values = signUpSchema.safeParse({
     first_name: formData.get("first_name"),
     last_name: formData.get("last_name"),

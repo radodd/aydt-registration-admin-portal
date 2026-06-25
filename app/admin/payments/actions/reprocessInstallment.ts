@@ -1,6 +1,5 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
 import { chargeStoredPaymentInstallment } from "@/app/actions/chargeStoredPaymentInstallment";
 
 /**
@@ -19,40 +18,13 @@ import { chargeStoredPaymentInstallment } from "@/app/actions/chargeStoredPaymen
  *
  * Super-admin only (chargeStoredPaymentInstallment re-checks the same gate).
  *
- * On success we also auto-resolve any still-open payment_error_logs row tied
- * to this installment, so a charge driven from the payment row clears the
- * matching Error Log entry — mirrors retryInstallmentChargeFromError's resolve
- * shape, but keyed on installment_id instead of an error-log id.
+ * Resolve-on-success (#48) lives inside chargeStoredPaymentInstallment itself —
+ * any open payment_error_logs row for this installment is cleared there on a
+ * successful charge, so this wrapper is now a thin, intent-named entry point
+ * for the dashboard button.
  */
 export async function reprocessInstallment(
   installmentId: string,
 ): Promise<{ success: boolean; error?: string; transactionId?: string }> {
-  const result = await chargeStoredPaymentInstallment(installmentId);
-
-  if (!result.success) {
-    return result;
-  }
-
-  // Charge went through — resolve any open error-log row for this installment
-  // so the Error Log reflects reality. Best-effort: a failure here must not
-  // turn a successful charge into a reported failure.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    await supabase
-      .from("payment_error_logs")
-      .update({
-        status: "resolved",
-        resolved_by: user.id,
-        resolved_at: new Date().toISOString(),
-        resolution_notes: `Resolved via Reprocess from payments dashboard — txn ${result.transactionId ?? "n/a"}.`,
-      })
-      .eq("installment_id", installmentId)
-      .in("status", ["new", "acknowledged", "actioned"]);
-  }
-
-  return result;
+  return chargeStoredPaymentInstallment(installmentId);
 }

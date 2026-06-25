@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createEpgTransaction } from "@/utils/payment/epg";
+import { resolveOpenPaymentErrors } from "@/utils/payment/resolveOpenPaymentErrors";
 
 /**
  * Charges a single order_payment_installments row using the stored payment
@@ -116,6 +117,14 @@ export async function chargeStoredPaymentInstallment(
           updated_at: new Date().toISOString(),
         })
         .eq("id", installmentId);
+
+      // #48 resolve-on-success: balance collected → clear any open error rows
+      // for this installment. Covers manual reprocess + retry-from-error-log.
+      await resolveOpenPaymentErrors(
+        supabase,
+        { installmentId },
+        { resolvedBy: user.id, via: "stored-card charge", transactionId: txn.id },
+      );
 
       return { success: true, transactionId: txn.id };
     }
