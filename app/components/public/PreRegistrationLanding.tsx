@@ -35,46 +35,6 @@ function pad(n: number): string {
 }
 
 /* -------------------------------------------------------------------------- */
-/* ICS generation                                                             */
-/* -------------------------------------------------------------------------- */
-
-function downloadIcs(semesterName: string, openAt: Date) {
-  function toIcsDate(d: Date): string {
-    return d
-      .toISOString()
-      .replace(/[-:]/g, "")
-      .replace(/\.\d{3}/, "");
-  }
-
-  const start = toIcsDate(openAt);
-  // 1-hour event
-  const end = toIcsDate(new Date(openAt.getTime() + 60 * 60 * 1000));
-  const now = toIcsDate(new Date());
-
-  const ics = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//AYDT//Registration//EN",
-    "BEGIN:VEVENT",
-    `DTSTAMP:${now}`,
-    `DTSTART:${start}`,
-    `DTEND:${end}`,
-    `SUMMARY:Registration Opens — ${semesterName}`,
-    `DESCRIPTION:Registration is now open for ${semesterName}. Visit the registration page to enroll.`,
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ].join("\r\n");
-
-  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${semesterName.replace(/\s+/g, "-")}-registration.ics`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-/* -------------------------------------------------------------------------- */
 /* Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -299,40 +259,6 @@ export function PreRegistrationLanding({ semester, onOpen }: Props) {
           </form>
         )}
       </div>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Add to calendar                                                     */}
-      {/* ------------------------------------------------------------------ */}
-      {openAt && (
-        <div className="text-center">
-          <button
-            onClick={() => downloadIcs(semester.name, openAt)}
-            className="inline-flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-800 transition"
-          >
-            <CalendarIcon />
-            Add to calendar
-          </button>
-        </div>
-      )}
     </div>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-4 w-4"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-      />
-    </svg>
   );
 }
