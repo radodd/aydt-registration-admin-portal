@@ -91,7 +91,7 @@ function prepareEmailHtml(html: string): string {
   });
   // Keep this layout byte-identical to wrapEmailLayout() in
   // utils/prepareEmailHtml.ts — edge functions can't import it.
-  const LOGO_URL = `${SITE_URL || "https://register.aydt.nyc"}/brand/logo-primary-blush-cherry.png`;
+  const LOGO_URL = `${SITE_URL || "https://register.aydt.nyc"}/brand/logo-primary-teal-lilac-cherry.png`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -116,9 +116,9 @@ function prepareEmailHtml(html: string): string {
   </td>
 </tr>
 
-   <!-- CHERRY RULE -->
+   <!-- LILAC RULE -->
 <tr>
-  <td bgcolor="#691F19" style="height:3px;line-height:3px;font-size:0;background-color:#691F19;">&nbsp;</td>
+  <td bgcolor="#CAA1DD" style="height:3px;line-height:3px;font-size:0;background-color:#CAA1DD;">&nbsp;</td>
 </tr>
 
         <!-- CONTENT -->
