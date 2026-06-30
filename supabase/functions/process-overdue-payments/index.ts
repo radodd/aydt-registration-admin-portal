@@ -1,5 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend";
+import {
+  decideDeclineOutcome,
+  isBusinessDay,
+  MAX_CHARGE_ATTEMPTS,
+} from "./scheduling.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -71,6 +76,11 @@ const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 const siteUrl = Deno.env.get("SITE_URL") ?? "https://aydt.com";
 const adminEmail = Deno.env.get("ADMIN_NOTIFICATION_EMAIL") ?? "admin@aydt.nyc";
 const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "admin@aydt.nyc";
+
+/* -------------------------------------------------------------------------- */
+/* Business-day scheduling rules (#53) live in ./scheduling.ts — a pure module */
+/* shared with the Vitest tests. Weekdays only, no holiday calendar (v1).      */
+/* -------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------- */
 /* EPG server-to-server charge helper (inline — Deno can't import Node utils) */
@@ -270,20 +280,31 @@ async function logChargeError(params: {
 /* Main handler                                                               */
 /* -------------------------------------------------------------------------- */
 
+type BatchGroup = {
+  parentId: string;
+  parentName: string;
+  parentEmail: string;
+  parentPhone: string | null;
+  smsOptIn: boolean;
+  smsVerified: boolean;
+  semesterName: string;
+  installments: { num: number; amount: number; dueDate: string }[];
+};
+
 Deno.serve(async (_req) => {
   try {
-    const today = new Date().toISOString().split("T")[0]; // 'YYYY-MM-DD'
+    const today = new Date().toISOString().split("T")[0]; // 'YYYY-MM-DD' (UTC)
 
     /* ------------------------------------------------------------------ */
-    /* STEP 1 — Find installments that are past due and still 'scheduled'  */
+    /* STEP 1 — Transition newly past-due installments scheduled → overdue */
     /* ------------------------------------------------------------------ */
 
-    const { data: overdueRows, error: fetchError } = await supabase
+    const { data: newlyOverdue, error: fetchError } = await supabase
       .from("order_payment_installments")
       .select(
         `id, installment_number, amount_due, due_date,
          registration_orders(
-           id, semester_id,
+           id, semester_id, stored_payment_method_id,
            semesters:semester_id(name),
            users:parent_id(id, first_name, last_name, email, phone_number, sms_opt_in, sms_verified)
          )`,
@@ -293,49 +314,52 @@ Deno.serve(async (_req) => {
 
     if (fetchError) throw fetchError;
 
-    if (!overdueRows || overdueRows.length === 0) {
-      return new Response(JSON.stringify({ ok: true, updated: 0 }), {
-        status: 200,
-      });
+    if (newlyOverdue && newlyOverdue.length > 0) {
+      const { error: updateError } = await supabase
+        .from("order_payment_installments")
+        .update({ status: "overdue" })
+        .in("id", newlyOverdue.map((r) => r.id));
+
+      if (updateError) throw updateError;
     }
 
     /* ------------------------------------------------------------------ */
-    /* STEP 2 — Mark all overdue installments                              */
+    /* STEP 2 — Charge overdue installments whose retry date has arrived   */
     /* ------------------------------------------------------------------ */
 
-    const overdueIds = overdueRows.map((r) => r.id);
+    // #53: a declined installment's next_attempt_date is pushed to the next
+    // business day, so an installment is attempted at most once per business
+    // day across its 3-attempt window. A null next_attempt_date means the
+    // installment just went overdue and has not been attempted yet. This drives
+    // the charge loop directly — independent of whether anything went newly
+    // overdue this run, so the backlog always progresses.
+    //
+    // Charging only runs on business days, so all 3 attempts (including the
+    // first) land on weekdays. On weekends the backlog simply waits for Monday.
+    let chargeable:
+      | { id: string; installment_number: number; amount_due: number; charge_attempt_count: number; registration_orders: unknown }[]
+      | null = [];
+    if (isBusinessDay(today)) {
+      const { data } = await supabase
+        .from("order_payment_installments")
+        .select(
+          `id, installment_number, amount_due, charge_attempt_count,
+           registration_orders!inner(
+             id, parent_id,
+             stored_payment_method_id,
+             stored_payment_methods!registration_batches_stored_payment_method_id_fkey(
+               id, epg_stored_href, type,
+               shoppers(epg_shopper_href)
+             )
+           )`,
+        )
+        .eq("status", "overdue")
+        .lt("charge_attempt_count", MAX_CHARGE_ATTEMPTS)
+        .not("registration_orders.stored_payment_method_id", "is", null)
+        .or(`next_attempt_date.is.null,next_attempt_date.lte.${today}`);
+      chargeable = data as typeof chargeable;
+    }
 
-    const { error: updateError } = await supabase
-      .from("order_payment_installments")
-      .update({ status: "overdue" })
-      .in("id", overdueIds);
-
-    if (updateError) throw updateError;
-
-    /* ------------------------------------------------------------------ */
-    /* STEP 3 — Charge overdue installments that have a stored method     */
-    /* ------------------------------------------------------------------ */
-
-    // Query all overdue installments (including ones from prior runs) that
-    // have a stored payment method and haven't exhausted their 3 attempts.
-    const { data: chargeable } = await supabase
-      .from("order_payment_installments")
-      .select(
-        `id, installment_number, amount_due, charge_attempt_count,
-         registration_orders!inner(
-           id, parent_id,
-           stored_payment_method_id,
-           stored_payment_methods!registration_batches_stored_payment_method_id_fkey(
-             id, epg_stored_href, type,
-             shoppers(epg_shopper_href)
-           )
-         )`,
-      )
-      .eq("status", "overdue")
-      .lt("charge_attempt_count", 3)
-      .not("registration_orders.stored_payment_method_id", "is", null);
-
-    const chargedInstallments: { parentEmail: string; amount: number; num: number }[] = [];
     const failedInstallments: { parentName: string; parentEmail: string; num: number; amount: number; error: string }[] = [];
 
     for (const row of chargeable ?? []) {
@@ -372,6 +396,7 @@ Deno.serve(async (_req) => {
             paid_amount: Number(row.amount_due),
             payment_reference_id: result.transactionId,
             transaction_id: result.transactionId,
+            next_attempt_date: null,
             updated_at: new Date().toISOString(),
           })
           .eq("id", row.id);
@@ -418,31 +443,30 @@ Deno.serve(async (_req) => {
                      <p style="font-family:sans-serif;">Transaction ID: ${result.transactionId}</p>
                      <p style="font-family:sans-serif;">Thank you,<br>AYDT</p>`,
             });
-            chargedInstallments.push({
-              parentEmail: parent.email,
-              amount: Number(row.amount_due),
-              num: row.installment_number,
-            });
           }
         } catch (emailErr) {
           console.error(`[charge] receipt email failed for installment ${row.id}:`, emailErr);
         }
       } else {
-        const newCount = (row.charge_attempt_count ?? 0) + 1;
-        const isFailed = newCount >= 3;
+        // #53: space the next attempt to the next business day, or move to
+        // 'failed' on the 3rd decline. Pure rule lives in ./scheduling.ts.
+        const outcome = decideDeclineOutcome(row.charge_attempt_count ?? 0, today);
 
         await supabase
           .from("order_payment_installments")
           .update({
-            charge_attempt_count: newCount,
+            charge_attempt_count: outcome.newCount,
             last_charge_error: result.errorDetail ?? "unknown",
-            status: isFailed ? "failed" : "overdue",
+            status: outcome.status,
+            next_attempt_date: outcome.nextAttemptDate,
             updated_at: new Date().toISOString(),
           })
           .eq("id", row.id);
 
         console.log(
-          `[charge] installment ${row.id} declined (${result.errorDetail}) — attempt ${newCount}/3`,
+          `[charge] installment ${row.id} declined (${result.errorDetail}) — attempt ${outcome.newCount}/${MAX_CHARGE_ATTEMPTS}${
+            outcome.exhausted ? " — exhausted" : ` — next attempt ${outcome.nextAttemptDate}`
+          }`,
         );
 
         // Record this attempt in the durable error log (one row per attempt).
@@ -450,14 +474,15 @@ Deno.serve(async (_req) => {
           installmentId: row.id,
           installmentNumber: row.installment_number,
           orderId: (batch as any).id ?? null,
-          attemptNumber: newCount,
+          attemptNumber: outcome.newCount,
           errorDetail: result.errorDetail ?? "unknown",
           httpStatus: result.httpStatus,
           raw: result.raw,
         });
 
-        if (isFailed) {
-          // Fetch parent details for admin failure summary
+        // #53: AYDT is alerted ONLY after the 3rd (final) decline. Attempts 1–2
+        // retry silently on the next business day.
+        if (outcome.exhausted) {
           const { data: parent } = await supabase
             .from("users")
             .select("email, first_name, last_name")
@@ -476,28 +501,21 @@ Deno.serve(async (_req) => {
     }
 
     /* ------------------------------------------------------------------ */
-    /* STEP 4 — Build admin notification email                             */
+    /* STEP 3 — Manual-collection overdue (no stored card to auto-charge)  */
     /* ------------------------------------------------------------------ */
 
-    // Group installments by batch for readable summary
-    type BatchGroup = {
-      parentId: string;
-      parentName: string;
-      parentEmail: string;
-      parentPhone: string | null;
-      smsOptIn: boolean;
-      smsVerified: boolean;
-      semesterName: string;
-      installments: { num: number; amount: number; dueDate: string }[];
-    };
+    // Installments that just went overdue but have no stored payment method
+    // cannot be auto-retried, so AYDT is notified once (as before). Auto-pay
+    // installments are intentionally omitted here — they stay silent through
+    // their 3-business-day retry window (#53).
+    const manualGrouped = new Map<string, BatchGroup>();
 
-    const grouped = new Map<string, BatchGroup>();
-
-    for (const row of overdueRows) {
+    for (const row of newlyOverdue ?? []) {
       const batch = Array.isArray(row.registration_orders)
         ? row.registration_orders[0]
         : row.registration_orders;
       if (!batch) continue;
+      if ((batch as any).stored_payment_method_id) continue; // auto-pay → handled by retry loop
 
       const user = Array.isArray((batch as any).users)
         ? (batch as any).users[0]
@@ -506,8 +524,8 @@ Deno.serve(async (_req) => {
         ? (batch as any).semesters[0]
         : (batch as any).semesters;
 
-      if (!grouped.has((batch as any).id)) {
-        grouped.set((batch as any).id, {
+      if (!manualGrouped.has((batch as any).id)) {
+        manualGrouped.set((batch as any).id, {
           parentId: user?.id ?? "",
           parentName: user
             ? `${user.first_name} ${user.last_name}`
@@ -521,18 +539,26 @@ Deno.serve(async (_req) => {
         });
       }
 
-      grouped.get((batch as any).id)!.installments.push({
+      manualGrouped.get((batch as any).id)!.installments.push({
         num: row.installment_number,
         amount: Number(row.amount_due),
         dueDate: row.due_date,
       });
     }
 
-    const rows = [...grouped.values()];
+    const manualRows = [...manualGrouped.values()];
 
-    const tableRows = rows
-      .map(
-        (g) => `
+    /* ------------------------------------------------------------------ */
+    /* STEP 4 — Notify admin ONLY when there is something to act on         */
+    /* ------------------------------------------------------------------ */
+
+    // (a) auto-pay installments that exhausted all 3 business-day attempts, or
+    // (b) overdue installments with no stored card (manual collection).
+    // Attempts 1–2 of an auto-pay retry produce no admin email at all (#53).
+    if (failedInstallments.length > 0 || manualRows.length > 0) {
+      const manualTableRows = manualRows
+        .map(
+          (g) => `
         <tr>
           <td style="padding:8px 12px;border-bottom:1px solid #eee;">${g.parentName}</td>
           <td style="padding:8px 12px;border-bottom:1px solid #eee;">${g.parentEmail}</td>
@@ -541,86 +567,80 @@ Deno.serve(async (_req) => {
             ${g.installments.map((i) => `Payment ${i.num}: $${i.amount.toFixed(2)} (due ${i.dueDate})`).join("<br>")}
           </td>
         </tr>`,
-      )
-      .join("");
+        )
+        .join("");
 
-    const chargedSection = chargedInstallments.length > 0
-      ? `<h3 style="font-family:sans-serif;color:#16a34a;">✓ Auto-charged (${chargedInstallments.length})</h3>
-         <table style="font-family:sans-serif;border-collapse:collapse;width:100%;margin-bottom:16px;">
-           <thead><tr style="background:#f0fdf4;text-align:left;">
-             <th style="padding:8px 12px;">Parent Email</th>
-             <th style="padding:8px 12px;">Installment</th>
-             <th style="padding:8px 12px;">Amount</th>
-           </tr></thead>
-           <tbody>${chargedInstallments.map((c) => `
-             <tr>
-               <td style="padding:8px 12px;border-bottom:1px solid #eee;">${c.parentEmail}</td>
-               <td style="padding:8px 12px;border-bottom:1px solid #eee;">Payment ${c.num}</td>
-               <td style="padding:8px 12px;border-bottom:1px solid #eee;">$${c.amount.toFixed(2)}</td>
-             </tr>`).join("")}
-           </tbody>
-         </table>`
-      : "";
+      const manualSection = manualRows.length > 0
+        ? `<h3 style="font-family:sans-serif;color:#b45309;">Overdue — manual collection (${manualRows.length})</h3>
+           <p style="font-family:sans-serif;color:#555;">These installments are overdue and have no stored card to auto-charge.</p>
+           <table style="font-family:sans-serif;border-collapse:collapse;width:100%;margin-bottom:16px;">
+             <thead><tr style="background:#fffbeb;text-align:left;">
+               <th style="padding:8px 12px;">Parent</th>
+               <th style="padding:8px 12px;">Email</th>
+               <th style="padding:8px 12px;">Semester</th>
+               <th style="padding:8px 12px;">Installments</th>
+             </tr></thead>
+             <tbody>${manualTableRows}</tbody>
+           </table>`
+        : "";
 
-    const failedSection = failedInstallments.length > 0
-      ? `<h3 style="font-family:sans-serif;color:#dc2626;">✗ Charge Failed (3 attempts — manual review required)</h3>
-         <table style="font-family:sans-serif;border-collapse:collapse;width:100%;margin-bottom:16px;">
-           <thead><tr style="background:#fef2f2;text-align:left;">
-             <th style="padding:8px 12px;">Parent</th>
-             <th style="padding:8px 12px;">Email</th>
-             <th style="padding:8px 12px;">Installment</th>
-             <th style="padding:8px 12px;">Amount</th>
-             <th style="padding:8px 12px;">Error</th>
-           </tr></thead>
-           <tbody>${failedInstallments.map((f) => `
-             <tr>
-               <td style="padding:8px 12px;border-bottom:1px solid #eee;">${f.parentName}</td>
-               <td style="padding:8px 12px;border-bottom:1px solid #eee;">${f.parentEmail}</td>
-               <td style="padding:8px 12px;border-bottom:1px solid #eee;">Payment ${f.num}</td>
-               <td style="padding:8px 12px;border-bottom:1px solid #eee;">$${f.amount.toFixed(2)}</td>
-               <td style="padding:8px 12px;border-bottom:1px solid #eee;">${f.error}</td>
-             </tr>`).join("")}
-           </tbody>
-         </table>`
-      : "";
+      const failedSection = failedInstallments.length > 0
+        ? `<h3 style="font-family:sans-serif;color:#dc2626;">✗ Auto-charge failed (3 business-day attempts — manual review required)</h3>
+           <table style="font-family:sans-serif;border-collapse:collapse;width:100%;margin-bottom:16px;">
+             <thead><tr style="background:#fef2f2;text-align:left;">
+               <th style="padding:8px 12px;">Parent</th>
+               <th style="padding:8px 12px;">Email</th>
+               <th style="padding:8px 12px;">Installment</th>
+               <th style="padding:8px 12px;">Amount</th>
+               <th style="padding:8px 12px;">Error</th>
+             </tr></thead>
+             <tbody>${failedInstallments.map((f) => `
+               <tr>
+                 <td style="padding:8px 12px;border-bottom:1px solid #eee;">${f.parentName}</td>
+                 <td style="padding:8px 12px;border-bottom:1px solid #eee;">${f.parentEmail}</td>
+                 <td style="padding:8px 12px;border-bottom:1px solid #eee;">Payment ${f.num}</td>
+                 <td style="padding:8px 12px;border-bottom:1px solid #eee;">$${f.amount.toFixed(2)}</td>
+                 <td style="padding:8px 12px;border-bottom:1px solid #eee;">${f.error}</td>
+               </tr>`).join("")}
+             </tbody>
+           </table>`
+        : "";
 
-    const html = `
-      <h2 style="font-family:sans-serif;">AYDT — Overdue Payments Detected</h2>
-      <p style="font-family:sans-serif;">${overdueIds.length} installment(s) became overdue today (${today}).</p>
-      <table style="font-family:sans-serif;border-collapse:collapse;width:100%;">
-        <thead>
-          <tr style="background:#f5f5f5;text-align:left;">
-            <th style="padding:8px 12px;">Parent</th>
-            <th style="padding:8px 12px;">Email</th>
-            <th style="padding:8px 12px;">Semester</th>
-            <th style="padding:8px 12px;">Installments</th>
-          </tr>
-        </thead>
-        <tbody>${tableRows}</tbody>
-      </table>
-      ${chargedSection}
-      ${failedSection}
-      <p style="font-family:sans-serif;margin-top:16px;">
-        <a href="${siteUrl}/admin/payments">View Payment Dashboard →</a>
-      </p>
-    `;
+      const html = `
+        <h2 style="font-family:sans-serif;">AYDT — Payment action required</h2>
+        <p style="font-family:sans-serif;">As of ${today}:</p>
+        ${failedSection}
+        ${manualSection}
+        <p style="font-family:sans-serif;margin-top:16px;">
+          <a href="${siteUrl}/admin/payments">View Payment Dashboard →</a>
+        </p>
+      `;
 
-    await resend.emails.send({
-      from: `AYDT Payments <${fromEmail}>`,
-      to: adminEmail,
-      subject: `[AYDT] ${overdueIds.length} Overdue Payment${overdueIds.length !== 1 ? "s" : ""} — ${today}`,
-      html,
-    });
+      const subjectBits: string[] = [];
+      if (failedInstallments.length > 0) {
+        subjectBits.push(`${failedInstallments.length} auto-charge failed`);
+      }
+      if (manualRows.length > 0) {
+        subjectBits.push(`${manualRows.length} overdue`);
+      }
 
-    console.log(
-      `process-overdue-payments: marked ${overdueIds.length} installments overdue`,
-    );
+      await resend.emails.send({
+        from: `AYDT Payments <${fromEmail}>`,
+        to: adminEmail,
+        subject: `[AYDT] Payment action required — ${subjectBits.join(", ")} (${today})`,
+        html,
+      });
+
+      console.log(
+        `process-overdue-payments: admin notified — ${failedInstallments.length} exhausted, ${manualRows.length} manual-collection`,
+      );
+    }
 
     /* ------------------------------------------------------------------ */
-    /* STEP 4 — Send SMS to opted-in parents                              */
+    /* STEP 5 — Send SMS to opted-in parents (manual-collection only)      */
     /* ------------------------------------------------------------------ */
 
-    for (const group of grouped.values()) {
+    for (const group of manualRows) {
       if (!group.smsOptIn || !group.smsVerified || !group.parentPhone) continue;
       const count = group.installments.length;
       const smsMsg = `You have ${count} overdue payment${count > 1 ? "s" : ""} for ${group.semesterName}. Pay now: ${siteUrl}/payments`;
@@ -628,7 +648,12 @@ Deno.serve(async (_req) => {
     }
 
     return new Response(
-      JSON.stringify({ ok: true, updated: overdueIds.length }),
+      JSON.stringify({
+        ok: true,
+        newly_overdue: newlyOverdue?.length ?? 0,
+        manual_overdue: manualRows.length,
+        failed: failedInstallments.length,
+      }),
       { status: 200 },
     );
   } catch (err) {
