@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import type {
   DataMode,
   PublicSemester,
@@ -190,8 +191,13 @@ export async function getSemesterForDisplay(
     ),
   ];
 
+  // Service-role for the capacity count: section_enrollments has no anon read
+  // policy under RLS, so a logged-out catalog visitor would otherwise count 0 and
+  // see full sections as open. This query selects only section_id (no holder
+  // identity) and is aggregated to per-section counts below — same shape as the
+  // SECURITY DEFINER seat-hold count fn used just after this.
   const { data: scheduleEnrollmentRows } = scheduleIds.length
-    ? await supabase
+    ? await createAdminClient()
         .from("section_enrollments")
         .select("section_id")
         .in("section_id", scheduleIds)

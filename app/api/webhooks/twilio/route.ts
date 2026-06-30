@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { validateRequest } from "twilio";
 
 // Twilio MessageStatus values we care about
@@ -46,7 +46,11 @@ async function handleTwilioEvent(
   const updates: Record<string, unknown> = { status: newStatus, updated_at: now };
   if (newStatus === "delivered") updates.delivered_at = now;
 
-  const supabase = await createClient();
+  // Service-role: this is an unauthenticated Twilio callback (no user session →
+  // anon role), and sms_notifications has no anon/non-admin UPDATE policy under
+  // RLS. The anon client would silently match 0 rows. twilioSid is the request's
+  // own MessageSid, validated above via the Twilio signature.
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from("sms_notifications")
     .update(updates)
