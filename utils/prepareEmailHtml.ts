@@ -83,15 +83,17 @@ const SITE_URL =
 // Horizontal brand lockup (dancer mark + "American Youth" / "Dance Theater"
 // in the brand fonts). Served from /public/brand — an image is used instead
 // of live web fonts because Outlook and Gmail strip @font-face entirely.
-const LOGO_URL = `${SITE_URL}/brand/logo-primary-blush-cherry.png`;
+// Tri-color primary lockup (teal/lilac/cherry) — the only primary logo with blue.
+const LOGO_URL = `${SITE_URL}/brand/logo-primary-teal-lilac-cherry.png`;
 
 /**
  * Brand palette for emails. The single source of truth so every email —
  * and the reusable button below — stays on-brand without copy/paste drift.
  */
 export const EMAIL_COLORS = {
-  cherry: "#691F19", // header rule + footer background
-  button: "#8E2A23", // primary call-to-action button (brand wine)
+  cherry: "#691F19", // footer background + location accent
+  lilac: "#CAA1DD", // brand lilac (design-system --lilac, app/v2/portal-v2.css) — divider + button
+  button: "#CAA1DD", // primary call-to-action button (brand lilac, --lilac)
   cream: "#FFFBF9", // header background
   pageBg: "#EFE7E3", // outer page background
   textPrimary: "#1F1513",
@@ -138,9 +140,9 @@ export function wrapEmailLayout(content: string): string {
   </td>
 </tr>
 
-   <!-- CHERRY RULE -->
+   <!-- LILAC RULE -->
 <tr>
-  <td bgcolor="${EMAIL_COLORS.cherry}" style="height:3px;line-height:3px;font-size:0;background-color:${EMAIL_COLORS.cherry};">&nbsp;</td>
+  <td bgcolor="${EMAIL_COLORS.lilac}" style="height:3px;line-height:3px;font-size:0;background-color:${EMAIL_COLORS.lilac};">&nbsp;</td>
 </tr>
 
         <!-- CONTENT -->

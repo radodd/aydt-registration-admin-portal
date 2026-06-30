@@ -24,14 +24,15 @@ vi.mock("twilio", () => ({
   validateRequest: mockValidateRequest,
 }));
 
-// Supabase chain: update().eq() direct-await pattern
-vi.mock("@/utils/supabase/server", () => ({
-  createClient: () =>
-    Promise.resolve({
-      from: () => ({
-        update: mockUpdate,
-      }),
+// Supabase chain: update().eq() direct-await pattern.
+// The route uses the service-role admin client (sync, no Promise) so the
+// unauthenticated Twilio callback can write under RLS — see route.ts.
+vi.mock("@/utils/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: () => ({
+      update: mockUpdate,
     }),
+  }),
 }));
 
 vi.mock("next/server", () => ({

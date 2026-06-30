@@ -411,13 +411,18 @@ export async function createRegistrations(
     // constraint ignores status — a soft-cancelled row would block the retry insert with
     // "duplicate key value violates unique constraint schedule_enrollments_schedule_id_dancer_id_key".
     // The parent registration_orders row stays as 'failed' for audit.
+    // section_enrollments delete runs service-role: parents have SELECT-only under
+    // RLS (no DELETE policy), so the authed client would silently delete 0 rows and
+    // a leftover 'pending' row would then block the retry insert via the
+    // UNIQUE(section_id, dancer_id) constraint. staleIds are the caller's own stale
+    // batches, fetched above.
     const [regsResult, enrollResult] = await Promise.all([
       supabase
         .from("meeting_enrollments")
         .update({ status: "cancelled" })
         .in("registration_batch_id", staleIds)
         .eq("status", "pending_payment"),
-      supabase
+      createAdminClient()
         .from("section_enrollments")
         .delete()
         .in("batch_id", staleIds)
@@ -481,7 +486,11 @@ export async function createRegistrations(
 
   // 7.5. Record coupon redemption and increment uses_count (non-fatal)
   if (serverQuote?.appliedCouponId && familyId) {
-    await supabase
+    // Service-role: under RLS a parent has SELECT-only access to coupon_redemptions
+    // (no parent INSERT policy), so the authed client would silently fail to record
+    // the redemption — degrading per-family cap enforcement. The values are
+    // server-derived (validated coupon + own familyId). Mirrors the credits write below.
+    await createAdminClient()
       .from("coupon_redemptions")
       .insert({
         coupon_id: serverQuote.appliedCouponId,
@@ -596,9 +605,13 @@ export async function createRegistrations(
   // scenario (one dancer racing for one seat) routes exactly that dancer.
   if (contendedParticipants.length > 0) {
     // 1. Roll back any rows that survived in the non-contended table.
+    //    section_enrollments delete runs service-role (parents are SELECT-only under
+    //    RLS); a silent no-op here would leave seats held on a contended cart that
+    //    can't be paid for — risking overcharge/inconsistency. batchId is the
+    //    caller's own batch.
     if (allRegistrationIds.length > 0) {
       await Promise.all([
-        supabase.from("section_enrollments").delete().eq("batch_id", input.batchId),
+        createAdminClient().from("section_enrollments").delete().eq("batch_id", input.batchId),
         supabase
           .from("meeting_enrollments")
           .delete()
