@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ChevronDown,
@@ -41,6 +41,7 @@ const COL_KEY: Record<string, keyof ReportRow | string> = {
   Instructor: "instructor",
   "Family ID": "familyId",
   "Parent email": "parentEmail",
+  "Secondary email": "secondaryEmail",
   "Parent phone": "parentPhone",
   "Tuition amount": "tuitionAmount",
   "Discount total": "discountTotal",
@@ -808,9 +809,8 @@ export function ReportsClient({
                       />
                     ))
                   : (groupedData ?? []).map(([groupKey, groupRows]) => (
-                      <>
+                      <Fragment key={`group-${groupKey}`}>
                         <tr
-                          key={`group-${groupKey}`}
                           style={{ background: "var(--admin-surface-sub)" }}
                         >
                           <td
@@ -849,7 +849,7 @@ export function ReportsClient({
                             onToggle={() => toggleRow(row.id)}
                           />
                         ))}
-                      </>
+                      </Fragment>
                     ))}
                 {sortedRows.length === 0 && !loading && (
                   <tr>

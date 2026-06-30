@@ -93,6 +93,8 @@ export interface Family {
   id: string;
   family_name: string | null;
   created_at: string;
+  /** When an activation invite was last sent; null = silently created, not yet invited (#62). */
+  activation_invited_at: string | null;
   users: {
     id: string;
     first_name: string;
@@ -2260,6 +2262,7 @@ export interface ReportRow {
   instructor: string | null;
   familyId: string;
   parentEmail: string;
+  secondaryEmail: string | null;
   parentPhone: string | null;
   tuitionAmount: number;
   discountTotal: number;

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, CalendarDays, Users, CreditCard, Mail } from "lucide-react";
+import { LayoutDashboard, CalendarDays, Users, CreditCard, Mail, FileBarChart } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/admin",           label: "Dashboard", icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin/families",  label: "Families",  icon: Users },
   { href: "/admin/payments",  label: "Payments",  icon: CreditCard },
   { href: "/admin/emails",    label: "Emails",    icon: Mail },
+  { href: "/admin/reports",   label: "Reports",   icon: FileBarChart },
 ];
 
 export function MobileNav() {
