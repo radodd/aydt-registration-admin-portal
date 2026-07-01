@@ -26,6 +26,7 @@ export const ALL_COLUMNS = [
   "Instructor",
   "Family ID",
   "Parent email",
+  "Secondary email",
   "Parent phone",
   "Tuition amount",
   "Discount total",

@@ -171,6 +171,7 @@ type SemesterFormProps = {
   initialState?: SemesterDraft;
   isLocked?: boolean;
   semesterStatus?: string;
+  enrolledSectionIds?: string[];
 };
 
 export default function SemesterForm({
@@ -179,6 +180,7 @@ export default function SemesterForm({
   initialState,
   isLocked = false,
   semesterStatus,
+  enrolledSectionIds = [],
 }: SemesterFormProps) {
   const [state, dispatch] = useReducer(
     semesterReducer,
@@ -228,7 +230,9 @@ export default function SemesterForm({
     if (current.id && snapshotKey(current) === persistedSnapshotRef.current) {
       return current.id;
     }
-    const { semesterId } = await persistSemesterDraft(current);
+    const res = await persistSemesterDraft(current);
+    if (!res.ok) throw new Error(res.error);
+    const semesterId = res.semesterId;
     dispatch({ type: "SET_ID", payload: semesterId });
     persistedSnapshotRef.current = JSON.stringify({ ...current, id: semesterId });
     return semesterId;
@@ -242,7 +246,9 @@ export default function SemesterForm({
 
     setIsSaving(true);
     try {
-      const { semesterId } = await persistSemesterDraft(current);
+      const res = await persistSemesterDraft(current);
+      if (!res.ok) throw new Error(res.error);
+      const semesterId = res.semesterId;
       if (!current.id) dispatch({ type: "SET_ID", payload: semesterId });
       persistedSnapshotRef.current = JSON.stringify({
         ...current,
@@ -305,7 +311,9 @@ export default function SemesterForm({
     setIsSaving(true);
     try {
       const current = stateRef.current;
-      const { semesterId } = await persistSemesterDraft(current);
+      const res = await persistSemesterDraft(current);
+      if (!res.ok) throw new Error(res.error);
+      const semesterId = res.semesterId;
       if (!current.id) dispatch({ type: "SET_ID", payload: semesterId });
       persistedSnapshotRef.current = JSON.stringify({
         ...current,
@@ -314,7 +322,9 @@ export default function SemesterForm({
       toast.success("Changes saved.");
     } catch (err) {
       console.error("Save draft failed:", err);
-      toast.error("Couldn’t save changes. Please try again.");
+      toast.error(
+        err instanceof Error ? err.message : "Couldn’t save changes. Please try again.",
+      );
       throw err;
     } finally {
       setIsSaving(false);
@@ -328,7 +338,9 @@ export default function SemesterForm({
     setIsSaving(true);
     try {
       const current = stateRef.current;
-      const { semesterId } = await persistSemesterDraft(current);
+      const res = await persistSemesterDraft(current);
+      if (!res.ok) throw new Error(res.error);
+      const semesterId = res.semesterId;
       if (!current.id) dispatch({ type: "SET_ID", payload: semesterId });
       persistedSnapshotRef.current = JSON.stringify({
         ...current,
@@ -378,7 +390,8 @@ export default function SemesterForm({
         dispatch={dispatchAndSync}
         onNext={nextStep}
         onBack={previousStep}
-        isLocked={isLocked}
+        semesterStatus={semesterStatus}
+        enrolledSectionIds={enrolledSectionIds}
         onSaveDraft={handleSaveDraft}
       />
     ),

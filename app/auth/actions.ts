@@ -139,15 +139,25 @@ export async function sendPasswordResetEmail(formData: FormData) {
   const supabase = await createClient();
 
   const email = formData.get("email") as string;
-  console.log("Sending password reset email to:", email);
 
+  // The branded recovery template (supabase/templates/recovery.html) builds the
+  // link as a token_hash link through /auth/confirm, which verifyOtp's the OTP
+  // and KEEPS the session before /auth/reset-password — the same stateless path
+  // the admin welcome email uses. That avoids the PKCE code+verifier flow, whose
+  // verifier cookie doesn't survive the cross-origin recovery redirect (the
+  // reset would fail "reset link may have expired"). redirectTo is only a
+  // fallback for the default template's ConfirmationURL; keep it allow-listed.
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${process.env.SITE_URL}/auth/reset-password`,
   });
   if (error) {
+    // Log for ops, but fall through to the same neutral confirmation as success
+    // so the response never reveals whether an account exists for this address.
     console.error("Error sending password reset email:", error.message);
-    redirect("/error");
   }
+  // Always land on the neutral "if an account exists, we've sent a link" state:
+  // gives the user feedback and avoids account enumeration.
+  redirect("/auth/request-password-reset?sent=1");
 }
 
 export async function resetPassword(formData: FormData) {
@@ -171,5 +181,7 @@ export async function resetPassword(formData: FormData) {
     redirect("/auth/reset-password?error=update");
   }
 
-  redirect("/auth/login?reset=1");
+  // Land on the sign-in page directly (not /auth/login, which drops the flag)
+  // with a message the page surfaces as a "password updated" confirmation.
+  redirect("/auth?message=password_reset");
 }

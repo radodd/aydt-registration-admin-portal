@@ -20,6 +20,7 @@ import {
   ClipboardList,
   ScrollText,
   Mail,
+  FileBarChart,
   ChevronDown,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -55,6 +56,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/payments",  label: "Payments",   icon: CreditCard },
       { href: "/admin/emails",    label: "Emails",     icon: Mail },
+      { href: "/admin/reports",   label: "Reports",    icon: FileBarChart },
       // Hidden from UI — enrollment warnings feature not yet built; reopen later. Code kept under app/admin/warnings/.
       // { href: "/admin/warnings",  label: "Warnings",   icon: AlertTriangle },
       { href: "/admin/logs",      label: "Logs",       icon: ScrollText },

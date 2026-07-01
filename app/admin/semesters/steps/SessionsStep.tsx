@@ -391,7 +391,8 @@ type PanelTab = "details" | "schedule" | "requirements" | "addons";
 export default function SessionsStep({
   state,
   dispatch,
-  isLocked = false,
+  semesterStatus,
+  enrolledSectionIds = [],
   onSaveDraft,
 }: SessionsStepProps) {
   const [classes, setClasses] = useState<DraftClass[]>(state.sessions?.classes ?? []);
@@ -401,6 +402,17 @@ export default function SessionsStep({
   const [rangeErrors, setRangeErrors] = useState<Map<number, string[]>>(new Map());
   const [classesExpanded, setClassesExpanded] = useState(false);
   const [divisions, setDivisions] = useState<Division[]>([]);
+
+  // Row-scoped lock (mirrors the DB trigger): a class is locked only when it
+  // owns a section that has active enrollments. New and fully non-enrolled
+  // classes stay editable, and adding classes is always allowed. Only published
+  // semesters are locked at all.
+  const published = semesterStatus === "published";
+  const enrolledSet = new Set(enrolledSectionIds);
+  const isClassLocked = (cls: DraftClass) =>
+    published &&
+    (cls.schedules ?? []).some((s) => !!s.id && enrolledSet.has(s.id));
+  const anyClassLocked = published && classes.some(isClassLocked);
 
   /**
    * Class-level drop-in toggle is a CASCADE: turning it on/off sets is_drop_in
@@ -642,24 +654,24 @@ export default function SessionsStep({
               Each class can have one or more schedule blocks. Sessions generate automatically.
             </p>
           </div>
-          {!isLocked && (
-            <div className="flex items-center gap-2 shrink-0 ml-4 mt-0.5">
-              <button
-                type="button"
-                onClick={() => addAndSelect(emptyCompetitionTrackClass())}
-                className="inline-flex items-center rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition"
-              >
-                + Competition track
-              </button>
-              <button
-                type="button"
-                onClick={() => addAndSelect(emptyStandardClass())}
-                className="inline-flex items-center rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 transition"
-              >
-                + Add class
-              </button>
-            </div>
-          )}
+          {/* Adding classes is always allowed, even in a published+enrolled
+              semester — new sections have no enrollments to protect. */}
+          <div className="flex items-center gap-2 shrink-0 ml-4 mt-0.5">
+            <button
+              type="button"
+              onClick={() => addAndSelect(emptyCompetitionTrackClass())}
+              className="inline-flex items-center rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition"
+            >
+              + Competition track
+            </button>
+            <button
+              type="button"
+              onClick={() => addAndSelect(emptyStandardClass())}
+              className="inline-flex items-center rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 transition"
+            >
+              + Add class
+            </button>
+          </div>
         </div>
 
         {/* Search + count */}
@@ -681,15 +693,13 @@ export default function SessionsStep({
         {classes.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center py-16 gap-3">
             <p className="text-sm text-neutral-500">No classes yet.</p>
-            {!isLocked && (
-              <button
-                type="button"
-                onClick={() => addAndSelect(emptyStandardClass())}
-                className="text-sm font-medium text-primary-600 hover:text-primary-800 transition"
-              >
-                + Add first class
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => addAndSelect(emptyStandardClass())}
+              className="text-sm font-medium text-primary-600 hover:text-primary-800 transition"
+            >
+              + Add first class
+            </button>
           </div>
         ) : filteredClasses.length === 0 ? (
           <div className="flex-1 flex items-center justify-center py-12">
@@ -831,7 +841,7 @@ export default function SessionsStep({
                         <td className="px-4 py-3 text-neutral-600">
                           <CapacityCell
                             value={firstSched?.capacity}
-                            disabled={isLocked || !firstSched}
+                            disabled={isClassLocked(cls) || !firstSched}
                             onCommit={(capacity) =>
                               handleUpdateSchedule(idx, 0, { capacity })
                             }
@@ -840,7 +850,7 @@ export default function SessionsStep({
                       )}
                       <td className={`${selectedClass ? "px-2" : "px-4"} py-3 text-right w-px`}>
                         <div className="flex items-center justify-end gap-1">
-                          {!isLocked && (
+                          {!isClassLocked(cls) && (
                             <button
                               type="button"
                               title="Duplicate class"
@@ -899,10 +909,12 @@ export default function SessionsStep({
           </div>
         )}
 
-        {/* Locked banner */}
-        {isLocked && (
+        {/* Locked banner — only some classes (those with active registrations) */}
+        {anyClassLocked && (
           <div className="shrink-0 border-t border-amber-100 bg-amber-50 px-6 py-2.5 text-xs text-amber-700">
-            This semester has active registrations. Classes and schedules are locked.
+            Classes with active registrations are locked — their schedule,
+            capacity, and pricing can’t change. You can still add new classes and
+            edit ones without registrations.
           </div>
         )}
       </div>
@@ -914,7 +926,7 @@ export default function SessionsStep({
         <ClassEditPanel
           cls={selectedClass}
           classIdx={selectedIdx}
-          isLocked={isLocked}
+          isLocked={isClassLocked(selectedClass)}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           rateBands={rateBands}

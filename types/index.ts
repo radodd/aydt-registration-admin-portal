@@ -93,6 +93,8 @@ export interface Family {
   id: string;
   family_name: string | null;
   created_at: string;
+  /** When an activation invite was last sent; null = silently created, not yet invited (#62). */
+  activation_invited_at: string | null;
   users: {
     id: string;
     first_name: string;
@@ -1523,7 +1525,14 @@ export type SessionsStepProps = {
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
   onBack: () => void;
-  isLocked?: boolean;
+  /** Semester lifecycle status; only 'published' engages the per-section lock. */
+  semesterStatus?: string;
+  /**
+   * Section ids that have at least one ACTIVE enrollment. Mirrors the DB
+   * row-scoped trigger: a class owning one of these sections is locked, while
+   * new and fully non-enrolled classes stay editable.
+   */
+  enrolledSectionIds?: string[];
   /**
    * Persists the entire draft via persistSemesterDraft. Called by the per-class
    * panel's "Save class" button so admins don't have to leave the step or hit
@@ -2260,6 +2269,7 @@ export interface ReportRow {
   instructor: string | null;
   familyId: string;
   parentEmail: string;
+  secondaryEmail: string | null;
   parentPhone: string | null;
   tuitionAmount: number;
   discountTotal: number;
