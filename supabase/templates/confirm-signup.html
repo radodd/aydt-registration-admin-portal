@@ -5,79 +5,78 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Confirm your AYDT account</title>
 </head>
-<body style="margin:0;padding:0;background-color:#F2E7E4;font-family:Arial,Helvetica,sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#F2E7E4" style="background-color:#F2E7E4;">
+<!--
+  Mirrors utils/prepareEmailHtml.ts (wrapEmailLayout + emailButton) — the single
+  source of truth for AYDT email branding: cream header + tri-color logo, lilac
+  (#CAA1DD) rule + button, cherry (#691F19) footer. This is a static GoTrue
+  template, so it can't call that helper at runtime; keep the two in sync by hand.
+  {{ .ConfirmationURL }} is substituted by GoTrue at send time.
+-->
+<body style="margin:0;padding:0;background-color:#EFE7E3;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#EFE7E3" style="background-color:#EFE7E3;">
   <tr>
-    <td align="center">
+    <td align="center" style="padding:32px 16px;">
       <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;">
 
-        <!-- HEADER -->
+        <!-- HEADER — cream background, centered tri-color brand lockup -->
         <tr>
-          <td bgcolor="#7B1F1A" style="background-color:#7B1F1A;padding:18px 24px;">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-              <tr>
-                <td style="vertical-align:middle;width:120px;">
-                  <img
-                    src="https://bulplzknfbietpmdfwlk.supabase.co/storage/v1/object/public/email-assets/email-images/04d4ec78-727f-4f61-a6a1-372e9c1623b4.png"
-                    width="50"
-                    style="display:block;width:50px;height:auto;border:0;"
-                    alt="AYDT Logo">
-                </td>
-                <td style="vertical-align:middle;color:#ffffff;font-size:18px;font-weight:600;font-family:Arial,Helvetica,sans-serif;">
-                  American Youth Dance Theater
-                </td>
-              </tr>
-            </table>
+          <td align="center" bgcolor="#FFFBF9" style="background-color:#FFFBF9;padding:28px 24px 24px;">
+            <img
+              src="{{ .SiteURL }}/brand/logo-primary-teal-lilac-cherry.png"
+              width="260"
+              alt="American Youth Dance Theater"
+              style="display:block;width:260px;max-width:72%;height:auto;border:0;margin:0 auto;">
           </td>
+        </tr>
+
+        <!-- LILAC RULE -->
+        <tr>
+          <td bgcolor="#CAA1DD" style="height:3px;line-height:3px;font-size:0;background-color:#CAA1DD;">&nbsp;</td>
         </tr>
 
         <!-- CONTENT -->
         <tr>
-          <td style="padding:32px;color:#333333;font-size:16px;line-height:1.6;">
-            <h1 style="margin:0 0 16px;font-size:22px;color:#7B1F1A;font-weight:700;">Confirm your email</h1>
+          <td style="padding:36px 40px 40px;color:#1F1513;font-size:16px;line-height:1.65;font-family:Arial,Helvetica,sans-serif;">
+            <h1 style="font-size:20px;margin:0 0 16px;color:#1F1513;">Confirm your email</h1>
 
-            <p style="margin:0 0 16px;">
-              Welcome to American Youth Dance Theater! Confirm your email address to finish setting up your account.
+            <p style="margin:0 0 12px;">
+              Welcome to American Youth Dance Theater! Confirm your email address to finish setting
+              up your account.
             </p>
 
             <p style="margin:0 0 24px;">
-              Click the button below to verify your email. Once confirmed, you can log in and get started.
+              Click the button below to verify your email. Once confirmed, you can log in and get
+              started.
             </p>
 
-            <!-- CTA BUTTON -->
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
-              <tr>
-                <td>
-                  <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#7c3a5e;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;font-family:Arial,Helvetica,sans-serif;">
-                    Confirm your email
-                  </a>
-                </td>
-              </tr>
-            </table>
-
-            <p style="margin:0 0 8px;color:#6b7280;font-size:13px;line-height:1.6;">
-              If the button doesn't work, copy and paste this link into your browser:
-            </p>
-            <p style="margin:0 0 24px;font-size:13px;line-height:1.6;word-break:break-all;">
-              <a href="{{ .ConfirmationURL }}" style="color:#7c3a5e;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+            <!-- CTA BUTTON (lilac, mirrors emailButton) -->
+            <p style="margin:0 0 24px;">
+              <a href="{{ .ConfirmationURL }}"
+                 style="display:inline-block;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;color:#ffffff;background-color:#CAA1DD;padding:13px 30px;border-radius:8px;text-decoration:none;">
+                Confirm your email
+              </a>
             </p>
 
             <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
+              If the button doesn't work, paste this link into your browser:<br>{{ .ConfirmationURL }}
+            </p>
+
+            <p style="margin:18px 0 0;color:#6b7280;font-size:13px;line-height:1.6;">
               If you didn't create an AYDT account, you can safely ignore this email.
             </p>
           </td>
         </tr>
 
-        <!-- FOOTER -->
+        <!-- CHERRY FOOTER -->
         <tr>
-          <td bgcolor="#7B1F1A" style="background-color:#7B1F1A;padding:28px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;">
+          <td bgcolor="#691F19" style="background-color:#691F19;padding:28px;color:#F4DDD9;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;">
 
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
               <tr>
 
                 <!-- LOCATION 1 -->
-                <td style="vertical-align:top;width:50%;padding-right:12px;">
-                  <strong style="font-size:14px;">Upper East Side</strong><br>
+                <td style="vertical-align:top;width:50%;padding-right:12px;color:#E3BFBA;">
+                  <strong style="font-size:14px;color:#ffffff;">Upper East Side</strong><br>
                   428 E 75th Street<br>
                   New York, NY 10021<br><br>
 
@@ -89,8 +88,8 @@
                 </td>
 
                 <!-- LOCATION 2 -->
-                <td style="vertical-align:top;width:50%;padding-left:12px;">
-                  <strong style="font-size:14px;">Washington Heights</strong><br>
+                <td style="vertical-align:top;width:50%;padding-left:12px;color:#E3BFBA;">
+                  <strong style="font-size:14px;color:#ffffff;">Washington Heights</strong><br>
                   4140 Broadway, Fl 2 @ NoMAA<br>
                   New York, NY 10033<br><br>
 
@@ -106,9 +105,9 @@
 
             <!-- FOOTER LINKS -->
             <div style="margin-top:22px;text-align:center;">
-              <a href="https://aydt.nyc" style="color:#E6D5D1;text-decoration:none;">Visit Website</a>
+              <a href="{{ .SiteURL }}" style="color:#F4DDD9;text-decoration:none;">Visit Website</a>
               &nbsp;|&nbsp;
-              <a href="https://aydt.nyc/contact" style="color:#E6D5D1;text-decoration:none;">Contact Us</a>
+              <a href="{{ .SiteURL }}/contact" style="color:#F4DDD9;text-decoration:none;">Contact Us</a>
             </div>
 
           </td>
