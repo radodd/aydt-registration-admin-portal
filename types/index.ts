@@ -1525,7 +1525,14 @@ export type SessionsStepProps = {
   dispatch: React.Dispatch<SemesterAction>;
   onNext: () => void;
   onBack: () => void;
-  isLocked?: boolean;
+  /** Semester lifecycle status; only 'published' engages the per-section lock. */
+  semesterStatus?: string;
+  /**
+   * Section ids that have at least one ACTIVE enrollment. Mirrors the DB
+   * row-scoped trigger: a class owning one of these sections is locked, while
+   * new and fully non-enrolled classes stay editable.
+   */
+  enrolledSectionIds?: string[];
   /**
    * Persists the entire draft via persistSemesterDraft. Called by the per-class
    * panel's "Save class" button so admins don't have to leave the step or hit

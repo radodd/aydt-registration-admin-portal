@@ -76,12 +76,29 @@ import { syncSemesterSessions } from "./syncSemesterSessions";
 import { updateSemesterDetails } from "./updateSemesterDetails";
 import { requireAdmin } from "@/utils/requireAdmin";
 
+export type PersistSemesterResult =
+  | { ok: true; semesterId: string }
+  | { ok: false; error: string };
+
 export async function persistSemesterDraft(
   state: SemesterDraft,
-): Promise<{ semesterId: string }> {
+): Promise<PersistSemesterResult> {
   await requireAdmin();
   const supabase = await createClient();
+
+  // Known-safe DB errors (published-semester section locks, capacity guards) are
+  // RETURNED so the client can surface the real message — a thrown server-action
+  // error is sanitized to an opaque digest in production. Unknown errors re-throw.
+  try {
   let semesterId: string;
+  // When true, the semester is published WITH active enrollments, so the DB
+  // locks its registration form / confirmation email / waitlist / payment plan
+  // / discounts / session groups. persistSemesterDraft then applies ONLY
+  // class/section changes (the class_sections trigger is row-scoped) and leaves
+  // those locked domains untouched — the editor UI locks those steps too — so an
+  // admin can still add a class without the full-draft re-save tripping the
+  // semester-wide locks. Create mode is always an unpublished draft.
+  let lockedDomains = false;
 
   if (!state.id) {
     const { data, error } = await supabase
@@ -108,67 +125,137 @@ export async function persistSemesterDraft(
 
     await updateSemesterDetails(semesterId, state.details);
 
-    const { error: formError } = await supabase
-      .from("semesters")
-      .update({
-        registration_form: state.registrationForm ?? { elements: [] },
-        confirmation_email: state.confirmationEmail ?? {},
-        waitlist_settings: state.waitlist ?? { enabled: false },
-      })
-      .eq("id", semesterId);
+    lockedDomains = await isSemesterLockedForBulkEdit(supabase, semesterId);
 
-    if (formError) throw new Error(formError.message);
+    if (!lockedDomains) {
+      const { error: formError } = await supabase
+        .from("semesters")
+        .update({
+          registration_form: state.registrationForm ?? { elements: [] },
+          confirmation_email: state.confirmationEmail ?? {},
+          waitlist_settings: state.waitlist ?? { enabled: false },
+        })
+        .eq("id", semesterId);
+
+      if (formError) throw new Error(formError.message);
+    }
   }
 
-  const appliedDiscounts = state.discounts?.appliedDiscounts ?? [];
-
+  // Class/section changes are ALWAYS applied — the class_sections lock is
+  // row-scoped, so adding a class or editing a non-enrolled section is allowed.
   const idMap = await syncSemesterSessions(
     semesterId,
     state.sessions?.classes ?? [],
   );
 
-  await syncSemesterPayment(semesterId, state.paymentPlan);
-  await syncSemesterDiscounts(semesterId, appliedDiscounts);
-  await syncSemesterSessionGroups(
-    semesterId,
-    state.sessionGroups?.groups ?? [],
-    idMap,
-  );
+  // The remaining domains are semester-wide locked once the semester is
+  // published with enrollments. Skip them in that case: re-writing them would
+  // trip the semester-wide locks and roll back the whole save, and the editor
+  // UI already locks these steps so there is nothing new to persist.
+  if (!lockedDomains) {
+    await syncSemesterPayment(semesterId, state.paymentPlan);
+    await syncSemesterDiscounts(
+      semesterId,
+      state.discounts?.appliedDiscounts ?? [],
+    );
+    await syncSemesterSessionGroups(
+      semesterId,
+      state.sessionGroups?.groups ?? [],
+      idMap,
+    );
 
-  // Phase 2: sync tuition rate bands
-  if (state.tuitionRateBands !== undefined) {
-    await syncTuitionRateBands(supabase, semesterId, state.tuitionRateBands);
+    // Phase 2: sync tuition rate bands
+    if (state.tuitionRateBands !== undefined) {
+      await syncTuitionRateBands(supabase, semesterId, state.tuitionRateBands);
+    }
+
+    // Phase 2: upsert fee config
+    if (state.feeConfig !== undefined) {
+      // Option B sync: the Payment Plan section's "Number of installments" is the
+      // source of truth for the installment count. If installments are enabled
+      // with a non-null count, override fee-config's auto_pay_installment_count
+      // here so this upsert doesn't clobber the sync syncSemesterPayment just
+      // performed. Immutable spread — does not mutate the caller's state.feeConfig.
+      const feeConfigForUpsert =
+        state.paymentPlan?.type === "installments" &&
+        state.paymentPlan.installmentCount != null
+          ? {
+              ...state.feeConfig,
+              auto_pay_installment_count: state.paymentPlan.installmentCount,
+            }
+          : state.feeConfig;
+      await upsertFeeConfig(supabase, semesterId, feeConfigForUpsert);
+    }
+
+    // Tuition engine: sync special program tuition overrides
+    if (state.specialProgramTuition !== undefined) {
+      await syncSpecialProgramTuition(supabase, semesterId, state.specialProgramTuition);
+    }
+
+    // Sync coupon links for this semester
+    if (state.coupons !== undefined) {
+      await syncSemesterCoupons(semesterId, state.coupons);
+    }
   }
 
-  // Phase 2: upsert fee config
-  if (state.feeConfig !== undefined) {
-    // Option B sync: the Payment Plan section's "Number of installments" is the
-    // source of truth for the installment count. If installments are enabled
-    // with a non-null count, override fee-config's auto_pay_installment_count
-    // here so this upsert doesn't clobber the sync syncSemesterPayment just
-    // performed. Immutable spread — does not mutate the caller's state.feeConfig.
-    const feeConfigForUpsert =
-      state.paymentPlan?.type === "installments" &&
-      state.paymentPlan.installmentCount != null
-        ? {
-            ...state.feeConfig,
-            auto_pay_installment_count: state.paymentPlan.installmentCount,
-          }
-        : state.feeConfig;
-    await upsertFeeConfig(supabase, semesterId, feeConfigForUpsert);
+    return { ok: true, semesterId };
+  } catch (err) {
+    const friendly = friendlyPersistError(err);
+    if (friendly) return { ok: false, error: friendly };
+    throw err;
   }
+}
 
-  // Tuition engine: sync special program tuition overrides
-  if (state.specialProgramTuition !== undefined) {
-    await syncSpecialProgramTuition(supabase, semesterId, state.specialProgramTuition);
+/**
+ * Maps known, user-safe DB errors raised during persist to a friendly message.
+ * Returns null for anything unrecognized so the caller re-throws — genuinely
+ * unexpected failures are not silently swallowed.
+ */
+function friendlyPersistError(err: unknown): string | null {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  // Row-scoped published-semester section lock — the trigger message is already clear.
+  if (/active enrollments in a published semester/i.test(msg)) return msg;
+  // Legacy semester-wide lock (in case the trigger migration hasn't shipped yet).
+  if (/published semester with meeting_enrollments/i.test(msg)) {
+    return "This semester has active registrations, so its enrolled classes can’t be changed. You can still add new classes.";
   }
+  // Per-session capacity guard (reducing capacity below current enrollment).
+  if (/Cannot reduce capacity|registrations exist/i.test(msg)) return msg;
+  return null;
+}
 
-  // Sync coupon links for this semester
-  if (state.coupons !== undefined) {
-    await syncSemesterCoupons(semesterId, state.coupons);
-  }
+/**
+ * True when a semester is published AND has at least one active enrollment
+ * (per-session OR full-term). Those semesters are locked at the DB level against
+ * changes to their registration form, confirmation email, waitlist, payment
+ * plan, discounts, and session groups. When true, persistSemesterDraft applies
+ * only class/section changes so an admin can still add a class. Active-enrollment
+ * definition mirrors unpublishSemester() and the class_sections trigger.
+ */
+async function isSemesterLockedForBulkEdit(
+  supabase: SupabaseClient,
+  semesterId: string,
+): Promise<boolean> {
+  const { data: sem } = await supabase
+    .from("semesters")
+    .select("status")
+    .eq("id", semesterId)
+    .single();
+  if (sem?.status !== "published") return false;
 
-  return { semesterId };
+  const [meetingRes, sectionRes] = await Promise.all([
+    supabase
+      .from("meeting_enrollments")
+      .select("*, class_meetings!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_meetings.semester_id", semesterId)
+      .not("status", "in", "(cancelled,waitlisted)"),
+    supabase
+      .from("section_enrollments")
+      .select("*, class_sections!inner(semester_id)", { count: "exact", head: true })
+      .eq("class_sections.semester_id", semesterId)
+      .neq("status", "cancelled"),
+  ]);
+  return ((meetingRes.count ?? 0) + (sectionRes.count ?? 0)) > 0;
 }
 
 /* -------------------------------------------------------------------------- */
