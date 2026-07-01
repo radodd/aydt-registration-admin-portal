@@ -86,12 +86,17 @@ export default function FamiliesAdmin() {
           <h1 className="admin-page-title">Families</h1>
           <p className="admin-page-subtitle">Manage family accounts and their dancers.</p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="admin-btn-primary admin-btn-sm"
-        >
-          + New Family
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/families/activation" className="admin-btn-neutral admin-btn-sm">
+            Activate accounts
+          </Link>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="admin-btn-primary admin-btn-sm"
+          >
+            + New Family
+          </button>
+        </div>
       </div>
 
       {/* Card */}

@@ -40,6 +40,7 @@ export async function getFamilies() {
       id,
       family_name,
       created_at,
+      activation_invited_at,
 
       users:users!family_id (
         id,

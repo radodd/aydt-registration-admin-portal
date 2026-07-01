@@ -102,7 +102,17 @@ export async function createFamily(
         familyName: input.familyName,
         setupLink,
       });
-      if (!res.ok) console.error("createFamily — welcome email failed:", res.error);
+      if (!res.ok) {
+        console.error("createFamily — welcome email failed:", res.error);
+      } else {
+        // Record the invite so this family isn't offered again by the #62
+        // batch-activation console as "never invited".
+        const { error: stampErr } = await admin
+          .from("families")
+          .update({ activation_invited_at: new Date().toISOString() })
+          .eq("id", familyId);
+        if (stampErr) console.error("createFamily — invite stamp failed:", stampErr.message);
+      }
     }
   }
 
