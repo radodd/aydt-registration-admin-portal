@@ -116,7 +116,10 @@ function AuthForm() {
           )}
 
           {/* Login screen */}
-          {(!messageParam || messageParam === "email_confirmed") && activeTab === "login" && (
+          {(!messageParam ||
+            messageParam === "email_confirmed" ||
+            messageParam === "password_reset") &&
+            activeTab === "login" && (
             <div>
               <h2 className="aydt-auth-heading">Welcome back</h2>
               <p className="aydt-auth-subhead">Sign in to manage your family&apos;s registrations.</p>
@@ -124,6 +127,12 @@ function AuthForm() {
               {messageParam === "email_confirmed" && (
                 <div className="aydt-auth-success">
                   Your email is confirmed. Please log in to continue.
+                </div>
+              )}
+
+              {messageParam === "password_reset" && (
+                <div className="aydt-auth-success">
+                  Your password has been updated. Please log in with your new password.
                 </div>
               )}
 

@@ -231,6 +231,10 @@ otp_expiry = 3600
 subject = "Confirm your AYDT account"
 content_path = "./supabase/templates/confirm-signup.html"
 
+[auth.email.template.recovery]
+subject = "Reset your AYDT password"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

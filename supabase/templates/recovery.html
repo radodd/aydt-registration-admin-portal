@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Reset your AYDT password</title>
+</head>
+<!--
+  Mirrors utils/prepareEmailHtml.ts (wrapEmailLayout + emailButton) — the single
+  source of truth for AYDT email branding: cream header + tri-color logo, lilac
+  (#CAA1DD) rule + button, cherry (#691F19) footer. This is a static GoTrue
+  template, so it can't call that helper at runtime; keep the two in sync by hand.
+  {{ .SiteURL }} / {{ .TokenHash }} are substituted by GoTrue at send time.
+-->
+<body style="margin:0;padding:0;background-color:#EFE7E3;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#EFE7E3" style="background-color:#EFE7E3;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;background-color:#ffffff;">
+
+        <!-- HEADER — cream background, centered tri-color brand lockup -->
+        <tr>
+          <td align="center" bgcolor="#FFFBF9" style="background-color:#FFFBF9;padding:28px 24px 24px;">
+            <img
+              src="{{ .SiteURL }}/brand/logo-primary-teal-lilac-cherry.png"
+              width="260"
+              alt="American Youth Dance Theater"
+              style="display:block;width:260px;max-width:72%;height:auto;border:0;margin:0 auto;">
+          </td>
+        </tr>
+
+        <!-- LILAC RULE -->
+        <tr>
+          <td bgcolor="#CAA1DD" style="height:3px;line-height:3px;font-size:0;background-color:#CAA1DD;">&nbsp;</td>
+        </tr>
+
+        <!-- CONTENT -->
+        <tr>
+          <td style="padding:36px 40px 40px;color:#1F1513;font-size:16px;line-height:1.65;font-family:Arial,Helvetica,sans-serif;">
+            <h1 style="font-size:20px;margin:0 0 16px;color:#1F1513;">Reset your password</h1>
+
+            <p style="margin:0 0 12px;">Hi,</p>
+
+            <p style="margin:0 0 12px;">
+              We received a request to reset the password for your American Youth Dance Theater
+              registration account.
+            </p>
+
+            <p style="margin:0 0 24px;">
+              Click the button below to choose a new password. Once it's set, you can sign in to
+              manage your dancers, register for classes, and view payments.
+            </p>
+
+            <!-- CTA BUTTON (lilac, mirrors emailButton) -->
+            <p style="margin:0 0 24px;">
+              <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/reset-password"
+                 style="display:inline-block;font-family:Arial,Helvetica,sans-serif;font-weight:600;font-size:14px;color:#ffffff;background-color:#CAA1DD;padding:13px 30px;border-radius:8px;text-decoration:none;">
+                Reset your password
+              </a>
+            </p>
+
+            <p style="margin:0;color:#6b7280;font-size:13px;line-height:1.6;">
+              If the button doesn't work, paste this link into your browser:<br>{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/reset-password
+            </p>
+
+            <p style="margin:18px 0 0;color:#6b7280;font-size:13px;line-height:1.6;">
+              If you didn't request a password reset, you can safely ignore this email — your
+              password will stay the same.
+            </p>
+          </td>
+        </tr>
+
+        <!-- CHERRY FOOTER -->
+        <tr>
+          <td bgcolor="#691F19" style="background-color:#691F19;padding:28px;color:#F4DDD9;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.6;">
+
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+              <tr>
+
+                <!-- LOCATION 1 -->
+                <td style="vertical-align:top;width:50%;padding-right:12px;color:#E3BFBA;">
+                  <strong style="font-size:14px;color:#ffffff;">Upper East Side</strong><br>
+                  428 E 75th Street<br>
+                  New York, NY 10021<br><br>
+
+                  O: (212) 717-5419<br>
+                  F: (866) 679-8943<br><br>
+
+                  Mon – Fri 9:00 am – 8:30 pm<br>
+                  Sat 9:00 am – 3:00 pm
+                </td>
+
+                <!-- LOCATION 2 -->
+                <td style="vertical-align:top;width:50%;padding-left:12px;color:#E3BFBA;">
+                  <strong style="font-size:14px;color:#ffffff;">Washington Heights</strong><br>
+                  4140 Broadway, Fl 2 @ NoMAA<br>
+                  New York, NY 10033<br><br>
+
+                  O: (212) 717-5419<br>
+                  Español: (646) 586-8661<br><br>
+
+                  Tues 3:00 pm – 5:45 pm<br>
+                  Sat 10:00 am – 1:00 pm
+                </td>
+
+              </tr>
+            </table>
+
+            <!-- FOOTER LINKS -->
+            <div style="margin-top:22px;text-align:center;">
+              <a href="{{ .SiteURL }}" style="color:#F4DDD9;text-decoration:none;">Visit Website</a>
+              &nbsp;|&nbsp;
+              <a href="{{ .SiteURL }}/contact" style="color:#F4DDD9;text-decoration:none;">Contact Us</a>
+            </div>
+
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
